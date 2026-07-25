@@ -89,7 +89,7 @@ class PublicProfileCtrl extends ChangeNotifier {
 
   bool get canSeePrivate => accessState?.isActiveAt(DateTime.now().toUtc()) ?? false;
 
-    Future<void> requestAccess(String reqId) async {
+  Future<void> requestAccess(String reqId) async {
     if (profile == null) return;
     isRequestingAccess = true;
     notifyListeners();
@@ -116,7 +116,7 @@ class PublicProfileCtrl extends ChangeNotifier {
     _docSub?.cancel();
     super.dispose();
   }
-
+} // <--- ACCOLADE FERMANTE AJOUTÉE ICI
 
 // -----------------------------------------------------------------------------
 // PAGE PRINCIPALE
@@ -199,7 +199,7 @@ class _PState extends State<PublicProfilePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // ... [Sections 2 à 7 restent identiques] ...
+                    // ... [Sections 2 à 7] ...
                     _Cadre(title: 'Origine', icon: Icons.map_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Province origine', value: p.originProvince ?? '—'), _Row(label: 'Territoire', value: p.originTerritory ?? '—'), _Row(label: 'Secteur', value: p.originSector ?? '—')]))),
                     const SizedBox(height: 16),
                     _Cadre(title: 'Résidence actuelle', icon: Icons.home_work_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Pays', value: p.residenceCountry ?? '—'), _Row(label: 'Province', value: p.residenceProvince ?? '—'), _Row(label: 'Territoire', value: p.residenceTerritory ?? '—'), _Row(label: 'Ville', value: p.residenceCity ?? '—'), _Row(label: 'Commune', value: p.residenceCommune ?? '—'), _Row(label: 'Quartier', value: p.residenceQuarter ?? '—'), _Row(label: 'Avenue', value: p.residenceAvenue ?? '—'), _Row(label: 'Numéro', value: p.residenceNumber ?? '—')]))),
