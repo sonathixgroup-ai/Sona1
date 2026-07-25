@@ -9,6 +9,9 @@ class ProvinceEconomicResource {
   final String? category;
   final String? iconUrl;
   final bool isKeySector;
+  
+  // NOUVEAU : Liste dynamique pour la galerie multimédia
+  final List<Map<String, dynamic>>? media;
 
   const ProvinceEconomicResource({
     required this.id,
@@ -19,6 +22,7 @@ class ProvinceEconomicResource {
     this.category,
     this.iconUrl,
     this.isKeySector = false,
+    this.media,
   });
 
   factory ProvinceEconomicResource.fromJson(Map<String, dynamic> json) {
@@ -31,6 +35,7 @@ class ProvinceEconomicResource {
       category: json['category']?.toString(),
       iconUrl: json['icon_url'] ?? json['iconUrl'],
       isKeySector: json['is_key_sector'] ?? json['isKeySector'] ?? false,
+      media: json['media'] != null ? List<Map<String, dynamic>>.from(json['media']) : null,
     );
   }
 
@@ -43,5 +48,6 @@ class ProvinceEconomicResource {
     'category': category,
     'icon_url': iconUrl,
     'is_key_sector': isKeySector,
+    'media': media,
   };
 }
