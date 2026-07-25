@@ -317,9 +317,12 @@ class AppRouter {
         }),
         GoRoute(path: AppRoutes.publicProfile, name: 'publicProfile', pageBuilder: (_, state) => NoTransitionPage(child: public_profile.PublicProfilePage(initialThixId: state.uri.queryParameters['thixId']))),
         
-        // CORRECTION DE L'ERREUR 1 ICI : Suppression du préfixe 'user_dashboard.'
-        GoRoute(path: '/user-dashboard', name: 'userDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: UserDashboardPage())),
-        
+        GoRoute(
+  path: AppRoutes.userDashboard, // On utilise la constante ici
+  name: 'userDashboard', 
+  pageBuilder: (_, __) => const NoTransitionPage(child: UserDashboardPage())
+),
+
         GoRoute(path: AppRoutes.enterpriseDashboard, name: 'enterpriseDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: EnterpriseDashboardPage())),
         GoRoute(path: AppRoutes.enterprise, name: 'enterpriseEntry', redirect: (_, __) {
           if (!auth.isAuthenticated) return AppRoutes.login;
