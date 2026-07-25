@@ -32,6 +32,9 @@ class Province {
   final String? viceGovernorPhotoUrl;
   final List<dynamic>? ministers;
   
+  // NOUVEAU CHAMP : Ajout de 'government' pour correspondre au service
+  final Map<String, dynamic>? government;
+  
   // Listes fortement typées pour éviter les erreurs de compilation
   final List<City> cities;
   final List<ProvinceEconomicResource> economicResources;
@@ -68,6 +71,7 @@ class Province {
     this.viceGovernor,
     this.viceGovernorPhotoUrl,
     this.ministers,
+    this.government,
     this.cities = const [],
     this.economicResources = const [],
     this.tourismSites = const [],
@@ -103,6 +107,7 @@ class Province {
     String? viceGovernor,
     String? viceGovernorPhotoUrl,
     List<dynamic>? ministers,
+    Map<String, dynamic>? government,
     List<City>? cities,
     List<ProvinceEconomicResource>? economicResources,
     List<ProvinceTourism>? tourismSites,
@@ -137,6 +142,7 @@ class Province {
       viceGovernor: viceGovernor ?? this.viceGovernor,
       viceGovernorPhotoUrl: viceGovernorPhotoUrl ?? this.viceGovernorPhotoUrl,
       ministers: ministers ?? this.ministers,
+      government: government ?? this.government,
       cities: cities ?? this.cities,
       economicResources: economicResources ?? this.economicResources,
       tourismSites: tourismSites ?? this.tourismSites,
@@ -174,6 +180,7 @@ class Province {
       viceGovernor: json['vice_governor']?.toString() ?? json['viceGovernor']?.toString(),
       viceGovernorPhotoUrl: json['vice_governor_photo_url']?.toString() ?? json['viceGovernorPhotoUrl']?.toString(),
       ministers: json['ministers'] is List ? json['ministers'] : null,
+      government: json['government'] is Map<String, dynamic> ? json['government'] : null,
       cities: json['cities'] is List 
           ? (json['cities'] as List).map((c) => c is City ? c : City.fromJson(c is Map<String, dynamic> ? c : {})).toList()
           : [],
@@ -220,6 +227,7 @@ class Province {
     'vice_governor': viceGovernor,
     'vice_governor_photo_url': viceGovernorPhotoUrl,
     'ministers': ministers,
+    'government': government,
     'cities': cities.map((c) => c.toJson()).toList(),
     'economic_resources': economicResources.map((e) => e.toJson()).toList(),
     'tourism_sites': tourismSites.map((t) => t.toJson()).toList(),
