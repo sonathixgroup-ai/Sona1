@@ -9,6 +9,9 @@ class City {
   final String? imageUrl;
   final String? mayor;
   final String? mayorPhotoUrl;
+  
+  // NOUVEAU : Liste dynamique pour la galerie multimédia (Photos & Vidéos)
+  final List<Map<String, dynamic>>? media;
 
   const City({
     required this.id,
@@ -19,6 +22,7 @@ class City {
     this.imageUrl,
     this.mayor,
     this.mayorPhotoUrl,
+    this.media,
   });
 
   factory City.fromJson(Map<String, dynamic> json) {
@@ -31,6 +35,8 @@ class City {
       imageUrl: json['image_url'] ?? json['imageUrl'],
       mayor: json['mayor']?.toString(),
       mayorPhotoUrl: json['mayor_photo_url'] ?? json['mayorPhotoUrl'],
+      // Récupération de la galerie média depuis le format JSON
+      media: json['media'] != null ? List<Map<String, dynamic>>.from(json['media']) : null,
     );
   }
 
@@ -43,5 +49,7 @@ class City {
     'image_url': imageUrl,
     'mayor': mayor,
     'mayor_photo_url': mayorPhotoUrl,
+    // Sauvegarde de la galerie média vers la base de données
+    'media': media,
   };
 }
