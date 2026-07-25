@@ -96,7 +96,12 @@ class PublicProfileCtrl extends ChangeNotifier {
     try {
       await _access.requestAccess(requesterId: reqId, targetUserId: profile!.userId, thixId: profile!.thixId);
       // Mise à jour optimiste de l'interface en attendant le retour du stream
-      accessState = AccessRequestState(status: AccessStatus.pending, expiresAt: DateTime.now().add(const Duration(days: 1)));
+      accessState = AccessRequestState(
+  requestId: reqId, 
+  status: AccessStatus.pending, 
+  approvedUntil: DateTime.now().add(const Duration(days: 1))
+);
+
     } catch (e) {
       // Gérer l'erreur silencieusement ou via un toast
     } finally {
