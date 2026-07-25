@@ -35,14 +35,18 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   late TextEditingController _mapUrlController;
   late TextEditingController _websiteController;
 
-  // Gouvernance avancée & Ministres
+  // Gouvernance
   late TextEditingController _governorController;
   late TextEditingController _governorPhotoController;
   late TextEditingController _viceGovernorController;
   late TextEditingController _viceGovernorPhotoController;
   
-  // Liste des ministres provinciaux (Nom, Rôle/Portefeuille, PhotoUrl)
+  // Listes dynamiques enrichies
   List<Map<String, String>> _ministers = [];
+  List<Map<String, dynamic>> _tourismSites = [];
+  List<Map<String, dynamic>> _achievements = [];
+  List<Map<String, dynamic>> _emergencyContacts = [];
+  List<Map<String, dynamic>> _galleryMedia = [];
 
   late TextEditingController _languagesController;
   late TextEditingController _resourcesController;
@@ -67,15 +71,12 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     _codeController = TextEditingController(text: p?.code ?? '');
     _capitalController = TextEditingController(text: p?.capital ?? '');
     
-    // 🛡️ SÉCURISATION DU DROPDOWN DE LA RÉGION (Anti-crash)
     String safeRegion = (p?.region ?? 'Centre').trim();
     if (safeRegion.isNotEmpty) {
       safeRegion = safeRegion[0].toUpperCase() + safeRegion.substring(1).toLowerCase();
     }
     final validRegions = ['Centre', 'Est', 'Ouest', 'Nord', 'Sud'];
-    if (!validRegions.contains(safeRegion)) {
-      safeRegion = 'Centre';
-    }
+    if (!validRegions.contains(safeRegion)) safeRegion = 'Centre';
     _regionController = TextEditingController(text: safeRegion);
 
     _areaController = TextEditingController(text: p?.area?.toString() ?? '');
@@ -91,12 +92,14 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     _viceGovernorController = TextEditingController(text: p?.viceGovernor ?? '');
     _viceGovernorPhotoController = TextEditingController(text: p?.viceGovernorPhotoUrl ?? '');
     
-    // Charger les ministres si existants dans le modèle (ou liste vide)
     _ministers = p?.ministers?.map((m) => {
           'name': m['name']?.toString() ?? '',
           'role': m['role']?.toString() ?? '',
           'photoUrl': m['photoUrl']?.toString() ?? '',
         }).toList() ?? [];
+
+    _tourismSites = p?.tourismSites.map((t) => {'name': t.name, 'type': t.type, 'description': t.description ?? '', 'imageUrl': t.imageUrl ?? ''}).toList() ?? [];
+    _emergencyContacts = p?.emergencyContacts.map((e) => {'service': e.service, 'phone': e.phone}).toList() ?? [];
 
     _languagesController = TextEditingController(text: p?.languages ?? '');
     _resourcesController = TextEditingController(text: p?.resources ?? '');
@@ -126,39 +129,45 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     super.dispose();
   }
 
-  /// 🚀 UPLOAD RÉEL VERS SUPABASE STORAGE (Au lieu du mock-up)
-  Future<void> _pickAndUploadImage(TextEditingController controller, String folderName) async {
+  /// 🚀 UPLOAD MULTI-FICHIERS OU FICHIER UNIQUE VERS SUPABASE STORAGE
+  Future<void> _pickAndUploadImage(TextEditingController controller, String folderName, {bool multi = false}) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image, 
+        type: FileType.any, 
+        allowMultiple: multi,
         withData: true
       );
       
-      if (result != null && result.files.first.bytes != null) {
+      if (result != null && result.files.isNotEmpty) {
         setState(() => _isBusy = true);
         
-        final fileBytes = result.files.first.bytes!;
-        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${result.files.first.name}';
-        final path = '$folderName/$fileName';
+        if (multi) {
+          // Mode multi-upload (ex: Galerie Média)
+          for (var file in result.files) {
+            if (file.bytes != null) {
+              final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+              final path = '$folderName/$fileName';
+              await Supabase.instance.client.storage.from('provinces').uploadBinary(path, file.bytes!, fileOptions: const FileOptions(upsert: true));
+              final url = Supabase.instance.client.storage.from('provinces').getPublicUrl(path);
+              _galleryMedia.add({'url': url, 'type': file.extension == 'mp4' ? 'video' : 'photo', 'title': file.name});
+            }
+          }
+        } else {
+          // Mode fichier unique (ex: Cover, Gouverneur, etc.)
+          final file = result.files.first;
+          if (file.bytes != null) {
+            final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+            final path = '$folderName/$fileName';
+            await Supabase.instance.client.storage.from('provinces').uploadBinary(path, file.bytes!, fileOptions: const FileOptions(upsert: true));
+            final url = Supabase.instance.client.storage.from('provinces').getPublicUrl(path);
+            controller.text = url;
+          }
+        }
 
-        // Upload réel vers le bucket Supabase Storage nommé "provinces" (adaptez le nom du bucket si besoin)
-        await Supabase.instance.client.storage
-            .from('provinces')
-            .uploadBinary(path, fileBytes, fileOptions: const FileOptions(upsert: true));
-
-        // Récupération de l'URL publique
-        final imageUrl = Supabase.instance.client.storage
-            .from('provinces')
-            .getPublicUrl(path);
-
-        setState(() { 
-          controller.text = imageUrl; 
-          _isBusy = false; 
-        });
-        
+        setState(() => _isBusy = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Image uploadée avec succès !'), backgroundColor: Colors.green),
+            const SnackBar(content: Text('Fichiers uploadés avec succès !'), backgroundColor: Colors.green),
           );
         }
       }
@@ -170,18 +179,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
         );
       }
     }
-  }
-
-  void _addMinister() {
-    setState(() {
-      _ministers.add({'name': '', 'role': '', 'photoUrl': ''});
-    });
-  }
-
-  void _removeMinister(int index) {
-    setState(() {
-      _ministers.removeAt(index);
-    });
   }
 
   @override
@@ -236,7 +233,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // SECTION 2 : GOUVERNANCE & EXécutif (Gouverneur, Vice-Gouverneur & Ministres)
+                  // SECTION 2 : GOUVERNANCE & EXÉCUTIF
                   _buildSectionCard(
                     title: 'Gouvernance & Exécutif Provincial',
                     icon: Icons.account_balance,
@@ -255,32 +252,23 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                       
                       const Divider(height: 32),
                       
-                      // Liste des ministres provinciaux
+                      // Gestion des Ministres
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Ministres / Membres du gouvernement', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: navyDeep)),
                           ElevatedButton.icon(
-                            onPressed: _addMinister,
+                            onPressed: () => setState(() => _ministers.add({'name': '', 'role': '', 'photoUrl': ''})),
                             icon: const Icon(Icons.add, size: 16),
                             label: const Text('Ajouter un ministre'),
-                            style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                            style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      if (_ministers.isEmpty)
-                        const Text('Aucun ministre ajouté pour le moment.', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
-                      
                       ..._ministers.asMap().entries.map((entry) {
                         int index = entry.key;
                         var minister = entry.value;
-                        
-                        // Contrôleurs locaux pour la gestion de la liste
-                        final nameCtrl = TextEditingController(text: minister['name']);
-                        final roleCtrl = TextEditingController(text: minister['role']);
-                        final photoCtrl = TextEditingController(text: minister['photoUrl']);
-
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(12),
@@ -291,60 +279,14 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                                 children: [
                                   Text('Ministre #${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: navyDeep)),
                                   const Spacer(),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete, color: redThix, size: 20),
-                                    onPressed: () => _removeMinister(index),
-                                  ),
+                                  IconButton(icon: const Icon(Icons.delete, color: redThix, size: 20), onPressed: () => setState(() => _ministers.removeAt(index))),
                                 ],
                               ),
-                              const SizedBox(height: 6),
-                              TextFormField(
-                                controller: nameCtrl,
-                                onChanged: (v) => _ministers[index]['name'] = v,
-                                decoration: _inputDecoration('Nom complet du ministre', Icons.person),
-                              ),
+                              TextFormField(initialValue: minister['name'], onChanged: (v) => _ministers[index]['name'] = v, decoration: _inputDecoration('Nom complet', Icons.person)),
                               const SizedBox(height: 8),
-                              TextFormField(
-                                controller: roleCtrl,
-                                onChanged: (v) => _ministers[index]['role'] = v,
-                                decoration: _inputDecoration('Portefeuille / Ministère (ex: Ministre de l\'Intérieur)', Icons.work),
-                              ),
+                              TextFormField(initialValue: minister['role'], onChanged: (v) => _ministers[index]['role'] = v, decoration: _inputDecoration('Portefeuille / Rôle', Icons.work)),
                               const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: photoCtrl,
-                                      onChanged: (v) => _ministers[index]['photoUrl'] = v,
-                                      decoration: _inputDecoration('URL Photo du ministre', Icons.image),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(Icons.upload_file, color: navyDeep),
-                                    onPressed: () async {
-                                      // Upload direct pour le ministre
-                                      try {
-                                        FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
-                                        if (result != null && result.files.first.bytes != null) {
-                                          setState(() => _isBusy = true);
-                                          final bytes = result.files.first.bytes!;
-                                          final name = 'minister_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                                          const path = 'ministers';
-                                          await Supabase.instance.client.storage.from('provinces').uploadBinary('$path/$name', bytes);
-                                          final url = Supabase.instance.client.storage.from('provinces').getPublicUrl('$path/$name');
-                                          setState(() {
-                                            _ministers[index]['photoUrl'] = url;
-                                            _isBusy = false;
-                                          });
-                                        }
-                                      } catch (e) {
-                                        setState(() => _isBusy = false);
-                                      }
-                                    },
-                                  )
-                                ],
-                              ),
+                              TextFormField(initialValue: minister['photoUrl'], onChanged: (v) => _ministers[index]['photoUrl'] = v, decoration: _inputDecoration('URL Photo', Icons.image)),
                             ],
                           ),
                         );
@@ -353,9 +295,90 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // SECTION 3 : GÉOGRAPHIE & DÉMOGRAPHIE
+                  // SECTION 3 : TOURISME & SITES (Multi-ajout)
                   _buildSectionCard(
-                    title: 'Géographie & Culture',
+                    title: 'Tourisme & Sites Remarquables',
+                    icon: Icons.landscape,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Sites touristiques', style: TextStyle(fontWeight: FontWeight.bold, color: navyDeep)),
+                          ElevatedButton.icon(
+                            onPressed: () => setState(() => _tourismSites.add({'name': '', 'type': '', 'description': '', 'imageUrl': ''})),
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Ajouter un site'),
+                            style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ..._tourismSites.asMap().entries.map((entry) {
+                        int index = entry.key;
+                        var site = entry.value;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+                          child: Column(
+                            children: [
+                              Row(children: [Text('Site #${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)), const Spacer(), IconButton(icon: const Icon(Icons.delete, color: redThix, size: 20), onPressed: () => setState(() => _tourismSites.removeAt(index)))]),
+                              TextFormField(initialValue: site['name'], onChanged: (v) => _tourismSites[index]['name'] = v, decoration: _inputDecoration('Nom du site', Icons.place)),
+                              const SizedBox(height: 8),
+                              TextFormField(initialValue: site['type'], onChanged: (v) => _tourismSites[index]['type'] = v, decoration: _inputDecoration('Type (ex: Parc, Cascade)', Icons.category)),
+                              const SizedBox(height: 8),
+                              TextFormField(initialValue: site['imageUrl'], onChanged: (v) => _tourismSites[index]['imageUrl'] = v, decoration: _inputDecoration('URL Image du site', Icons.image)),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // SECTION 4 : MÉDIAS & GALERIE (Multi-Upload Photos & Vidéos)
+                  _buildSectionCard(
+                    title: 'Galerie Média (Photos & Vidéos)',
+                    icon: Icons.perm_media,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () => _pickAndUploadImage(TextEditingController(), 'gallery', multi: true),
+                        icon: const Icon(Icons.upload_file),
+                        label: const Text('Uploader plusieurs photos/vidéos'),
+                        style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _galleryMedia.asMap().entries.map((entry) {
+                          int index = entry.key;
+                          var media = entry.value;
+                          return Stack(
+                            children: [
+                              Container(
+                                width: 80, height: 80,
+                                decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey)),
+                                child: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(media['url'], fit: BoxFit.cover)),
+                              ),
+                              Positioned(
+                                right: 0, top: 0,
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _galleryMedia.removeAt(index)),
+                                  child: Container(color: Colors.red, child: const Icon(Icons.close, size: 16, color: Colors.white)),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // SECTION 5 : GÉOGRAPHIE & ÉCONOMIE
+                  _buildSectionCard(
+                    title: 'Géographie, Culture & Économie',
                     icon: Icons.public,
                     children: [
                       Row(
@@ -366,27 +389,19 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _buildTextField(_languagesController, 'Langues parlées (ex: Lingala, Swahili)', Icons.chat_bubble_outline),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // SECTION 4 : ÉCONOMIE & PRÉSENTATION
-                  _buildSectionCard(
-                    title: 'Économie & Présentation',
-                    icon: Icons.monetization_on,
-                    children: [
-                      _buildTextField(_resourcesController, 'Ressources principales (ex: Cuivre, Café)', Icons.diamond),
+                      _buildTextField(_languagesController, 'Langues parlées', Icons.chat_bubble_outline),
                       const SizedBox(height: 12),
-                      _buildTextField(_descriptionController, 'Description détaillée de la province', Icons.description, maxLines: 4),
+                      _buildTextField(_resourcesController, 'Ressources principales', Icons.diamond),
+                      const SizedBox(height: 12),
+                      _buildTextField(_descriptionController, 'Description détaillée', Icons.description, maxLines: 4),
                     ],
                   ),
                   const SizedBox(height: 16),
 
-                  // SECTION 5 : MÉDIAS
+                  // SECTION 6 : COUVERTURE & BLASON
                   _buildSectionCard(
-                    title: 'Médias & Liens',
-                    icon: Icons.perm_media,
+                    title: 'Identité Visuelle Officielle',
+                    icon: Icons.image,
                     children: [
                       _buildUrlWithUploadField(_coverImageUrlController, 'Photo de couverture', Icons.image, 'covers'),
                       const SizedBox(height: 12),
@@ -511,7 +526,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
       } else {
         await notifier.createProvince(province);
       }
-      if (mounted) context.go('/... '); // Laissez votre logique de navigation ou context.pop()
+      if (mounted) context.pop();
     } catch (e) {
       setState(() => _isBusy = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
