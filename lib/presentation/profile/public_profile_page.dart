@@ -143,7 +143,7 @@ class PublicProfileCtrl extends ChangeNotifier {
         approvedUntil: DateTime.now().add(const Duration(days: 1))
       );
     } catch (e) {
-      // Gérer l'erreur silencieusement
+      // Erreur silencieuse
     } finally {
       isRequestingAccess = false;
       notifyListeners();
@@ -288,7 +288,7 @@ class _PState extends State<PublicProfilePage> {
                     _Cadre(title: 'Infos physiques', icon: Icons.monitor_weight_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Taille cm', value: p.height ?? '—'), _Row(label: 'Poids kg', value: p.weight ?? '—'), _Row(label: 'Groupe sanguin', value: p.bloodGroup ?? '—'), _Row(label: 'Handicap', value: (p.hasPhysicalDisability ?? false) ? 'Oui : ${p.physicalDisabilityDescription ?? ''}' : 'Non')]))),
                     const SizedBox(height: 16),
 
-                    // 9. Identité nationale (Avec toutes les photos cliquables)
+                    // 9. Identité nationale (Miniatures photos cliquables)
                     _Cadre(
                       title: 'Identité nationale',
                       icon: Icons.verified_user_rounded,
@@ -306,25 +306,30 @@ class _PState extends State<PublicProfilePage> {
                             
                             Builder(
                               builder: (context) {
-                                List<String> idUrls = [];
-                                // Capte largement toutes les pièces d'identité (Recto, Verso, Selfie...)
+                                List<Map<String, String>> idDocs = [];
                                 for (var d in c.remoteDocs) {
                                   final type = (d['doc_type'] ?? '').toString().toLowerCase();
                                   if (type.contains('id') || type.contains('identit') || type.contains('recto') || type.contains('verso') || type.contains('selfie') || type.contains('carte') || type.contains('national')) {
                                     final url = d['download_url']?.toString() ?? d['fileUrl']?.toString() ?? d['url']?.toString() ?? '';
-                                    if (url.isNotEmpty && !idUrls.contains(url)) idUrls.add(url);
+                                    if (url.isNotEmpty && !idDocs.any((doc) => doc['url'] == url)) {
+                                       String label = 'Pièce';
+                                       if(type.contains('recto')) label = 'Recto';
+                                       else if(type.contains('verso')) label = 'Verso';
+                                       else if(type.contains('selfie')) label = 'Selfie';
+                                       idDocs.add({'url': url, 'label': label});
+                                    }
                                   }
                                 }
 
-                                if (idUrls.isEmpty) return const SizedBox.shrink();
+                                if (idDocs.isEmpty) return const SizedBox.shrink();
 
                                 return Padding(
                                   padding: const EdgeInsets.only(top: 12),
                                   child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: idUrls.map((url) {
-                                      return _DocumentViewerButton(label: 'Voir la pièce d\'identité', documentUrl: url);
+                                    spacing: 12,
+                                    runSpacing: 12,
+                                    children: idDocs.map((doc) {
+                                      return _ThumbnailViewerButton(label: doc['label']!, documentUrl: doc['url']!);
                                     }).toList(),
                                   ),
                                 );
@@ -336,7 +341,7 @@ class _PState extends State<PublicProfilePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 10. Parcours scolaire (FORMAT TABLEAU EXACT COMME LE RESTE)
+                    // 10. Parcours scolaire (AVEC VOIR PLUS SI > 3)
                     _Cadre(
                       title: 'Cursus & Formations',
                       icon: Icons.account_balance_rounded,
@@ -344,7 +349,8 @@ class _PState extends State<PublicProfilePage> {
                         canSee: canSee,
                         child: p.education.isEmpty 
                           ? const Text('Aucun parcours scolaire enregistré', style: TextStyle(fontSize: 12, color: Colors.black54)) 
-                          : Column(
+                          : _LimitedList(
+                              limit: 3,
                               children: p.education.map((e) {
                                 final institution = _get(e, ['institution', 'ecole', 'etablissement', 'school']);
                                 final degree = _get(e, ['degree', 'diplome', 'titre', 'certification']);
@@ -359,40 +365,14 @@ class _PState extends State<PublicProfilePage> {
                                 else if (end.isNotEmpty) periodStr = end;
                                 else periodStr = _get(e, ['period', 'periode']);
 
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 16.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _Row(label: 'Établissement / École', value: institution),
-                                      _Row(label: 'Diplôme / Titre obtenu', value: degree),
-                                      _Row(label: 'Ville', value: city),
-                                      _Row(label: 'Période (Début - Fin)', value: periodStr),
-                                      
-                                      if (desc.isNotEmpty) ...[
-                                        const Padding(
-                                          padding: EdgeInsets.only(bottom: 4.0, top: 4.0),
-                                          child: Text('Description', style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600)),
-                                        ),
-                                        _ExpandableTextBody(text: desc),
-                                      ],
-
-                                      // Affichage des Preuves cliquables
-                                      Builder(builder: (context) {
-                                        final docs = _extractDocs(e);
-                                        if (docs.isEmpty) return const SizedBox.shrink();
-                                        return Padding(
-                                          padding: const EdgeInsets.only(top: 12.0),
-                                          child: Wrap(
-                                            spacing: 8, runSpacing: 8,
-                                            children: docs.map((url) => _DocumentViewerButton(label: 'Preuve (Document/Photo)', documentUrl: url)).toList(),
-                                          ),
-                                        );
-                                      }),
-                                      
-                                      const Divider(height: 20, color: Color(0xFFF0F0F0)),
-                                    ],
-                                  ),
+                                return _DetailedListItem(
+                                  title: institution.isNotEmpty ? institution : '—',
+                                  subtitle: degree,
+                                  location: city,
+                                  period: periodStr,
+                                  descriptionLabel: 'Description',
+                                  description: desc,
+                                  documentUrls: _extractDocs(e),
                                 );
                               }).toList(),
                             ),
@@ -400,7 +380,7 @@ class _PState extends State<PublicProfilePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 11. Expériences Pro (FORMAT TABLEAU EXACT COMME LE RESTE)
+                    // 11. Expériences Pro (AVEC VOIR PLUS SI > 3)
                     _Cadre(
                       title: 'Expériences Pro',
                       icon: Icons.business_center_rounded,
@@ -408,7 +388,8 @@ class _PState extends State<PublicProfilePage> {
                         canSee: canSee,
                         child: p.experience.isEmpty 
                           ? const Text('Aucune expérience enregistrée', style: TextStyle(fontSize: 12, color: Colors.black54)) 
-                          : Column(
+                          : _LimitedList(
+                              limit: 3,
                               children: p.experience.map((e) {
                                 final title = _get(e, ['title', 'poste', 'jobTitle']);
                                 final company = _get(e, ['company', 'entreprise', 'organisation', 'org', 'employeur']);
@@ -417,41 +398,16 @@ class _PState extends State<PublicProfilePage> {
                                 final period = _get(e, ['period', 'periode', 'dates', 'duree']);
                                 final missions = _get(e, ['missions', 'realisations', 'description', 'tasks', 'taches']);
 
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 16.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _Row(label: 'Titre du poste', value: title),
-                                      _Row(label: 'Entreprise / Org.', value: company),
-                                      _Row(label: 'Secteur', value: sector),
-                                      _Row(label: 'Ville', value: city),
-                                      _Row(label: 'Période', value: period),
-                                      
-                                      if (missions.isNotEmpty) ...[
-                                        const Padding(
-                                          padding: EdgeInsets.only(bottom: 4.0, top: 4.0),
-                                          child: Text('Missions et réalisations', style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600)),
-                                        ),
-                                        _ExpandableTextBody(text: missions),
-                                      ],
+                                final locationStr = [sector, city].where((s) => s.isNotEmpty).join(' • ');
 
-                                      // Affichage des Preuves cliquables
-                                      Builder(builder: (context) {
-                                        final docs = _extractDocs(e);
-                                        if (docs.isEmpty) return const SizedBox.shrink();
-                                        return Padding(
-                                          padding: const EdgeInsets.only(top: 12.0),
-                                          child: Wrap(
-                                            spacing: 8, runSpacing: 8,
-                                            children: docs.map((url) => _DocumentViewerButton(label: 'Preuve (Document/Photo)', documentUrl: url)).toList(),
-                                          ),
-                                        );
-                                      }),
-                                      
-                                      const Divider(height: 20, color: Color(0xFFF0F0F0)),
-                                    ],
-                                  ),
+                                return _DetailedListItem(
+                                  title: title.isNotEmpty ? title : '—',
+                                  subtitle: company,
+                                  location: locationStr,
+                                  period: period,
+                                  descriptionLabel: 'Missions et réalisations',
+                                  description: missions,
+                                  documentUrls: _extractDocs(e),
                                 );
                               }).toList(),
                             ),
@@ -459,7 +415,7 @@ class _PState extends State<PublicProfilePage> {
                     ),
                     const SizedBox(height: 32),
 
-                    // 12. THIX ID CARD GENERATED AUTOMATICALLY
+                    // 12. THIX ID CARD
                     _ThixIdCardWidget(profile: p),
 
                   ]),
@@ -709,13 +665,130 @@ class _GateCard extends StatelessWidget {
 }
 
 // -----------------------------------------------------------------------------
-// COMPOSANT VISIONNEUSE (PHOTOS ET PREUVES)
+// NOUVEAUX COMPOSANTS : LISTE LIMITÉE ET VRAIE MINIATURE PHOTO
 // -----------------------------------------------------------------------------
-class _DocumentViewerButton extends StatelessWidget {
+
+/// Limite l'affichage à X éléments, et ajoute un bouton "Voir plus" / "Voir moins"
+class _LimitedList extends StatefulWidget {
+  final List<Widget> children;
+  final int limit;
+  const _LimitedList({required this.children, this.limit = 3});
+
+  @override
+  State<_LimitedList> createState() => _LimitedListState();
+}
+
+class _LimitedListState extends State<_LimitedList> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.children.length <= widget.limit) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: widget.children);
+    }
+
+    final visibleChildren = _expanded ? widget.children : widget.children.sublist(0, widget.limit);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...visibleChildren,
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: Text(
+                _expanded ? 'Voir moins' : 'Voir plus (${widget.children.length - widget.limit})',
+                style: const TextStyle(color: _blue, fontWeight: FontWeight.w900, fontSize: 13),
+              ),
+            ),
+          ),
+        )
+      ],
+    );
+  }
+}
+
+/// Un élément de cursus/expérience qui affiche les labels corrects et les miniatures
+class _DetailedListItem extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String location;
+  final String period;
+  final String? descriptionLabel;
+  final String? description;
+  final List<String> documentUrls;
+
+  const _DetailedListItem({
+    required this.title,
+    required this.subtitle,
+    required this.location,
+    required this.period,
+    this.descriptionLabel,
+    this.description,
+    this.documentUrls = const [],
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Titre principal
+          _Row(label: title.contains('Établissement') ? 'Établissement' : 'Titre / Poste', value: title),
+          
+          if (subtitle.isNotEmpty)
+            _Row(label: 'Organisation', value: subtitle),
+            
+          if (location.isNotEmpty)
+            _Row(label: 'Lieu / Ville', value: location),
+            
+          if (period.isNotEmpty)
+            _Row(label: 'Période', value: period),
+          
+          if (description != null && description!.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (descriptionLabel != null) 
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Text(descriptionLabel!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
+                    ),
+                  _ExpandableTextBody(text: description!),
+                ],
+              ),
+            ),
+            
+          // Affichage des Preuves sous forme de miniatures photos
+          if (documentUrls.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 12.0),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: documentUrls.map((url) => _ThumbnailViewerButton(label: 'Preuve', documentUrl: url)).toList(),
+              ),
+            ),
+          const Divider(height: 20, color: Color(0xFFF0F0F0)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Affiche une vraie miniature carrée (photo) cliquable
+class _ThumbnailViewerButton extends StatelessWidget {
   final String label;
   final String documentUrl;
 
-  const _DocumentViewerButton({required this.label, required this.documentUrl});
+  const _ThumbnailViewerButton({required this.label, required this.documentUrl});
 
   void _showDocument(BuildContext context) {
     showDialog(
@@ -739,7 +812,7 @@ class _DocumentViewerButton extends StatelessWidget {
                   errorBuilder: (_, __, ___) => Container(
                     color: Colors.white,
                     padding: const EdgeInsets.all(20),
-                    child: const Text('Erreur lors du chargement de l\'image.', textAlign: TextAlign.center),
+                    child: const Text('Le format du document n\'est pas supporté pour l\'aperçu.', textAlign: TextAlign.center),
                   ),
                 ),
               ),
@@ -764,18 +837,47 @@ class _DocumentViewerButton extends StatelessWidget {
       onTap: () => _showDocument(context),
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        width: 80,
         decoration: BoxDecoration(
           color: const Color(0xFFEFF4FF),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: _blue.withOpacity(0.2)),
         ),
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.image_rounded, color: _blue, size: 18),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(color: _blueDark, fontSize: 12, fontWeight: FontWeight.bold)),
+            // Miniature de l'image (Aperçu)
+            SizedBox(
+              height: 60,
+              width: double.infinity,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                child: Image.network(
+                  documentUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const Center(
+                    child: Icon(Icons.description_rounded, color: _blue, size: 28),
+                  ),
+                ),
+              ),
+            ),
+            // Petit texte sous la miniature (ex: "Recto", "Preuve")
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+                border: Border(top: BorderSide(color: _blue.withOpacity(0.1))),
+              ),
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 10, color: _blueDark, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            )
           ],
         ),
       ),
