@@ -362,7 +362,7 @@ class AppRouter {
         GoRoute(path: AppRoutes.chatNew, name: 'chat_new', pageBuilder: (_, __) => const NoTransitionPage(child: NewConversationPage())),
         GoRoute(path: AppRoutes.chatConversation, name: 'chat_conversation', pageBuilder: (_, state) {
           final convId = state.pathParameters['conversationId']!;
-          final conv = state.extra as ChatConversation??? ChatConversation(id: convId, isGroup: false, participantIds: [], updatedAt: DateTime.now());
+          final conv = (state.extra as ChatConversation?) ?? ChatConversation(id: convId, isGroup: false, participantIds: [], updatedAt: DateTime.now());
           return NoTransitionPage(child: ThixChat.ChatScreen(conversationId: convId, conversation: conv));
         }),
         GoRoute(path: AppRoutes.callIncoming, name: AppRoutes.callIncomingName, builder: (c,s) => IncomingCallPage(invite: s.extra as CallInvite)),
@@ -415,7 +415,7 @@ class AppRouter {
           final uid = state.pathParameters['userId']!;
           final extra = state.extra;
           String name = 'Discussion'; String? avatar;
-          if (extra is String) { name = extra; } else if (extra is Map) { name = extra['userName'] as String??? name; avatar = extra['userAvatar'] as String?; }
+          if (extra is String) { name = extra; } else if (extra is Map) { name = (extra['userName'] as String?) ?? name; avatar = extra['userAvatar'] as String?; }
           return NoTransitionPage(child: network_chat.ChatScreen(userId: uid, userName: name, userAvatar: avatar));
         }),
         GoRoute(path: AppRoutes.networkConnections, name: 'networkConnections', pageBuilder: (_, __) => NoTransitionPage(child: ConnectionsListPage())),
@@ -538,8 +538,8 @@ class AppRouter {
         GoRoute(path: '/thix-event/admin/limits', name: 'thixEventAdminLimits', pageBuilder: (_, __) => NoTransitionPage(child: BookingLimitsPage())),
         GoRoute(path: '/thix-event/admin/analytics', name: 'thixEventAdminAnalytics', pageBuilder: (_, __) => NoTransitionPage(child: AnalyticsPage())),
         GoRoute(path: '/thix-event/payment', builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>??? {};
-          return EventPaymentPage(bookingId: extra['bookingId'] as String??? '', amount: (extra['amount'] as num?)?.toDouble()?? 0.0, currency: extra['currency'] as String??? 'USD');
+          final extra = (state.extra as Map<String, dynamic>?) ?? {};
+          return EventPaymentPage(bookingId: (extra['bookingId'] as String?) ?? '', amount: (extra['amount'] as num?)?.toDouble() ?? 0.0, currency: (extra['currency'] as String?) ?? 'USD');
         }),
         GoRoute(path: '/thix-event/ticket/:id', builder: (context, state) => EventTicketPage(bookingId: state.pathParameters['id']!)),
 
