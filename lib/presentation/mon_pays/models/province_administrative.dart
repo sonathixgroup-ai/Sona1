@@ -1,41 +1,32 @@
-// lib/presentation/mon_pays/models/province_administrative.dart
-
 class ProvinceAdministrativeDivision {
   final String id;
   final String provinceId;
-  final String type; // 'territoire', 'secteur', 'chefferie'
+  final String type;
   final String name;
+  final String? capital;
   final int? population;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+  final double? area;
+  final String? administrator;
+  final List<Map<String, dynamic>>? media;
 
-  ProvinceAdministrativeDivision({
-    required this.id,
-    required this.provinceId,
-    required this.type,
-    required this.name,
-    this.population,
-    this.createdAt,
-    this.updatedAt,
+  const ProvinceAdministrativeDivision({
+    required this.id, required this.provinceId, required this.type, required this.name,
+    this.capital, this.population, this.area, this.administrator, this.media,
   });
 
   factory ProvinceAdministrativeDivision.fromJson(Map<String, dynamic> json) {
     return ProvinceAdministrativeDivision(
-      id: json['id'] as String,
-      provinceId: json['province_id'] as String,
-      type: json['type'] as String,
-      name: json['name'] as String,
-      population: json['population'] as int?,
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
-      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      id: json['id']?.toString() ?? '', provinceId: json['province_id']?.toString() ?? '',
+      type: json['type']?.toString() ?? '', name: json['name']?.toString() ?? '',
+      capital: json['capital']?.toString(), population: json['population'] != null ? int.tryParse(json['population'].toString()) : null,
+      area: json['area'] != null ? double.tryParse(json['area'].toString()) : null,
+      administrator: json['administrator']?.toString(),
+      media: json['media'] != null ? List<Map<String, dynamic>>.from(json['media']) : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'province_id': provinceId,
-    'type': type,
-    'name': name,
-    'population': population,
+    'id': id.isEmpty ? null : id, 'province_id': provinceId, 'type': type, 'name': name,
+    'capital': capital, 'population': population, 'area': area, 'administrator': administrator, 'media': media,
   };
 }
