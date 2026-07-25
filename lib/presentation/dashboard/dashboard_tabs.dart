@@ -4,10 +4,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
-import 'package:pdf/pdf.dart'; // <-- AJOUTÉ: Pour PdfColors
+import 'package:pdf/pdf.dart'; 
 import 'package:pdf/widgets.dart' as pw;
 
-import 'package:thix_id/services/document_service.dart'; // <-- AJOUTÉ: Pour DocumentService
+import 'package:thix_id/models/thix_profile.dart';
+import 'package:thix_id/services/document_service.dart'; 
 
 import '../../theme.dart';
 import '../../nav.dart';
@@ -1151,4 +1152,268 @@ class _SecurityToggleRow extends StatelessWidget {
       ),
     ],
   );
+}
+
+// ============================================================
+// COMPOSANTS MANQUANTS : ConfirmFeeSheet & SkillsEditorSheet
+// ============================================================
+
+class ConfirmFeeSheet {
+  static Future<bool?> show(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required String amountLabel,
+  }) {
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0A1E8A)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                IconButton(onPressed: () => context.pop(false), icon: const Icon(Icons.close_rounded)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(description, style: const TextStyle(color: Colors.black54, height: 1.4)),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () => context.pop(true),
+                icon: const Icon(Icons.payments_rounded, color: Colors.white),
+                label: Text(amountLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D2CC1),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(onPressed: () => context.pop(false), child: const Text('Annuler', style: TextStyle(color: Colors.grey))),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SkillsEditorSheet {
+  static Future<void> show(BuildContext context, {required ThixProfile profile, required dynamic profileService}) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SkillsEditorBody(profile: profile, profileService: profileService),
+    );
+  }
+}
+
+class _SkillsEditorBody extends StatefulWidget {
+  final ThixProfile profile;
+  final dynamic profileService;
+  const _SkillsEditorBody({required this.profile, required this.profileService});
+  @override
+  State<_SkillsEditorBody> createState() => _SkillsEditorBodyState();
+}
+
+class _SkillsEditorBodyState extends State<_SkillsEditorBody> {
+  final ValueNotifier<bool> _saving = ValueNotifier(false);
+  final _nameC = TextEditingController();
+  final _detailsC = TextEditingController();
+  String _level = 'Intermédiaire';
+  int? _editingIndex;
+  late List<Map<String, dynamic>> _localSkills;
+
+  @override
+  void initState() {
+    super.initState();
+    _localSkills = List<Map<String, dynamic>>.from(widget.profile.skills);
+  }
+
+  void _load(int index, Map<String, dynamic> entry) {
+    setState(() {
+      _editingIndex = index;
+      _nameC.text = (entry['name'] as String?) ?? '';
+      _level = (entry['level'] as String?) ?? 'Intermédiaire';
+      _detailsC.text = (entry['details'] as String?) ?? '';
+    });
+  }
+
+  void _reset() {
+    setState(() {
+      _editingIndex = null;
+      _nameC.clear(); _detailsC.clear(); _level = 'Intermédiaire';
+    });
+  }
+
+  Future<void> _save() async {
+    if (_nameC.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Le nom de la compétence est requis.')));
+      return;
+    }
+    
+    _saving.value = true;
+    try {
+      final patch = {
+        'name': _nameC.text.trim(),
+        'level': _level,
+        if (_detailsC.text.trim().isNotEmpty) 'details': _detailsC.text.trim(),
+      };
+
+      if (_editingIndex != null) {
+        _localSkills[_editingIndex!] = patch;
+      } else {
+        _localSkills.insert(0, patch);
+      }
+
+      await widget.profileService.updateProfile(userId: widget.profile.userId, skills: _localSkills);
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compétence mise à jour.')));
+      _reset();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+    } finally {
+      _saving.value = false;
+    }
+  }
+
+  Future<void> _delete(int index) async {
+    _saving.value = true;
+    try {
+      _localSkills.removeAt(index);
+      await widget.profileService.updateProfile(userId: widget.profile.userId, skills: _localSkills);
+      if (_editingIndex == index) _reset();
+      setState((){});
+    } finally {
+      _saving.value = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(color: Color(0xFFF5F6FB), borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Compétences', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0A1E8A))),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: _saving,
+                    builder: (ctx, isSaving, _) => IconButton(onPressed: isSaving ? null : () => context.pop(), icon: const Icon(Icons.close_rounded)),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_localSkills.isNotEmpty) ...[
+                      const Text('Vos compétences enregistrées', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                      const SizedBox(height: 8),
+                      ...List.generate(_localSkills.length, (i) {
+                        final e = _localSkills[i];
+                        final isEditing = _editingIndex == i;
+                        return Card(
+                          elevation: 0,
+                          color: isEditing ? const Color(0xFF0D2CC1).withOpacity(0.05) : Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: isEditing ? const Color(0xFF0D2CC1) : Colors.black12)),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            title: Text(e['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: Text(e['level'] ?? ''),
+                            trailing: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _delete(i)),
+                            onTap: () => _load(i, e),
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 24),
+                    ],
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.black12)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_editingIndex == null ? 'Ajouter une compétence' : 'Modifier la compétence', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0A1E8A))),
+                          const Divider(height: 24),
+                          TextField(controller: _nameC, decoration: InputDecoration(labelText: 'Compétence', prefixIcon: const Icon(Icons.psychology_rounded, color: Colors.black54), filled: true, fillColor: Colors.grey.shade50, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: _level,
+                            items: const [
+                              DropdownMenuItem(value: 'Débutant', child: Text('Débutant')),
+                              DropdownMenuItem(value: 'Intermédiaire', child: Text('Intermédiaire')),
+                              DropdownMenuItem(value: 'Avancé', child: Text('Avancé')),
+                              DropdownMenuItem(value: 'Expert', child: Text('Expert'))
+                            ],
+                            onChanged: (v) => setState(() => _level = v ?? 'Intermédiaire'),
+                            decoration: InputDecoration(labelText: 'Niveau', filled: true, fillColor: Colors.grey.shade50, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(controller: _detailsC, maxLines: 3, decoration: InputDecoration(labelText: 'Explication / Détails', filled: true, fillColor: Colors.grey.shade50, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  if (_editingIndex != null) ...[
+                    OutlinedButton(onPressed: _reset, style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)), child: const Text('ANNULER')),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: _saving,
+                      builder: (ctx, isSaving, _) => SizedBox(
+                        height: 50,
+                        child: FilledButton(
+                          onPressed: isSaving ? null : _save,
+                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0D2CC1), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
+                          child: isSaving 
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : Text(_editingIndex == null ? 'AJOUTER' : 'METTRE À JOUR', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
