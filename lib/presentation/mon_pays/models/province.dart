@@ -16,11 +16,12 @@ class Province {
   final int? population;
   final String? description;
   
-  // Nouveaux champs institutionnels et historiques
+  // Champs institutionnels et historiques
   final String? history;
   final String? climate;
   final String? infrastructure;
   final String? education;
+  final dynamic budgetPriorities; // Ajouté pour correspondre au service
 
   final String? coverImageUrl;
   final String? coatOfArmsUrl;
@@ -31,11 +32,9 @@ class Province {
   final String? viceGovernor;
   final String? viceGovernorPhotoUrl;
   final List<dynamic>? ministers;
-  
-  // NOUVEAU CHAMP : Ajout de 'government' pour correspondre au service
   final Map<String, dynamic>? government;
   
-  // Listes fortement typées pour éviter les erreurs de compilation
+  // Listes fortement typées
   final List<City> cities;
   final List<ProvinceEconomicResource> economicResources;
   final List<ProvinceTourism> tourismSites;
@@ -62,6 +61,7 @@ class Province {
     this.climate,
     this.infrastructure,
     this.education,
+    this.budgetPriorities,
     this.coverImageUrl,
     this.coatOfArmsUrl,
     this.mapUrl,
@@ -98,6 +98,7 @@ class Province {
     String? climate,
     String? infrastructure,
     String? education,
+    dynamic budgetPriorities,
     String? coverImageUrl,
     String? coatOfArmsUrl,
     String? mapUrl,
@@ -133,6 +134,7 @@ class Province {
       climate: climate ?? this.climate,
       infrastructure: infrastructure ?? this.infrastructure,
       education: education ?? this.education,
+      budgetPriorities: budgetPriorities ?? this.budgetPriorities,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       coatOfArmsUrl: coatOfArmsUrl ?? this.coatOfArmsUrl,
       mapUrl: mapUrl ?? this.mapUrl,
@@ -171,6 +173,7 @@ class Province {
       climate: json['climate']?.toString(),
       infrastructure: json['infrastructure']?.toString(),
       education: json['education']?.toString(),
+      budgetPriorities: json['budget_priorities'] ?? json['budgetPriorities'],
       coverImageUrl: json['cover_image_url']?.toString() ?? json['coverImageUrl']?.toString(),
       coatOfArmsUrl: json['coat_of_arms_url']?.toString() ?? json['coatOfArmsUrl']?.toString(),
       mapUrl: json['map_url']?.toString() ?? json['mapUrl']?.toString(),
@@ -218,6 +221,7 @@ class Province {
     'climate': climate,
     'infrastructure': infrastructure,
     'education': education,
+    'budget_priorities': budgetPriorities,
     'cover_image_url': coverImageUrl,
     'coat_of_arms_url': coatOfArmsUrl,
     'map_url': mapUrl,
