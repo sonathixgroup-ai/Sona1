@@ -595,7 +595,7 @@ class ProfileService {
   }
 
   /// Réserve un pseudonyme THIX CHAT en vérifiant son unicité
-  Future<void> reserveThixChat({required String userId, required String desired}) async {
+  Future<String> reserveThixChat({required String userId, required String desired}) async {
     final formattedHandle = desired.startsWith('@') ? desired : '@$desired';
     
     try {
@@ -615,6 +615,7 @@ class ProfileService {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', userId);
       
+      return formattedHandle;
     } catch (e) {
       debugPrint('Error reserveThixChat: $e');
       rethrow;
