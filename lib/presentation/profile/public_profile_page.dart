@@ -14,7 +14,7 @@ const _blueDark = Color(0xFF0A1E8A);
 const _red = Color(0xFFD32F2F);
 
 // -----------------------------------------------------------------------------
-// HELPER: TRADUCTION DYNAMIQUE DES STATUTS
+// HELPERS
 // -----------------------------------------------------------------------------
 String _translateStatus(String? status) {
   if (status == null || status.trim().isEmpty) return 'Non renseigné';
@@ -28,6 +28,25 @@ String _translateStatus(String? status) {
   }
 }
 
+/// Permet de récupérer toutes les URLs de documents/preuves attachées à une expérience ou formation
+List<String> _extractDocs(dynamic e) {
+  if (e is! Map) return [];
+  List<String> urls = [];
+  if (e['proofUrl'] != null && e['proofUrl'].toString().isNotEmpty) urls.add(e['proofUrl'].toString());
+  if (e['document'] != null && e['document'].toString().isNotEmpty) urls.add(e['document'].toString());
+  if (e['documents'] is List) {
+    for (var doc in (e['documents'] as List)) {
+      if (doc is String && doc.isNotEmpty) urls.add(doc);
+      if (doc is Map) {
+        if (doc['url'] != null && doc['url'].toString().isNotEmpty) urls.add(doc['url'].toString());
+        if (doc['download_url'] != null && doc['download_url'].toString().isNotEmpty) urls.add(doc['download_url'].toString());
+        if (doc['fileUrl'] != null && doc['fileUrl'].toString().isNotEmpty) urls.add(doc['fileUrl'].toString());
+      }
+    }
+  }
+  return urls.toSet().toList(); // Supprime les doublons
+}
+
 // -----------------------------------------------------------------------------
 // CONTROLLER
 // -----------------------------------------------------------------------------
@@ -38,7 +57,7 @@ class PublicProfileCtrl extends ChangeNotifier {
   
   ThixProfile? profile;
   bool loading = true;
-  bool isRequestingAccess = false; // Ajout d'un état de chargement pour le bouton
+  bool isRequestingAccess = false;
   String? error;
   AccessRequestState? accessState;
   List<Map<String, dynamic>> remoteDocs = [];
@@ -95,10 +114,9 @@ class PublicProfileCtrl extends ChangeNotifier {
     notifyListeners();
     try {
       await _access.requestAccess(requesterId: reqId, targetUserId: profile!.userId, thixId: profile!.thixId);
-      // Mise à jour optimiste de l'interface en attendant le retour du stream
       accessState = AccessRequestState(
         requestId: reqId, 
-        status: AccessRequestStatus.pending, // LA CORRECTION EST ICI
+        status: AccessRequestStatus.pending,
         approvedUntil: DateTime.now().add(const Duration(days: 1))
       );
     } catch (e) {
@@ -116,7 +134,7 @@ class PublicProfileCtrl extends ChangeNotifier {
     _docSub?.cancel();
     super.dispose();
   }
-} // <--- ACCOLADE FERMANTE AJOUTÉE ICI
+}
 
 // -----------------------------------------------------------------------------
 // PAGE PRINCIPALE
@@ -213,7 +231,7 @@ class _PState extends State<PublicProfilePage> {
                     _Cadre(title: 'Infos physiques', icon: Icons.monitor_weight_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Taille cm', value: p.height ?? '—'), _Row(label: 'Poids kg', value: p.weight ?? '—'), _Row(label: 'Groupe sanguin', value: p.bloodGroup ?? '—'), _Row(label: 'Handicap', value: (p.hasPhysicalDisability ?? false) ? 'Oui : ${p.physicalDisabilityDescription ?? ''}' : 'Non')]))),
                     const SizedBox(height: 16),
 
-                    // 8. Identité nationale (Avec visionneuse de documents)
+                    // 8. Identité nationale (Avec visionneuse de tous les documents rattachés)
                     _Cadre(
                       title: 'Identité nationale',
                       icon: Icons.verified_user_rounded,
@@ -228,23 +246,46 @@ class _PState extends State<PublicProfilePage> {
                             _Row(label: 'Date expiration', value: p.idDocumentExpiryDate ?? '—'),
                             _Row(label: 'Lieu émission', value: p.idDocumentIssuePlace ?? '—'),
                             _Row(label: 'Statut', value: _translateStatus(p.idVerificationStatus)),
-                            // Recherche d'une pièce jointe dans remoteDocs liée à l'identité
-                            if (c.remoteDocs.any((d) => (d['doc_type'] ?? '').toString().toLowerCase().contains('id')))
-                              Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: _DocumentViewerButton(
-                                  label: 'Voir la pièce d\'identité',
-                                  // Prend le premier document d'identité trouvé
-                                  documentUrl: c.remoteDocs.firstWhere((d) => (d['doc_type'] ?? '').toString().toLowerCase().contains('id'))['download_url'] ?? '',
-                                ),
-                              )
+                            
+                            // Affichage dynamique des photos (Recto, Verso, Selfie...)
+                            Builder(
+                              builder: (context) {
+                                // On cherche tous les documents dont le type contient 'id' ou 'identite'
+                                final idDocs = c.remoteDocs.where((d) {
+                                  final type = (d['doc_type'] ?? '').toString().toLowerCase();
+                                  return type.contains('id') || type.contains('identite');
+                                }).toList();
+
+                                if (idDocs.isEmpty) return const SizedBox.shrink();
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: idDocs.map((d) {
+                                      final url = d['download_url'] ?? '';
+                                      if (url.isEmpty) return const SizedBox.shrink();
+                                      
+                                      // Essaie de donner un nom sympa au bouton basé sur le doc_type (ex: Recto, Verso)
+                                      String label = 'Voir la pièce';
+                                      if (d['doc_type'].toString().toLowerCase().contains('recto')) label = 'Photo Recto';
+                                      if (d['doc_type'].toString().toLowerCase().contains('verso')) label = 'Photo Verso';
+                                      if (d['doc_type'].toString().toLowerCase().contains('selfie')) label = 'Selfie ID';
+
+                                      return _DocumentViewerButton(label: label, documentUrl: url);
+                                    }).toList(),
+                                  ),
+                                );
+                              }
+                            )
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // 9. Parcours scolaire (Détaillé)
+                    // 9. Parcours scolaire (Complet avec dates, description et photos)
                     _Cadre(
                       title: 'Parcours scolaire',
                       icon: Icons.account_balance_rounded,
@@ -253,14 +294,22 @@ class _PState extends State<PublicProfilePage> {
                         child: p.education.isEmpty 
                           ? const Text('Aucun parcours scolaire enregistré', style: TextStyle(fontSize: 12, color: Colors.black54)) 
                           : Column(
-                              children: p.education.map((e) => _DetailedListItem(
-                                title: e['institution']?.toString() ?? '—',
-                                subtitle: e['degree']?.toString() ?? '',
-                                location: e['city']?.toString() ?? '',
-                                period: e['period']?.toString() ?? e['startYear']?.toString() ?? '',
-                                description: e['description']?.toString(), // Potentiel champ de description
-                                documentUrl: e['proofUrl']?.toString() ?? e['document']?.toString(), // Si une preuve existe
-                              )).toList(),
+                              children: p.education.map((e) {
+                                final start = e['startYear']?.toString() ?? e['debut']?.toString() ?? '';
+                                final end = e['endYear']?.toString() ?? e['fin']?.toString() ?? '';
+                                final periodStr = (start.isNotEmpty && end.isNotEmpty) 
+                                    ? '$start - $end' 
+                                    : (start.isNotEmpty ? start : (e['period']?.toString() ?? ''));
+
+                                return _DetailedListItem(
+                                  title: e['institution']?.toString() ?? e['ecole']?.toString() ?? '—',
+                                  subtitle: e['degree']?.toString() ?? e['diplome']?.toString() ?? '',
+                                  location: e['city']?.toString() ?? e['ville']?.toString() ?? '',
+                                  period: periodStr,
+                                  description: e['description']?.toString(),
+                                  documentUrls: _extractDocs(e),
+                                );
+                              }).toList(),
                             ),
                       ),
                     ),
@@ -270,7 +319,7 @@ class _PState extends State<PublicProfilePage> {
                     _Cadre(title: 'Formations & Certifs', icon: Icons.school_rounded, child: _MaskableContent(canSee: canSee, child: p.trainings.isEmpty && p.certifications.isEmpty ? const Text('Aucune formation ou certification', style: TextStyle(fontSize: 12, color: Colors.black54)) : Column(children: [...p.trainings.map((e) => ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text((e['title'] ?? e['name'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), subtitle: Text('${e['organizer'] ?? e['provider'] ?? ''}'))), ...p.certifications.map((e) => ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: const Icon(Icons.workspace_premium, color: Colors.amber, size: 20), title: Text((e['title'] ?? e['name'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), subtitle: Text('${e['issuer'] ?? e['org'] ?? ''}')))]))),
                     const SizedBox(height: 16),
 
-                    // 11. Expériences (Détaillées avec missions et preuves)
+                    // 11. Expériences (Complet avec missions, ville et photos)
                     _Cadre(
                       title: 'Expériences Pro',
                       icon: Icons.business_center_rounded,
@@ -279,14 +328,16 @@ class _PState extends State<PublicProfilePage> {
                         child: p.experience.isEmpty 
                           ? const Text('Aucune expérience enregistrée', style: TextStyle(fontSize: 12, color: Colors.black54)) 
                           : Column(
-                              children: p.experience.map((e) => _DetailedListItem(
-                                title: e['title']?.toString() ?? '—',
-                                subtitle: e['company']?.toString() ?? e['org']?.toString() ?? '',
-                                location: [e['sector']?.toString(), e['city']?.toString()].where((s) => s != null && s.isNotEmpty).join(' • '),
-                                period: e['period']?.toString() ?? '',
-                                description: e['missions']?.toString() ?? e['description']?.toString(), // Les missions et réalisations
-                                documentUrl: e['proofUrl']?.toString() ?? e['document']?.toString() ?? (e['documents'] is List && (e['documents'] as List).isNotEmpty ? (e['documents'] as List).first.toString() : null), // Gestion des preuves rattachées
-                              )).toList(),
+                              children: p.experience.map((e) {
+                                return _DetailedListItem(
+                                  title: e['title']?.toString() ?? e['poste']?.toString() ?? '—',
+                                  subtitle: e['company']?.toString() ?? e['entreprise']?.toString() ?? e['org']?.toString() ?? '',
+                                  location: [e['sector']?.toString() ?? e['secteur']?.toString(), e['city']?.toString() ?? e['ville']?.toString()].where((s) => s != null && s.isNotEmpty).join(' • '),
+                                  period: e['period']?.toString() ?? e['periode']?.toString() ?? '',
+                                  description: e['missions']?.toString() ?? e['description']?.toString(),
+                                  documentUrls: _extractDocs(e),
+                                );
+                              }).toList(),
                             ),
                       ),
                     ),
@@ -542,18 +593,16 @@ class _GateCard extends StatelessWidget {
 }
 
 // -----------------------------------------------------------------------------
-// NOUVEAUX COMPOSANTS : LISTES DÉTAILLÉES ET VISIONNEUSE
+// COMPOSANTS : LISTES DÉTAILLÉES ET VISIONNEUSE MULTI-DOCUMENTS
 // -----------------------------------------------------------------------------
 
-/// Élément de liste générique avec bouton "Voir plus" pour les descriptions longues
-/// et un gestionnaire de documents/preuves rattachés.
 class _DetailedListItem extends StatelessWidget {
   final String title;
   final String subtitle;
   final String location;
   final String period;
   final String? description;
-  final String? documentUrl;
+  final List<String> documentUrls; // Changé pour gérer plusieurs documents
 
   const _DetailedListItem({
     required this.title,
@@ -561,7 +610,7 @@ class _DetailedListItem extends StatelessWidget {
     required this.location,
     required this.period,
     this.description,
-    this.documentUrl,
+    this.documentUrls = const [], // Par défaut, liste vide
   });
 
   @override
@@ -587,10 +636,15 @@ class _DetailedListItem extends StatelessWidget {
               padding: const EdgeInsets.only(top: 8.0),
               child: _ExpandableTextBody(text: description!),
             ),
-          if (documentUrl != null && documentUrl!.isNotEmpty)
+          // Si on a des documents, on les affiche tous sous forme de boutons
+          if (documentUrls.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8.0),
-              child: _DocumentViewerButton(label: 'Voir le document / la preuve', documentUrl: documentUrl!),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: documentUrls.map((url) => _DocumentViewerButton(label: 'Voir la pièce jointe', documentUrl: url)).toList(),
+              ),
             ),
           const Divider(height: 20, color: Color(0xFFF0F0F0)),
         ],
@@ -599,7 +653,6 @@ class _DetailedListItem extends StatelessWidget {
   }
 }
 
-/// Bouton cliquable permettant d'ouvrir une photo/pièce dans une popup plein écran.
 class _DocumentViewerButton extends StatelessWidget {
   final String label;
   final String documentUrl;
