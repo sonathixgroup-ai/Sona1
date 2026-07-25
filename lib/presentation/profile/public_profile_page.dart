@@ -146,7 +146,7 @@ class _PState extends State<PublicProfilePage> {
           final canSee = isOwner || c.canSeePrivate;
 
           return CustomScrollView(slivers: [
-            SliverToBoxAdapter(child: _RefHeader(p: p, onBack: () => context.popOrGo(AppRoutes.home))),
+            SliverToBoxAdapter(child: _RefHeader(p: p, onBack: () => context.go(AppRoutes.home))),
             SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _RefStats(p: p))),
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
             
