@@ -14,7 +14,7 @@ const _blueDark = Color(0xFF0A1E8A);
 const _red = Color(0xFFD32F2F);
 
 // -----------------------------------------------------------------------------
-// HELPERS & EXTRACTEURS DE DONNÉES (POUR ÉVITER LES CHAMPS VIDES)
+// HELPERS & EXTRACTEURS DE DONNÉES
 // -----------------------------------------------------------------------------
 String _translateStatus(String? status) {
   if (status == null || status.trim().isEmpty) return 'Non renseigné';
@@ -28,7 +28,7 @@ String _translateStatus(String? status) {
   }
 }
 
-/// Extracteur ultra-robuste qui cherche la valeur parmi plusieurs clés possibles
+/// Extracteur qui cherche la valeur parmi plusieurs clés possibles
 String _get(dynamic map, List<String> keys) {
   if (map is! Map) return '';
   for (var k in keys) {
@@ -39,12 +39,11 @@ String _get(dynamic map, List<String> keys) {
   return '';
 }
 
-/// Récupère toutes les URLs de documents/preuves attachées (peu importe le nom du champ)
+/// Récupère toutes les URLs de documents/preuves attachées
 List<String> _extractDocs(dynamic e) {
   if (e is! Map) return [];
   Set<String> urls = {};
   
-  // Cherche dans toutes ces clés potentielles
   final possibleKeys = ['proofUrl', 'document', 'documents', 'proofs', 'pieces', 'file', 'files', 'photos', 'url', 'urls', 'preuves', 'preuve'];
   
   for (var key in possibleKeys) {
@@ -65,6 +64,7 @@ List<String> _extractDocs(dynamic e) {
     } else if (val is Map) {
        if (val['url'] != null) urls.add(val['url'].toString());
        if (val['download_url'] != null) urls.add(val['download_url'].toString());
+       if (val['fileUrl'] != null) urls.add(val['fileUrl'].toString());
     }
   }
   return urls.toList();
@@ -311,7 +311,7 @@ class _PState extends State<PublicProfilePage> {
                                 for (var d in c.remoteDocs) {
                                   final type = (d['doc_type'] ?? '').toString().toLowerCase();
                                   if (type.contains('id') || type.contains('identit') || type.contains('recto') || type.contains('verso') || type.contains('selfie') || type.contains('carte') || type.contains('national')) {
-                                    final url = d['download_url']?.toString() ?? '';
+                                    final url = d['download_url']?.toString() ?? d['fileUrl']?.toString() ?? d['url']?.toString() ?? '';
                                     if (url.isNotEmpty && !idUrls.contains(url)) idUrls.add(url);
                                   }
                                 }
@@ -336,7 +336,7 @@ class _PState extends State<PublicProfilePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 10. Parcours scolaire (Cursus & Formations)
+                    // 10. Parcours scolaire (FORMAT TABLEAU EXACT COMME LE RESTE)
                     _Cadre(
                       title: 'Cursus & Formations',
                       icon: Icons.account_balance_rounded,
@@ -346,29 +346,53 @@ class _PState extends State<PublicProfilePage> {
                           ? const Text('Aucun parcours scolaire enregistré', style: TextStyle(fontSize: 12, color: Colors.black54)) 
                           : Column(
                               children: p.education.map((e) {
-                                // Extraction robuste
-                                final title = _get(e, ['institution', 'ecole', 'etablissement', 'school']);
-                                final subtitle = _get(e, ['degree', 'diplome', 'titre', 'certification']);
+                                final institution = _get(e, ['institution', 'ecole', 'etablissement', 'school']);
+                                final degree = _get(e, ['degree', 'diplome', 'titre', 'certification']);
                                 final city = _get(e, ['city', 'ville', 'lieu']);
                                 final start = _get(e, ['startYear', 'debut', 'start_year']);
                                 final end = _get(e, ['endYear', 'fin', 'end_year']);
-                                final fallbackPeriod = _get(e, ['period', 'periode']);
                                 final desc = _get(e, ['description', 'details']);
-
+                                
                                 String periodStr = '';
                                 if (start.isNotEmpty && end.isNotEmpty) periodStr = '$start - $end';
                                 else if (start.isNotEmpty) periodStr = start;
                                 else if (end.isNotEmpty) periodStr = end;
-                                else periodStr = fallbackPeriod;
+                                else periodStr = _get(e, ['period', 'periode']);
 
-                                return _DetailedListItem(
-                                  title: title.isNotEmpty ? title : '—',
-                                  subtitle: subtitle,
-                                  location: city,
-                                  period: periodStr,
-                                  descriptionLabel: 'Description',
-                                  description: desc,
-                                  documentUrls: _extractDocs(e),
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _Row(label: 'Établissement / École', value: institution),
+                                      _Row(label: 'Diplôme / Titre obtenu', value: degree),
+                                      _Row(label: 'Ville', value: city),
+                                      _Row(label: 'Période (Début - Fin)', value: periodStr),
+                                      
+                                      if (desc.isNotEmpty) ...[
+                                        const Padding(
+                                          padding: EdgeInsets.only(bottom: 4.0, top: 4.0),
+                                          child: Text('Description', style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600)),
+                                        ),
+                                        _ExpandableTextBody(text: desc),
+                                      ],
+
+                                      // Affichage des Preuves cliquables
+                                      Builder(builder: (context) {
+                                        final docs = _extractDocs(e);
+                                        if (docs.isEmpty) return const SizedBox.shrink();
+                                        return Padding(
+                                          padding: const EdgeInsets.only(top: 12.0),
+                                          child: Wrap(
+                                            spacing: 8, runSpacing: 8,
+                                            children: docs.map((url) => _DocumentViewerButton(label: 'Preuve (Document/Photo)', documentUrl: url)).toList(),
+                                          ),
+                                        );
+                                      }),
+                                      
+                                      const Divider(height: 20, color: Color(0xFFF0F0F0)),
+                                    ],
+                                  ),
                                 );
                               }).toList(),
                             ),
@@ -376,7 +400,7 @@ class _PState extends State<PublicProfilePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 11. Expériences Pro
+                    // 11. Expériences Pro (FORMAT TABLEAU EXACT COMME LE RESTE)
                     _Cadre(
                       title: 'Expériences Pro',
                       icon: Icons.business_center_rounded,
@@ -386,24 +410,48 @@ class _PState extends State<PublicProfilePage> {
                           ? const Text('Aucune expérience enregistrée', style: TextStyle(fontSize: 12, color: Colors.black54)) 
                           : Column(
                               children: p.experience.map((e) {
-                                // Extraction robuste
                                 final title = _get(e, ['title', 'poste', 'jobTitle']);
-                                final subtitle = _get(e, ['company', 'entreprise', 'organisation', 'org', 'employeur']);
+                                final company = _get(e, ['company', 'entreprise', 'organisation', 'org', 'employeur']);
                                 final sector = _get(e, ['sector', 'secteur', 'domaine']);
                                 final city = _get(e, ['city', 'ville', 'lieu']);
                                 final period = _get(e, ['period', 'periode', 'dates', 'duree']);
                                 final missions = _get(e, ['missions', 'realisations', 'description', 'tasks', 'taches']);
-                                
-                                final locationStr = [sector, city].where((s) => s.isNotEmpty).join(' • ');
 
-                                return _DetailedListItem(
-                                  title: title.isNotEmpty ? title : '—',
-                                  subtitle: subtitle,
-                                  location: locationStr,
-                                  period: period,
-                                  descriptionLabel: 'Missions et réalisations',
-                                  description: missions,
-                                  documentUrls: _extractDocs(e),
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _Row(label: 'Titre du poste', value: title),
+                                      _Row(label: 'Entreprise / Org.', value: company),
+                                      _Row(label: 'Secteur', value: sector),
+                                      _Row(label: 'Ville', value: city),
+                                      _Row(label: 'Période', value: period),
+                                      
+                                      if (missions.isNotEmpty) ...[
+                                        const Padding(
+                                          padding: EdgeInsets.only(bottom: 4.0, top: 4.0),
+                                          child: Text('Missions et réalisations', style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600)),
+                                        ),
+                                        _ExpandableTextBody(text: missions),
+                                      ],
+
+                                      // Affichage des Preuves cliquables
+                                      Builder(builder: (context) {
+                                        final docs = _extractDocs(e);
+                                        if (docs.isEmpty) return const SizedBox.shrink();
+                                        return Padding(
+                                          padding: const EdgeInsets.only(top: 12.0),
+                                          child: Wrap(
+                                            spacing: 8, runSpacing: 8,
+                                            children: docs.map((url) => _DocumentViewerButton(label: 'Preuve (Document/Photo)', documentUrl: url)).toList(),
+                                          ),
+                                        );
+                                      }),
+                                      
+                                      const Divider(height: 20, color: Color(0xFFF0F0F0)),
+                                    ],
+                                  ),
                                 );
                               }).toList(),
                             ),
@@ -661,84 +709,8 @@ class _GateCard extends StatelessWidget {
 }
 
 // -----------------------------------------------------------------------------
-// COMPOSANTS : LISTES DÉTAILLÉES ET VISIONNEUSE MULTI-DOCUMENTS
+// COMPOSANT VISIONNEUSE (PHOTOS ET PREUVES)
 // -----------------------------------------------------------------------------
-
-class _DetailedListItem extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String location;
-  final String period;
-  final String? descriptionLabel;
-  final String? description;
-  final List<String> documentUrls;
-
-  const _DetailedListItem({
-    required this.title,
-    required this.subtitle,
-    required this.location,
-    required this.period,
-    this.descriptionLabel,
-    this.description,
-    this.documentUrls = const [],
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Colors.black87)),
-          
-          if (subtitle.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2.0),
-              child: Text(subtitle, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _blueDark)),
-            ),
-            
-          if (location.isNotEmpty || period.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4.0),
-              child: Text(
-                [if (period.isNotEmpty) period, if (location.isNotEmpty) location].join(' • '),
-                style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
-              ),
-            ),
-          
-          if (description != null && description!.trim().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 10.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (descriptionLabel != null) 
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4.0),
-                      child: Text(descriptionLabel!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
-                    ),
-                  _ExpandableTextBody(text: description!),
-                ],
-              ),
-            ),
-            
-          if (documentUrls.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 12.0),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: documentUrls.map((url) => _DocumentViewerButton(label: 'Voir la pièce jointe', documentUrl: url)).toList(),
-              ),
-            ),
-          const Divider(height: 20, color: Color(0xFFF0F0F0)),
-        ],
-      ),
-    );
-  }
-}
-
 class _DocumentViewerButton extends StatelessWidget {
   final String label;
   final String documentUrl;
