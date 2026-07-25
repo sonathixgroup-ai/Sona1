@@ -1,5 +1,11 @@
 // lib/presentation/mon_pays/models/province.dart
 
+import 'city.dart';
+import 'province_economic.dart';
+import 'province_tourism.dart';
+import 'province_emergency.dart';
+import 'province_administrative.dart';
+
 class Province {
   final String id;
   final String name;
@@ -25,11 +31,14 @@ class Province {
   final String? viceGovernor;
   final String? viceGovernorPhotoUrl;
   final List<dynamic>? ministers;
-  final List<dynamic>? cities;
-  final List<dynamic>? economicResources;
-  final List<dynamic>? tourismSites;
-  final List<dynamic>? emergencyContacts;
-  final List<dynamic>? administrativeDivisions;
+  
+  // Listes fortement typées pour éviter les erreurs de compilation
+  final List<City> cities;
+  final List<ProvinceEconomicResource> economicResources;
+  final List<ProvinceTourism> tourismSites;
+  final List<ProvinceEmergencyContact> emergencyContacts;
+  final List<ProvinceAdministrativeDivision> administrativeDivisions;
+  
   final List<Map<String, dynamic>>? achievements;
   final List<Map<String, dynamic>>? tribes;
   final List<Map<String, dynamic>>? galleryMedia;
@@ -59,11 +68,11 @@ class Province {
     this.viceGovernor,
     this.viceGovernorPhotoUrl,
     this.ministers,
-    this.cities,
-    this.economicResources,
-    this.tourismSites,
-    this.emergencyContacts,
-    this.administrativeDivisions,
+    this.cities = const [],
+    this.economicResources = const [],
+    this.tourismSites = const [],
+    this.emergencyContacts = const [],
+    this.administrativeDivisions = const [],
     this.achievements,
     this.tribes,
     this.galleryMedia,
@@ -94,11 +103,11 @@ class Province {
     String? viceGovernor,
     String? viceGovernorPhotoUrl,
     List<dynamic>? ministers,
-    List<dynamic>? cities,
-    List<dynamic>? economicResources,
-    List<dynamic>? tourismSites,
-    List<dynamic>? emergencyContacts,
-    List<dynamic>? administrativeDivisions,
+    List<City>? cities,
+    List<ProvinceEconomicResource>? economicResources,
+    List<ProvinceTourism>? tourismSites,
+    List<ProvinceEmergencyContact>? emergencyContacts,
+    List<ProvinceAdministrativeDivision>? administrativeDivisions,
     List<Map<String, dynamic>>? achievements,
     List<Map<String, dynamic>>? tribes,
     List<Map<String, dynamic>>? galleryMedia,
@@ -165,11 +174,21 @@ class Province {
       viceGovernor: json['vice_governor']?.toString() ?? json['viceGovernor']?.toString(),
       viceGovernorPhotoUrl: json['vice_governor_photo_url']?.toString() ?? json['viceGovernorPhotoUrl']?.toString(),
       ministers: json['ministers'] is List ? json['ministers'] : null,
-      cities: json['cities'] is List ? json['cities'] : null,
-      economicResources: json['economic_resources'] is List ? json['economic_resources'] : null,
-      tourismSites: json['tourism_sites'] is List ? json['tourism_sites'] : null,
-      emergencyContacts: json['emergency_contacts'] is List ? json['emergency_contacts'] : null,
-      administrativeDivisions: json['administrative_divisions'] is List ? json['administrative_divisions'] : null,
+      cities: json['cities'] is List 
+          ? (json['cities'] as List).map((c) => c is City ? c : City.fromJson(c is Map<String, dynamic> ? c : {})).toList()
+          : [],
+      economicResources: json['economic_resources'] is List 
+          ? (json['economic_resources'] as List).map((e) => e is ProvinceEconomicResource ? e : ProvinceEconomicResource.fromJson(e is Map<String, dynamic> ? e : {})).toList() 
+          : [],
+      tourismSites: json['tourism_sites'] is List 
+          ? (json['tourism_sites'] as List).map((t) => t is ProvinceTourism ? t : ProvinceTourism.fromJson(t is Map<String, dynamic> ? t : {})).toList() 
+          : [],
+      emergencyContacts: json['emergency_contacts'] is List 
+          ? (json['emergency_contacts'] as List).map((e) => e is ProvinceEmergencyContact ? e : ProvinceEmergencyContact.fromJson(e is Map<String, dynamic> ? e : {})).toList() 
+          : [],
+      administrativeDivisions: json['administrative_divisions'] is List 
+          ? (json['administrative_divisions'] as List).map((a) => a is ProvinceAdministrativeDivision ? a : ProvinceAdministrativeDivision.fromJson(a is Map<String, dynamic> ? a : {})).toList() 
+          : [],
       achievements: json['achievements'] != null ? List<Map<String, dynamic>>.from(json['achievements']) : null,
       tribes: json['tribes'] != null ? List<Map<String, dynamic>>.from(json['tribes']) : null,
       galleryMedia: json['gallery_media'] != null ? List<Map<String, dynamic>>.from(json['gallery_media']) : null,
@@ -201,11 +220,11 @@ class Province {
     'vice_governor': viceGovernor,
     'vice_governor_photo_url': viceGovernorPhotoUrl,
     'ministers': ministers,
-    'cities': cities?.map((c) => c is Object && c.runtimeType.toString().contains('City') ? (c as dynamic).toJson() : c).toList(),
-    'economic_resources': economicResources,
-    'tourism_sites': tourismSites,
-    'emergency_contacts': emergencyContacts,
-    'administrative_divisions': administrativeDivisions,
+    'cities': cities.map((c) => c.toJson()).toList(),
+    'economic_resources': economicResources.map((e) => e.toJson()).toList(),
+    'tourism_sites': tourismSites.map((t) => t.toJson()).toList(),
+    'emergency_contacts': emergencyContacts.map((e) => e.toJson()).toList(),
+    'administrative_divisions': administrativeDivisions.map((a) => a.toJson()).toList(),
     'achievements': achievements,
     'tribes': tribes,
     'gallery_media': galleryMedia,
