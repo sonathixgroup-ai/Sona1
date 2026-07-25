@@ -4,39 +4,44 @@ class City {
   final String id;
   final String provinceId;
   final String name;
-  final String type; // Ville, Territoire...
-  final bool isCapital;
   final String? population;
-  final String? description;
+  final bool isCapital;
+  final String? imageUrl;
+  final String? mayor;
+  final String? mayorPhotoUrl;
 
-  City({
+  const City({
     required this.id,
     required this.provinceId,
     required this.name,
-    required this.type,
-    this.isCapital = false,
     this.population,
-    this.description,
+    this.isCapital = false,
+    this.imageUrl,
+    this.mayor,
+    this.mayorPhotoUrl,
   });
 
   factory City.fromJson(Map<String, dynamic> json) {
     return City(
-      id: json['id'],
-      provinceId: json['province_id'],
-      name: json['name'],
-      type: json['type'],
-      isCapital: json['capital_status'] ?? false,
-      population: json['population'],
-      description: json['description'],
+      id: json['id']?.toString() ?? '',
+      provinceId: json['province_id']?.toString() ?? json['provinceId']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      population: json['population']?.toString(),
+      isCapital: json['is_capital'] ?? json['isCapital'] ?? false,
+      imageUrl: json['image_url'] ?? json['imageUrl'],
+      mayor: json['mayor']?.toString(),
+      mayorPhotoUrl: json['mayor_photo_url'] ?? json['mayorPhotoUrl'],
     );
   }
 
   Map<String, dynamic> toJson() => {
+    'id': id.isEmpty ? null : id,
     'province_id': provinceId,
     'name': name,
-    'type': type,
-    'capital_status': isCapital,
     'population': population,
-    'description': description,
+    'is_capital': isCapital,
+    'image_url': imageUrl,
+    'mayor': mayor,
+    'mayor_photo_url': mayorPhotoUrl,
   };
 }
