@@ -1,19 +1,20 @@
 // lib/presentation/thix_info/saved_articles_page.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // 1. Import de Riverpod
 import 'package:go_router/go_router.dart';
 
 import '../../providers/news_provider.dart';
 import '../../models/news_article.dart';
 
-class SavedArticlesPage extends StatefulWidget {
+// 2. Remplacement par ConsumerStatefulWidget
+class SavedArticlesPage extends ConsumerStatefulWidget {
   const SavedArticlesPage({super.key});
 
   @override
-  State<SavedArticlesPage> createState() => _SavedArticlesPageState();
+  ConsumerState<SavedArticlesPage> createState() => _SavedArticlesPageState();
 }
 
-class _SavedArticlesPageState extends State<SavedArticlesPage> {
+class _SavedArticlesPageState extends ConsumerState<SavedArticlesPage> {
   List<NewsArticle> _savedArticles = [];
   bool _isLoading = true;
 
@@ -24,8 +25,12 @@ class _SavedArticlesPageState extends State<SavedArticlesPage> {
   }
 
   Future<void> _loadSavedArticles() async {
-    final provider = context.read<NewsProvider>();
-    final articles = await provider.getSavedArticlesList();  // ← Utilise getSavedArticlesList()
+    // 3. Utilisation de ref.read au lieu de context.read
+    final provider = ref.read(newsProvider);
+    final articles = await provider.getSavedArticlesList();
+    
+    if (!mounted) return; // Sécurité Riverpod
+    
     setState(() {
       _savedArticles = articles;
       _isLoading = false;
@@ -33,11 +38,16 @@ class _SavedArticlesPageState extends State<SavedArticlesPage> {
   }
 
   Future<void> _removeArticle(String articleId) async {
-    final provider = context.read<NewsProvider>();
+    // Utilisation de ref.read
+    final provider = ref.read(newsProvider);
     await provider.unsaveArticle(articleId);
+    
+    if (!mounted) return; // Sécurité
+    
     setState(() {
       _savedArticles.removeWhere((a) => a.id == articleId);
     });
+    
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Article retiré des favoris'), duration: Duration(seconds: 1)),
     );
