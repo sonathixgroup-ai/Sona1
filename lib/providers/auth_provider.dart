@@ -17,30 +17,15 @@ class Auth extends _$Auth {
 
   Future<void> _checkRole() async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) {
-      _isModerator = false;
-      return;
-    }
+    if (user == null) { _isModerator = false; return; }
     try {
-      final res = await Supabase.instance.client
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle();
+      final res = await Supabase.instance.client.from('users').select('role').eq('id', user.id).maybeSingle();
       _isModerator = res != null && (res['role'] == 'moderator' || res['role'] == 'admin');
-    } catch (_) {
-      _isModerator = false;
-    }
+    } catch (_) { _isModerator = false; }
   }
 
   Future<void> refresh() async {
     await _checkRole();
     ref.invalidateSelf();
   }
-}
-
-// Compat pour ton ancien code qui faisait Provider.of<AuthProvider>
-@riverpod
-bool isModeratorFlag(IsModeratorFlagRef ref) {
-  return ref.watch(authProvider).valueOrNull ?? false;
 }
