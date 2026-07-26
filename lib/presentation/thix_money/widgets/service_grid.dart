@@ -10,75 +10,66 @@ class _Service {
 
 class ServiceGrid extends StatelessWidget {
   const ServiceGrid({super.key});
-  static const ink = Color(0xFF080E1F);
-  static const border = Color(0xFFEFF2F8);
+  static const ink = Color(0xFF070F1E);
+  static const line = Color(0xFFE8ECF3);
 
   static const _services = [
-    _Service(label: 'Crédit\nexpress', color: Color(0xFF2D5BFF), icon: Icons.bolt_rounded, route: AppRoutes.thixMoneyLoans),
-    _Service(label: 'Assurance', color: Color(0xFF0E9F6E), icon: Icons.verified_user_rounded, route: null),
-    _Service(label: 'Épargne', color: Color(0xFFC5A46A), icon: Icons.savings_rounded, route: AppRoutes.thixMoneySavings),
-    _Service(label: 'Change', color: Color(0xFF7C3AED), icon: Icons.currency_exchange_rounded, route: null),
+    _Service(label: 'Envoyer', color: Color(0xFF2D5BFF), icon: Icons.send_rounded, route: AppRoutes.thixMoneySend),
+    _Service(label: 'Crédit', color: Color(0xFF2D5BFF), icon: Icons.bolt_rounded, route: AppRoutes.thixMoneyLoans),
+    _Service(label: 'Acheter Carte', color: Color(0xFF7C3AED), icon: Icons.credit_card_rounded, route: null),
+    _Service(label: 'Airtime', color: Color(0xFF0E9F6E), icon: Icons.call_rounded, route: null),
+    _Service(label: 'Mes Comptes', color: Color(0xFF0A1931), icon: Icons.link_rounded, route: null),
+    _Service(label: 'Transactions', color: Color(0xFFEA580C), icon: Icons.bar_chart_rounded, route: AppRoutes.thixMoneyLoans),
     _Service(label: 'Marchand', color: Color(0xFFEA580C), icon: Icons.storefront_rounded, route: AppRoutes.thixMarket),
-    _Service(label: 'Dons', color: Color(0xFFE11D48), icon: Icons.favorite_rounded, route: null),
-    _Service(label: 'Ma Tontine', color: Color(0xFF0EA5E9), icon: Icons.groups_rounded, route: AppRoutes.thixMoneyTontines),
-    _Service(label: 'Éducation', color: Color(0xFF0891B2), icon: Icons.school_rounded, route: AppRoutes.education),
-    _Service(label: 'Virement\nmondial', color: Color(0xFF0A1931), icon: Icons.public_rounded, route: AppRoutes.thixMoneySend),
-    _Service(label: 'Micro\nfinance', color: Color(0xFF16A34A), icon: Icons.account_balance_rounded, route: AppRoutes.thixMoneyLoans),
+    _Service(label: 'Support', color: Color(0xFF070F1E), icon: Icons.headset_mic_rounded, route: null),
+    _Service(label: 'Épargne', color: Color(0xFFC5A46A), icon: Icons.savings_rounded, route: AppRoutes.thixMoneySavings),
+    _Service(label: 'Tontine', color: Color(0xFF0EA5E9), icon: Icons.groups_rounded, route: AppRoutes.thixMoneyTontines),
     _Service(label: 'Investir', color: Color(0xFFCA8A04), icon: Icons.trending_up_rounded, route: AppRoutes.thixMoneyInvestments),
-    _Service(label: 'Planifier', color: Color(0xFF080E1F), icon: Icons.calendar_month_rounded, route: AppRoutes.thixMoneySavings),
+    _Service(label: 'Éducation', color: Color(0xFF0891B2), icon: Icons.school_rounded, route: AppRoutes.education),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 14,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.70, // FIX MAJEUR : 0.88 -> 0.70 = beaucoup plus haut
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: line)),
+      child: GridView.builder(
+        shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4,
+          mainAxisSpacing: 18, // ESPACE VERTICAL GÉNÉREUX
+          crossAxisSpacing: 10,
+          childAspectRatio: 0.78, // HAUTEUR POUR ÉVITER CHEVAUCHEMENT
+        ),
+        itemCount: _services.length,
+        itemBuilder: (_, i) {
+          final s = _services[i];
+          return _Tile(s: s);
+        },
       ),
-      itemCount: _services.length,
-      itemBuilder: (_, i) {
-        final s = _services[i];
-        final isDark = s.color == const Color(0xFF0A1931) || s.color == const Color(0xFF080E1F);
-        return _ServiceTile(service: s, isDark: isDark);
-      },
     );
   }
 }
 
-class _ServiceTile extends StatelessWidget {
-  final _Service service; final bool isDark;
-  const _ServiceTile({required this.service, required this.isDark});
-
+class _Tile extends StatelessWidget {
+  final _Service s; const _Tile({required this.s});
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(6, 14, 6, 10), // PADDING VERTICAL FIX
-      decoration: BoxDecoration(
-        color: isDark? const Color(0xFF080E1F) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark? Colors.white.withOpacity(0.08) : ServiceGrid.border),
-        boxShadow: [BoxShadow(color: const Color(0xFF080E1F).withOpacity(0.05), blurRadius: 14, offset: const Offset(0, 5))],
-      ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (s.route!= null && s.route!.isNotEmpty) context.push(s.route!);
+      },
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.start, // PAS center, pour contrôler l'espace
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(color: isDark? Colors.white.withOpacity(0.1) : service.color.withOpacity(0.11), borderRadius: BorderRadius.circular(13)),
-            child: Icon(service.icon, color: isDark? Colors.white : service.color, size: 22),
+            width: 56, height: 56, // PLUS GRAND QUE FYATU
+            decoration: BoxDecoration(color: s.color.withOpacity(0.09), borderRadius: BorderRadius.circular(16), border: Border.all(color: s.color.withOpacity(0.12), width: 1)),
+            child: Icon(s.icon, color: s.color, size: 26),
           ),
-          const SizedBox(height: 14), // DISTANCE FIXE 14px
-          Text(
-            service.label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark? Colors.white : const Color(0xFF080E1F), height: 1.3, letterSpacing: -0.1),
-          ),
+          const SizedBox(height: 12), // DISTANCE ICONE-TEXTE CORRIGÉE
+          Text(s.label, textAlign: TextAlign.center, maxLines: 2, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF070F1E), height: 1.25)),
         ],
       ),
     );
