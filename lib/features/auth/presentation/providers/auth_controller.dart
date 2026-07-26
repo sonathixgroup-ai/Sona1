@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thix_id/auth/auth_controller.dart' as legacy;
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/auth/auth_manager.dart' show PhoneAuthSession;
+import 'package:thix_id/models/account_type.dart';
 
 final authControllerProvider = AsyncNotifierProvider<AuthControllerNotifier, AppUser?>(AuthControllerNotifier.new);
 
@@ -25,11 +26,66 @@ class AuthControllerNotifier extends AsyncNotifier<AppUser?> {
     }
   }
 
+  Future<AppUser> registerPersonal({required String email, required String password, required String displayName, required bool rememberMe, Map<String, dynamic>? profileDraft}) async {
+    state = const AsyncLoading();
+    try {
+      final user = await _auth.registerPersonal(email: email, password: password, displayName: displayName, rememberMe: rememberMe, profileDraft: profileDraft);
+      state = AsyncData(user);
+      return user;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      rethrow;
+    }
+  }
+
+  Future<AppUser> registerEnterprise({required String email, required String password, required String displayName, required bool rememberMe, Map<String, dynamic>? profileDraft}) async {
+    state = const AsyncLoading();
+    try {
+      final user = await _auth.registerEnterprise(email: email, password: password, displayName: displayName, rememberMe: rememberMe, profileDraft: profileDraft);
+      state = AsyncData(user);
+      return user;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      rethrow;
+    }
+  }
+
   Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) => _auth.startPhoneAuth(phoneNumber: phoneNumber);
 
-  Future<void> confirmPhoneCode({required PhoneAuthSession session, required String smsCode}) async {
+  Future<AppUser> confirmPhoneCode({required PhoneAuthSession session, required String smsCode, String? displayName, AccountType accountType = AccountType.personal}) async {
     state = const AsyncLoading();
-    final user = await _auth.confirmPhoneCode(session: session, smsCode: smsCode);
+    try {
+      final user = await _auth.confirmPhoneCode(session: session, smsCode: smsCode, displayName: displayName, accountType: accountType);
+      state = AsyncData(user);
+      return user;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      rethrow;
+    }
+  }
+
+  Future<void> verifyOTP({required String email, required String token}) async {
+    await _auth.verifyOTP(email: email, token: token);
+    state = AsyncData(_auth.currentUser);
+  }
+
+  Future<void> resendOTP({required String email}) async {
+    await _auth.resendOTP(email: email);
+  }
+
+  Future<void> signOut() async {
+    await _auth.signOut();
+    state = const AsyncData(null);
+  }
+
+  Future<AppUser> refreshCurrentUser() async {
+    final user = await _auth.refreshCurrentUser();
+    state = AsyncData(user);
+    return user;
+  }
+
+  Future<void> updateCurrentUser(AppUser user) async {
+    await _auth.updateCurrentUser(user);
     state = AsyncData(user);
   }
 }
