@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // <-- L'import manquant ajouté ici !
 
 import '../models/province.dart';
 import '../models/city.dart';
@@ -475,7 +476,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isBusy = true);
 
-    // MAPPAGE BLINDÉ : On parse les Strings en Int AVANT de les donner au fromJson
     final mappedCities = _cities.map((c) {
       final popStr = c['population']?.toString().trim() ?? '';
       return City.fromJson({
