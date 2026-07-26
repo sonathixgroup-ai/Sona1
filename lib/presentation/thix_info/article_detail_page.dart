@@ -1,6 +1,6 @@
 // lib/presentation/thix_info/article_detail_page.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // Import Riverpod
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -8,15 +8,15 @@ import 'package:share_plus/share_plus.dart';
 import '../../providers/news_provider.dart';
 import '../../models/news_article.dart';
 
-class ArticleDetailPage extends StatefulWidget {
+class ArticleDetailPage extends ConsumerStatefulWidget {
   final String articleId;
   const ArticleDetailPage({super.key, required this.articleId});
 
   @override
-  State<ArticleDetailPage> createState() => _ArticleDetailPageState();
+  ConsumerState<ArticleDetailPage> createState() => _ArticleDetailPageState();
 }
 
-class _ArticleDetailPageState extends State<ArticleDetailPage> {
+class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
   late NewsArticle _article;
   bool _isLoading = true;
   bool _isSaved = false;
@@ -28,9 +28,11 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
   }
 
   Future<void> _loadArticle() async {
-    final provider = context.read<NewsProvider>();
+    // Utilisation de ref.read
+    final provider = ref.read(newsProvider);
     final article = await provider.fetchArticleById(widget.articleId);
     if (article != null) {
+      if (!mounted) return;
       setState(() {
         _article = article;
         _isLoading = false;
@@ -41,22 +43,27 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
   }
 
   Future<void> _checkIfSaved() async {
-    final provider = context.read<NewsProvider>();
+    final provider = ref.read(newsProvider);
     final saved = await provider.isArticleSaved(widget.articleId);
-    setState(() => _isSaved = saved);
+    if (mounted) setState(() => _isSaved = saved);
   }
 
   Future<void> _toggleSave() async {
-    final provider = context.read<NewsProvider>();
+    final provider = ref.read(newsProvider);
     if (_isSaved) {
       await provider.unsaveArticle(widget.articleId);
     } else {
       await provider.saveArticle(widget.articleId);
     }
-    setState(() => _isSaved = !_isSaved);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_isSaved ? 'Article sauvegardé' : 'Retiré des favoris'), duration: Duration(seconds: 1)),
-    );
+    if (mounted) {
+      setState(() => _isSaved = !_isSaved);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isSaved ? 'Article sauvegardé' : 'Retiré des favoris'), 
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
   }
 
   Future<void> _shareArticle() async {
