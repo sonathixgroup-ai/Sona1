@@ -30,6 +30,6 @@ class AuthController extends ChangeNotifier {
   Future<void> signIn({required String identifier, required String password, required bool rememberMe}) async {}
   Future<void> verifyOTP({required String email, required String token}) async {}
   Future<void> resendOTP({required String email}) async {}
-  Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) async => PhoneAuthSession(phoneNumber);
+  Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) async => PhoneAuthSession();
   Future<void> confirmPhoneCode({required PhoneAuthSession session, required String smsCode, String? displayName, AccountType accountType = AccountType.personal}) async {}
 }
