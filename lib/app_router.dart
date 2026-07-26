@@ -471,7 +471,7 @@ class AppRouter {
         GoRoute(path: AppRoutes.thixEventWaitingQueue, name: 'thixEventWaitingQueue', pageBuilder: (_, state) => NoTransitionPage(child: WaitingQueuePage(eventId: state.pathParameters['eventId']!, requestedQuantity: int.tryParse(state.uri.queryParameters['quantity'] ?? '1') ?? 1))),
         GoRoute(path: '/thix-event/admin', name: 'thixEventAdmin', pageBuilder: (_, __) => const NoTransitionPage(child: AdminDashboard())),
         GoRoute(path: '/thix-event/admin/events', name: 'thixEventAdminEvents', pageBuilder: (_, __) => const NoTransitionPage(child: EventListAdminPage())),
-        GoRoute(path: '/thix-event/admin/events/create', name: 'thixEventAdminCreate', pageBuilder: (context, state) => NoTransitionPage(child: EventCreateEditPage(eventToEdit: state.extra))),
+        GoRoute(path: '/thix-event/admin/events/create', name: 'thixEventAdminCreate', pageBuilder: (context, state) => NoTransitionPage(child: EventCreateEditPage(eventToEdit: state.extra is Event ? state.extra as Event : null))),
         GoRoute(path: '/thix-event/admin/seats', name: 'thixEventAdminSeats', pageBuilder: (_, __) => const NoTransitionPage(child: SeatMapAdminPage())),
         GoRoute(path: '/thix-event/admin/bookings', name: 'thixEventAdminBookings', pageBuilder: (_, __) => const NoTransitionPage(child: BookingManagementPage())),
         GoRoute(path: '/thix-event/admin/queue', name: 'thixEventAdminQueue', pageBuilder: (_, __) => const NoTransitionPage(child: admin_queue.WaitingQueuePage())),
