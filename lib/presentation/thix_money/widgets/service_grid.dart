@@ -4,73 +4,109 @@ import 'package:go_router/go_router.dart';
 import 'package:thix_id/nav.dart';
 
 class _Service {
-  final String label; final Color color; final IconData icon; final String? route;
+  final String label;
+  final Color color; 
+  final IconData icon;
+  final String? route;
   const _Service({required this.label, required this.color, required this.icon, this.route});
 }
 
 class ServiceGrid extends StatelessWidget {
   const ServiceGrid({super.key});
-  static const ink = Color(0xFF070F1E);
-  static const line = Color(0xFFE8ECF3);
 
+  // Palette harmonisée et plus mature (Fintech Bank)
   static const _services = [
-    _Service(label: 'Envoyer', color: Color(0xFF2D5BFF), icon: Icons.send_rounded, route: AppRoutes.thixMoneySend),
-    _Service(label: 'Crédit', color: Color(0xFF2D5BFF), icon: Icons.bolt_rounded, route: AppRoutes.thixMoneyLoans),
-    _Service(label: 'Acheter Carte', color: Color(0xFF7C3AED), icon: Icons.credit_card_rounded, route: null),
-    _Service(label: 'Airtime', color: Color(0xFF0E9F6E), icon: Icons.call_rounded, route: null),
-    _Service(label: 'Mes Comptes', color: Color(0xFF0A1931), icon: Icons.link_rounded, route: null),
-    _Service(label: 'Transactions', color: Color(0xFFEA580C), icon: Icons.bar_chart_rounded, route: AppRoutes.thixMoneyLoans),
-    _Service(label: 'Marchand', color: Color(0xFFEA580C), icon: Icons.storefront_rounded, route: AppRoutes.thixMarket),
-    _Service(label: 'Support', color: Color(0xFF070F1E), icon: Icons.headset_mic_rounded, route: null),
-    _Service(label: 'Épargne', color: Color(0xFFC5A46A), icon: Icons.savings_rounded, route: AppRoutes.thixMoneySavings),
-    _Service(label: 'Tontine', color: Color(0xFF0EA5E9), icon: Icons.groups_rounded, route: AppRoutes.thixMoneyTontines),
-    _Service(label: 'Investir', color: Color(0xFFCA8A04), icon: Icons.trending_up_rounded, route: AppRoutes.thixMoneyInvestments),
-    _Service(label: 'Éducation', color: Color(0xFF0891B2), icon: Icons.school_rounded, route: AppRoutes.education),
+    _Service(label: 'Crédit', color: Color(0xFF1E3A8A), icon: Icons.bolt_outlined, route: AppRoutes.thixMoneyLoans), // Bleu Royal
+    _Service(label: 'Assurance', color: Color(0xFF0F766E), icon: Icons.security_outlined, route: null), // Sarcelle sombre
+    _Service(label: 'Épargne', color: Color(0xFFB45309), icon: Icons.savings_outlined, route: AppRoutes.thixMoneySavings), // Bronze/Or sombre
+    _Service(label: 'Change', color: Color(0xFF6D28D9), icon: Icons.currency_exchange_outlined, route: null), // Violet institutionnel
+    _Service(label: 'Marchand', color: Color(0xFFC2410C), icon: Icons.storefront_outlined, route: AppRoutes.thixMarket), // Cuivre
+    _Service(label: 'Dons', color: Color(0xFFBE123C), icon: Icons.favorite_border_rounded, route: null), // Rouge Carmin
+    _Service(label: 'Tontine', color: Color(0xFF0369A1), icon: Icons.groups_outlined, route: AppRoutes.thixMoneyTontines), // Bleu Océan
+    _Service(label: 'Éducation', color: Color(0xFF0E7490), icon: Icons.school_outlined, route: AppRoutes.education), // Cyan sombre
+    _Service(label: 'Virement', color: Color(0xFF1D4ED8), icon: Icons.language_outlined, route: AppRoutes.thixMoneySend), // Bleu Standard
+    _Service(label: 'Microfinance', color: Color(0xFF15803D), icon: Icons.account_balance_outlined, route: AppRoutes.thixMoneyLoans), // Vert forêt
+    _Service(label: 'Investir', color: Color(0xFFB45309), icon: Icons.show_chart_rounded, route: AppRoutes.thixMoneyInvestments), // Bronze
+    _Service(label: 'Planifier', color: Color(0xFF0F172A), icon: Icons.calendar_month_outlined, route: AppRoutes.thixMoneySavings), // Ardoise foncée
   ];
 
   @override
   Widget build(BuildContext context) {
+    // Encapsulation dans une belle carte blanche structurée (Inspiration Fyatu, mais identité Thix)
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: line)),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withOpacity(0.04), // Ombre très premium
+            blurRadius: 24, 
+            offset: const Offset(0, 8)
+          )
+        ]
+      ),
       child: GridView.builder(
-        shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 4,
-          mainAxisSpacing: 18, // ESPACE VERTICAL GÉNÉREUX
-          crossAxisSpacing: 10,
-          childAspectRatio: 0.78, // HAUTEUR POUR ÉVITER CHEVAUCHEMENT
+          mainAxisSpacing: 20, // Espacement aéré pour un look ordonné
+          crossAxisSpacing: 8,
+          childAspectRatio: 0.75, // Ajusté pour donner de la hauteur au bloc
         ),
         itemCount: _services.length,
         itemBuilder: (_, i) {
           final s = _services[i];
-          return _Tile(s: s);
+          
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque, 
+            onTap: () {
+              if (s.route != null && s.route!.isNotEmpty) {
+                context.push(s.route!);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${s.label.replaceAll('\n', ' ')} sera bientôt disponible !'),
+                    duration: const Duration(seconds: 2),
+                    backgroundColor: const Color(0xFF0F172A),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                );
+              }
+            },
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Container(
+                  width: 48, 
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: s.color.withOpacity(0.06), // Fond subtil
+                    borderRadius: BorderRadius.circular(14), // Plus carré (style iOS/Banque) au lieu du cercle
+                    border: Border.all(color: s.color.withOpacity(0.1), width: 1),
+                  ),
+                  child: Icon(s.icon, color: s.color, size: 22), 
+                ),
+                const SizedBox(height: 8), 
+                Text(
+                  s.label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11, 
+                    fontWeight: FontWeight.w700, 
+                    color: Color(0xFF334155), // Gris ardoise (texte lisible et mature)
+                    letterSpacing: -0.2
+                  ),
+                ),
+              ],
+            ),
+          );
         },
-      ),
-    );
-  }
-}
-
-class _Tile extends StatelessWidget {
-  final _Service s; const _Tile({required this.s});
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        if (s.route!= null && s.route!.isNotEmpty) context.push(s.route!);
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56, height: 56, // PLUS GRAND QUE FYATU
-            decoration: BoxDecoration(color: s.color.withOpacity(0.09), borderRadius: BorderRadius.circular(16), border: Border.all(color: s.color.withOpacity(0.12), width: 1)),
-            child: Icon(s.icon, color: s.color, size: 26),
-          ),
-          const SizedBox(height: 12), // DISTANCE ICONE-TEXTE CORRIGÉE
-          Text(s.label, textAlign: TextAlign.center, maxLines: 2, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF070F1E), height: 1.25)),
-        ],
       ),
     );
   }
