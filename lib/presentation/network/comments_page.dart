@@ -7,7 +7,7 @@ import 'package:thix_id/features/network/presentation/providers/comments_provide
 import 'package:thix_id/presentation/network/widgets/post_card.dart';
 import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 import 'package:timeago/timeago.dart' as timeago;
-
+import 'package:thix_id/features/network/presentation/providers/comments_provider.dart';
 class CommentsPage extends ConsumerStatefulWidget {
   final String postId;
   final String currentProfileId;
