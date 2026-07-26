@@ -278,7 +278,7 @@ class AppRouter {
     final refresh = extraRefreshListenable ?? auth;
     return GoRouter(
       initialLocation: AppRoutes.home,
-      refreshListenable: refresh,
+      refreshListenable: null,
       errorBuilder: (context, state) => Scaffold(
         backgroundColor: const Color(0xFF0B3D91),
         body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
