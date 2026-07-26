@@ -71,6 +71,13 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   String? _provinceId;
   bool _isBusy = false; 
 
+  // 🔑 CORRECTIF : compteur pour générer des clés STABLES et UNIQUES.
+  // Sans cela, Flutter réutilise le mauvais widget TextFormField pour le
+  // mauvais élément de liste à chaque rebuild (upload média, switch, ajout
+  // d'un autre élément...), ce qui fait "disparaître" le texte déjà tapé.
+  int _keyCounter = 0;
+  String _newKey() => 'k${_keyCounter++}_${DateTime.now().microsecondsSinceEpoch}';
+
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color redThix = Color(0xFFD32F2F);
   static const Color lightBg = Color(0xFFF6F7FB);
@@ -112,41 +119,48 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     _viceGovernorPhotoUrl = p?.viceGovernorPhotoUrl;
     _government = p?.government;
     
-    // Typage strict lors du chargement des listes pour éviter les crashs silencieux
-    _ministers = p?.ministers?.map<Map<String, dynamic>>((m) => <String, dynamic>{'name': m['name'] ?? '', 'role': m['role'] ?? '', 'photo_url': m['photoUrl'] ?? m['photo_url'] ?? ''}).toList() ?? <Map<String, dynamic>>[];
+    // 🔑 Chaque élément chargé reçoit désormais une '_localKey' stable
+    _ministers = p?.ministers?.map<Map<String, dynamic>>((m) => <String, dynamic>{'_localKey': _newKey(), 'name': m['name'] ?? '', 'role': m['role'] ?? '', 'photo_url': m['photoUrl'] ?? m['photo_url'] ?? ''}).toList() ?? <Map<String, dynamic>>[];
     
     _cities = p?.cities.map<Map<String, dynamic>>((c) => <String, dynamic>{
+      '_localKey': _newKey(),
       'id': c.id, 'province_id': c.provinceId, 'name': c.name, 'population': c.population?.toString() ?? '',
       'is_capital': c.isCapital, 'mayor': c.mayor ?? '', 'mayor_photo_url': c.mayorPhotoUrl ?? '',
       'media': c.media != null ? List<Map<String, dynamic>>.from(c.media!) : <Map<String, dynamic>>[],
     }).toList() ?? <Map<String, dynamic>>[];
 
     _economicSectors = p?.economicResources.map<Map<String, dynamic>>((e) => <String, dynamic>{
+      '_localKey': _newKey(),
       'id': e.id, 'province_id': e.provinceId, 'name': e.name, 'description': e.description ?? '',
       'media': e.media != null ? List<Map<String, dynamic>>.from(e.media!) : <Map<String, dynamic>>[],
     }).toList() ?? <Map<String, dynamic>>[];
 
     _tourismSites = p?.tourismSites.map<Map<String, dynamic>>((t) => <String, dynamic>{
+      '_localKey': _newKey(),
       'id': t.id, 'province_id': t.provinceId, 'name': t.name, 'type': t.type, 'description': t.description ?? '',
       'media': t.media != null ? List<Map<String, dynamic>>.from(t.media!) : <Map<String, dynamic>>[],
     }).toList() ?? <Map<String, dynamic>>[];
 
     _emergencyContacts = p?.emergencyContacts.map<Map<String, dynamic>>((e) => <String, dynamic>{
+      '_localKey': _newKey(),
       'id': e.id, 'province_id': e.provinceId, 'service': e.service, 'phone': e.phone
     }).toList() ?? <Map<String, dynamic>>[];
     
     _administrativeDivisions = p?.administrativeDivisions.map<Map<String, dynamic>>((a) => <String, dynamic>{
+      '_localKey': _newKey(),
       'id': a.id, 'province_id': a.provinceId, 'type': a.type, 'name': a.name, 'capital': a.capital ?? '', 
       'population': a.population?.toString() ?? '', 'area': a.area?.toString() ?? '', 'administrator': a.administrator ?? '',
       'media': a.media != null ? List<Map<String, dynamic>>.from(a.media!) : <Map<String, dynamic>>[],
     }).toList() ?? <Map<String, dynamic>>[];
 
     _achievements = p?.achievements?.map<Map<String, dynamic>>((a) => <String, dynamic>{
+      '_localKey': _newKey(),
       'title': a['title'] ?? '', 'description': a['description'] ?? '', 'date': a['date'] ?? '', 'location': a['location'] ?? '',
       'media': a['media'] != null ? List<Map<String, dynamic>>.from(a['media']) : <Map<String, dynamic>>[],
     }).toList() ?? <Map<String, dynamic>>[];
 
     _tribes = p?.tribes?.map<Map<String, dynamic>>((tr) => <String, dynamic>{
+      '_localKey': _newKey(),
       'name': tr['name'] ?? '', 'zone': tr['zone'] ?? '', 'history': tr['history'] ?? '',
       'media': tr['media'] != null ? List<Map<String, dynamic>>.from(tr['media']) : <Map<String, dynamic>>[],
     }).toList() ?? <Map<String, dynamic>>[];
@@ -246,11 +260,12 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                     _buildImagePickerRow('Photo du Vice-Gouverneur', _viceGovernorPhotoUrl, 'governors', (url) => setState(() => _viceGovernorPhotoUrl = url)), const SizedBox(height: 16),
                     _buildTextField(_territoriesCountController, 'Nombre de territoires / Villes', Icons.format_list_numbered, isNumber: true),
                     const Divider(height: 32),
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [ const Text('Ministres', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: navyDeep)), ElevatedButton.icon(onPressed: () => setState(() => _ministers.add(<String, dynamic>{'name': '', 'role': '', 'photo_url': ''})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white)) ]),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [ const Text('Ministres', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: navyDeep)), ElevatedButton.icon(onPressed: () => setState(() => _ministers.add(<String, dynamic>{'_localKey': _newKey(), 'name': '', 'role': '', 'photo_url': ''})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white)) ]),
                     const SizedBox(height: 12),
                     ..._ministers.asMap().entries.map((entry) {
                       int index = entry.key; var minister = entry.value;
                       return Container(
+                        key: ValueKey(minister['_localKey'] ?? index),
                         margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
                         child: Column(children: [
                           Row(children: [Text('Ministre #${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)), const Spacer(), IconButton(icon: const Icon(Icons.delete, color: redThix, size: 20), onPressed: () => setState(() => _ministers.removeAt(index)))]),
@@ -267,11 +282,12 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                     _buildTextField(_resourcesController, 'Ressources principales', Icons.diamond), const SizedBox(height: 12),
                     _buildTextField(_descriptionController, 'Description générale & Traditions', Icons.description, maxLines: 3),
                     const Divider(height: 32),
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [ const Text('Peuples & Tribus', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: navyDeep)), ElevatedButton.icon(onPressed: () => setState(() => _tribes.add(<String, dynamic>{'name': '', 'zone': '', 'history': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white)) ]),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [ const Text('Peuples & Tribus', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: navyDeep)), ElevatedButton.icon(onPressed: () => setState(() => _tribes.add(<String, dynamic>{'_localKey': _newKey(), 'name': '', 'zone': '', 'history': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white)) ]),
                     const SizedBox(height: 12),
                     ..._tribes.asMap().entries.map((entry) {
                       int index = entry.key; var tribe = entry.value;
                       return Container(
+                        key: ValueKey(tribe['_localKey'] ?? index),
                         margin: const EdgeInsets.only(bottom: 16), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
                         child: Column(children: [
                           Row(children: [Text('Tribu #${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)), const Spacer(), IconButton(icon: const Icon(Icons.delete, color: redThix, size: 20), onPressed: () => setState(() => _tribes.removeAt(index)))]),
@@ -285,11 +301,12 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ]), const SizedBox(height: 16),
 
                   _buildSectionCard(title: 'Villes Principales', icon: Icons.location_city, children: [
-                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _cities.add(<String, dynamic>{'id': null, 'province_id': _provinceId, 'name': '', 'population': '', 'is_capital': false, 'mayor': '', 'mayor_photo_url': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter une ville'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
+                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _cities.add(<String, dynamic>{'_localKey': _newKey(), 'id': null, 'province_id': _provinceId, 'name': '', 'population': '', 'is_capital': false, 'mayor': '', 'mayor_photo_url': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter une ville'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
                     ..._cities.asMap().entries.map((entry) {
                       int index = entry.key; var city = entry.value;
                       return Container(
+                        key: ValueKey(city['_localKey'] ?? index),
                         margin: const EdgeInsets.only(bottom: 16), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Row(children: [Text('Ville #${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)), const Spacer(), Switch(value: city['is_capital'] ?? false, onChanged: (v) => setState(() => _cities[index]['is_capital'] = v), activeColor: redThix), const Text('Chef-lieu', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), IconButton(icon: const Icon(Icons.delete, color: redThix, size: 20), onPressed: () => setState(() => _cities.removeAt(index)))]),
@@ -304,11 +321,12 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ]), const SizedBox(height: 16),
 
                   _buildSectionCard(title: 'Économie & Secteurs Clés', icon: Icons.monetization_on, children: [
-                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _economicSectors.add(<String, dynamic>{'id': null, 'province_id': _provinceId, 'name': '', 'description': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter un secteur'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
+                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _economicSectors.add(<String, dynamic>{'_localKey': _newKey(), 'id': null, 'province_id': _provinceId, 'name': '', 'description': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter un secteur'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
                     ..._economicSectors.asMap().entries.map((entry) {
                       int index = entry.key; var sector = entry.value;
                       return Container(
+                        key: ValueKey(sector['_localKey'] ?? index),
                         margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
                         child: Column(children: [
                           Row(children: [Text('Secteur #${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)), const Spacer(), IconButton(icon: const Icon(Icons.delete, color: redThix, size: 20), onPressed: () => setState(() => _economicSectors.removeAt(index)))]),
@@ -321,11 +339,12 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ]), const SizedBox(height: 16),
 
                   _buildSectionCard(title: 'Tourisme & Sites Remarquables', icon: Icons.landscape, children: [
-                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _tourismSites.add(<String, dynamic>{'id': null, 'province_id': _provinceId, 'name': '', 'type': '', 'description': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter un site'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
+                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _tourismSites.add(<String, dynamic>{'_localKey': _newKey(), 'id': null, 'province_id': _provinceId, 'name': '', 'type': '', 'description': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter un site'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
                     ..._tourismSites.asMap().entries.map((entry) {
                       int index = entry.key; var site = entry.value;
                       return Container(
+                        key: ValueKey(site['_localKey'] ?? index),
                         margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
                         child: Column(children: [
                           Row(children: [Text('Site #${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)), const Spacer(), IconButton(icon: const Icon(Icons.delete, color: redThix, size: 20), onPressed: () => setState(() => _tourismSites.removeAt(index)))]),
@@ -339,11 +358,12 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ]), const SizedBox(height: 16),
 
                   _buildSectionCard(title: 'Découpage Administratif (Détaillé)', icon: Icons.dashboard_customize, children: [
-                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _administrativeDivisions.add(<String, dynamic>{'id': null, 'province_id': _provinceId, 'type': 'Territoire', 'name': '', 'capital': '', 'population': '', 'area': '', 'administrator': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter une division'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
+                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _administrativeDivisions.add(<String, dynamic>{'_localKey': _newKey(), 'id': null, 'province_id': _provinceId, 'type': 'Territoire', 'name': '', 'capital': '', 'population': '', 'area': '', 'administrator': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter une division'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
                     ..._administrativeDivisions.asMap().entries.map((entry) {
                       int index = entry.key; var div = entry.value;
                       return Container(
+                        key: ValueKey(div['_localKey'] ?? index),
                         margin: const EdgeInsets.only(bottom: 16), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
                         child: Column(children: [
                           Row(children: [Text('Division #${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)), const Spacer(), IconButton(icon: const Icon(Icons.delete, color: redThix, size: 20), onPressed: () => setState(() => _administrativeDivisions.removeAt(index)))]),
@@ -358,11 +378,12 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ]), const SizedBox(height: 16),
 
                   _buildSectionCard(title: 'Réalisations Majeures', icon: Icons.emoji_events, children: [
-                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _achievements.add(<String, dynamic>{'title': '', 'description': '', 'date': '', 'location': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
+                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _achievements.add(<String, dynamic>{'_localKey': _newKey(), 'title': '', 'description': '', 'date': '', 'location': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
                     ..._achievements.asMap().entries.map((entry) {
                       int index = entry.key; var ach = entry.value;
                       return Container(
+                        key: ValueKey(ach['_localKey'] ?? index),
                         margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
                         child: Column(children: [
                           Row(children: [Text('Projet #${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)), const Spacer(), IconButton(icon: const Icon(Icons.delete, color: redThix, size: 20), onPressed: () => setState(() => _achievements.removeAt(index)))]),
@@ -376,11 +397,13 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ]), const SizedBox(height: 16),
 
                   _buildSectionCard(title: 'Urgences & Contacts', icon: Icons.emergency, children: [
-                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _emergencyContacts.add(<String, dynamic>{'id': null, 'province_id': _provinceId, 'service': '', 'phone': ''})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
+                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _emergencyContacts.add(<String, dynamic>{'_localKey': _newKey(), 'id': null, 'province_id': _provinceId, 'service': '', 'phone': ''})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
                     ..._emergencyContacts.asMap().entries.map((entry) {
                       int index = entry.key; var emergency = entry.value;
-                      return Container(margin: const EdgeInsets.only(bottom: 8), child: Row(children: [
+                      return Container(
+                        key: ValueKey(emergency['_localKey'] ?? index),
+                        margin: const EdgeInsets.only(bottom: 8), child: Row(children: [
                         Expanded(child: TextFormField(initialValue: emergency['service'], onChanged: (v) => _emergencyContacts[index]['service'] = v, decoration: _inputDecoration('Service', Icons.local_hospital))), const SizedBox(width: 8),
                         Expanded(child: TextFormField(initialValue: emergency['phone'], onChanged: (v) => _emergencyContacts[index]['phone'] = v, decoration: _inputDecoration('Numéro', Icons.phone))),
                         IconButton(icon: const Icon(Icons.delete, color: redThix), onPressed: () => setState(() => _emergencyContacts.removeAt(index))),
@@ -474,7 +497,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   String? _requiredValidator(String? value) => (value == null || value.trim().isEmpty) ? 'Requis' : null;
   
   void _save() async {
-    // 1. GESTION DES ERREURS DE VALIDATION (Si on oublie un champ obligatoire)
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ Veuillez remplir les champs obligatoires (avec *).'), backgroundColor: Colors.orange));
       return;
@@ -482,8 +504,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     setState(() => _isBusy = true);
 
     try {
-      // 2. DIAGNOSTIC PAR SECTION (L'erreur affichera exactement la section coupable)
-      
       List<City> mappedCities = [];
       try {
         mappedCities = _cities.map((c) {
@@ -587,7 +607,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
         );
       } catch(e) { throw 'Construction de la province (Infos Générales) : $e'; }
       
-      // 3. ENREGISTREMENT SUPABASE
       if (_isEditing) {
         await ref.read(adminProvincesProvider.notifier).updateProvince(province);
       } else {
@@ -602,7 +621,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isBusy = false);
-        // C'est ICI que l'erreur spécifique va s'afficher (ex: "❌ Erreur : Section Villes Principales : TypeError...")
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Erreur : $e'), backgroundColor: Colors.red, duration: const Duration(seconds: 10), action: SnackBarAction(label: 'Fermer', textColor: Colors.white, onPressed: () {})));
       }
     }
