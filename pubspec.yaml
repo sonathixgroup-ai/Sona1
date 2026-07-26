@@ -24,7 +24,7 @@ dependencies:
 
   # State Management - MODERNE
   flutter_riverpod: ^2.6.1
-  riverpod_annotation: ^2.6.1
+  riverpod_annotation: ^2.3.5
   provider: ^6.1.2 # temporaire pour AppRouter
 
   # Backend & API
@@ -69,14 +69,11 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
   
-  # BUILD - VERSIONS PINS COMPATIBLES DART 3.6
-  build_runner: 2.4.13
-  json_serializable: 6.8.0
-  hive_generator: 2.0.1
-  riverpod_generator: 2.6.3
-
-dependency_overrides:
-  analyzer: 6.8.0
+  # BUILD - VERSIONS COMPATIBLES DART 3.6
+  build_runner: ^2.4.13
+  json_serializable: ^6.8.0
+  hive_generator: ^2.0.1
+  riverpod_generator: ^2.4.3
 
 flutter:
   uses-material-design: true
