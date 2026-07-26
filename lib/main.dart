@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -12,17 +13,56 @@ import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await SupabaseConfig.initialize().timeout(const Duration(seconds: 6));
-  } catch (e) {
-    debugPrint('Supabase init: $e');
-  }
-  FlutterError.onError = (d) {
-    debugPrint('FlutterError: ${d.exceptionAsString()}');
-    if (kDebugMode) FlutterError.presentError(d);
-  };
-  runApp(const ProviderScope(child: MyApp()));
+  // 🔑 CORRECTIF : runZonedGuarded attrape TOUTES les erreurs asynchrones
+  // non capturées (ex: dans redirect de GoRouter, dans un Future oublié,
+  // dans un listener déclenché par notifyListeners()...). Sans ça, une
+  // telle erreur ne remonte nulle part et l'app reste figée sur l'écran
+  // gris par défaut du moteur Flutter, sans aucun message.
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    // 🔑 CORRECTIF : si un widget plante pendant son build (erreur rouge
+    // Flutter classique), on affiche un écran bleu visible et exploitable
+    // au lieu du "grey screen of death" par défaut en profil release/web.
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      debugPrint('ErrorWidget: ${details.exceptionAsString()}');
+      return Material(
+        color: const Color(0xFF0B3D91),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Une erreur est survenue :\n${details.exceptionAsString()}',
+              style: const TextStyle(color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    };
+
+    try {
+      await SupabaseConfig.initialize().timeout(const Duration(seconds: 6));
+    } catch (e) {
+      debugPrint('Supabase init: $e');
+    }
+
+    FlutterError.onError = (d) {
+      debugPrint('FlutterError: ${d.exceptionAsString()}');
+      if (kDebugMode) FlutterError.presentError(d);
+    };
+
+    // 🔑 CORRECTIF : capture aussi les erreurs qui remontent au niveau
+    // plateforme (web notamment), en plus de FlutterError.onError.
+    PlatformDispatcher.instance.onError = (error, stack) {
+      debugPrint('PlatformDispatcher error: $error\n$stack');
+      return true; // erreur gérée, ne fait pas planter le moteur
+    };
+
+    runApp(const ProviderScope(child: MyApp()));
+  }, (error, stack) {
+    debugPrint('Uncaught zone error: $error\n$stack');
+  });
 }
 
 class MyApp extends ConsumerStatefulWidget {
@@ -34,7 +74,7 @@ class MyApp extends ConsumerStatefulWidget {
 class _MyAppState extends ConsumerState<MyApp> {
   late final AuthController _auth;
   late final LocaleController _locale;
-  late final dynamic _router;
+  dynamic _router;
   String? _error;
 
   @override
@@ -42,11 +82,15 @@ class _MyAppState extends ConsumerState<MyApp> {
     super.initState();
     _locale = LocaleController()..init();
     _auth = AuthController(auth: SupabaseAuthManager(profiles: ProfileService()));
-    
+
     // Auth en background, ne bloque JAMAIS le first frame
     _auth.init().catchError((e) {
       debugPrint('Auth error: $e');
-      setState(() => _error = e.toString());
+      // 🔑 CORRECTIF : on ne bloque PAS l'app sur une erreur d'auth async.
+      // L'ancien code faisait setState(() => _error = e.toString()), ce
+      // qui affichait un écran d'erreur permanent même si l'app avait déjà
+      // démarré normalement (ex: juste un souci réseau transitoire lors de
+      // la restauration de session). On journalise seulement.
     });
 
     try {
@@ -59,13 +103,13 @@ class _MyAppState extends ConsumerState<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
+    if (_error != null || _router == null) {
       return MaterialApp(
         home: Scaffold(
           backgroundColor: const Color(0xFF0B3D91),
           body: Center(child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('Erreur: $_error', style: const TextStyle(color: Colors.white)),
+            child: Text('Erreur: ${_error ?? "Initialisation du routeur impossible"}', style: const TextStyle(color: Colors.white)),
           )),
         ),
       );
