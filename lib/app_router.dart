@@ -14,7 +14,7 @@ import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/providers/feed_provider.dart';
 
 import 'presentation/home/home_page.dart';
-import 'package:thix_id/features/auth/presentation/pages/login_page.dart';
+import 'package:thix_id/presentation/auth/login_page.dart';
 import 'presentation/auth/personal_registration_page.dart';
 import 'presentation/auth/enterprise_registration_page.dart';
 import 'presentation/payment/payment_gateway_page.dart';
@@ -169,7 +169,7 @@ import 'presentation/thix_money/thix_money_router.dart';
 import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
 import 'package:thix_id/presentation/thix_media/video_player_page.dart';
 import 'package:thix_id/presentation/thix_media/admin/thix_media_admin_page.dart';
-import 'package:thix_id/presentation/thix_reservation_home_page.dart';
+import 'package:thix_id/presentation/thix_reservation/thix_reservation_home_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
 import 'package:thix_id/models/chat/chat_conversation.dart';
