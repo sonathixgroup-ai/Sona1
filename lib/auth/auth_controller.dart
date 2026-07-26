@@ -1,70 +1,74 @@
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:thix_id/auth/auth_manager.dart';
+import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/models/app_user.dart';
-import 'package:thix_id/models/account_type.dart';
-import 'package:thix_id/auth/auth_manager.dart' show PhoneAuthSession;
+import 'package:thix_id/services/profile_service.dart';
 
 class AuthController extends ChangeNotifier {
-  final dynamic _authManager;
-  AuthController({dynamic auth}) : _authManager = auth;
+  static AuthController? _instance;
+  static AuthController get instance => _instance ??= AuthController();
 
-  AppUser? _appUser;
-  AppUser? get currentUser => _appUser;
-  bool get isAuthenticated => Supabase.instance.client.auth.currentUser != null || _appUser != null;
+  final AuthManager _auth;
 
-  Future<void> init() async {
-    try {
-      await _authManager?.init();
-      final supaUser = Supabase.instance.client.auth.currentUser;
-      if (supaUser != null) {
-        await _loadAppUser(supaUser.id);
-      }
-    } catch (e) {
-      debugPrint('Auth init error: $e');
-    }
+  AuthController({AuthManager? auth}) : _auth = auth ?? SupabaseAuthManager(profiles: ProfileService()) {
+    _instance ??= this;
+    _auth.currentUserListenable.addListener(notifyListeners);
   }
 
-  Future<void> _loadAppUser(String userId) async {
-    try {
-      final data = await Supabase.instance.client.from('profiles').select().eq('id', userId).maybeSingle();
-      if (data != null) {
-        _appUser = AppUser.fromJson(data); // si tu as fromJson, sinon adapte
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('Load profile error: $e');
-    }
+  AppUser? get currentUser => _auth.currentUser;
+  bool get isAuthenticated => currentUser != null;
+
+  Future<void> init() => _auth.init();
+
+  Future<AppUser> signIn({required String identifier, required String password, required bool rememberMe}) async {
+    final u = await _auth.signInWithEmailOrThixId(identifier: identifier, password: password, rememberMe: rememberMe);
+    notifyListeners();
+    return u;
   }
 
-  Future<void> signIn({required String identifier, required String password, required bool rememberMe}) async {
-    String email = identifier.trim();
-    // Si c'est un TX-ID, on cherche l'email
-    if (!email.contains('@')) {
-      final res = await Supabase.instance.client.from('profiles').select('email').eq('thix_id', email).maybeSingle();
-      if (res == null || res['email'] == null) throw Exception('THIX ID introuvable');
-      email = res['email'];
-    }
+  Future<AppUser> registerPersonal({required String email, required String password, required String displayName, required bool rememberMe, Map<String, dynamic>? profileDraft}) async {
+    final u = await _auth.registerWithEmail(email: email, password: password, displayName: displayName, accountType: AccountType.personal, rememberMe: rememberMe, profileDraft: profileDraft);
+    notifyListeners();
+    return u;
+  }
 
-    final res = await Supabase.instance.client.auth.signInWithPassword(email: email, password: password);
-    if (res.user == null) throw Exception('Identifiants invalides');
-    await _loadAppUser(res.user!.id);
+  Future<AppUser> registerEnterprise({required String email, required String password, required String displayName, required bool rememberMe, Map<String, dynamic>? profileDraft}) async {
+    final u = await _auth.registerWithEmail(email: email, password: password, displayName: displayName, accountType: AccountType.enterprise, rememberMe: rememberMe, profileDraft: profileDraft);
+    notifyListeners();
+    return u;
+  }
+
+  Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) => _auth.startPhoneAuth(phoneNumber: phoneNumber);
+  
+  Future<AppUser> confirmPhoneCode({required PhoneAuthSession session, required String smsCode, String? displayName, AccountType accountType = AccountType.personal}) async {
+    final u = await _auth.confirmPhoneCode(session: session, smsCode: smsCode, displayName: displayName, accountType: accountType);
+    notifyListeners();
+    return u;
   }
 
   Future<void> signOut() async {
-    await Supabase.instance.client.auth.signOut();
-    _appUser = null;
+    await _auth.signOut();
     notifyListeners();
   }
 
-  // Laisse le reste en délégation
-  Future<void> registerPersonal({required String email, required String password, required String displayName, required bool rememberMe, Map<String, dynamic>? profileDraft}) async {
-    await _authManager?.registerPersonal(email: email, password: password, displayName: displayName, rememberMe: rememberMe, profileDraft: profileDraft);
+  Future<void> updateCurrentUser(AppUser user) async {
+    await _auth.updateCurrentUser(user);
+    notifyListeners();
   }
-  Future<void> registerEnterprise({required String email, required String password, required String displayName, required bool rememberMe, Map<String, dynamic>? profileDraft}) async {
-    await _authManager?.registerEnterprise(email: email, password: password, displayName: displayName, rememberMe: rememberMe, profileDraft: profileDraft);
+
+  Future<void> verifyOTP({required String email, required String token}) async {
+    await _auth.verifyOTP(email: email, token: token);
+    notifyListeners();
   }
-  Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) async => PhoneAuthSession();
-  Future<void> confirmPhoneCode({required PhoneAuthSession session, required String smsCode, String? displayName, AccountType accountType = AccountType.personal}) async {}
-  Future<void> verifyOTP({required String email, required String token}) async {}
-  Future<void> resendOTP({required String email}) async {}
+
+  Future<AppUser> refreshCurrentUser() async {
+    final user = await _auth.refreshCurrentUser();
+    notifyListeners();
+    return user;
+  }
+
+  Future<void> resendOTP({required String email}) async {
+    await _auth.resendOTP(email: email);
+    notifyListeners();
+  }
 }
