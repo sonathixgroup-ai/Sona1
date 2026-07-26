@@ -1,10 +1,9 @@
-// lib/presentation/thix_market/cart/cart_summary_widget.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
-import 'package:thix_id/auth/auth_controller.dart';
+import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 
-class CartSummaryWidget extends StatelessWidget {
+class CartSummaryWidget extends ConsumerWidget {
   final double subtotal;
   final double originalSubtotal;
   final double discount;
@@ -34,8 +33,9 @@ class CartSummaryWidget extends StatelessWidget {
   String _fmt(double v) => '${v.toInt()} $currency';
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final hasDiscount = discount > 0.5;
+    final isLoggedIn = ref.watch(authControllerProvider).valueOrNull!= null;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -51,17 +51,12 @@ class CartSummaryWidget extends StatelessWidget {
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(4))),
             const SizedBox(height: 16),
-
-            // Sous-total (prix barré si remise)
             _row('Sous-total ($itemCount ${itemCount>1?'articles':'article'})', _fmt(hasDiscount? originalSubtotal : subtotal), hasDiscount? originalSubtotal : subtotal, isMuted: false),
-
             if (hasDiscount)...[
               const SizedBox(height: 6),
               _row('Remise', '-${_fmt(discount)}', discount, valueColor: const Color(0xFF00B074), icon: Icons.local_offer_outlined),
             ],
-
             const SizedBox(height: 6),
-            // ✅ LIVRAISON = fixée par vendeur
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -73,17 +68,13 @@ class CartSummaryWidget extends StatelessWidget {
                 Text(shippingCost==0? '0 $currency' : _fmt(shippingCost), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: darkText)),
               ],
             ),
-            if (shippingCost==0)
-              const Align(alignment: Alignment.centerLeft, child: Padding(padding: EdgeInsets.only(top: 2), child: Text('Frais fixés par la boutique à la confirmation', style: TextStyle(fontSize: 11, color: mutedText, fontStyle: FontStyle.italic)))),
-
             const Divider(height: 24, thickness: 1),
             _row('Total', _fmt(total), total, isTotal: true),
-
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity, height: 54,
               child: ElevatedButton(
-                onPressed: ()=> _checkout(context),
+                onPressed: ()=> _checkout(context, isLoggedIn),
                 style: ElevatedButton.styleFrom(backgroundColor: primaryBlue, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
                 child: const Text('Continuer vers la validation', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
               ),
@@ -107,8 +98,7 @@ class CartSummaryWidget extends StatelessWidget {
     );
   }
 
-  void _checkout(BuildContext context){
-    final isLoggedIn = context.read<AuthController>().isAuthenticated;
+  void _checkout(BuildContext context, bool isLoggedIn){
     if(!isLoggedIn){ context.go('/login'); return; }
     context.push('/market/checkout');
   }
