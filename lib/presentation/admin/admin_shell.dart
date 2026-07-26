@@ -1,17 +1,430 @@
 // lib/presentation/admin/admin_shell.dart
+
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
-import 'package:thix_id/auth/auth_controller.dart';
+import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
 import 'package:thix_id/services/admin_rbac_service.dart';
 import 'package:thix_id/theme.dart';
 
+//... _AdminColors reste identique...
+
+class AdminShell extends ConsumerStatefulWidget {
+  final AdminModule module;
+  final Widget child;
+  final String? role;
+
+  const AdminShell({super.key, required this.module, required this.child, required this.role});
+
+  @override
+  ConsumerState<AdminShell> createState() => _AdminShellState();
+}
+
+class _AdminShellState extends ConsumerState<AdminShell> {
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isDesktop = width >= 1000;
+    final isTablet = width >= 720;
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        scaffoldBackgroundColor: _AdminColors.black,
+        cardTheme: Theme.of(context).cardTheme.copyWith(
+              color: _AdminColors.panel,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                side: const BorderSide(color: _AdminColors.stroke, width: 1),
+              ),
+            ),
+      ),
+      child: Scaffold(
+        drawer: (!isTablet)? Drawer(child: _AdminDrawer(module: widget.module, role: widget.role)) : null,
+        body: Stack(
+          children: [
+            const _AdminBackground(),
+            SafeArea(
+              child: Row(
+                children: [
+                  if (isTablet) _AdminSidebarRail(module: widget.module, role: widget.role),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        AdminTopBar(
+                          isDesktop: isDesktop,
+                          role: widget.role,
+                          searchController: _searchController,
+                          searchFocus: _searchFocus,
+                        ),
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            child: KeyedSubtree(
+                              key: ValueKey(widget.module.slug),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+                                child: widget.child,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+//... _AdminBackground, _GlowBlob restent identiques...
+
+class AdminTopBar extends ConsumerWidget {
+  final bool isDesktop;
+  final String? role;
+  final TextEditingController searchController;
+  final FocusNode searchFocus;
+
+  const AdminTopBar({
+    super.key,
+    required this.isDesktop,
+    required this.role,
+    required this.searchController,
+    required this.searchFocus,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authControllerProvider);
+    final user = authState.valueOrNull;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm),
+      child: Row(
+        children: [
+          if (!isDesktop)
+            Builder(
+              builder: (context) => _GlassIconButton(
+                icon: Icons.menu_rounded,
+                tooltip: 'Menu',
+                onTap: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+          if (!isDesktop) const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: _GlassSearchField(controller: searchController, focusNode: searchFocus),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _GlassIconButton(
+            icon: Icons.notifications_none_rounded,
+            tooltip: 'Notifications',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notification center (coming soon)')));
+            },
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _GlassPill(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: _AdminColors.glowViolet(),
+                  ),
+                  child: const Icon(Icons.shield_rounded, size: 18, color: Colors.white),
+                ),
+                const SizedBox(width: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        user?.displayName?? 'Admin',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: _AdminColors.text,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: role!= null? _AdminColors.success : _AdminColors.error,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            (role?? 'No role').toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: _AdminColors.textDim,
+                                  letterSpacing: 0.5,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _GlassIconButton(
+                  icon: Icons.logout_rounded,
+                  tooltip: 'Déconnexion',
+                  onTap: () async {
+                    await ref.read(authControllerProvider.notifier).signOut();
+                    if (!context.mounted) return;
+                    context.go(AppRoutes.home);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+//... le reste _GlassSearchField, _AdminSidebarRail, etc. garde ton code...
+//... _AdminColors reste identique...
+
+class AdminShell extends ConsumerStatefulWidget {
+  final AdminModule module;
+  final Widget child;
+  final String? role;
+
+  const AdminShell({super.key, required this.module, required this.child, required this.role});
+
+  @override
+  ConsumerState<AdminShell> createState() => _AdminShellState();
+}
+
+class _AdminShellState extends ConsumerState<AdminShell> {
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isDesktop = width >= 1000;
+    final isTablet = width >= 720;
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        scaffoldBackgroundColor: _AdminColors.black,
+        cardTheme: Theme.of(context).cardTheme.copyWith(
+              color: _AdminColors.panel,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                side: const BorderSide(color: _AdminColors.stroke, width: 1),
+              ),
+            ),
+      ),
+      child: Scaffold(
+        drawer: (!isTablet)? Drawer(child: _AdminDrawer(module: widget.module, role: widget.role)) : null,
+        body: Stack(
+          children: [
+            const _AdminBackground(),
+            SafeArea(
+              child: Row(
+                children: [
+                  if (isTablet) _AdminSidebarRail(module: widget.module, role: widget.role),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        AdminTopBar(
+                          isDesktop: isDesktop,
+                          role: widget.role,
+                          searchController: _searchController,
+                          searchFocus: _searchFocus,
+                        ),
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            child: KeyedSubtree(
+                              key: ValueKey(widget.module.slug),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+                                child: widget.child,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+//... _AdminBackground, _GlowBlob restent identiques...
+
+class AdminTopBar extends ConsumerWidget {
+  final bool isDesktop;
+  final String? role;
+  final TextEditingController searchController;
+  final FocusNode searchFocus;
+
+  const AdminTopBar({
+    super.key,
+    required this.isDesktop,
+    required this.role,
+    required this.searchController,
+    required this.searchFocus,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authControllerProvider);
+    final user = authState.valueOrNull;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm),
+      child: Row(
+        children: [
+          if (!isDesktop)
+            Builder(
+              builder: (context) => _GlassIconButton(
+                icon: Icons.menu_rounded,
+                tooltip: 'Menu',
+                onTap: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+          if (!isDesktop) const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: _GlassSearchField(controller: searchController, focusNode: searchFocus),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _GlassIconButton(
+            icon: Icons.notifications_none_rounded,
+            tooltip: 'Notifications',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notification center (coming soon)')));
+            },
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _GlassPill(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: _AdminColors.glowViolet(),
+                  ),
+                  child: const Icon(Icons.shield_rounded, size: 18, color: Colors.white),
+                ),
+                const SizedBox(width: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        user?.displayName?? 'Admin',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: _AdminColors.text,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: role!= null? _AdminColors.success : _AdminColors.error,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            (role?? 'No role').toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: _AdminColors.textDim,
+                                  letterSpacing: 0.5,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _GlassIconButton(
+                  icon: Icons.logout_rounded,
+                  tooltip: 'Déconnexion',
+                  onTap: () async {
+                    await ref.read(authControllerProvider.notifier).signOut();
+                    if (!context.mounted) return;
+                    context.go(AppRoutes.home);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+//... le reste _GlassSearchField, _AdminSidebarRail, etc. garde ton code...
 // ============================================================
 // COULEURS ADMIN - Définies localement pour éviter les conflits
 // ============================================================
