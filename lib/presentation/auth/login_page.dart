@@ -2,14 +2,13 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // Import Riverpod
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../../nav.dart';
-import '../../../../theme.dart';
-import '../../../model/app_user.dart';
-import '../providers/auth_controller.dart'; // Ton nouveau provider généré
-
+import 'package:thix_id/nav.dart';
+import 'package:thix_id/theme.dart';
+import 'package:thix_id/model/app_user.dart';
+import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 typedef PhoneAuthSession = dynamic;
 
 // ---------------------------------------------------------------------------
