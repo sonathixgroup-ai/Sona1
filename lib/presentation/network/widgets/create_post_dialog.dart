@@ -7,7 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
-import 'package:thix_id/features/network/presentation/providers/feed_provider.dart';
+import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/services/ai/ai_service.dart';
 
 class _DialogColors {
