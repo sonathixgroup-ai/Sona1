@@ -69,11 +69,16 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
   
-  # BUILD - VERSIONS COMPATIBLES DART 3.6
+  # BUILD - Versions alignées pour éviter le conflit analyzer / macros
   build_runner: ^2.4.13
   json_serializable: ^6.8.0
   hive_generator: ^2.0.1
-  riverpod_generator: ^2.4.3
+  riverpod_generator: ^2.4.0
+  
+  # Lints (version compatible avec analyzer < 7.0.0)
+  custom_lint: ^0.6.4
+  riverpod_lint: ^2.3.9
+
 
 flutter:
   uses-material-design: true
