@@ -1,22 +1,20 @@
-// lib/app_router.dart - FIX ECRAN GRIS & ECRANS BLEUS - BUILD VERT
+// lib/app_router.dart - FIX ECRAN GRIS & BUILD VERT - RIVERPOD READY
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart' as app_provider;
 
 import 'package:thix_id/auth/auth_controller.dart';
-import 'package:thix_id/models/app_user.dart';
+import 'package:thix_id/models/account_type.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 
-// Services & Providers manquants pour les modules (Réseau, etc.)
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/providers/feed_provider.dart';
 
-// Pages générales
 import 'presentation/home/home_page.dart';
-import 'presentation/auth/login_page.dart';
+import 'package:thix_id/features/auth/presentation/pages/login_page.dart';
 import 'presentation/auth/personal_registration_page.dart';
 import 'presentation/auth/enterprise_registration_page.dart';
 import 'presentation/payment/payment_gateway_page.dart';
@@ -29,7 +27,6 @@ import 'package:thix_id/presentation/enterprise/enterprise_dashboard_shell_page.
 import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
 
-// BUS
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_home_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_search_result_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_trip_detail_page.dart';
@@ -43,7 +40,6 @@ import 'package:thix_id/presentation/thix_reservation/bus/pages/agency/agency_qr
 import 'package:thix_id/presentation/thix_reservation/bus/data/models/bus_trip_model.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/data/models/booking_model.dart';
 
-// THIX SANTE
 import 'presentation/thix_sante/patient/patient_dashboard_page.dart';
 import 'presentation/thix_sante/patient/screens/mon_medecin_traitant_page.dart';
 import 'presentation/thix_sante/patient/screens/dossier_famille_page.dart';
@@ -73,7 +69,6 @@ import 'presentation/thix_sante/patient/screens/sante_enfants_page.dart';
 import 'presentation/thix_sante/patient/screens/carnet_vaccination_page.dart';
 import 'presentation/thix_sante/patient/screens/suivi_grossesse_page.dart';
 
-// Réseau Pro
 import 'package:thix_id/presentation/network/network_pro_home.dart';
 import 'package:thix_id/presentation/network/search_network_page.dart';
 import 'package:thix_id/presentation/network/notifications/notifications_page.dart';
@@ -92,7 +87,6 @@ import 'package:thix_id/presentation/network/story_viewer_screen.dart';
 import 'package:thix_id/presentation/network/comments_page.dart';
 import 'package:thix_id/presentation/network/hashtag_page.dart';
 
-// Jobs
 import 'presentation/jobs/jobs_page.dart';
 import 'package:thix_id/presentation/jobs/job_apply_page.dart';
 import 'package:thix_id/presentation/jobs/job_details_page.dart';
@@ -102,12 +96,10 @@ import 'package:thix_id/presentation/opportunities/opportunities_page.dart';
 import 'package:thix_id/presentation/opportunities/opportunity_apply_page.dart';
 import 'package:thix_id/presentation/opportunities/opportunity_details_page.dart';
 
-// Admin
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 
-// THIX Market
 import 'package:thix_id/presentation/thix_market/pages/market_home_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/search_page.dart' as marketSearch;
 import 'package:thix_id/presentation/thix_market/pages/shops_page.dart';
@@ -143,7 +135,6 @@ import 'package:thix_id/presentation/thix_market/pages/shop_detail_page.dart';
 import 'package:thix_id/presentation/thix_market/vendor/vendor_dashboard.dart';
 import 'package:thix_id/presentation/thix_market/vendor/delivery_management_page.dart';
 
-// THIX Info
 import 'package:thix_id/presentation/thix_info/thix_info_home.dart';
 import 'package:thix_id/presentation/thix_info/article_detail_page.dart' as thixInfoArticle;
 import 'package:thix_id/presentation/thix_info/search_page.dart' as infoSearch;
@@ -151,7 +142,6 @@ import 'package:thix_id/presentation/thix_info/category_articles_page.dart';
 import 'package:thix_id/presentation/thix_info/saved_articles_page.dart';
 import 'package:thix_id/presentation/thix_info/breaking_news_page.dart';
 
-// THIX Evenement
 import 'package:thix_id/presentation/thix_event/thix_event_home.dart';
 import 'package:thix_id/presentation/thix_event/event_detail_page.dart';
 import 'package:thix_id/presentation/thix_event/event_search_page.dart';
@@ -173,18 +163,15 @@ import 'package:thix_id/presentation/thix_event/event_payment_page.dart';
 import 'package:thix_id/presentation/thix_event/event_ticket_page.dart';
 import 'package:thix_id/models/event_model.dart'; 
 
-// Education
 import 'package:thix_id/presentation/education/education_routes.dart';
 
-// THIX Money, Media, Reservation
 import 'presentation/thix_money/thix_money_router.dart';
 import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
 import 'package:thix_id/presentation/thix_media/video_player_page.dart';
 import 'package:thix_id/presentation/thix_media/admin/thix_media_admin_page.dart';
-import 'package:thix_id/presentation/thix_reservation/thix_reservation_home_page.dart';
+import 'package:thix_id/presentation/thix_reservation_home_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
-// THIX Chat
 import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'package:thix_id/presentation/chat/chat_list_page.dart';
 import 'package:thix_id/presentation/chat/chat_screen.dart' as ThixChat;
@@ -210,7 +197,6 @@ import 'package:thix_id/presentation/chat/settings/chat_privacy_settings.dart';
 import 'package:thix_id/presentation/chat/settings/chat_notification_settings.dart';
 import 'package:thix_id/presentation/chat/settings/chat_data_settings.dart';
 
-// MON PAYS
 import 'presentation/mon_pays/mon_pays_page.dart';
 import 'presentation/mon_pays/pages/authorities/authorities_page.dart';
 import 'presentation/mon_pays/pages/authorities/authority_profile_page.dart';
@@ -237,7 +223,6 @@ import 'presentation/mon_pays/admin/admin_achievement_form_page.dart';
 import 'presentation/mon_pays/admin/admin_media_form_page.dart';
 import 'package:thix_id/presentation/mon_pays/models/province.dart';
 
-// DELIVERY
 import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_home_page.dart';
 import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_checkout_page.dart';
 import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_tracking_page.dart' as delivery_tracking;
@@ -249,7 +234,6 @@ import 'package:thix_id/presentation/thix_reservation/delivery/pages/admin/deliv
 import 'package:thix_id/presentation/thix_reservation/delivery/providers/delivery_client_provider.dart';
 import 'package:thix_id/presentation/thix_reservation/delivery/providers/delivery_admin_provider.dart';
 
-// THIX URGENT
 import 'package:thix_id/presentation/thix_urgent/thix_urgent_screen.dart';
 import 'package:thix_id/presentation/thix_urgent/chambre_de_crise/chambre_de_crise_screen.dart';
 import 'package:thix_id/presentation/thix_urgent/providers/thix_urgent_providers.dart';
@@ -278,7 +262,7 @@ class AppRouter {
     final refresh = extraRefreshListenable ?? auth;
     return GoRouter(
       initialLocation: AppRoutes.home,
-      refreshListenable: null,
+      refreshListenable: refresh,
       errorBuilder: (context, state) => Scaffold(
         backgroundColor: const Color(0xFF0B3D91),
         body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -300,24 +284,17 @@ class AppRouter {
               loc.startsWith('/thix-event') || loc.startsWith('/thix-urgent') ||
               loc.startsWith('/thix-reservation/delivery') || isAuthPage;
 
-          bool logged;
-          AccountType? accountType;
-          try {
-            logged = auth.isAuthenticated;
-            accountType = auth.currentUser?.accountType;
-          } catch (_) {
-            return null;
-          }
+          final logged = auth.isAuthenticated;
+          final accountType = auth.currentUser?.accountType;
 
           if (!logged && !isPublic) return AppRoutes.login;
           if (logged && isAuthPage) return accountType == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard;
-
           if (logged) {
             if (loc == AppRoutes.userDashboard && accountType == AccountType.enterprise) return AppRoutes.enterpriseDashboard;
             if (loc == AppRoutes.enterpriseDashboard && accountType == AccountType.personal) return AppRoutes.userDashboard;
           }
           return null;
-        } catch (e, st) {
+        } catch (e) {
           debugPrint('GoRouter redirect error: $e');
           return null;
         }
@@ -339,25 +316,7 @@ class AppRouter {
         GoRoute(path: AppRoutes.publicProfile, name: 'publicProfile', pageBuilder: (_, state) => NoTransitionPage(child: public_profile.PublicProfilePage(initialThixId: state.uri.queryParameters['thixId']))),
         GoRoute(path: AppRoutes.userDashboard, name: 'userDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: UserDashboardPage())),
         GoRoute(path: AppRoutes.enterpriseDashboard, name: 'enterpriseDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: EnterpriseDashboardPage())),
-        
-        GoRoute(
-          path: AppRoutes.network, 
-          name: 'network', 
-          pageBuilder: (_, __) => NoTransitionPage(
-            // FIX: On injecte les providers réseau localement
-            child: app_provider.MultiProvider(
-              providers: [
-                app_provider.Provider<NetworkService>(create: (_) => NetworkService(SupabaseConfig.client)),
-                app_provider.Provider<UserService>(create: (_) => UserService(SupabaseConfig.client)),
-                app_provider.ChangeNotifierProvider<FeedProvider>(
-                  create: (ctx) => FeedProvider(ctx.read<NetworkService>(), supabase: SupabaseConfig.client)..initRealtime(),
-                ),
-              ],
-              child: const NetworkProHome(),
-            ),
-          ),
-        ),
-        
+        GoRoute(path: AppRoutes.network, name: 'network', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.MultiProvider(providers: [app_provider.Provider<NetworkService>(create: (_) => NetworkService(SupabaseConfig.client)), app_provider.Provider<UserService>(create: (_) => UserService(SupabaseConfig.client)), app_provider.ChangeNotifierProvider<FeedProvider>(create: (ctx) => FeedProvider(ctx.read<NetworkService>(), supabase: SupabaseConfig.client)..initRealtime())], child: const NetworkProHome()))),
         GoRoute(path: AppRoutes.networkSearch, name: 'networkSearch', pageBuilder: (_, __) => const NoTransitionPage(child: SearchNetworkPage())),
         GoRoute(path: AppRoutes.networkNotifications, name: 'networkNotifications', pageBuilder: (_, __) => const NoTransitionPage(child: NotificationsPage())),
         GoRoute(path: AppRoutes.networkMessages, name: 'networkMessages', pageBuilder: (_, __) => const NoTransitionPage(child: ConversationsList())),
@@ -380,7 +339,6 @@ class AppRouter {
         GoRoute(path: '/network/hashtag/:tag', name: 'networkHashtag', pageBuilder: (_, state) => NoTransitionPage(child: HashtagPage(tag: state.pathParameters['tag']!))),
         GoRoute(path: '${AppRoutes.networkPostBasePath}/:postId', name: 'networkPostDetail', pageBuilder: (_, state) => NoTransitionPage(child: PostDetailPage(postId: state.pathParameters['postId']!, currentProfileId: auth.currentUser?.id ?? ''))),
         GoRoute(path: '${AppRoutes.networkProfileBasePath}/:userId', name: 'networkProfile', pageBuilder: (_, state) => NoTransitionPage(child: ProfilePage(userId: state.pathParameters['userId']!))),
-        
         GoRoute(path: AppRoutes.enterprise, name: 'enterpriseEntry', redirect: (_, __) {
           if (!auth.isAuthenticated) return AppRoutes.login;
           return auth.currentUser?.accountType == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.enterpriseReg;
@@ -390,7 +348,6 @@ class AppRouter {
           GoRoute(path: 'dashboard/:section', name: 'enterprisePortalDashboard', pageBuilder: (_, state) => NoTransitionPage(child: EnterpriseDashboardShellPage(companySlug: state.pathParameters['slug']!, section: state.pathParameters['section'] ?? 'overview'))),
           GoRoute(path: 'dashboard', name: 'enterprisePortalDashboardRoot', redirect: (_, state) => '${AppRoutes.enterprisePortalBase(state.pathParameters['slug']!)}/dashboard/overview'),
         ]),
-        
         GoRoute(path: '/thix-urgent', name: 'thixUrgent', pageBuilder: (_, __) => NoTransitionPage(child: ThixUrgentProviders.wrap(const ThixUrgentScreen()))),
         GoRoute(path: '/thix-urgent/chambre-de-crise', name: 'chambreDeCrise', pageBuilder: (_, state) {
           final extra = state.extra as Map<String, dynamic>?;
@@ -399,8 +356,6 @@ class AppRouter {
           return NoTransitionPage(child: ChambreDeCriseScreen(criseId: criseId, type: type));
         }),
         GoRoute(path: '/thix-urgent/config/gardiens', name: 'thixUrgentGardiens', pageBuilder: (_, __) => const NoTransitionPage(child: GardiensConfigPage())),
-
-        // CHAT
         GoRoute(path: AppRoutes.chat, name: 'chat', pageBuilder: (_, __) => const NoTransitionPage(child: ChatListPage())),
         GoRoute(path: AppRoutes.chatNew, name: 'chat_new', pageBuilder: (_, __) => const NoTransitionPage(child: NewConversationPage())),
         GoRoute(path: AppRoutes.chatConversation, name: 'chat_conversation', pageBuilder: (_, state) {
@@ -437,7 +392,6 @@ class AppRouter {
         GoRoute(path: AppRoutes.chatEscalationReceived, name: 'chatEscalationReceived', pageBuilder: (context, state) => const NoTransitionPage(child: ReceivedEscalationsPage())),
         GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => const NoTransitionPage(child: DocumentVaultPage())),
         GoRoute(path: AppRoutes.settings, name: 'settings', pageBuilder: (_, __) => const NoTransitionPage(child: SettingsPage())),
-        
         GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (_, __) => const NoTransitionPage(child: ProfilePage())),
         GoRoute(path: AppRoutes.thixSante, redirect: (_, __) => AppRoutes.thixSanteDashboard),
         GoRoute(path: AppRoutes.thixSanteDashboard, builder: (c, s) => const PatientDashboardPage()),
@@ -473,10 +427,7 @@ class AppRouter {
         GoRoute(path: '/opportunities/:opportunityId/apply', name: 'opportunityApply', pageBuilder: (_, state) => NoTransitionPage(child: OpportunityApplyPage(opportunityId: state.pathParameters['opportunityId'] ?? ''))),
         GoRoute(path: '/jobs/:jobId', name: 'jobDetails', pageBuilder: (_, state) => NoTransitionPage(child: JobDetailsPage(jobId: state.pathParameters['jobId'] ?? '', applied: (state.uri.queryParameters['applied'] ?? '') == '1'))),
         GoRoute(path: '/jobs/:jobId/apply', name: 'jobApply', pageBuilder: (_, state) => NoTransitionPage(child: JobApplyPage(jobId: state.pathParameters['jobId'] ?? ''))),
-        
-        // IMPORTANT: Assure-toi que les providers d'Éducation sont injectés DANS education_routes.dart
         ...educationRoutes,
-        
         ...ThixMoneyRouter.routes,
         GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => const NoTransitionPage(child: ThixInfoHome())),
         GoRoute(path: AppRoutes.thixInfoArticle, name: 'thixInfoArticle', pageBuilder: (_, state) => NoTransitionPage(child: thixInfoArticle.ArticleDetailPage(articleId: state.pathParameters['articleId']!))),
@@ -484,9 +435,7 @@ class AppRouter {
         GoRoute(path: AppRoutes.thixInfoCategory, name: 'thixInfoCategory', pageBuilder: (_, state) => NoTransitionPage(child: CategoryArticlesPage(category: state.pathParameters['category']!))),
         GoRoute(path: AppRoutes.thixInfoSaved, name: 'thixInfoSaved', pageBuilder: (_, __) => const NoTransitionPage(child: SavedArticlesPage())),
         GoRoute(path: AppRoutes.thixInfoBreaking, name: 'thixInfoBreaking', pageBuilder: (_, __) => const NoTransitionPage(child: BreakingNewsPage())),
-        GoRoute(path: AppRoutes.thixMedia, name: 'thixMedia', pageBuilder: (_, __) => const NoTransitionPage(child: ThixMediaPage()), routes: [
-          GoRoute(path: 'admin', name: 'thixMediaAdmin', pageBuilder: (_, __) => const NoTransitionPage(child: ThixMediaAdminPage())),
-        ]),
+        GoRoute(path: AppRoutes.thixMedia, name: 'thixMedia', pageBuilder: (_, __) => const NoTransitionPage(child: ThixMediaPage()), routes: [GoRoute(path: 'admin', name: 'thixMediaAdmin', pageBuilder: (_, __) => const NoTransitionPage(child: ThixMediaAdminPage()))]),
         GoRoute(path: AppRoutes.thixMediaVideo, name: 'thixMediaVideo', pageBuilder: (_, state) => NoTransitionPage(child: VideoPlayerPage(title: (state.uri.queryParameters['title'] ?? '').trim().isEmpty ? 'Lecture vidéo' : (state.uri.queryParameters['title'] ?? ''), videoUrl: (state.uri.queryParameters['url'] ?? '').trim()))),
         GoRoute(path: AppRoutes.reservation, name: 'thixreservation', pageBuilder: (_, __) => const NoTransitionPage(child: ThixReservationHomePage())),
         GoRoute(path: AppRoutes.thixEvent, name: 'thixEvent', pageBuilder: (_, __) => const NoTransitionPage(child: ThixEventHome())),
@@ -524,26 +473,14 @@ class AppRouter {
         GoRoute(path: '/agency/dashboard', name: 'agency-dashboard', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyDashboardPage())),
         GoRoute(path: '/agency/trip/create', name: 'agency-create-trip', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyCreateTripPage())),
         GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyQrScanPage())),
-        
-        // FIX : Providers Livraison injectés localement
         GoRoute(path: AppRoutes.deliveryHome, name: 'delivery-home', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..init(), child: const DeliveryHomePage()))),
-        GoRoute(
-          path: AppRoutes.deliveryCheckout, 
-          name: 'delivery-checkout', 
-          pageBuilder: (_, __) => NoTransitionPage(
-            child: app_provider.ChangeNotifierProvider(
-              create: (_) => DeliveryClientProvider(),
-              child: const DeliveryCheckoutPage(),
-            ),
-          ),
-        ),
+        GoRoute(path: AppRoutes.deliveryCheckout, name: 'delivery-checkout', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.ChangeNotifierProvider(create: (_) => DeliveryClientProvider(), child: const DeliveryCheckoutPage()))),
         GoRoute(path: AppRoutes.deliveryTracking, name: 'delivery-tracking', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.ChangeNotifierProvider(create: (_) => DeliveryClientProvider(), child: const delivery_tracking.DeliveryTrackingPage()))),
         GoRoute(path: AppRoutes.deliveryHistory, name: 'delivery-history', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..loadMyShipments(refresh: true), child: const DeliveryHistoryPage()))),
         GoRoute(path: AppRoutes.deliveryAdminDashboard, name: 'delivery-admin-dashboard', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..init(), child: const DeliveryAdminDashboardPage()))),
         GoRoute(path: AppRoutes.deliveryAdminRoutes, name: 'delivery-admin-routes', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadRoutes(force: true), child: const DeliveryAdminRoutesPage()))),
         GoRoute(path: AppRoutes.deliveryAdminShipments, name: 'delivery-admin-shipments', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadAllShipments(), child: const DeliveryAdminShipmentsPage()))),
         GoRoute(path: AppRoutes.deliveryAdminScan, name: 'delivery-admin-scan', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryAdminScanPage())),
-        
         GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (_, __) => const NoTransitionPage(child: MarketHomePage()), routes: [
           GoRoute(path: 'home', name: 'marketHome', pageBuilder: (_, __) => const NoTransitionPage(child: MarketHomePage())),
           GoRoute(path: 'search', name: 'marketSearch', pageBuilder: (_, __) => const NoTransitionPage(child: marketSearch.SearchPage())),
