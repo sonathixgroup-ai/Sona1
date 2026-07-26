@@ -1,7 +1,8 @@
 // ============================================================
-// FICHIER - province_detail_page.dart (EXPERT EDITION v3)
-// Miroir exact des rubriques de admin_province_form_page.dart
-// Chaque catégorie = une "belle carte" (icône + titre + contenu)
+// FICHIER - province_detail_page.dart (EXPERT EDITION v4)
+// Classement demandé : Identité > Cartographie > Galerie > Exécutif
+// > Réalisations > Villes > Découpage > Tourisme > Économie
+// > Peuples/Tribus > Histoire/Climat/Infra > Urgences > Identité Visuelle
 // Charte THIX ID (navy #0A1F44 / gold #E3B23C)
 // ============================================================
 
@@ -79,86 +80,16 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                 _ProvinceIdentityCard(province: province),
                 const SizedBox(height: 16),
 
-                // 2. HISTOIRE, CLIMAT & INFRASTRUCTURES
-                if (_hasInstitutionalData(province)) ...[
+                // 2. CARTOGRAPHIE
+                if (province.mapUrl != null && province.mapUrl!.trim().isNotEmpty) ...[
                   _SectionCard(
-                    icon: Icons.history_edu, color: _navy, title: 'Histoire, Climat & Infrastructures',
-                    children: [_MonographyContent(province: province)],
+                    icon: Icons.map_rounded, color: _navy, title: 'Cartographie',
+                    children: [_MapContent(url: province.mapUrl!, provinceName: province.name)],
                   ),
                   const SizedBox(height: 16),
                 ],
 
-                // 3. GOUVERNANCE & EXÉCUTIF PROVINCIAL
-                _SectionCard(
-                  icon: Icons.account_balance, color: _navy, title: 'Gouvernance & Exécutif Provincial',
-                  children: [_GovernanceContent(province: province)],
-                ),
-                const SizedBox(height: 16),
-
-                // 4. CULTURE, LANGUES & PEUPLES / TRIBUS
-                if (_hasCultureData(province)) ...[
-                  _SectionCard(
-                    icon: Icons.people, color: _navy, title: 'Culture, Langues & Peuples / Tribus',
-                    children: [_CultureAndTribesContent(province: province)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 5. VILLES PRINCIPALES (AVEC GALERIE)
-                if (province.cities.isNotEmpty) ...[
-                  _SectionCard(
-                    icon: Icons.location_city, color: _navy, title: 'Villes Principales (avec Galerie)', count: province.cities.length,
-                    children: [_CitiesSection(cities: province.cities)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 6. ÉCONOMIE & SECTEURS CLÉS
-                if (province.economicResources.isNotEmpty) ...[
-                  _SectionCard(
-                    icon: Icons.monetization_on, color: const Color(0xFF2E7D32), title: 'Économie & Secteurs Clés', count: province.economicResources.length,
-                    children: [_EconomySection(resources: province.economicResources)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 7. TOURISME & SITES REMARQUABLES
-                if (province.tourismSites.isNotEmpty) ...[
-                  _SectionCard(
-                    icon: Icons.landscape, color: const Color(0xFF1565C0), title: 'Tourisme & Sites Remarquables', count: province.tourismSites.length,
-                    children: [_TourismSection(sites: province.tourismSites)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 8. DÉCOUPAGE ADMINISTRATIF (DÉTAILLÉ)
-                if (province.administrativeDivisions.isNotEmpty) ...[
-                  _SectionCard(
-                    icon: Icons.dashboard_customize, color: const Color(0xFF6A1B9A), title: 'Découpage Administratif (Détaillé)', count: province.administrativeDivisions.length,
-                    children: [_AdministrativeSection(divisions: province.administrativeDivisions)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 9. RÉALISATIONS & PROJETS MAJEURS
-                if (province.achievements != null && province.achievements!.isNotEmpty) ...[
-                  _SectionCard(
-                    icon: Icons.emoji_events, color: _navy, title: 'Réalisations & Projets Majeurs', count: province.achievements!.length,
-                    children: [_AchievementsSection(achievements: province.achievements!)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 10. URGENCES & CONTACTS UTILES
-                if (province.emergencyContacts.isNotEmpty) ...[
-                  _SectionCard(
-                    icon: Icons.emergency, color: const Color(0xFFD32F2F), title: 'Urgences & Contacts Utiles', count: province.emergencyContacts.length,
-                    children: [_EmergencySection(contacts: province.emergencyContacts)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 11. GALERIE MÉDIA GLOBALE (PHOTOS & VIDÉOS)
+                // 3. GALERIE (AUTO-SCROLLING)
                 if (province.galleryMedia != null && province.galleryMedia!.isNotEmpty) ...[
                   _SectionCard(
                     icon: Icons.perm_media, color: _navy, title: 'Galerie Média Globale (Photos & Vidéos)', count: province.galleryMedia!.length,
@@ -167,7 +98,86 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                   const SizedBox(height: 16),
                 ],
 
-                // 12. IDENTITÉ VISUELLE OFFICIELLE
+                // 4. EXÉCUTIF PROVINCIAL
+                _SectionCard(
+                  icon: Icons.account_balance, color: _navy, title: 'Gouvernance & Exécutif Provincial',
+                  children: [_GovernanceContent(province: province)],
+                ),
+                const SizedBox(height: 16),
+
+                // 5. GRANDES RÉALISATIONS & PROJETS MAJEURS
+                if (province.achievements != null && province.achievements!.isNotEmpty) ...[
+                  _SectionCard(
+                    icon: Icons.emoji_events, color: _navy, title: 'Réalisations & Projets Majeurs', count: province.achievements!.length,
+                    children: [_AchievementsSection(achievements: province.achievements!)],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // 6. VILLES PRINCIPALES
+                if (province.cities.isNotEmpty) ...[
+                  _SectionCard(
+                    icon: Icons.location_city, color: _navy, title: 'Villes Principales (avec Galerie)', count: province.cities.length,
+                    children: [_CitiesSection(cities: province.cities)],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // 7. DÉCOUPAGE ADMINISTRATIF
+                if (province.administrativeDivisions.isNotEmpty) ...[
+                  _SectionCard(
+                    icon: Icons.dashboard_customize, color: const Color(0xFF6A1B9A), title: 'Découpage Administratif (Détaillé)', count: province.administrativeDivisions.length,
+                    children: [_AdministrativeSection(divisions: province.administrativeDivisions)],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // 8. TOURISME & SITES REMARQUABLES
+                if (province.tourismSites.isNotEmpty) ...[
+                  _SectionCard(
+                    icon: Icons.landscape, color: const Color(0xFF1565C0), title: 'Tourisme & Sites Remarquables', count: province.tourismSites.length,
+                    children: [_TourismSection(sites: province.tourismSites)],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // 9. ÉCONOMIE & SECTEURS CLÉS
+                if (province.economicResources.isNotEmpty) ...[
+                  _SectionCard(
+                    icon: Icons.monetization_on, color: const Color(0xFF2E7D32), title: 'Économie & Secteurs Clés', count: province.economicResources.length,
+                    children: [_EconomySection(resources: province.economicResources)],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // 10. PEUPLES & TRIBUS (+ langues, ressources, description)
+                if (_hasCultureData(province)) ...[
+                  _SectionCard(
+                    icon: Icons.people, color: _navy, title: 'Culture, Langues & Peuples / Tribus',
+                    children: [_CultureAndTribesContent(province: province)],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // 11. ...ET LES AUTRES : HISTOIRE, CLIMAT & INFRASTRUCTURES
+                if (_hasInstitutionalData(province)) ...[
+                  _SectionCard(
+                    icon: Icons.history_edu, color: _navy, title: 'Histoire, Climat & Infrastructures',
+                    children: [_MonographyContent(province: province)],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // 12. ...ET LES AUTRES : URGENCES & CONTACTS UTILES
+                if (province.emergencyContacts.isNotEmpty) ...[
+                  _SectionCard(
+                    icon: Icons.emergency, color: const Color(0xFFD32F2F), title: 'Urgences & Contacts Utiles', count: province.emergencyContacts.length,
+                    children: [_EmergencySection(contacts: province.emergencyContacts)],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // 13. ...ET LES AUTRES : IDENTITÉ VISUELLE OFFICIELLE
                 _SectionCard(
                   icon: Icons.image, color: _navy, title: 'Identité Visuelle Officielle',
                   children: [_VisualIdentityContent(province: province)],
@@ -765,46 +775,28 @@ class _StatItem extends StatelessWidget {
       ]);
 }
 
-// ==================== 2. HISTOIRE, CLIMAT & INFRASTRUCTURES ====================
-class _MonographyContent extends StatelessWidget {
-  final Province province;
-  const _MonographyContent({required this.province});
+// ==================== 2. CARTOGRAPHIE ====================
+class _MapContent extends StatelessWidget {
+  final String url;
+  final String provinceName;
+  const _MapContent({required this.url, required this.provinceName});
 
   @override
   Widget build(BuildContext context) {
-    final items = <Widget>[];
-    if (province.history?.trim().isNotEmpty == true) items.add(_buildItem(context, 'Historique complet & Origines de la province', province.history!, Icons.menu_book));
-    if (province.climate?.trim().isNotEmpty == true) items.add(_buildItem(context, 'Climat, Relief & Environnement', province.climate!, Icons.wb_sunny));
-    if (province.infrastructure?.trim().isNotEmpty == true) items.add(_buildItem(context, 'Infrastructures, Transports & Énergie', province.infrastructure!, Icons.bolt));
-    if (province.education?.trim().isNotEmpty == true) items.add(_buildItem(context, 'Éducation, Recherche & Santé', province.education!, Icons.school));
-
-    return Column(children: items);
-  }
-
-  Widget _buildItem(BuildContext context, String label, String content, IconData icon) {
-    final isLong = content.length > 200;
-    return InkWell(
-      onTap: isLong ? () => _showTextSheet(context, title: label, text: content, icon: icon, color: _navy) : null,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(color: _itemBg, borderRadius: BorderRadius.circular(14), border: Border.all(color: _itemBorder)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(icon, size: 17, color: _navy), const SizedBox(width: 8),
-            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: _navyDeep))),
-          ]),
-          const SizedBox(height: 8),
-          Text(content, maxLines: isLong ? 3 : null, overflow: isLong ? TextOverflow.ellipsis : TextOverflow.visible, style: const TextStyle(fontSize: 13, height: 1.5, color: _ink)),
-          if (isLong) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Lire la suite', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _navy))),
+    return GestureDetector(
+      onTap: () => _openMediaGallery(context, [{'url': url, 'type': 'photo'}], title: 'Carte — $provinceName'),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(children: [
+          CachedNetworkImage(imageUrl: url, height: 200, width: double.infinity, fit: BoxFit.cover, placeholder: (_, __) => Container(height: 200, color: Colors.grey.shade200), errorWidget: (_, __, ___) => Container(height: 200, color: Colors.grey.shade200, child: const Icon(Icons.map_outlined, color: Colors.grey))),
+          Positioned(right: 10, bottom: 10, child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.zoom_in, color: Colors.white, size: 18))),
         ]),
       ),
     );
   }
 }
 
-// ==================== 3. GOUVERNANCE & EXÉCUTIF PROVINCIAL ====================
+// ==================== 4. GOUVERNANCE & EXÉCUTIF PROVINCIAL ====================
 class _GovernanceContent extends StatelessWidget {
   final Province province;
   const _GovernanceContent({required this.province});
@@ -894,7 +886,193 @@ class _ExecutiveCard extends StatelessWidget {
   }
 }
 
-// ==================== 4. CULTURE, LANGUES & PEUPLES / TRIBUS ====================
+// ==================== 5. RÉALISATIONS & PROJETS MAJEURS ====================
+class _AchievementsSection extends StatelessWidget {
+  final List<Map<String, dynamic>> achievements;
+  const _AchievementsSection({required this.achievements});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: achievements.map((a) {
+        final title = a['title']?.toString() ?? 'Réalisation';
+        final desc = a['description']?.toString() ?? '';
+        final date = a['date']?.toString() ?? '';
+        final location = a['location']?.toString() ?? '';
+        final media = a['media'] != null ? List<Map<String, dynamic>>.from(a['media']) : <Map<String, dynamic>>[];
+
+        final meta = <Widget>[
+          if (date.isNotEmpty) _metaChip(Icons.calendar_today, date),
+          if (location.isNotEmpty) _metaChip(Icons.location_on, location),
+        ];
+
+        return _EntityCard(
+          icon: Icons.verified, color: _navy, title: title, metaLines: meta, preview: desc, media: media,
+          onTap: () => _showDetailSheet(
+            context, icon: Icons.verified, color: _navy, title: title,
+            chips: meta,
+            sections: desc.isNotEmpty ? [_DetailSection(label: 'Description détaillée', content: desc, icon: Icons.notes)] : [],
+            media: media,
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ==================== 6. VILLES PRINCIPALES ====================
+class _CitiesSection extends StatelessWidget {
+  final List<City> cities;
+  const _CitiesSection({required this.cities});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: cities.map((c) {
+        List<Map<String, dynamic>> media = [];
+        try {
+          final dynC = c as dynamic;
+          if (dynC.media != null) media = List<Map<String, dynamic>>.from(dynC.media);
+          if (media.isEmpty && dynC.imageUrl != null && dynC.imageUrl.toString().isNotEmpty) {
+            media = [{'url': dynC.imageUrl, 'type': 'photo'}];
+          }
+        } catch (_) {}
+        final mayor = c.mayor ?? '';
+        final mayorPhoto = c.mayorPhotoUrl;
+
+        final meta = <Widget>[
+          if (c.population != null) _metaChip(Icons.groups, '${c.population} hab'),
+          if (c.isCapital) _metaChip(Icons.star, 'Chef-lieu', color: const Color(0xFF8A6B00)),
+          if (mayor.isNotEmpty) _metaChip(Icons.person, mayor),
+        ];
+
+        return _EntityCard(
+          icon: c.isCapital ? Icons.star_rounded : Icons.location_city_rounded,
+          color: c.isCapital ? const Color(0xFF8A6B00) : _navy,
+          title: c.name, metaLines: meta, media: media,
+          onTap: () => _showDetailSheet(
+            context,
+            icon: c.isCapital ? Icons.star_rounded : Icons.location_city_rounded,
+            color: c.isCapital ? const Color(0xFF8A6B00) : _navy,
+            title: c.name, badge: c.isCapital ? 'Chef-lieu de province' : null,
+            headerPhotoUrl: mayorPhoto,
+            chips: meta,
+            sections: mayor.isNotEmpty ? [_DetailSection(label: 'Autorité (Maire / Bourgmestre)', content: mayor, icon: Icons.person)] : [],
+            media: media,
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ==================== 7. DÉCOUPAGE ADMINISTRATIF ====================
+class _AdministrativeSection extends StatelessWidget {
+  final List<dynamic> divisions;
+  const _AdministrativeSection({required this.divisions});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: divisions.map((d) {
+        final dyn = d as dynamic;
+        final name = dyn.name?.toString() ?? 'Division';
+        final type = dyn.type?.toString() ?? 'Territoire';
+        final capital = dyn.capital?.toString() ?? '';
+        final pop = dyn.population?.toString() ?? '';
+        final area = dyn.area?.toString() ?? '';
+        String administrator = '';
+        try { administrator = dyn.administrator?.toString() ?? ''; } catch (_) {}
+        List<Map<String, dynamic>> media = [];
+        try {
+          if (dyn.media != null) media = List<Map<String, dynamic>>.from(dyn.media);
+        } catch (_) {}
+
+        final meta = <Widget>[
+          if (capital.isNotEmpty) _metaChip(Icons.star, 'Chef-lieu : $capital'),
+          if (pop.isNotEmpty) _metaChip(Icons.groups, '$pop hab'),
+          if (area.isNotEmpty) _metaChip(Icons.map, '$area km²'),
+          if (administrator.isNotEmpty) _metaChip(Icons.person, administrator),
+        ];
+
+        return _EntityCard(
+          icon: Icons.dashboard_customize, color: const Color(0xFF6A1B9A), title: name, badge: type, metaLines: meta, media: media,
+          onTap: () => _showDetailSheet(
+            context, icon: Icons.dashboard_customize, color: const Color(0xFF6A1B9A), title: name, badge: type,
+            chips: meta,
+            sections: administrator.isNotEmpty ? [_DetailSection(label: 'Administrateur', content: administrator, icon: Icons.person)] : [],
+            media: media,
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ==================== 8. TOURISME & SITES REMARQUABLES ====================
+class _TourismSection extends StatelessWidget {
+  final List<dynamic> sites;
+  const _TourismSection({required this.sites});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: sites.map((s) {
+        final dyn = s as dynamic;
+        final name = dyn.name?.toString() ?? 'Site';
+        final type = dyn.type?.toString() ?? 'Lieu';
+        final desc = dyn.description?.toString() ?? '';
+        List<Map<String, dynamic>> media = [];
+        try {
+          if (dyn.media != null) media = List<Map<String, dynamic>>.from(dyn.media);
+        } catch (_) {}
+        if (media.isEmpty) {
+          try {
+            if (dyn.imageUrl != null && dyn.imageUrl.toString().isNotEmpty) media = [{'url': dyn.imageUrl, 'type': 'photo'}];
+          } catch (_) {}
+        }
+        return _EntityCard(
+          icon: Icons.landscape, color: const Color(0xFF1565C0), title: name, badge: type.isNotEmpty ? type : null, preview: desc, media: media,
+          onTap: () => _showDetailSheet(context, icon: Icons.landscape, color: const Color(0xFF1565C0), title: name, badge: type,
+              sections: desc.isNotEmpty ? [_DetailSection(label: 'Description', content: desc, icon: Icons.notes)] : [], media: media),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ==================== 9. ÉCONOMIE & SECTEURS CLÉS ====================
+class _EconomySection extends StatelessWidget {
+  final List<dynamic> resources;
+  const _EconomySection({required this.resources});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: resources.map((e) {
+        final dyn = e as dynamic;
+        final name = dyn.name?.toString() ?? 'Secteur';
+        final desc = dyn.description?.toString() ?? '';
+        List<Map<String, dynamic>> media = [];
+        try {
+          if (dyn.media != null) media = List<Map<String, dynamic>>.from(dyn.media);
+        } catch (_) {}
+        if (media.isEmpty) {
+          try {
+            if (dyn.imageUrl != null && dyn.imageUrl.toString().isNotEmpty) media = [{'url': dyn.imageUrl, 'type': 'photo'}];
+          } catch (_) {}
+        }
+        return _EntityCard(
+          icon: Icons.monetization_on, color: const Color(0xFF2E7D32), title: name, preview: desc, media: media,
+          onTap: () => _showDetailSheet(context, icon: Icons.monetization_on, color: const Color(0xFF2E7D32), title: name,
+              sections: desc.isNotEmpty ? [_DetailSection(label: 'Détails', content: desc, icon: Icons.notes)] : [], media: media),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ==================== 10. CULTURE, LANGUES & PEUPLES / TRIBUS ====================
 class _CultureAndTribesContent extends StatelessWidget {
   final Province province;
   const _CultureAndTribesContent({required this.province});
@@ -946,193 +1124,46 @@ class _CultureAndTribesContent extends StatelessWidget {
   }
 }
 
-// ==================== 5. VILLES PRINCIPALES ====================
-class _CitiesSection extends StatelessWidget {
-  final List<City> cities;
-  const _CitiesSection({required this.cities});
+// ==================== 11. HISTOIRE, CLIMAT & INFRASTRUCTURES ====================
+class _MonographyContent extends StatelessWidget {
+  final Province province;
+  const _MonographyContent({required this.province});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: cities.map((c) {
-        List<Map<String, dynamic>> media = [];
-        try {
-          final dynC = c as dynamic;
-          if (dynC.media != null) media = List<Map<String, dynamic>>.from(dynC.media);
-          if (media.isEmpty && dynC.imageUrl != null && dynC.imageUrl.toString().isNotEmpty) {
-            media = [{'url': dynC.imageUrl, 'type': 'photo'}];
-          }
-        } catch (_) {}
-        final mayor = c.mayor ?? '';
-        final mayorPhoto = c.mayorPhotoUrl;
+    final items = <Widget>[];
+    if (province.history?.trim().isNotEmpty == true) items.add(_buildItem(context, 'Historique complet & Origines de la province', province.history!, Icons.menu_book));
+    if (province.climate?.trim().isNotEmpty == true) items.add(_buildItem(context, 'Climat, Relief & Environnement', province.climate!, Icons.wb_sunny));
+    if (province.infrastructure?.trim().isNotEmpty == true) items.add(_buildItem(context, 'Infrastructures, Transports & Énergie', province.infrastructure!, Icons.bolt));
+    if (province.education?.trim().isNotEmpty == true) items.add(_buildItem(context, 'Éducation, Recherche & Santé', province.education!, Icons.school));
 
-        final meta = <Widget>[
-          if (c.population != null) _metaChip(Icons.groups, '${c.population} hab'),
-          if (c.isCapital) _metaChip(Icons.star, 'Chef-lieu', color: const Color(0xFF8A6B00)),
-          if (mayor.isNotEmpty) _metaChip(Icons.person, mayor),
-        ];
+    return Column(children: items);
+  }
 
-        return _EntityCard(
-          icon: c.isCapital ? Icons.star_rounded : Icons.location_city_rounded,
-          color: c.isCapital ? const Color(0xFF8A6B00) : _navy,
-          title: c.name, metaLines: meta, media: media,
-          onTap: () => _showDetailSheet(
-            context,
-            icon: c.isCapital ? Icons.star_rounded : Icons.location_city_rounded,
-            color: c.isCapital ? const Color(0xFF8A6B00) : _navy,
-            title: c.name, badge: c.isCapital ? 'Chef-lieu de province' : null,
-            headerPhotoUrl: mayorPhoto,
-            chips: meta,
-            sections: mayor.isNotEmpty ? [_DetailSection(label: 'Autorité (Maire / Bourgmestre)', content: mayor, icon: Icons.person)] : [],
-            media: media,
-          ),
-        );
-      }).toList(),
+  Widget _buildItem(BuildContext context, String label, String content, IconData icon) {
+    final isLong = content.length > 200;
+    return InkWell(
+      onTap: isLong ? () => _showTextSheet(context, title: label, text: content, icon: icon, color: _navy) : null,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(color: _itemBg, borderRadius: BorderRadius.circular(14), border: Border.all(color: _itemBorder)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 17, color: _navy), const SizedBox(width: 8),
+            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: _navyDeep))),
+          ]),
+          const SizedBox(height: 8),
+          Text(content, maxLines: isLong ? 3 : null, overflow: isLong ? TextOverflow.ellipsis : TextOverflow.visible, style: const TextStyle(fontSize: 13, height: 1.5, color: _ink)),
+          if (isLong) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Lire la suite', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _navy))),
+        ]),
+      ),
     );
   }
 }
 
-// ==================== 6. ÉCONOMIE & SECTEURS CLÉS ====================
-class _EconomySection extends StatelessWidget {
-  final List<dynamic> resources;
-  const _EconomySection({required this.resources});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: resources.map((e) {
-        final dyn = e as dynamic;
-        final name = dyn.name?.toString() ?? 'Secteur';
-        final desc = dyn.description?.toString() ?? '';
-        List<Map<String, dynamic>> media = [];
-        try {
-          if (dyn.media != null) media = List<Map<String, dynamic>>.from(dyn.media);
-        } catch (_) {}
-        if (media.isEmpty) {
-          try {
-            if (dyn.imageUrl != null && dyn.imageUrl.toString().isNotEmpty) media = [{'url': dyn.imageUrl, 'type': 'photo'}];
-          } catch (_) {}
-        }
-        return _EntityCard(
-          icon: Icons.monetization_on, color: const Color(0xFF2E7D32), title: name, preview: desc, media: media,
-          onTap: () => _showDetailSheet(context, icon: Icons.monetization_on, color: const Color(0xFF2E7D32), title: name,
-              sections: desc.isNotEmpty ? [_DetailSection(label: 'Détails', content: desc, icon: Icons.notes)] : [], media: media),
-        );
-      }).toList(),
-    );
-  }
-}
-
-// ==================== 7. TOURISME & SITES REMARQUABLES ====================
-class _TourismSection extends StatelessWidget {
-  final List<dynamic> sites;
-  const _TourismSection({required this.sites});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: sites.map((s) {
-        final dyn = s as dynamic;
-        final name = dyn.name?.toString() ?? 'Site';
-        final type = dyn.type?.toString() ?? 'Lieu';
-        final desc = dyn.description?.toString() ?? '';
-        List<Map<String, dynamic>> media = [];
-        try {
-          if (dyn.media != null) media = List<Map<String, dynamic>>.from(dyn.media);
-        } catch (_) {}
-        if (media.isEmpty) {
-          try {
-            if (dyn.imageUrl != null && dyn.imageUrl.toString().isNotEmpty) media = [{'url': dyn.imageUrl, 'type': 'photo'}];
-          } catch (_) {}
-        }
-        return _EntityCard(
-          icon: Icons.landscape, color: const Color(0xFF1565C0), title: name, badge: type.isNotEmpty ? type : null, preview: desc, media: media,
-          onTap: () => _showDetailSheet(context, icon: Icons.landscape, color: const Color(0xFF1565C0), title: name, badge: type,
-              sections: desc.isNotEmpty ? [_DetailSection(label: 'Description', content: desc, icon: Icons.notes)] : [], media: media),
-        );
-      }).toList(),
-    );
-  }
-}
-
-// ==================== 8. DÉCOUPAGE ADMINISTRATIF ====================
-class _AdministrativeSection extends StatelessWidget {
-  final List<dynamic> divisions;
-  const _AdministrativeSection({required this.divisions});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: divisions.map((d) {
-        final dyn = d as dynamic;
-        final name = dyn.name?.toString() ?? 'Division';
-        final type = dyn.type?.toString() ?? 'Territoire';
-        final capital = dyn.capital?.toString() ?? '';
-        final pop = dyn.population?.toString() ?? '';
-        final area = dyn.area?.toString() ?? '';
-        String administrator = '';
-        try { administrator = dyn.administrator?.toString() ?? ''; } catch (_) {}
-        List<Map<String, dynamic>> media = [];
-        try {
-          if (dyn.media != null) media = List<Map<String, dynamic>>.from(dyn.media);
-        } catch (_) {}
-
-        final meta = <Widget>[
-          if (capital.isNotEmpty) _metaChip(Icons.star, 'Chef-lieu : $capital'),
-          if (pop.isNotEmpty) _metaChip(Icons.groups, '$pop hab'),
-          if (area.isNotEmpty) _metaChip(Icons.map, '$area km²'),
-          if (administrator.isNotEmpty) _metaChip(Icons.person, administrator),
-        ];
-
-        return _EntityCard(
-          icon: Icons.dashboard_customize, color: const Color(0xFF6A1B9A), title: name, badge: type, metaLines: meta, media: media,
-          onTap: () => _showDetailSheet(
-            context, icon: Icons.dashboard_customize, color: const Color(0xFF6A1B9A), title: name, badge: type,
-            chips: meta,
-            sections: administrator.isNotEmpty ? [_DetailSection(label: 'Administrateur', content: administrator, icon: Icons.person)] : [],
-            media: media,
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-// ==================== 9. RÉALISATIONS & PROJETS MAJEURS ====================
-class _AchievementsSection extends StatelessWidget {
-  final List<Map<String, dynamic>> achievements;
-  const _AchievementsSection({required this.achievements});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: achievements.map((a) {
-        final title = a['title']?.toString() ?? 'Réalisation';
-        final desc = a['description']?.toString() ?? '';
-        final date = a['date']?.toString() ?? '';
-        final location = a['location']?.toString() ?? '';
-        final media = a['media'] != null ? List<Map<String, dynamic>>.from(a['media']) : <Map<String, dynamic>>[];
-
-        final meta = <Widget>[
-          if (date.isNotEmpty) _metaChip(Icons.calendar_today, date),
-          if (location.isNotEmpty) _metaChip(Icons.location_on, location),
-        ];
-
-        return _EntityCard(
-          icon: Icons.verified, color: _navy, title: title, metaLines: meta, preview: desc, media: media,
-          onTap: () => _showDetailSheet(
-            context, icon: Icons.verified, color: _navy, title: title,
-            chips: meta,
-            sections: desc.isNotEmpty ? [_DetailSection(label: 'Description détaillée', content: desc, icon: Icons.notes)] : [],
-            media: media,
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-// ==================== 10. URGENCES & CONTACTS UTILES ====================
+// ==================== 12. URGENCES & CONTACTS UTILES ====================
 class _EmergencySection extends StatelessWidget {
   final List<dynamic> contacts;
   const _EmergencySection({required this.contacts});
@@ -1160,7 +1191,7 @@ class _EmergencySection extends StatelessWidget {
   }
 }
 
-// ==================== 11. GALERIE MÉDIA GLOBALE ====================
+// ==================== 3. GALERIE MÉDIA GLOBALE (AUTO-SCROLLING) ====================
 class _GalleryBanner extends StatelessWidget {
   final List<Map<String, dynamic>> media;
   final PageController controller;
@@ -1213,7 +1244,7 @@ class _GalleryBanner extends StatelessWidget {
   }
 }
 
-// ==================== 12. IDENTITÉ VISUELLE OFFICIELLE ====================
+// ==================== 13. IDENTITÉ VISUELLE OFFICIELLE ====================
 class _VisualIdentityContent extends StatelessWidget {
   final Province province;
   const _VisualIdentityContent({required this.province});
