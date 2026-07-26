@@ -1,35 +1,46 @@
 // lib/providers/auth_provider.dart
-import 'package:flutter/material.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class AuthProvider extends ChangeNotifier {
-  final SupabaseClient _supabase;
+part 'auth_provider.g.dart';
+
+@Riverpod(keepAlive: true)
+class Auth extends _$Auth {
   bool _isModerator = false;
-
-  AuthProvider(this._supabase) {
-    _checkRole();
-  }
-
   bool get isModerator => _isModerator;
 
+  @override
+  Future<bool> build() async {
+    await _checkRole();
+    return _isModerator;
+  }
+
   Future<void> _checkRole() async {
-    final user = _supabase.auth.currentUser;
-    if (user != null) {
-      try {
-        final response = await _supabase
-            .from('users')
-            .select('role')
-            .eq('id', user.id)
-            .maybeSingle();
-        _isModerator = response != null &&
-            (response['role'] == 'moderator' || response['role'] == 'admin');
-      } catch (e) {
-        debugPrint('❌ Erreur récupération rôle: $e');
-        _isModerator = false;
-      }
-      notifyListeners();
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      _isModerator = false;
+      return;
+    }
+    try {
+      final res = await Supabase.instance.client
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+      _isModerator = res != null && (res['role'] == 'moderator' || res['role'] == 'admin');
+    } catch (_) {
+      _isModerator = false;
     }
   }
 
-  void refresh() => _checkRole();
+  Future<void> refresh() async {
+    await _checkRole();
+    ref.invalidateSelf();
+  }
+}
+
+// Compat pour ton ancien code qui faisait Provider.of<AuthProvider>
+@riverpod
+bool isModeratorFlag(IsModeratorFlagRef ref) {
+  return ref.watch(authProvider).valueOrNull ?? false;
 }
