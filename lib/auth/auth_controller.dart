@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:thix_id/models/account_type.dart';
 
 class PhoneAuthSession { final String phone; PhoneAuthSession(this.phone); }
-enum AccountType { personal, enterprise }
 
 class AuthController extends ChangeNotifier {
   dynamic _cached;
@@ -17,15 +17,8 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setUser(dynamic user) {
-    _cached = user;
-    notifyListeners();
-  }
-
-  Future<void> updateCurrentUser(dynamic user) async {
-    _cached = user;
-    notifyListeners();
-  }
+  void setUser(dynamic user) { _cached = user; notifyListeners(); }
+  Future<void> updateCurrentUser(dynamic user) async { _cached = user; notifyListeners(); }
 
   Future<void> registerPersonal({required String email, required String password, required String displayName, required bool rememberMe, Map<String, dynamic>? profileDraft}) async {}
   Future<void> registerEnterprise({required String email, required String password, required String displayName, required bool rememberMe, Map<String, dynamic>? profileDraft}) async {}
