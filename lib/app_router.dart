@@ -282,38 +282,57 @@ class AppRouter {
           ElevatedButton(onPressed: ()=> context.go(AppRoutes.home), child: const Text('Accueil')),
         ])),
       ),
+      // 🔑 CORRECTIF PRINCIPAL : TOUT le redirect est maintenant protégé.
+      // Avant, seule la première vérification était dans un try/catch ;
+      // les accès à auth.isAuthenticated / auth.currentUser plus bas
+      // n'étaient PAS protégés. Si Supabase n'a pas fini de s'initialiser
+      // (timeout de 6s dans main.dart, ou échec réseau), ces accès peuvent
+      // lancer une exception qui sort du callback redirect AVANT que
+      // Flutter ait pu peindre quoi que ce soit -> écran gris figé, sans
+      // jamais atteindre le joli errorBuilder bleu ci-dessus.
       redirect: (context, state) {
-        final loc = state.matchedLocation;
-        // FIX CRITIQUE : ne jamais rediriger pendant l'init -> cause écran gris
         try {
-          // Si auth pas encore init, laisse passer
-          if (auth.currentUser == null && !auth.isAuthenticated) {
-            // mais autorise les routes publiques
+          final loc = state.matchedLocation;
+
+          final isAuthPage = loc == AppRoutes.login || loc == AppRoutes.personalReg || loc == AppRoutes.enterpriseReg;
+          final isPublic = loc == AppRoutes.start || loc == AppRoutes.home || loc == AppRoutes.publicProfile ||
+              loc == AppRoutes.jobs || loc == AppRoutes.opportunities || loc == AppRoutes.education ||
+              loc == AppRoutes.trainingHome || loc.startsWith('${AppRoutes.trainingDetailsBasePath}/') ||
+              loc == AppRoutes.monPays || loc.startsWith('${AppRoutes.monPays}/') ||
+              loc.startsWith('/thix-event') || loc.startsWith('/thix-urgent') ||
+              loc.startsWith('/thix-reservation/delivery') || isAuthPage;
+
+          // Si auth pas encore prête (Supabase pas init, session en cours de
+          // restauration...), on NE bloque JAMAIS la navigation : on laisse
+          // passer tel quel plutôt que de risquer une exception ou une
+          // redirection prématurée vers /login.
+          bool logged;
+          AccountType? accountType;
+          try {
+            logged = auth.isAuthenticated;
+            accountType = auth.currentUser?.accountType;
+          } catch (_) {
+            return null;
           }
-        } catch (_) { return null; }
 
-        final logged = auth.isAuthenticated;
-        final isAuthPage = loc == AppRoutes.login || loc == AppRoutes.personalReg || loc == AppRoutes.enterpriseReg;
-        final isPublic = loc == AppRoutes.start || loc == AppRoutes.home || loc == AppRoutes.publicProfile ||
-            loc == AppRoutes.jobs || loc == AppRoutes.opportunities || loc == AppRoutes.education ||
-            loc == AppRoutes.trainingHome || loc.startsWith('${AppRoutes.trainingDetailsBasePath}/') ||
-            loc == AppRoutes.monPays || loc.startsWith('${AppRoutes.monPays}/') ||
-            loc.startsWith('/thix-event') || loc.startsWith('/thix-urgent') ||
-            loc.startsWith('/thix-reservation/delivery') || isAuthPage;
+          if (!logged && !isPublic) return AppRoutes.login;
 
-        if (!logged && !isPublic) return AppRoutes.login;
+          if (logged && isAuthPage) {
+            return accountType == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard;
+          }
 
-        if (logged && isAuthPage) {
-          return auth.currentUser?.accountType == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard;
+          // Anti-boucle dashboard
+          if (logged) {
+            if (loc == AppRoutes.userDashboard && accountType == AccountType.enterprise) return AppRoutes.enterpriseDashboard;
+            if (loc == AppRoutes.enterpriseDashboard && accountType == AccountType.personal) return AppRoutes.userDashboard;
+          }
+          return null;
+        } catch (e, st) {
+          // Filet de sécurité ultime : quoi qu'il arrive dans ce callback,
+          // on ne laisse JAMAIS une exception remonter et bloquer l'app.
+          debugPrint('GoRouter redirect error (ignoré, navigation autorisée): $e\n$st');
+          return null;
         }
-
-        // Anti-boucle dashboard
-        if (logged) {
-          final t = auth.currentUser?.accountType;
-          if (loc == AppRoutes.userDashboard && t == AccountType.enterprise) return AppRoutes.enterpriseDashboard;
-          if (loc == AppRoutes.enterpriseDashboard && t == AccountType.personal) return AppRoutes.userDashboard;
-        }
-        return null;
       },
       routes: [
         GoRoute(path: AppRoutes.start, name: 'start', pageBuilder: (_, __) => const NoTransitionPage(child: ThixIdStartPage())),
