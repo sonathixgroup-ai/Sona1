@@ -78,9 +78,11 @@ dev_dependencies:
   # Lints (version compatible avec analyzer < 7.0.0)
   custom_lint: ^0.6.4
   riverpod_lint: ^2.3.9
-  # Appels
+    # Appels
   agora_rtc_engine: ^6.5.2
   permission_handler: ^11.3.1
+  # Code highlight
+  flutter_highlight: ^0.7.0
 
 flutter:
   uses-material-design: true
