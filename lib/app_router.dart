@@ -515,9 +515,17 @@ class AppRouter {
         GoRoute(path: '/agency/trip/create', name: 'agency-create-trip', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyCreateTripPage())),
         GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyQrScanPage())),
         GoRoute(path: AppRoutes.deliveryHome, name: 'delivery-home', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..init(), child: const DeliveryHomePage()))),
-        GoRoute(path: AppRoutes.deliveryCheckout, name: 'delivery-checkout', pageBuilder: (context, _) {
-          final clientProv = context.read<DeliveryClientProvider>();
-          return NoTransitionPage(child: ChangeNotifierProvider.value(value: clientProv, child: const DeliveryCheckoutPage()));
+        GoRoute(
+  path: AppRoutes.deliveryCheckout, 
+  name: 'delivery-checkout', 
+  pageBuilder: (_, __) => NoTransitionPage(
+    child: ChangeNotifierProvider(
+      create: (_) => DeliveryClientProvider(), // On le crée ici, à la demande
+      child: const DeliveryCheckoutPage(),
+    ),
+  ),
+),
+
         }),
         GoRoute(path: AppRoutes.deliveryTracking, name: 'delivery-tracking', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider(), child: const delivery_tracking.DeliveryTrackingPage()))),
         GoRoute(path: AppRoutes.deliveryHistory, name: 'delivery-history', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..loadMyShipments(refresh: true), child: const DeliveryHistoryPage()))),
