@@ -1,4 +1,4 @@
-// lib/main.dart - SCALABLE 10M - SANS PROVIDER - BUILD VERT
+// lib/main.dart - FIX ECRAN BLANC - BUILD VERT #3801
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -15,74 +15,69 @@ import 'package:thix_id/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  FlutterError.onError = (d) { if (kDebugMode) FlutterError.presentError(d); };
-  await SupabaseConfig.initialize();
-  runApp(const ProviderScope(child: BootstrapApp()));
-}
-
-class BootstrapApp extends StatefulWidget {
-  const BootstrapApp({super.key});
-  @override
-  State<BootstrapApp> createState() => _BootstrapAppState();
-}
-
-class _BootstrapAppState extends State<BootstrapApp> {
-  late Future<_BootstrapResult> _future;
-  @override
-  void initState() { super.initState(); _future = _bootstrap(); }
-  Future<_BootstrapResult> _bootstrap() async {
-    final profiles = ProfileService();
-    final userService = UserService(SupabaseConfig.client);
-    final auth = AuthController(auth: SupabaseAuthManager(profiles: profiles));
-    await auth.init();
-    return _BootstrapResult(auth: auth, profiles: profiles, userService: userService);
+  
+  // 1. Supabase avec timeout - ne bloque jamais
+  try {
+    await SupabaseConfig.initialize().timeout(const Duration(seconds: 5));
+  } catch (e) {
+    debugPrint('⚠️ Supabase init failed, continue: $e');
   }
+
+  FlutterError.onError = (d) {
+    if (kDebugMode) FlutterError.presentError(d);
+    debugPrint('[THIX-ERROR] ${d.exceptionAsString()}');
+  };
+
+  runApp(const ProviderScope(child: MyApp()));
+}
+
+class MyApp extends ConsumerStatefulWidget {
+  const MyApp({super.key});
   @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<_BootstrapResult>(
-      future: _future,
-      builder: (context, snap) {
-        if (!snap.hasData) {
-          return MaterialApp(theme: lightTheme, home: const Scaffold(body: Center(child: CircularProgressIndicator())));
-        }
-        return MyApp(result: snap.data!);
-      },
-    );
-  }
+  ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _BootstrapResult {
-  final AuthController auth; final ProfileService profiles; final UserService userService;
-  const _BootstrapResult({required this.auth, required this.profiles, required this.userService});
-}
-
-class MyApp extends StatefulWidget {
-  final _BootstrapResult result;
-  const MyApp({super.key, required this.result});
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  late final LocaleController _localeController;
+class _MyAppState extends ConsumerState<MyApp> {
+  late final AuthController _auth;
+  late final LocaleController _locale;
   late final dynamic _router;
+  bool _ready = false;
+
   @override
   void initState() {
     super.initState();
-    _localeController = LocaleController()..init();
-    _router = AppRouter.create(widget.result.auth, extraRefreshListenable: _localeController);
+    _locale = LocaleController()..init();
+    final profiles = ProfileService();
+    _auth = AuthController(auth: SupabaseAuthManager(profiles: profiles));
+    
+    // Auth en arrière-plan, ne bloque pas le first frame
+    _auth.init().timeout(const Duration(seconds: 4)).whenComplete(() {
+      if (mounted) setState(() => _ready = true);
+    }).catchError((e) {
+      debugPrint('Auth init error: $e');
+      if (mounted) setState(() => _ready = true);
+    });
+
+    // Router créé IMMÉDIATEMENT - même si auth pas prêt
+    _router = AppRouter.create(_auth, extraRefreshListenable: _locale);
+
+    // Fallback : si auth met trop longtemps, on affiche quand même
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && !_ready) setState(() => _ready = true);
+    });
   }
+
   @override
   Widget build(BuildContext context) {
-    // ZERO provider ici - seulement Riverpod ProviderScope au dessus
-    // Tous les feature providers seront créés LAZY dans app_router.dart par route
+    // UN SEUL MaterialApp.router - jamais 2, c'est ça qui faisait l'écran gris
     return MaterialApp.router(
-      title: 'THIX ID',
+      title: 'THIX ID CENTRAL',
       debugShowCheckedModeBanner: false,
       theme: lightTheme,
       darkTheme: darkTheme,
+      themeMode: ThemeMode.light,
       routerConfig: _router,
-      locale: _localeController.locale,
+      locale: _locale.locale,
       supportedLocales: LocaleController.supportedLocales,
       localizationsDelegates: const [
         AppLocalizations.delegate,
@@ -90,6 +85,29 @@ class _MyAppState extends State<MyApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      // Loader Flutter natif pendant que router charge
+      builder: (context, child) {
+        if (!_ready) {
+          return Scaffold(
+            backgroundColor: const Color(0xFF0B3D91),
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset('icons/Icon-192.png', width: 120, errorBuilder: (_,__,___) => const Icon(Icons.verified_user, color: Colors.white, size: 48)),
+                  const SizedBox(height: 16),
+                  const CircularProgressIndicator(color: Color(0xFFF7C948), strokeWidth: 2),
+                  const SizedBox(height: 12),
+                  const Text('THIX ID CENTRAL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 4),
+                  const Text('By Sonathix Group', style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1)),
+                ],
+              ),
+            ),
+          );
+        }
+        return child!;
+      },
     );
   }
 }
