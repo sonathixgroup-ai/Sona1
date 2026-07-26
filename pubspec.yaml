@@ -24,8 +24,8 @@ dependencies:
 
   # State Management - MODERNE
   flutter_riverpod: ^2.6.1
-  riverpod_annotation: ^2.3.5
-  provider: ^6.1.2 # temporaire pour AppRouter
+  riverpod_annotation: ^2.6.1
+  provider: ^6.1.2
 
   # Backend & API
   supabase_flutter: ^2.8.0
@@ -38,14 +38,10 @@ dependencies:
   shared_preferences: ^2.3.2
   flutter_secure_storage: ^9.2.4
   path_provider: ^2.1.4
-  collection: ^1.19.0
-
-  # JSON & Serialization
+  collection: ^1.19.1
   json_annotation: ^4.9.0
   equatable: ^2.0.8
-
-  # Utils
-  intl: ^0.19.0
+  intl: ^0.20.2
   uuid: ^4.5.3
   crypto: ^3.0.3
   path: ^1.9.0
@@ -63,26 +59,27 @@ dependencies:
   flutter_map: ^6.1.0
   latlong2: ^0.9.0
 
+  # Appels & Highlight - DANS dependencies, PAS dev
+  agora_rtc_engine: ^6.5.2
+  permission_handler: ^11.3.1
+  flutter_highlight: ^0.7.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
   
-  # BUILD - Versions alignées pour éviter le conflit analyzer / macros
-  build_runner: ^2.4.13
-  json_serializable: ^6.8.0
-  hive_generator: ^2.0.1
-  riverpod_generator: ^2.4.0
-  
-  # Lints (version compatible avec analyzer < 7.0.0)
-  custom_lint: ^0.6.4
-  riverpod_lint: ^2.3.9
-    # Appels
-  agora_rtc_engine: ^6.5.2
-  permission_handler: ^11.3.1
-  # Code highlight
-  flutter_highlight: ^0.7.0
+  # BUILD - versions pins sans ^
+  build_runner: 2.4.13
+  json_serializable: 6.8.0
+  hive_generator: 2.0.1
+  riverpod_generator: 2.6.3
+  custom_lint: 0.6.8
+  riverpod_lint: 2.3.13
+
+dependency_overrides:
+  analyzer: 6.8.0
 
 flutter:
   uses-material-design: true
