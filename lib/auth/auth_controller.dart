@@ -1,127 +1,131 @@
-import 'package:flutter/foundation.dart';
+// lib/features/auth/presentation/providers/auth_controller.dart
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:thix_id/auth/auth_manager.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
-import 'package:thix_id/models/app_user.dart';
+import 'package:thix_id/model/app_user.dart';
+import 'package:thix_id/services/profile_service.dart';
+import '../../data/auth_repository.dart';
 
-class AuthController extends ChangeNotifier {
-  static AuthController? _instance;
-  static AuthController get instance => _instance ??= AuthController();
+part 'auth_controller.g.dart';
 
-  final AuthManager _auth;
+@Riverpod(keepAlive: true)
+AuthManager authManager(AuthManagerRef ref) {
+  return SupabaseAuthManager(profiles: ProfileService());
+}
 
-  AuthController({AuthManager? auth}) : _auth = auth ?? SupabaseAuthManager() {
-    _instance ??= this;
-    _auth.currentUserListenable.addListener(notifyListeners);
+@Riverpod(keepAlive: true)
+class AuthController extends _$AuthController {
+  late final AuthManager _auth;
+
+  @override
+  Future<AppUser?> build() async {
+    _auth = ref.watch(authManagerProvider);
+    await _auth.init();
+    
+    // Écoute le stream Supabase au lieu de Listenable
+    ref.listen(authUserStreamProvider, (prev, next) {
+      if (next.valueOrNull == null) {
+        state = const AsyncData(null);
+      }
+    });
+    
+    return _auth.currentUser;
   }
 
-  AppUser? get currentUser => _auth.currentUser;
-  bool get isAuthenticated => currentUser != null;
+  bool get isAuthenticated => state.valueOrNull != null;
+  AppUser? get currentUser => state.valueOrNull;
 
-  Future<void> init() => _auth.init();
+  // ===== MÉTHODES MODERNES (Sécurisées par AsyncValue.guard) =====
 
-  Future<AppUser> signIn({required String identifier, required String password, required bool rememberMe}) async {
-    final u = await _auth.signInWithEmailOrThixId(identifier: identifier, password: password, rememberMe: rememberMe);
-    notifyListeners();
-    return u;
+  Future<void> signIn({required String identifier, required String password, required bool rememberMe}) async {
+    state = const AsyncLoading(); // L'UI passe en mode chargement
+    state = await AsyncValue.guard(() async {
+      return await _auth.signInWithEmailOrThixId(
+        identifier: identifier, 
+        password: password, 
+        rememberMe: rememberMe
+      );
+    });
   }
 
-  Future<AppUser> registerPersonal({
-    required String email,
-    required String password,
-    required String displayName,
-    required bool rememberMe,
-    Map<String, dynamic>? profileDraft,
+  Future<void> registerPersonal({
+    required String email, required String password, required String displayName,
+    required bool rememberMe, Map<String, dynamic>? profileDraft,
   }) async {
-    try {
-      final u = await _auth.registerWithEmail(
-        email: email,
-        password: password,
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      return await _auth.registerWithEmail(
+        email: email, 
+        password: password, 
         displayName: displayName,
-        accountType: AccountType.personal,
-        rememberMe: rememberMe,
+        accountType: AccountType.personal, 
+        rememberMe: rememberMe, 
         profileDraft: profileDraft,
       );
-      notifyListeners();
-      return u;
-    } catch (e) {
-      rethrow;
-    }
+    });
   }
 
-  Future<AppUser> registerEnterprise({
-    required String email,
-    required String password,
-    required String displayName,
-    required bool rememberMe,
-    Map<String, dynamic>? profileDraft,
+  Future<void> registerEnterprise({
+    required String email, required String password, required String displayName,
+    required bool rememberMe, Map<String, dynamic>? profileDraft,
   }) async {
-    try {
-      final u = await _auth.registerWithEmail(
-        email: email,
-        password: password,
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      return await _auth.registerWithEmail(
+        email: email, 
+        password: password, 
         displayName: displayName,
-        accountType: AccountType.enterprise,
-        rememberMe: rememberMe,
+        accountType: AccountType.enterprise, 
+        rememberMe: rememberMe, 
         profileDraft: profileDraft,
       );
-      notifyListeners();
-      return u;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) => _auth.startPhoneAuth(phoneNumber: phoneNumber);
-
-  Future<AppUser> confirmPhoneCode({
-    required PhoneAuthSession session,
-    required String smsCode,
-    String? displayName,
-    AccountType accountType = AccountType.personal,
-  }) async {
-    final u = await _auth.confirmPhoneCode(
-      session: session,
-      smsCode: smsCode,
-      displayName: displayName,
-      accountType: accountType,
-    );
-    notifyListeners();
-    return u;
+    });
   }
 
   Future<void> signOut() async {
     await _auth.signOut();
-    notifyListeners();
+    state = const AsyncData(null);
   }
 
   Future<void> updateCurrentUser(AppUser user) async {
     await _auth.updateCurrentUser(user);
-    notifyListeners();
+    state = AsyncData(user); // Met à jour l'UI instantanément
   }
 
-  // ==========================================================================
-  // GESTION OTP
-  // ==========================================================================
-
-  Future<void> verifyOTP({
-    required String email,
-    required String token,
-  }) async {
-    await _auth.verifyOTP(email: email, token: token);
-    notifyListeners();
+  Future<void> verifyOTP({required String email, required String token}) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await _auth.verifyOTP(email: email, token: token);
+      return await _auth.refreshCurrentUser();
+    });
   }
 
-  /// Force le rechargement de l'utilisateur après la vérification OTP
-  Future<AppUser> refreshCurrentUser() async {
-    final user = await _auth.refreshCurrentUser();
-    notifyListeners();
-    return user;
+  Future<void> refreshCurrentUser() async {
+    state = await AsyncValue.guard(() async {
+      return await _auth.refreshCurrentUser();
+    });
   }
 
-  Future<void> resendOTP({
-    required String email,
-  }) async {
+  Future<void> resendOTP({required String email}) async {
     await _auth.resendOTP(email: email);
-    notifyListeners();
   }
-} 
+
+  Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) {
+    return _auth.startPhoneAuth(phoneNumber: phoneNumber);
+  }
+
+  Future<void> confirmPhoneCode({
+    required PhoneAuthSession session, required String smsCode,
+    String? displayName, AccountType accountType = AccountType.personal,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      return await _auth.confirmPhoneCode(
+        session: session, 
+        smsCode: smsCode, 
+        displayName: displayName, 
+        accountType: accountType
+      );
+    });
+  }
+}
