@@ -1,4 +1,4 @@
-name: Deploy Flutter Web to GitHub Pages
+Name: Deploy Flutter Web to GitHub Pages
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.35.1"
+          flutter-version: "3.27.1"
           channel: stable
           cache: true
 
@@ -49,8 +49,7 @@ jobs:
           flutter build web \
             --release \
             --base-href /Sona1/ \
-            --pwa-strategy none \
-            --no-wasm
+            --pwa-strategy none
 
       - name: SPA Fallback (go_router)
         run: cp build/web/index.html build/web/404.html
