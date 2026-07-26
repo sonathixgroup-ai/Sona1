@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // <-- L'import manquant ajouté ici !
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../models/province.dart';
 import '../models/city.dart';
@@ -476,92 +476,93 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isBusy = true);
 
-    final mappedCities = _cities.map((c) {
-      final popStr = c['population']?.toString().trim() ?? '';
-      return City.fromJson({
-        'id': c['id']?.toString().isNotEmpty == true ? c['id'] : null,
-        'province_id': _provinceId, 'provinceId': _provinceId,
-        'name': c['name'] ?? '',
-        'population': popStr.isNotEmpty ? int.tryParse(popStr) : null,
-        'is_capital': c['is_capital'] ?? false, 'isCapital': c['is_capital'] ?? false,
-        'mayor': c['mayor'], 'mayor_photo_url': c['mayor_photo_url'], 'mayorPhotoUrl': c['mayor_photo_url'],
-        'media': c['media'] ?? [],
-      });
-    }).toList();
-
-    final mappedEconomy = _economicSectors.map((e) {
-      return ProvinceEconomicResource.fromJson({
-        'id': e['id']?.toString().isNotEmpty == true ? e['id'] : null,
-        'province_id': _provinceId, 'provinceId': _provinceId,
-        'name': e['name'] ?? '', 'description': e['description'],
-        'media': e['media'] ?? [],
-      });
-    }).toList();
-
-    final mappedTourism = _tourismSites.map((t) {
-      return ProvinceTourism.fromJson({
-        'id': t['id']?.toString().isNotEmpty == true ? t['id'] : null,
-        'province_id': _provinceId, 'provinceId': _provinceId,
-        'name': t['name'] ?? '', 'type': t['type'] ?? '', 'description': t['description'],
-        'media': t['media'] ?? [],
-      });
-    }).toList();
-
-    final mappedAdmin = _administrativeDivisions.map((a) {
-      final popStr = a['population']?.toString().trim() ?? '';
-      final areaStr = a['area']?.toString().trim() ?? '';
-      return ProvinceAdministrativeDivision.fromJson({
-        'id': a['id']?.toString().isNotEmpty == true ? a['id'] : null,
-        'province_id': _provinceId, 'provinceId': _provinceId,
-        'type': a['type'] ?? 'Territoire', 'name': a['name'] ?? '', 'capital': a['capital'],
-        'population': popStr.isNotEmpty ? int.tryParse(popStr) : null,
-        'area': areaStr.isNotEmpty ? num.tryParse(areaStr) : null,
-        'administrator': a['administrator'], 'media': a['media'] ?? [],
-      });
-    }).toList();
-
-    final mappedEmergency = _emergencyContacts.map((e) {
-      return ProvinceEmergencyContact.fromJson({
-        'id': e['id']?.toString().isNotEmpty == true ? e['id'] : null,
-        'province_id': _provinceId, 'provinceId': _provinceId,
-        'service': e['service'], 'service_name': e['service'], 'serviceName': e['service'],
-        'phone': e['phone'], 'phone_number': e['phone'], 'phoneNumber': e['phone'],
-      });
-    }).toList();
-
-    final province = Province(
-      id: _provinceId ?? '', name: _nameController.text.trim(), code: _codeController.text.trim(),
-      capital: _capitalController.text.trim(), region: _regionController.text.trim(),
-      area: int.tryParse(_areaController.text.trim()), population: int.tryParse(_populationController.text.trim()),
-      description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
-      
-      history: _historyController.text.trim().isEmpty ? null : _historyController.text.trim(),
-      climate: _climateController.text.trim().isEmpty ? null : _climateController.text.trim(),
-      infrastructure: _infrastructureController.text.trim().isEmpty ? null : _infrastructureController.text.trim(),
-      education: _educationController.text.trim().isEmpty ? null : _educationController.text.trim(),
-
-      coverImageUrl: _coverImageUrl, coatOfArmsUrl: _coatOfArmsUrl, mapUrl: _mapUrl,
-      website: _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
-      governor: _governorController.text.trim().isEmpty ? null : _governorController.text.trim(),
-      governorPhotoUrl: _governorPhotoUrl,
-      viceGovernor: _viceGovernorController.text.trim().isEmpty ? null : _viceGovernorController.text.trim(),
-      viceGovernorPhotoUrl: _viceGovernorPhotoUrl,
-      government: _government,
-      
-      ministers: _ministers.where((m) => (m['name'] ?? '').trim().isNotEmpty).toList(),
-      cities: mappedCities, economicResources: mappedEconomy, tourismSites: mappedTourism,
-      emergencyContacts: mappedEmergency, administrativeDivisions: mappedAdmin,
-      
-      achievements: _achievements.where((a) => (a['title'] ?? '').trim().isNotEmpty).toList(),
-      tribes: _tribes.where((t) => (t['name'] ?? '').trim().isNotEmpty).toList(),
-      galleryMedia: _galleryMedia,
-
-      languages: _languagesController.text.trim().isEmpty ? null : _languagesController.text.trim(),
-      resources: _resourcesController.text.trim().isEmpty ? null : _resourcesController.text.trim(),
-      territoriesCount: int.tryParse(_territoriesCountController.text.trim()),
-    );
-    
     try {
+      // ⚠️ TOUT LE BLOC EST MAINTENANT PROTÉGÉ PAR LE TRY...CATCH
+      final mappedCities = _cities.map((c) {
+        final popStr = c['population']?.toString().trim() ?? '';
+        return City.fromJson({
+          'id': c['id']?.toString().isNotEmpty == true ? c['id'] : null,
+          'province_id': _provinceId, 'provinceId': _provinceId,
+          'name': c['name'] ?? '',
+          'population': popStr.isNotEmpty ? int.tryParse(popStr) : null,
+          'is_capital': c['is_capital'] ?? false, 'isCapital': c['is_capital'] ?? false,
+          'mayor': c['mayor'], 'mayor_photo_url': c['mayor_photo_url'], 'mayorPhotoUrl': c['mayor_photo_url'],
+          'media': c['media'] ?? [],
+        });
+      }).toList();
+
+      final mappedEconomy = _economicSectors.map((e) {
+        return ProvinceEconomicResource.fromJson({
+          'id': e['id']?.toString().isNotEmpty == true ? e['id'] : null,
+          'province_id': _provinceId, 'provinceId': _provinceId,
+          'name': e['name'] ?? '', 'description': e['description'],
+          'media': e['media'] ?? [],
+        });
+      }).toList();
+
+      final mappedTourism = _tourismSites.map((t) {
+        return ProvinceTourism.fromJson({
+          'id': t['id']?.toString().isNotEmpty == true ? t['id'] : null,
+          'province_id': _provinceId, 'provinceId': _provinceId,
+          'name': t['name'] ?? '', 'type': t['type'] ?? '', 'description': t['description'],
+          'media': t['media'] ?? [],
+        });
+      }).toList();
+
+      final mappedAdmin = _administrativeDivisions.map((a) {
+        final popStr = a['population']?.toString().trim() ?? '';
+        final areaStr = a['area']?.toString().trim() ?? '';
+        return ProvinceAdministrativeDivision.fromJson({
+          'id': a['id']?.toString().isNotEmpty == true ? a['id'] : null,
+          'province_id': _provinceId, 'provinceId': _provinceId,
+          'type': a['type'] ?? 'Territoire', 'name': a['name'] ?? '', 'capital': a['capital'],
+          'population': popStr.isNotEmpty ? int.tryParse(popStr) : null,
+          'area': areaStr.isNotEmpty ? num.tryParse(areaStr) : null,
+          'administrator': a['administrator'], 'media': a['media'] ?? [],
+        });
+      }).toList();
+
+      final mappedEmergency = _emergencyContacts.map((e) {
+        return ProvinceEmergencyContact.fromJson({
+          'id': e['id']?.toString().isNotEmpty == true ? e['id'] : null,
+          'province_id': _provinceId, 'provinceId': _provinceId,
+          'service': e['service'], 'service_name': e['service'], 'serviceName': e['service'],
+          'phone': e['phone'], 'phone_number': e['phone'], 'phoneNumber': e['phone'],
+        });
+      }).toList();
+
+      final province = Province(
+        id: _provinceId ?? '', name: _nameController.text.trim(), code: _codeController.text.trim(),
+        capital: _capitalController.text.trim(), region: _regionController.text.trim(),
+        area: int.tryParse(_areaController.text.trim()), population: int.tryParse(_populationController.text.trim()),
+        description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+        
+        history: _historyController.text.trim().isEmpty ? null : _historyController.text.trim(),
+        climate: _climateController.text.trim().isEmpty ? null : _climateController.text.trim(),
+        infrastructure: _infrastructureController.text.trim().isEmpty ? null : _infrastructureController.text.trim(),
+        education: _educationController.text.trim().isEmpty ? null : _educationController.text.trim(),
+
+        coverImageUrl: _coverImageUrl, coatOfArmsUrl: _coatOfArmsUrl, mapUrl: _mapUrl,
+        website: _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
+        governor: _governorController.text.trim().isEmpty ? null : _governorController.text.trim(),
+        governorPhotoUrl: _governorPhotoUrl,
+        viceGovernor: _viceGovernorController.text.trim().isEmpty ? null : _viceGovernorController.text.trim(),
+        viceGovernorPhotoUrl: _viceGovernorPhotoUrl,
+        government: _government,
+        
+        ministers: _ministers.where((m) => (m['name'] ?? '').trim().isNotEmpty).toList(),
+        cities: mappedCities, economicResources: mappedEconomy, tourismSites: mappedTourism,
+        emergencyContacts: mappedEmergency, administrativeDivisions: mappedAdmin,
+        
+        achievements: _achievements.where((a) => (a['title'] ?? '').trim().isNotEmpty).toList(),
+        tribes: _tribes.where((t) => (t['name'] ?? '').trim().isNotEmpty).toList(),
+        galleryMedia: _galleryMedia,
+
+        languages: _languagesController.text.trim().isEmpty ? null : _languagesController.text.trim(),
+        resources: _resourcesController.text.trim().isEmpty ? null : _resourcesController.text.trim(),
+        territoriesCount: int.tryParse(_territoriesCountController.text.trim()),
+      );
+      
       if (_isEditing) {
         await ref.read(adminProvincesProvider.notifier).updateProvince(province);
       } else {
@@ -574,8 +575,11 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
         context.pop();
       }
     } catch (e) {
-      setState(() => _isBusy = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Erreur : $e'), backgroundColor: Colors.red, duration: const Duration(seconds: 5)));
+      if (mounted) {
+        setState(() => _isBusy = false);
+        // Si ça échoue, ça affichera la bannière rouge pendant 8 secondes au lieu de tourner à l'infini.
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Erreur de sauvegarde : $e'), backgroundColor: Colors.red, duration: const Duration(seconds: 8)));
+      }
     }
   }
 }
