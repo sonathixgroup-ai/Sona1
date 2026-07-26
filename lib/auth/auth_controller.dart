@@ -9,9 +9,7 @@ class AuthController extends ChangeNotifier {
     if (_cached != null) return _cached;
     final u = Supabase.instance.client.auth.currentUser;
     if (u == null) return null;
-
     final now = DateTime.now();
-    // On fabrique un AppUser minimal qui respecte tous tes required
     return AppUser(
       id: u.id,
       thixId: (u.userMetadata?['thix_id'] as String?) ?? 'THIX-PENDING',
@@ -45,7 +43,13 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // --- COMPAT pour les anciens fichiers ---
   void setUser(AppUser? user) {
+    _cached = user;
+    notifyListeners();
+  }
+
+  Future<void> updateCurrentUser(AppUser user) async {
     _cached = user;
     notifyListeners();
   }
