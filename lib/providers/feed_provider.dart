@@ -1,82 +1,73 @@
-import 'package:flutter/material.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/network_service.dart';
-import '../models/network_post.dart';
+import 'package:thix_id/models/network_post.dart';
+import 'package:thix_id/features/network/data/network_service_provider.dart';
+part 'feed_provider.g.dart';
 
-class FeedProvider extends ChangeNotifier {
-  final NetworkService _service;
-  final SupabaseClient _supabase;
-  FeedProvider(this._service, {required SupabaseClient supabase}) : _supabase = supabase;
-
-  List<NetworkPost> _posts = [];
-  bool _isLoading = false, _isLoadingMore = false, _hasMore = true;
-  String _feedType = 'smart';
-  int _offset = 0;
+@riverpod
+class Feed extends _$Feed {
   static const _limit = 15;
+  int _offset = 0;
+  bool _hasMore = true;
+  String _feedType = 'smart';
   RealtimeChannel? _channel;
 
-  List<NetworkPost> get posts => _posts;
-  bool get isLoading => _isLoading;
-  bool get isLoadingMore => _isLoadingMore;
   bool get hasMore => _hasMore;
-  String get currentFeedType => _feedType;
+  String get feedType => _feedType;
+
+  @override
+  Future<List<NetworkPost>> build() async {
+    _offset = 0;
+    _hasMore = true;
+    final service = ref.read(networkServiceProvider);
+    final posts = await service.getFeedPosts(limit: _limit, offset: 0, feedType: _feedType);
+    _offset = posts.length;
+    _hasMore = posts.length >= _limit;
+    _initRealtime();
+    return posts;
+  }
 
   Future<void> loadFeed({String? feedType, bool force = false}) async {
-    if (_isLoading && !force) return;
-    if (feedType != null) _feedType = feedType;
-    _isLoading = true; _offset = 0; _hasMore = true;
-    notifyListeners();
-    try {
-      final newPosts = await _service.getFeedPosts(limit: _limit, offset: 0, feedType: _feedType);
-      _posts = newPosts; _offset = newPosts.length; _hasMore = newPosts.length >= _limit;
-    } finally { _isLoading = false; notifyListeners(); }
+    if (feedType!= null) _feedType = feedType;
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final service = ref.read(networkServiceProvider);
+      final p = await service.getFeedPosts(limit: _limit, offset: 0, feedType: _feedType);
+      _offset = p.length;
+      _hasMore = p.length >= _limit;
+      return p;
+    });
   }
 
   Future<void> loadMore() async {
-    if (_isLoadingMore || !_hasMore || _isLoading) return;
-    _isLoadingMore = true; notifyListeners();
-    try {
-      final more = await _service.getFeedPosts(limit: _limit, offset: _offset, feedType: _feedType);
-      if (more.isEmpty) { _hasMore = false; }
-      else { _posts.addAll(more); _offset += more.length; _hasMore = more.length >= _limit; }
-    } finally { _isLoadingMore = false; notifyListeners(); }
+    if (!_hasMore || state.isLoading) return;
+    final current = state.valueOrNull?? [];
+    final service = ref.read(networkServiceProvider);
+    final more = await service.getFeedPosts(limit: _limit, offset: _offset, feedType: _feedType);
+    if (more.isEmpty) { _hasMore = false; return; }
+    _offset += more.length;
+    _hasMore = more.length >= _limit;
+    state = AsyncData([...current,...more]);
   }
 
   Future<void> toggleLike(String postId) async {
-    final i = _posts.indexWhere((p) => p.id == postId); if (i == -1) return;
-    final old = _posts[i];
-    _posts[i] = old.copyWith(isLiked: !old.isLiked, likesCount: old.isLiked ? old.likesCount - 1 : old.likesCount + 1);
-    notifyListeners();
-    try { old.isLiked ? await _service.unlikePost(postId) : await _service.likePost(postId); }
-    catch (_) { _posts[i] = old; notifyListeners(); }
+    final current = state.valueOrNull; if (current == null) return;
+    final i = current.indexWhere((p) => p.id == postId); if (i == -1) return;
+    final old = current[i];
+    final updated = [...current];
+    updated[i] = old.copyWith(isLiked:!old.isLiked, likesCount: old.isLiked? old.likesCount - 1 : old.likesCount + 1);
+    state = AsyncData(updated);
+    try {
+      final s = ref.read(networkServiceProvider);
+      old.isLiked? await s.unlikePost(postId) : await s.likePost(postId);
+    } catch (_) { state = AsyncData(current); }
   }
 
-  void initRealtime() {
-    _channel = _supabase.channel('posts_feed').onPostgresChanges(
-      event: PostgresChangeEvent.insert, 
-      schema: 'public', 
-      table: 'posts', 
-      callback: (_) => loadFeed(force: true)
-    ).subscribe();
+  void _initRealtime() {
+    final client = ref.read(supabaseClientProvider);
+    _channel = client.channel('posts_feed').onPostgresChanges(event: PostgresChangeEvent.insert, schema: 'public', table: 'posts', callback: (_) => loadFeed(force: true)).subscribe();
   }
 
-  // ─── MÉTHODES AJOUTÉES POUR RÉSOUDRE L'ERREUR DE BUILD ───
-
-  void disposeRealtime() {
-    _channel?.unsubscribe();
-    _channel = null;
-  }
-
-  Future<void> reconnectRealtime() async {
-    debugPrint('🔄 FeedProvider: Reconnexion Realtime...');
-    disposeRealtime();
-    await Future.delayed(const Duration(milliseconds: 300));
-    initRealtime();
-  }
-
-  @override 
-  void dispose() { 
-    disposeRealtime(); 
-    super.dispose(); 
-  }
+  @override
+  void dispose() { _channel?.unsubscribe(); }
 }
