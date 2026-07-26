@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart' as app_provider;
 import 'package:go_router/go_router.dart';
 import 'package:thix_id/auth/auth_controller.dart';
-import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
 import 'package:thix_id/app_router.dart';
@@ -14,18 +13,13 @@ import 'package:thix_id/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await SupabaseConfig.initialize();
-  } catch (e) {
-    debugPrint('Supabase init error: $e');
-  }
+  try { await SupabaseConfig.initialize(); } catch (e) { debugPrint('Supabase init error: $e'); }
   runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
-  @override
-  ConsumerState<MyApp> createState() => _MyAppState();
+  @override ConsumerState<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends ConsumerState<MyApp> {
@@ -38,15 +32,12 @@ class _MyAppState extends ConsumerState<MyApp> {
   void initState() {
     super.initState();
     _locale = LocaleController()..init();
-    _auth = AuthController(auth: SupabaseAuthManager(profiles: ProfileService()));
+    _auth = AuthController.instance;
     _initAuth();
   }
 
   Future<void> _initAuth() async {
-    try {
-      await _auth.init();
-    } catch (_) {}
-    // FIX: on écoute AUTH + LOCALE
+    try { await _auth.init(); } catch (_) {}
     final merged = Listenable.merge([_auth, _locale]);
     _router = AppRouter.create(_auth, extraRefreshListenable: merged);
     if (mounted) setState(() => _ready = true);
@@ -55,14 +46,8 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   Widget build(BuildContext context) {
     if (!_ready || _router == null) {
-      return MaterialApp(
-        home: Scaffold(
-          backgroundColor: const Color(0xFFF0F2F5),
-          body: Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)),
-        ),
-      );
+      return const MaterialApp(home: Scaffold(body: Center(child: CircularProgressIndicator())));
     }
-
     return app_provider.MultiProvider(
       providers: [
         app_provider.ChangeNotifierProvider<AuthController>.value(value: _auth),
@@ -70,19 +55,10 @@ class _MyAppState extends ConsumerState<MyApp> {
         app_provider.Provider<ProfileService>(create: (_) => ProfileService()),
       ],
       child: MaterialApp.router(
-        title: 'THIX ID CENTRAL',
-        debugShowCheckedModeBanner: false,
-        theme: lightTheme,
-        darkTheme: darkTheme,
-        routerConfig: _router!,
-        locale: _locale.locale,
-        supportedLocales: LocaleController.supportedLocales,
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate
-        ],
+        title: 'THIX ID CENTRAL', debugShowCheckedModeBanner: false,
+        theme: lightTheme, darkTheme: darkTheme, routerConfig: _router!,
+        locale: _locale.locale, supportedLocales: LocaleController.supportedLocales,
+        localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
       ),
     );
   }
