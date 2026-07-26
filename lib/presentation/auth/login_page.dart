@@ -7,8 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/theme.dart';
-import 'package:thix_id/model/app_user.dart';
+import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
+
 typedef PhoneAuthSession = dynamic;
 
 // ---------------------------------------------------------------------------
