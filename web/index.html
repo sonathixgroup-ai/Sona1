@@ -1,67 +1,77 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
-  <!--
-    Dreamflow share links may serve the `web/` folder without running `flutter build web`,
-    meaning `$FLUTTER_BASE_HREF` might not be replaced.
-    If that placeholder remains, relative URLs (including `main.dart.js`) resolve incorrectly
-    and the app stays stuck on the initial Flutter loading spinner.
-
-    Using a relative base makes the app work both at root and under sub-paths.
-  -->
-  <!--
-    NOTE (Dreamflow preview/share): the Flutter tool may rewrite <base href> to
-    "./" when running on the "web-server" device, but the Flutter runtime
-    requires an absolute base (starting with "/").
-
-    The safest option here is to OMIT the <base> tag entirely.
-    - Preview/share links: work from the current document URL
-    - Production builds: `flutter build web --base-href ...` will generate a
-      correct `index.html` in build/web.
-  -->
+  <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Application officielle de THIX ID.">
-
-  <!-- iOS meta tags & icons -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="THIX ID - Identité Numérique Souveraine RDC. Officiel.">
+  
+  <!-- PWA & Performance -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="THIX ID">
+  <meta name="theme-color" content="#0B3D91">
+  
+  <!-- SEO / Social pour 10M -->
+  <meta property="og:title" content="THIX ID">
+  <meta property="og:description" content="Application officielle THIX ID RDC">
+  <meta property="og:type" content="website">
+
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <title>THIX ID</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Preload critique pour LCP <1s à 10M users -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preload" href="main.dart.js" as="script">
+
+  <title>THIX ID - Officiel</title>
+
+  <style>
+    /* Splash natif ultra-léger - évite spinner blanc 3s sur 3G */
+    body { margin:0; background:#0B3D91; }
+    #thix-loader {
+      position:fixed; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; background:#0B3D91;
+      color:white; font-family:system-ui; z-index:9999; transition:opacity .4s;
+    }
+    #thix-loader.hidden { opacity:0; pointer-events:none; }
+    .thix-spinner { width:40px; height:40px; border:3px solid rgba(255,255,255,.3); border-top-color:#F7C948; border-radius:50%; animation:spin 1s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+  </style>
 </head>
 <body>
-  <!-- Required by the `flutter-passkeys` web plugin (Corbado). Without this, the app throws
-       "Passkeys Web SDK not loaded" at runtime even if the feature isn't used directly. -->
-  <script src="https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js" defer></script>
+  <!-- Loader natif instantané -->
+  <div id="thix-loader">
+    <div class="thix-spinner"></div>
+    <div style="margin-top:16px; font-weight:800; letter-spacing:1px;">THIX ID</div>
+    <div style="font-size:11px; opacity:.7; margin-top:4px;">RÉPUBLIQUE DÉMOCRATIQUE DU CONGO</div>
+  </div>
 
-  <!--
-    IMPORTANT:
-    This project previously referenced `flutter_bootstrap.js`, but the file is not present in
-    `web/` (and therefore not served in Dreamflow share links), which leaves the app stuck on
-    the initial loading spinner.
+  <!-- Passkeys - chargé en CDN fiable + async, pas bloquant -->
+  <script src="https://cdn.jsdelivr.net/gh/corbado/flutter-passkeys@2.4.0/bundle.js" async></script>
 
-    Loading `main.dart.js` directly is the most robust option for Dreamflow preview + share.
-  -->
-  <script src="main.dart.js" defer></script>
+  <!-- Flutter bootstrap officiel - active Service Worker + Cache + WASM -->
+  <script>
+    // Supprime loader quand Flutter est prêt
+    window.addEventListener('flutter-first-frame', function() {
+      var loader = document.getElementById('thix-loader');
+      if (loader) { loader.classList.add('hidden'); setTimeout(()=>loader.remove(), 400); }
+    });
+    
+    // Fallback 8s si Flutter bloque
+    setTimeout(function(){
+      var loader = document.getElementById('thix-loader');
+      if (loader &&!loader.classList.contains('hidden')) {
+        loader.innerHTML = '<div style="text-align:center">Chargement lent...<br><button onclick="location.reload()" style="margin-top:12px; padding:8px 16px; border-radius:8px; border:0;">Réessayer</button></div>';
+      }
+    }, 8000);
+  </script>
+
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
