@@ -1,20 +1,20 @@
 // lib/presentation/thix_info/category_articles_page.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // Import Riverpod
 import 'package:go_router/go_router.dart';
 
 import '../../providers/news_provider.dart';
 import '../../models/news_article.dart';
 
-class CategoryArticlesPage extends StatefulWidget {
+class CategoryArticlesPage extends ConsumerStatefulWidget {
   final String category;
   const CategoryArticlesPage({super.key, required this.category});
 
   @override
-  State<CategoryArticlesPage> createState() => _CategoryArticlesPageState();
+  ConsumerState<CategoryArticlesPage> createState() => _CategoryArticlesPageState();
 }
 
-class _CategoryArticlesPageState extends State<CategoryArticlesPage> {
+class _CategoryArticlesPageState extends ConsumerState<CategoryArticlesPage> {
   List<NewsArticle> _articles = [];
   bool _isLoading = true;
 
@@ -36,12 +36,15 @@ class _CategoryArticlesPageState extends State<CategoryArticlesPage> {
   }
 
   Future<void> _loadArticles() async {
-    final provider = context.read<NewsProvider>();
+    // Utilisation de ref.read
+    final provider = ref.read(newsProvider);
     final articles = await provider.fetchArticlesByCategory(widget.category);
-    setState(() {
-      _articles = articles;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _articles = articles;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
