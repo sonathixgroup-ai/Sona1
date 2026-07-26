@@ -4,22 +4,84 @@
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content="THIX ID CENTRAL - Une identité Vérifiée, avenir de confiance">
-  <meta name="theme-color" content="#0B3D91">
+  <meta name="theme-color" content="#0A1F44">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icons/Icon-192.png">
+  <link rel="icon" type="image/png" href="icons/Icon-192.png">
   <title>THIX ID CENTRAL</title>
+
   <style>
-    body{margin:0;background:#0B3D91;font-family:system-ui}
-    #loader{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0B3D91;z-index:9999;transition:opacity .4s}
-    #loader.hidden{opacity:0;pointer-events:none}
-    .title{font-size:32px;font-weight:900;color:#fff;letter-spacing:1px;text-align:center}
-    .sub{margin-top:18px;color:#F7C948;font-weight:800;letter-spacing:.5px;text-transform:uppercase}
-    .sub2{color:rgba(255,255,255,.9);font-weight:500;text-transform:none;margin-top:4px}
-    .spin{margin-top:28px;width:32px;height:32px;border:3px solid rgba(255,255,255,.25);border-top-color:#F7C948;border-radius:50%;animation:spin .9s linear infinite}
-    .foot{position:absolute;bottom:28px;font-size:11px;font-weight:700;letter-spacing:1.4px;color:rgba(255,255,255,.5)}
-    @keyframes spin{to{transform:rotate(360deg)}}
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #0A1F44;
+      font-family: system-ui, -apple-system, sans-serif;
+      overscroll-behavior: none;
+    }
+    /* Évite le flash noir CanvasKit */
+    flt-glass-pane, flutter-view {
+      background: #0A1F44 !important;
+    }
+    #loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0A1F44;
+      z-index: 99999;
+      transition: opacity .45s ease;
+    }
+    #loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .title {
+      font-size: 32px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 1px;
+      text-align: center;
+    }
+    .sub {
+      margin-top: 18px;
+      color: #F7C948;
+      font-weight: 800;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .sub2 {
+      color: rgba(255,255,255,.9);
+      font-weight: 500;
+      text-transform: none;
+      margin-top: 4px;
+      font-size: 14px;
+    }
+    .spin {
+      margin-top: 28px;
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(255,255,255,.25);
+      border-top-color: #F7C948;
+      border-radius: 50%;
+      animation: spin .9s linear infinite;
+    }
+    .foot {
+      position: absolute;
+      bottom: 28px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.4px;
+      color: rgba(255,255,255,.5);
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -29,11 +91,26 @@
     <div class="spin"></div>
     <div class="foot">BY SONATHIX GROUP</div>
   </div>
+
   <script>
-    var h=false; function hide(){if(h)return;h=true;var l=document.getElementById('loader');if(l){l.classList.add('hidden');setTimeout(()=>l.remove(),500)}}
-    window.addEventListener('flutter-first-frame',hide);
-    setTimeout(hide,2500); // FIX écran bleu vide
+    // Ne cache JAMAIS avant la première frame Flutter
+    window.addEventListener('flutter-first-frame', function () {
+      var loader = document.getElementById('loader');
+      if (loader) {
+        loader.classList.add('hidden');
+        setTimeout(function() { loader.remove(); }, 500);
+      }
+    });
+
+    // Securité : si Flutter ne démarre pas après 15s, on affiche l'erreur au lieu d'un écran noir
+    setTimeout(function() {
+      var loader = document.getElementById('loader');
+      if (loader && !loader.classList.contains('hidden')) {
+        console.warn('Flutter first frame non reçu après 15s - vérifie la console');
+      }
+    }, 15000);
   </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
