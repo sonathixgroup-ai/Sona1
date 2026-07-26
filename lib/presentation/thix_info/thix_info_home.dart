@@ -1,6 +1,7 @@
+// lib/presentation/thix_info/thix_info_home.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // 1. Import Riverpod
 import 'package:go_router/go_router.dart';
 import '../../providers/news_provider.dart';
 import '../../models/news_article.dart';
@@ -34,14 +35,15 @@ Color _catColor(String cat) {
   }
 }
 
-class ThixInfoHome extends StatefulWidget {
+// 2. Remplacement par ConsumerStatefulWidget
+class ThixInfoHome extends ConsumerStatefulWidget {
   const ThixInfoHome({super.key});
 
   @override
-  State<ThixInfoHome> createState() => _ThixInfoHomeState();
+  ConsumerState<ThixInfoHome> createState() => _ThixInfoHomeState();
 }
 
-class _ThixInfoHomeState extends State<ThixInfoHome> {
+class _ThixInfoHomeState extends ConsumerState<ThixInfoHome> {
   String _cat = 'featured';
 
   final PageController _pageCtrl = PageController();
@@ -66,8 +68,9 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NewsProvider>().fetchArticles(category: 'all');
-      context.read<NewsProvider>().loadSavedArticles();
+      // 3. ref.read au lieu de context.read
+      ref.read(newsProvider).fetchArticles(category: 'all');
+      ref.read(newsProvider).loadSavedArticles();
       _startAuto();
       _startBreakingScroll();
     });
@@ -79,8 +82,9 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
       const Duration(seconds: 4),
       (_) {
         if (!mounted) return;
-        final list = context
-            .read<NewsProvider>()
+        // 4. ref.read utilisé pour les timers
+        final list = ref
+            .read(newsProvider)
             .articles
             .where((e) => e.isFeatured)
             .toList();
@@ -125,7 +129,8 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
 
   @override
   Widget build(BuildContext context) {
-    final prov = context.watch<NewsProvider>();
+    // 5. ref.watch écoute les changements
+    final prov = ref.watch(newsProvider);
 
     final featured = prov.articles
         .where((e) => e.isFeatured)
@@ -156,13 +161,13 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
           _quick(),
           const SizedBox(height: 14),
           _titleRow('Actualités récentes'),
-          _recentCompact(recents),
+          _recentCompact(recents, prov), // Passage de prov pour optimiser Riverpod
           const SizedBox(height: 10),
           _titleRow('Vidéos à la une'),
-          _videoWithInfos(videos),
+          _videoWithInfos(videos, prov),
           const SizedBox(height: 14),
           _titleRow("Toute l'actualité"),
-          _allNewsList(recents),
+          _allNewsList(recents, prov),
           const SizedBox(height: 90),
         ],
       ),
@@ -170,8 +175,6 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
-  // Header : logo, titre, cloche notif, avatar, et bouton admin
-  // rendu totalement invisible (blanc sur blanc) mais toujours cliquable.
   Widget _top() {
     return Container(
       color: _kWhite,
@@ -247,8 +250,6 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
             ],
           ),
           const SizedBox(width: 10),
-          // Zone admin : totalement fondue dans le blanc, sans texte,
-          // sans bordure, mais toujours cliquable pour toi.
           GestureDetector(
             onTap: () => context.push('/admin'),
             child: Container(
@@ -314,11 +315,9 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
               onTap: () {
                 setState(() => _cat = c['slug']!);
                 if (c['slug'] == 'featured') {
-                  context.read<NewsProvider>().fetchArticles(category: 'all');
+                  ref.read(newsProvider).fetchArticles(category: 'all');
                 } else {
-                  context
-                      .read<NewsProvider>()
-                      .fetchArticles(category: c['slug']!);
+                  ref.read(newsProvider).fetchArticles(category: c['slug']!);
                 }
               },
               child: Container(
@@ -344,7 +343,6 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
-  // Bande rouge défilante conservée : titre + petit détail, en boucle.
   Widget _breakingBar(List<NewsArticle> list) {
     return Container(
       height: 34,
@@ -407,8 +405,6 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
-  // Carte "À la une" façon capture : badge, titre, description,
-  // heure + vues, bouton "Lire l'article", flèches et dots.
   Widget _featuredAuto(List<NewsArticle> list) {
     return Stack(
       alignment: Alignment.center,
@@ -589,7 +585,6 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
-  // Icônes rapides colorées, comme sur la capture.
   Widget _quick() {
     final items = [
       {
@@ -689,9 +684,8 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
-  // Cartes récentes façon capture : badge catégorie coloré sur l'image,
-  // titre, puis vues + favori.
-  Widget _recentCompact(List<NewsArticle> list) {
+  // 6. On accepte le prov en paramètre pour éviter de relire le context/ref dans le builder
+  Widget _recentCompact(List<NewsArticle> list, NewsProvider prov) {
     if (list.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(20),
@@ -778,7 +772,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        _engagementRow(a),
+                        _engagementRow(a, prov), // On passe prov
                       ],
                     ),
                   ),
@@ -791,7 +785,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
-  Widget _videoWithInfos(List<NewsArticle> list) {
+  Widget _videoWithInfos(List<NewsArticle> list, NewsProvider prov) {
     if (list.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(18),
@@ -884,7 +878,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        _engagementRow(v),
+                        _engagementRow(v, prov), // On passe prov
                       ],
                     ),
                   ),
@@ -897,9 +891,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
-  // Bloc "Toute l'actualité" : grandes cartes empilées verticalement,
-  // tappables vers le détail.
-  Widget _allNewsList(List<NewsArticle> list) {
+  Widget _allNewsList(List<NewsArticle> list, NewsProvider prov) {
     if (list.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(20),
@@ -983,7 +975,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                             ),
                           ),
                           const Spacer(),
-                          _engagementRow(a),
+                          _engagementRow(a, prov), // On passe prov
                         ],
                       ),
                     ),
@@ -997,10 +989,8 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
-  // Ligne vues + favori réutilisée sur toutes les cartes.
-  // Utilise savedArticles + saveArticle/unsaveArticle du NewsProvider.
-  Widget _engagementRow(NewsArticle a) {
-    final prov = context.watch<NewsProvider>();
+  // Ligne vues + favori réutilisée : lit 'prov' passé en paramètre
+  Widget _engagementRow(NewsArticle a, NewsProvider prov) {
     final isSaved = prov.savedArticles.any((s) => s.id == a.id);
 
     return Row(
@@ -1014,10 +1004,11 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
         const Spacer(),
         GestureDetector(
           onTap: () {
+            // Actions asynchrones déclenchées par ref.read
             if (isSaved) {
-              context.read<NewsProvider>().unsaveArticle(a.id);
+              ref.read(newsProvider).unsaveArticle(a.id);
             } else {
-              context.read<NewsProvider>().saveArticle(a.id);
+              ref.read(newsProvider).saveArticle(a.id);
             }
           },
           child: Icon(
