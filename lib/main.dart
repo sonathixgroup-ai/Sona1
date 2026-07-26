@@ -16,38 +16,12 @@ import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
 
 Future<void> main() async {
-  runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await SupabaseConfig.initialize().timeout(const Duration(seconds: 8));
+  } catch (e) { debugPrint('Supabase init: $e'); }
 
-    ErrorWidget.builder = (d) {
-      return Material(
-        color: const Color(0xFF0B3D91),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('Erreur: ${d.exceptionAsString()}', style: const TextStyle(color: Colors.white)),
-          ),
-        ),
-      );
-    };
-
-    try {
-      await SupabaseConfig.initialize().timeout(const Duration(seconds: 6));
-    } catch (e) {
-      debugPrint('Supabase init: $e');
-    }
-
-    FlutterError.onError = (d) {
-      debugPrint('FlutterError: ${d.exceptionAsString()}');
-      if (kDebugMode) FlutterError.presentError(d);
-    };
-    PlatformDispatcher.instance.onError = (e, s) { 
-      debugPrint('$e'); 
-      return true; 
-    };
-
-    runApp(const ProviderScope(child: MyApp()));
-  }, (e, s) => debugPrint('Zone: $e'));
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends ConsumerStatefulWidget {
@@ -59,7 +33,7 @@ class MyApp extends ConsumerStatefulWidget {
 class _MyAppState extends ConsumerState<MyApp> {
   late final AuthController _auth;
   late final LocaleController _locale;
-  dynamic _router;
+  late final dynamic _router;
 
   @override
   void initState() {
@@ -72,7 +46,8 @@ class _MyAppState extends ConsumerState<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    // Les "Core Providers" indispensables pour que l'app s'ouvre et se connecte
+    // On garde ton MultiProvider pour ne pas casser AppRouter
+    // Mais tout le nouveau code utilise ref.watch() moderne
     return app_provider.MultiProvider(
       providers: [
         app_provider.ChangeNotifierProvider<AuthController>.value(value: _auth),
