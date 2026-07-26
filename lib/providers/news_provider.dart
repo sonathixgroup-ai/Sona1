@@ -1,8 +1,25 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // 1. L'import Riverpod
+
 import '../services/news_service.dart';
 import '../models/news_article.dart';
+import '../supabase/supabase_config.dart'; // Importe ton client Supabase (ajuste le chemin si besoin)
 
+// 2. Le lien Riverpod vers ton service (Accès aux données)
+final newsServiceProvider = Provider<NewsService>((ref) {
+  return NewsService(SupabaseConfig.client);
+});
+
+// 3. Le lien Riverpod vers ta classe (Gestion d'état)
+final newsProvider = ChangeNotifierProvider<NewsProvider>((ref) {
+  final service = ref.read(newsServiceProvider);
+  return NewsProvider(service);
+});
+
+// ==========================================================
+// TA CLASSE ORIGINALE (AUCUNE MODIFICATION DANS LA LOGIQUE)
+// ==========================================================
 class NewsProvider extends ChangeNotifier {
   final NewsService _newsService;
   List<NewsArticle> _articles=[];
