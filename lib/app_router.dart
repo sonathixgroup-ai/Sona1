@@ -163,7 +163,7 @@ import 'package:thix_id/presentation/thix_event/admin/pages/limits/booking_limit
 import 'package:thix_id/presentation/thix_event/admin/pages/analytics/analytics_page.dart';
 import 'package:thix_id/presentation/thix_event/event_payment_page.dart';
 import 'package:thix_id/presentation/thix_event/event_ticket_page.dart';
-
+import 'package:thix_id/models/event_model.dart'; 
 // Education
 import 'package:thix_id/presentation/education/education_routes.dart';
 
