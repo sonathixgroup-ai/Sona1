@@ -16,16 +16,16 @@ class DashboardPage extends ConsumerStatefulWidget {
 }
 
 class _DashboardPageState extends ConsumerState<DashboardPage> {
-  // Palette Ultra-Premium
-  static const navyDeep = Color(0xFF0A1F44);
-  static const navy = Color(0xFF123B7A);
-  static const primaryBlue = Color(0xFF2D6CDF);
-  static const gold = Color(0xFFE3B23C);
-  static const backgroundLight = Color(0xFFF4F6F9); // Un gris bleuté très subtil et luxueux
+  static const ink = Color(0xFF080E1F);
+  static const deepNavy = Color(0xFF0A1931);
+  static const royal = Color(0xFF2D5BFF);
+  static const gold = Color(0xFFC5A46A);
+  static const bg = Color(0xFFF6F7FB);
+  static const cardBorder = Color(0xFFEFF2F8);
 
-  Future<Map<String,String>> _getProfile() async {
+  Future<Map<String, String>> _getProfile() async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user==null) return {'name':'','initial':'T'};
+    if (user == null) return {'name': '', 'initial': 'T'};
     final r = await Supabase.instance.client.from('profiles').select('first_name, full_name').eq('id', user.id).maybeSingle();
     final full = (r?['first_name']?? r?['full_name']?? user.email?.split('@').first?? 'THIX').toString();
     final first = full.split(' ').first;
@@ -35,34 +35,29 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: backgroundLight,
-      extendBody: true, // Essentiel pour que la liste passe SOUS la navigation transparente
+      backgroundColor: bg,
+      extendBody: true,
       body: CustomScrollView(
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()), 
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         slivers: [
           SliverToBoxAdapter(child: _header()),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 28),
-              child: const BalanceCard(),
-            ),
-          ),
+          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), child: _balanceWrapper())),
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _top4(),
-                const SizedBox(height: 36),
-                _title('Services financiers', showAction: true),
+                const SizedBox(height: 32),
+                _sectionTitle('Opérations rapides', 'Gérez'),
                 const SizedBox(height: 16),
-                _grid(),
-                const SizedBox(height: 32),
+                _grid(), // FIX ICI
+                const SizedBox(height: 28),
                 _promoCard(),
-                const SizedBox(height: 32),
-                _title('Tous les paiements', showAction: true),
-                const SizedBox(height: 12),
+                const SizedBox(height: 28),
+                _sectionTitle('Activité récente', 'Tout voir'),
+                const SizedBox(height: 14),
                 _tx(),
-                const SizedBox(height: 120), // Espace confortable pour la bottom nav
+                const SizedBox(height: 130),
               ],
             ),
           ),
@@ -72,445 +67,240 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  // ==========================================
-  // HEADER : ÉPURÉ ET MODERNE
-  // ==========================================
+  Widget _balanceWrapper() => Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(color: deepNavy.withOpacity(0.12), blurRadius: 32, offset: const Offset(0, 16)),
+          ],
+        ),
+        child: const BalanceCard(),
+      );
+
   Widget _header() => Padding(
-    padding: const EdgeInsets.fromLTRB(20, 64, 20, 16),
-    child: FutureBuilder<Map<String,String>>(
-      future: _getProfile(), 
-      builder: (c,s){
-        final name = s.data?['name']?? '';
-        final initial = s.data?['initial']?? 'T';
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween, 
-          children: [
-            Row(
+        padding: const EdgeInsets.fromLTRB(20, 60, 20, 8),
+        child: FutureBuilder<Map<String, String>>(
+          future: _getProfile(),
+          builder: (c, s) {
+            final name = s.data?['name']?? '';
+            final initial = s.data?['initial']?? 'T';
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Avatar avec ombre douce et bordure
-                Container(
-                  width: 48, 
-                  height: 48, 
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle, 
-                    color: Colors.white,
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(color: navyDeep.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))
-                    ],
-                  ), 
-                  child: Center(
-                    child: Text(
-                      initial, 
-                      style: const TextStyle(color: navyDeep, fontWeight: FontWeight.w800, fontSize: 18)
-                    )
-                  )
-                ),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start, 
-                  children: [
-                    Text(
-                      name.isEmpty? 'Bonjour 👋' : 'Bonjour, $name', 
-                      style: const TextStyle(color: Colors.black54, fontSize: 13, fontWeight: FontWeight.w500)
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [gold, gold.withOpacity(0.2)])),
+                    child: Container(
+                      width: 46, height: 46,
+                      decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+                      child: Center(child: Text(initial, style: const TextStyle(color: deepNavy, fontWeight: FontWeight.w900, fontSize: 18))),
                     ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Bienvenue', 
-                      style: TextStyle(color: navyDeep, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5)
+                  ),
+                  const SizedBox(width: 12),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(name.isEmpty? 'Bonjour' : 'Bonjour, $name', style: const TextStyle(color: ink, fontSize: 16, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: deepNavy.withOpacity(0.06), borderRadius: BorderRadius.circular(20)),
+                      child: const Text('PRIVATE MEMBER', style: TextStyle(color: deepNavy, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
                     ),
-                  ]
-                ),
-              ]
-            ),
-            Row(
-              children: [ 
-                _hIcon(Icons.qr_code_scanner_rounded, () => context.push(AppRoutes.thixMoneyScanner)), 
-                const SizedBox(width: 12), 
-                _hIcon(Icons.notifications_none_rounded, (){}, dot:true)
-              ]
-            ),
-          ]
-        );
-      }
-    ),
-  );
+                  ]),
+                ]),
+                Row(children: [
+                  _hIcon(Icons.qr_code_scanner, () => context.push(AppRoutes.thixMoneyScanner)),
+                  const SizedBox(width: 10),
+                  _hIcon(Icons.notifications_none_rounded, () {}, dot: true),
+                ]),
+              ],
+            );
+          },
+        ),
+      );
 
-  Widget _hIcon(IconData i, VoidCallback t, {bool dot=false}) => InkWell(
-    onTap:t, 
-    borderRadius: BorderRadius.circular(50),
-    child: Stack(
-      clipBehavior: Clip.none, 
-      children:[
-        Container(
-          padding: const EdgeInsets.all(10), 
-          decoration: BoxDecoration(
-            color: Colors.white, 
-            shape: BoxShape.circle, 
-            boxShadow: [
-              BoxShadow(color: navyDeep.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))
-            ]
-          ), 
-          child: Icon(i, color: navyDeep, size: 22)
-        ), 
-        if(dot) Positioned(
-          top: 0, 
-          right: 0, 
-          child: Container(
-            width: 10, 
-            height: 10, 
-            decoration: BoxDecoration(
-              color: const Color(0xFFE84A7A), // Rouge premium
-              shape: BoxShape.circle, 
-              border: Border.all(color: backgroundLight, width: 2)
-            )
-          )
-        )
-      ]
-    )
-  );
+  Widget _hIcon(IconData i, VoidCallback t, {bool dot = false}) => GestureDetector(
+        onTap: t,
+        child: Stack(clipBehavior: Clip.none, children: [
+          Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: cardBorder)),
+            child: Icon(i, color: ink, size: 20),
+          ),
+          if (dot) Positioned(top: -2, right: -2, child: Container(width: 12, height: 12, decoration: BoxDecoration(color: const Color(0xFFFF3B5C), shape: BoxShape.circle, border: Border.all(color: bg, width: 2.5)))),
+        ]),
+      );
 
-  // ==========================================
-  // ACTIONS RAPIDES : TRADUIT ET AFFINÉ
-  // ==========================================
+  // TOP 4 - ESPACE CORRIGÉ
   Widget _top4() {
     final items = [
-      {'l':'Recharger', 'i':Icons.arrow_downward_rounded, 'r':AppRoutes.thixMoneyRecharge},
-      {'l':'Envoyer', 'i':Icons.arrow_upward_rounded, 'r':AppRoutes.thixMoneySend},
-      {'l':'Historique', 'i':Icons.history_rounded, 'r':AppRoutes.thixMoneyLoans}, 
-      {'l':'Plus', 'i':Icons.grid_view_rounded, 'r':AppRoutes.thixMoneyScanner},
+      {'l': 'Recharger', 'i': Icons.add_rounded, 'c': royal, 'r': AppRoutes.thixMoneyRecharge},
+      {'l': 'Envoyer', 'i': Icons.arrow_outward_rounded, 'c': deepNavy, 'r': AppRoutes.thixMoneySend},
+      {'l': 'Historique', 'i': Icons.receipt_long_rounded, 'c': ink, 'r': AppRoutes.thixMoneyLoans},
+      {'l': 'Scanner', 'i': Icons.qr_code_rounded, 'c': gold, 'r': AppRoutes.thixMoneyScanner},
     ];
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24), 
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween, 
-        children: items.map((a)=> InkWell(
-          onTap:()=>context.push(a['r'] as String), 
-          borderRadius: BorderRadius.circular(20), 
-          splashColor: primaryBlue.withOpacity(0.1),
-          child: Column(
-            children:[
-              Container(
-                width: 60, 
-                height: 60, 
-                decoration: BoxDecoration(
-                  color: Colors.white, 
-                  shape: BoxShape.circle, 
-                  boxShadow:[
-                    BoxShadow(color: primaryBlue.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 8))
-                  ]
-                ), 
-                child: Icon(a['i'] as IconData, color: primaryBlue, size: 26)
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: items.map((a) {
+          final color = a['c'] as Color;
+          return Column(
+            children: [
+              GestureDetector(
+                onTap: () => context.push(a['r'] as String),
+                child: Container(
+                  width: 62, height: 62,
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), color: color, boxShadow: [BoxShadow(color: color.withOpacity(0.25), blurRadius: 16, offset: const Offset(0, 8))]),
+                  child: Icon(a['i'] as IconData, color: Colors.white, size: 26),
+                ),
               ),
-              const SizedBox(height: 10),
-              Text(
-                a['l'] as String, 
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: navyDeep, letterSpacing: -0.2)
-              ),
-            ]
-          )
-        )).toList()
-      )
+              const SizedBox(height: 12), // <-- DISTANCE FIXÉE ICI
+              Text(a['l'] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ink)),
+            ],
+          );
+        }).toList(),
+      ),
     );
   }
 
-  Widget _title(String t, {bool showAction = false}) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20), 
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween, 
-      children:[
-        Text(
-          t, 
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: navyDeep, letterSpacing: -0.3)
-        ), 
-        if (showAction) Text(
-          'Voir plus >', 
-          style: TextStyle(fontSize: 13, color: primaryBlue, fontWeight: FontWeight.w700)
-        )
-      ]
-    )
-  );
+  Widget _sectionTitle(String t, String action) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: ink)),
+          Text(action, style: TextStyle(fontSize: 12.5, color: ink.withOpacity(0.4), fontWeight: FontWeight.w600)),
+        ]),
+      );
 
-  // ==========================================
-  // GRILLE DE SERVICES : ALIGNÉE SUR VOTRE DEMANDE
-  // ==========================================
+  // GRILLE CORRIGÉE - PLUS DE RESPIRATION
   Widget _grid() {
     final services = [
-      {'l': 'Crédit\ninstantané', 'c': const Color(0xFF2D6CDF), 'i': Icons.bolt_rounded, 'r': AppRoutes.thixMoneyLoans},
-      {'l': 'Assurance', 'c': const Color(0xFF22A57D), 'i': Icons.shield_rounded, 'r': ''},
-      {'l': 'Épargne\nplanifiée', 'c': const Color(0xFFE3B23C), 'i': Icons.savings_rounded, 'r': AppRoutes.thixMoneySavings},
-      {'l': 'Change', 'c': const Color(0xFF9B5CF6), 'i': Icons.swap_horiz_rounded, 'r': ''},
-      {'l': 'Marchand', 'c': const Color(0xFFDC7A2B), 'i': Icons.storefront_rounded, 'r': ''},
-      {'l': 'Dons &\nContrib.', 'c': const Color(0xFFE84A7A), 'i': Icons.volunteer_activism_rounded, 'r': ''},
-      {'l': 'Ma Tontine', 'c': const Color(0xFF2D9CDB), 'i': Icons.groups_rounded, 'r': AppRoutes.thixMoneyTontines},
-      {'l': 'Éducation', 'c': const Color(0xFF3AB6D9), 'i': Icons.school_rounded, 'r': ''},
-      {'l': 'Virement\ninternational', 'c': const Color(0xFF1E3A8A), 'i': Icons.public_rounded, 'r': ''},
-      {'l': 'Microfinance', 'c': const Color(0xFF4CAF50), 'i': Icons.account_balance_rounded, 'r': ''},
-      {'l': 'Investissement', 'c': const Color(0xFFD4A72C), 'i': Icons.trending_up_rounded, 'r': AppRoutes.thixMoneyInvestments},
-      {'l': 'Planification', 'c': const Color(0xFF123B7A), 'i': Icons.calendar_month_rounded, 'r': ''},
+      {'l': 'Crédit\nexpress', 'c': royal, 'i': Icons.bolt_rounded, 'r': AppRoutes.thixMoneyLoans},
+      {'l': 'Assurance', 'c': const Color(0xFF0E9F6E), 'i': Icons.verified_user_rounded, 'r': ''},
+      {'l': 'Épargne', 'c': gold, 'i': Icons.savings_rounded, 'r': AppRoutes.thixMoneySavings},
+      {'l': 'Change', 'c': const Color(0xFF7C3AED), 'i': Icons.swap_horiz_rounded, 'r': ''},
+      {'l': 'Marchand', 'c': const Color(0xFFEA580C), 'i': Icons.storefront_rounded, 'r': ''},
+      {'l': 'Dons', 'c': const Color(0xFFE11D48), 'i': Icons.favorite_rounded, 'r': ''},
+      {'l': 'Tontine', 'c': const Color(0xFF0EA5E9), 'i': Icons.groups_rounded, 'r': AppRoutes.thixMoneyTontines},
+      {'l': 'Éducation', 'c': const Color(0xFF0891B2), 'i': Icons.school_rounded, 'r': ''},
+      {'l': 'Virement\nmondial', 'c': deepNavy, 'i': Icons.public_rounded, 'r': ''},
+      {'l': 'Micro\nfinance', 'c': const Color(0xFF16A34A), 'i': Icons.account_balance_rounded, 'r': ''},
+      {'l': 'Investir', 'c': const Color(0xFFCA8A04), 'i': Icons.trending_up_rounded, 'r': AppRoutes.thixMoneyInvestments},
+      {'l': 'Planning', 'c': ink, 'i': Icons.calendar_month_rounded, 'r': ''},
     ];
 
     return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16), 
-      shrinkWrap: true, 
-      physics: const NeverScrollableScrollPhysics(), 
-      itemCount: 12, 
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 12,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4, 
-        mainAxisSpacing: 18, 
-        crossAxisSpacing: 8, 
-        childAspectRatio: 0.78 // Aspect ajusté pour que l'icône respire
-      ), 
-      itemBuilder: (_,i){
+        crossAxisCount: 4,
+        mainAxisSpacing: 14, // +2
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.72, // FIX: plus haut = plus de place pour le texte
+      ),
+      itemBuilder: (_, i) {
         final s = services[i];
         final color = s['c'] as Color;
-        final route = s['r'] as String;
         return GestureDetector(
-          onTap: () => route.isNotEmpty ? context.push(route) : null,
-          child: Column(
-            children:[
-              Container(
-                width: 56, 
-                height: 56, 
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.08), // Pastel luxueux
-                  shape: BoxShape.circle,
-                  border: Border.all(color: color.withOpacity(0.1), width: 1.5), // Finesse du détail
-                ), 
-                child: Icon(s['i'] as IconData, color: color, size: 26)
-              ), 
-              const SizedBox(height: 8), 
-              Text(
-                s['l'] as String, 
-                textAlign: TextAlign.center, 
-                maxLines: 2,
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: navyDeep, height: 1.1, letterSpacing: -0.2)
-              )
-            ]
+          onTap: () => (s['r'] as String).isNotEmpty? context.push(s['r'] as String) : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6), // PADDING INTERNE
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: cardBorder)),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42, height: 42,
+                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(13)),
+                  child: Icon(s['i'] as IconData, color: color, size: 22),
+                ),
+                const SizedBox(height: 12), // DISTANCE ICONE -> TEXTE
+                Expanded(
+                  child: Text(s['l'] as String,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ink, height: 1.25, letterSpacing: -0.1)),
+                ),
+              ],
+            ),
           ),
         );
-    });
-  }
-
-  // ==========================================
-  // CARTE PROMO "GLOWING" (Atout Investisseur)
-  // ==========================================
-  Widget _promoCard() => Container(
-    margin: const EdgeInsets.symmetric(horizontal: 20), 
-    padding: const EdgeInsets.all(22), 
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(24), 
-      gradient: const LinearGradient(
-        colors: [navyDeep, Color(0xFF162D5A)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      boxShadow: [
-        BoxShadow(color: navyDeep.withOpacity(0.25), blurRadius: 20, offset: const Offset(0, 10))
-      ]
-    ), 
-    child: Row(
-      children:[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, 
-            children:[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: gold.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8)
-                ),
-                child: const Text('NOUVEAU', style: TextStyle(color: gold, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Crédit instantané', 
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3)
-              ), 
-              const SizedBox(height: 4),
-              Text(
-                'Jusqu\'à 500 000 FC en 5 minutes,\nsans aucun dossier physique.', 
-                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12, height: 1.4)
-              )
-            ]
-          )
-        ), 
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15), 
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.2), width: 1)
-          ),
-          child: const Icon(Icons.arrow_forward_rounded, size: 22, color: Colors.white)
-        )
-      ]
-    )
-  );
-
-  // ==========================================
-  // LISTE DES TRANSACTIONS (Style Carte Séparée)
-  // ==========================================
-  Widget _tx() => FutureBuilder<String>(
-    future: ref.read(walletServiceProvider).getVerifiedThixId(), 
-    builder: (c,s){ 
-      if(!s.hasData) return const SizedBox(); 
-      return FutureBuilder(
-        future: Supabase.instance.client.from('thix_transactions').select().eq('thix_id', s.data!).order('created_at', ascending:false).limit(3), 
-        builder: (c,snap){ 
-          final list=(snap.data as List?)?? []; 
-          if(list.isEmpty) return Container(
-            margin: const EdgeInsets.symmetric(horizontal:20), 
-            padding: const EdgeInsets.all(20), 
-            decoration: BoxDecoration(color:Colors.white, borderRadius:BorderRadius.circular(20)), 
-            child: const Center(child: Text('Aucune transaction récente', style:TextStyle(fontSize:13, color:Colors.grey)))
-          ); 
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              children: list.map<Widget>((t){
-                bool isDeposit = (t['type'] == 'reception' || t['type'] == 'Deposit');
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white, 
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.black.withOpacity(0.02), width: 1),
-                    boxShadow: [
-                      BoxShadow(color: navyDeep.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
-                    ]
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 46, 
-                        height: 46, 
-                        decoration: BoxDecoration(
-                          color: isDeposit ? const Color(0xFF1FA97F).withOpacity(0.12) : navy.withOpacity(0.08), 
-                          shape: BoxShape.circle,
-                        ), 
-                        child: Icon(
-                          isDeposit ? Icons.arrow_downward_rounded : Icons.receipt_long_rounded, 
-                          size: 22, 
-                          color: isDeposit ? const Color(0xFF1FA97F) : navy
-                        )
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              t['type']??'Transaction', 
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: navyDeep)
-                            ), 
-                            const SizedBox(height: 2),
-                            Text(
-                              t['ref_transa']??'Détails indisponibles', 
-                              style: const TextStyle(fontSize: 11.5, color: Colors.black45)
-                            ), 
-                          ],
-                        ),
-                      ),
-                      Text(
-                        '${isDeposit ? '+' : '-'} ${t['montant']} ${t['devise']}', 
-                        style: TextStyle(
-                          fontSize: 15, 
-                          fontWeight: FontWeight.w900, 
-                          letterSpacing: -0.5,
-                          color: isDeposit ? const Color(0xFF1FA97F) : navyDeep
-                        )
-                      ),
-                    ],
-                  ),
-                );
-              }).toList()
-            ),
-          ); 
-        }
-      ); 
-    }
-  );
-
-   // ==========================================
-  // BOTTOM NAV : VERRE DÉPOLI (CORRIGÉ)
-  // ==========================================
-  Widget _nav() => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(35), 
-          boxShadow: [
-            BoxShadow(color: navyDeep.withOpacity(0.12), blurRadius: 25, offset: const Offset(0, 10))
-          ]
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(35),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-            child: Container(
-              height: 70, 
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.85), // Transparence pour le blur
-                border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
-              ), 
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
-                children:[
-                  const _NavIcon(icon: Icons.home_rounded, isActive: true),
-                  const _NavIcon(icon: Icons.bar_chart_rounded),
-                  
-                  // Bouton Central Flottant Superposé
-                  Transform.translate(
-                    offset: const Offset(0, -6),
-                    child: GestureDetector(
-                      onTap: () => context.push(AppRoutes.thixMoneyScanner),
-                      child: Container(
-                        width: 56, 
-                        height: 56, 
-                        decoration: BoxDecoration(
-                          color: navyDeep, 
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(color: navyDeep.withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 6))
-                          ]
-                        ), 
-                        child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 26)
-                      ),
-                    ),
-                  ),
-                  
-                  const _NavIcon(icon: Icons.account_balance_wallet_rounded),
-                  const _NavIcon(icon: Icons.person_outline_rounded),
-                ]
-              )
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-class _NavIcon extends StatelessWidget {
-  final IconData icon;
-  final bool isActive;
-  const _NavIcon({required this.icon, this.isActive = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: isActive ? const Color(0xFF0A1F44) : Colors.black26, size: 28),
-        if (isActive) ...[
-          const SizedBox(height: 6),
-          Container(width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFF0A1F44), shape: BoxShape.circle))
-        ]
-      ],
+      },
     );
   }
+
+  Widget _promoCard() => Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: const LinearGradient(colors: [Color(0xFF080E1F), Color(0xFF162A5A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        ),
+        child: Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('DISPONIBLE MAINTENANT', style: TextStyle(color: gold, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+            const SizedBox(height: 8),
+            const Text('Crédit Instantané', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text('Jusqu\'à 500 000 FCFA par IA.', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12.5)),
+          ])),
+          Container(width: 48, height: 48, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.arrow_outward_rounded, size: 22, color: ink)),
+        ]),
+      );
+
+  Widget _tx() => FutureBuilder<String>(
+        future: ref.read(walletServiceProvider).getVerifiedThixId(),
+        builder: (c, s) {
+          if (!s.hasData) return const SizedBox();
+          return FutureBuilder(
+            future: Supabase.instance.client.from('thix_transactions').select().eq('thix_id', s.data!).order('created_at', ascending: false).limit(3),
+            builder: (c, snap) {
+              final list = (snap.data as List?)?? [];
+              if (list.isEmpty) return Container(margin: const EdgeInsets.symmetric(horizontal: 20), padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)), child: const Center(child: Text('Aucune activité récente', style: TextStyle(fontSize: 13, color: Colors.black38))));
+              return Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Column(children: list.map<Widget>((t) {
+                bool isDeposit = (t['type'] == 'reception' || t['type'] == 'Deposit');
+                return Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: cardBorder)), child: Row(children: [
+                  Container(width: 44, height: 44, decoration: BoxDecoration(color: isDeposit? const Color(0xFF0E9F6E).withOpacity(0.1) : deepNavy.withOpacity(0.06), borderRadius: BorderRadius.circular(12)), child: Icon(isDeposit? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, size: 20, color: isDeposit? const Color(0xFF0E9F6E) : deepNavy)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text((t['type']?? 'Transaction').toString().toUpperCase(), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: ink)),
+                    const SizedBox(height: 4),
+                    Text(t['ref_transa']?? 'THIX • Transfert', style: TextStyle(fontSize: 11, color: ink.withOpacity(0.4))),
+                  ])),
+                  Text('${isDeposit? '+' : '-'} ${t['montant']} ${t['devise']}', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: isDeposit? const Color(0xFF0E9F6E) : ink)),
+                ]));
+              }).toList()));
+            },
+          );
+        },
+      );
+
+  Widget _nav() => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(height: 72, decoration: BoxDecoration(color: Colors.white.withOpacity(0.92), border: Border.all(color: Colors.white)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                const _NavIcon(icon: Icons.home_rounded, isActive: true),
+                const _NavIcon(icon: Icons.bar_chart_rounded),
+                Transform.translate(offset: const Offset(0, -18), child: GestureDetector(onTap: () => context.push(AppRoutes.thixMoneyScanner), child: Container(width: 60, height: 60, decoration: BoxDecoration(color: ink, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 4)), child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 26)))),
+                const _NavIcon(icon: Icons.account_balance_wallet_rounded),
+                const _NavIcon(icon: Icons.person_rounded),
+              ])),
+            ),
+          ),
+        ),
+      );
+}
+
+class _NavIcon extends StatelessWidget {
+  final IconData icon; final bool isActive; const _NavIcon({required this.icon, this.isActive = false});
+  @override
+  Widget build(BuildContext context) => Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+    Icon(icon, color: isActive? const Color(0xFF080E1F) : const Color(0xFF080E1F).withOpacity(0.25), size: 26),
+    if (isActive) Container(margin: const EdgeInsets.only(top: 4), width: 4, height: 4, decoration: const BoxDecoration(color: Color(0xFF080E1F), shape: BoxShape.circle)),
+  ]);
 }
