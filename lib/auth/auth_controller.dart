@@ -1,15 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/account_type.dart';
-
-class PhoneAuthSession { final String phone; PhoneAuthSession(this.phone); }
+import 'package:thix_id/auth/auth_manager.dart' show PhoneAuthSession;
 
 class AuthController extends ChangeNotifier {
+  final dynamic _authManager;
+  
+  AuthController({dynamic auth}) : _authManager = auth;
+
   dynamic _cached;
   dynamic get currentUser => _cached;
   bool get isAuthenticated => _cached != null || Supabase.instance.client.auth.currentUser != null;
 
-  Future<void> init() async {}
+  Future<void> init() async {
+    try { await _authManager?.init(); } catch (_) {}
+  }
 
   Future<void> signOut() async {
     await Supabase.instance.client.auth.signOut();
