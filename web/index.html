@@ -2,76 +2,57 @@
 <html lang="fr">
 <head>
   <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="description" content="THIX ID - Identité Numérique Souveraine RDC. Officiel.">
-  
-  <!-- PWA & Performance -->
+  <meta name="description" content="THIX ID CENTRAL - Une identité Vérifiée, avenir de confiance.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="THIX ID">
   <meta name="theme-color" content="#0B3D91">
-  
-  <!-- SEO / Social pour 10M -->
-  <meta property="og:title" content="THIX ID">
-  <meta property="og:description" content="Application officielle THIX ID RDC">
-  <meta property="og:type" content="website">
-
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/png" href="icons/Icon-192.png"/>
   <link rel="manifest" href="manifest.json">
-
-  <!-- Preload critique pour LCP <1s à 10M users -->
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
-  <link rel="preload" href="main.dart.js" as="script">
-
-  <title>THIX ID - Officiel</title>
-
+  <title>THIX ID CENTRAL</title>
   <style>
-    /* Splash natif ultra-léger - évite spinner blanc 3s sur 3G */
-    body { margin:0; background:#0B3D91; }
+    body { margin:0; background:#0B3D91; font-family: system-ui; }
     #thix-loader {
       position:fixed; inset:0; display:flex; flex-direction:column;
       align-items:center; justify-content:center; background:#0B3D91;
-      color:white; font-family:system-ui; z-index:9999; transition:opacity .4s;
+      color:white; z-index:9999; transition:opacity .4s;
     }
     #thix-loader.hidden { opacity:0; pointer-events:none; }
-    .thix-spinner { width:40px; height:40px; border:3px solid rgba(255,255,255,.3); border-top-color:#F7C948; border-radius:50%; animation:spin 1s linear infinite; }
+    .logo-wrap { width:320px; max-width:85vw; filter: drop-shadow(0 8px 24px rgba(0,0,0,.3)); }
+    .logo-wrap img { width:100%; height:auto; }
+    .baseline {
+      margin-top:24px; font-size:14px; font-weight:600; letter-spacing:.4px;
+      color:#F7C948; text-transform:uppercase; text-align:center;
+    }
+    .baseline span { color:rgba(255,255,255,.9); display:block; font-size:12px; font-weight:500; margin-top:4px; text-transform:none; }
+    .footer {
+      position:absolute; bottom:32px; left:0; right:0; text-align:center;
+      font-size:11px; letter-spacing:1.2px; font-weight:700; color:rgba(255,255,255,.6);
+      text-transform:uppercase;
+    }
+    .thix-spinner { margin-top:28px; width:28px; height:28px; border:2.5px solid rgba(255,255,255,.25); border-top-color:#F7C948; border-radius:50%; animation:spin .9s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
   </style>
 </head>
 <body>
-  <!-- Loader natif instantané -->
   <div id="thix-loader">
+    <div class="logo-wrap">
+      <img src="icons/thix-logo-transparent.png" alt="THIX ID CENTRAL">
+    </div>
+    <div class="baseline">Une identité Vérifiée<br><span>avenir de confiance</span></div>
     <div class="thix-spinner"></div>
-    <div style="margin-top:16px; font-weight:800; letter-spacing:1px;">THIX ID</div>
-    <div style="font-size:11px; opacity:.7; margin-top:4px;">RÉPUBLIQUE DÉMOCRATIQUE DU CONGO</div>
+    <div class="footer">By Sonathix Group</div>
   </div>
-
-  <!-- Passkeys - chargé en CDN fiable + async, pas bloquant -->
   <script src="https://cdn.jsdelivr.net/gh/corbado/flutter-passkeys@2.4.0/bundle.js" async></script>
-
-  <!-- Flutter bootstrap officiel - active Service Worker + Cache + WASM -->
   <script>
-    // Supprime loader quand Flutter est prêt
     window.addEventListener('flutter-first-frame', function() {
-      var loader = document.getElementById('thix-loader');
-      if (loader) { loader.classList.add('hidden'); setTimeout(()=>loader.remove(), 400); }
+      var l = document.getElementById('thix-loader');
+      if(l){ l.classList.add('hidden'); setTimeout(()=>l.remove(),450); }
     });
-    
-    // Fallback 8s si Flutter bloque
-    setTimeout(function(){
-      var loader = document.getElementById('thix-loader');
-      if (loader &&!loader.classList.contains('hidden')) {
-        loader.innerHTML = '<div style="text-align:center">Chargement lent...<br><button onclick="location.reload()" style="margin-top:12px; padding:8px 16px; border-radius:8px; border:0;">Réessayer</button></div>';
-      }
-    }, 8000);
   </script>
-
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
