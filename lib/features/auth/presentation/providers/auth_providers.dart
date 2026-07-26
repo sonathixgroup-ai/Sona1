@@ -1,11 +1,14 @@
 // lib/features/auth/presentation/providers/auth_providers.dart
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:thix_id/model/app_user.dart';
+import 'package:thix_id/models/app_user.dart';
 import '../../data/auth_repository.dart';
+
 part 'auth_providers.g.dart';
 
 @Riverpod(keepAlive: true)
-Stream<dynamic> authUserStream(AuthUserStreamRef ref) => ref.watch(authRepositoryProvider).authStateChanges();
+Stream<dynamic> authUserStream(AuthUserStreamRef ref) {
+  return ref.watch(authRepositoryProvider).authStateChanges();
+}
 
 @Riverpod(keepAlive: true)
 class AppUserNotifier extends _$AppUserNotifier {
@@ -17,12 +20,4 @@ class AppUserNotifier extends _$AppUserNotifier {
     if (row == null) return null;
     return AppUser.fromSupabase(row);
   }
-  Future<void> refresh() => ref.invalidateSelf();
-}
-
-@riverpod
-bool isModeratorEnterprise(IsModeratorEnterpriseRef ref) {
-  final appUser = ref.watch(appUserNotifierProvider).valueOrNull;
-  final r = (appUser?.registrationStatus ?? '').toLowerCase();
-  return r == 'admin' || r == 'moderator' || r == 'moderateur';
 }
