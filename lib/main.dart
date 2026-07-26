@@ -1,9 +1,8 @@
-import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart' as app_provider;
+import 'package:go_router/go_router.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
@@ -15,7 +14,11 @@ import 'package:thix_id/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SupabaseConfig.initialize();
+  try {
+    await SupabaseConfig.initialize();
+  } catch (e) {
+    debugPrint('Supabase init error: $e');
+  }
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -28,17 +31,38 @@ class MyApp extends ConsumerStatefulWidget {
 class _MyAppState extends ConsumerState<MyApp> {
   late final AuthController _auth;
   late final LocaleController _locale;
-  late final dynamic _router;
+  GoRouter? _router;
+  bool _ready = false;
+
   @override
   void initState() {
     super.initState();
     _locale = LocaleController()..init();
     _auth = AuthController(auth: SupabaseAuthManager(profiles: ProfileService()));
-    _auth.init();
-    _router = AppRouter.create(_auth, extraRefreshListenable: _locale);
+    _initAuth();
   }
+
+  Future<void> _initAuth() async {
+    try {
+      await _auth.init();
+    } catch (_) {}
+    // FIX: on écoute AUTH + LOCALE
+    final merged = Listenable.merge([_auth, _locale]);
+    _router = AppRouter.create(_auth, extraRefreshListenable: merged);
+    if (mounted) setState(() => _ready = true);
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!_ready || _router == null) {
+      return MaterialApp(
+        home: Scaffold(
+          backgroundColor: const Color(0xFFF0F2F5),
+          body: Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)),
+        ),
+      );
+    }
+
     return app_provider.MultiProvider(
       providers: [
         app_provider.ChangeNotifierProvider<AuthController>.value(value: _auth),
@@ -46,10 +70,19 @@ class _MyAppState extends ConsumerState<MyApp> {
         app_provider.Provider<ProfileService>(create: (_) => ProfileService()),
       ],
       child: MaterialApp.router(
-        title: 'THIX ID CENTRAL', debugShowCheckedModeBanner: false,
-        theme: lightTheme, darkTheme: darkTheme, routerConfig: _router,
-        locale: _locale.locale, supportedLocales: LocaleController.supportedLocales,
-        localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
+        title: 'THIX ID CENTRAL',
+        debugShowCheckedModeBanner: false,
+        theme: lightTheme,
+        darkTheme: darkTheme,
+        routerConfig: _router!,
+        locale: _locale.locale,
+        supportedLocales: LocaleController.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate
+        ],
       ),
     );
   }
