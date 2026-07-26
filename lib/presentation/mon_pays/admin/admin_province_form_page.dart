@@ -112,45 +112,46 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     _viceGovernorPhotoUrl = p?.viceGovernorPhotoUrl;
     _government = p?.government;
     
-    _ministers = p?.ministers?.map((m) => {'name': m['name'] ?? '', 'role': m['role'] ?? '', 'photo_url': m['photoUrl'] ?? m['photo_url'] ?? ''}).toList() ?? [];
+    // Typage strict lors du chargement des listes pour éviter les crashs silencieux
+    _ministers = p?.ministers?.map<Map<String, dynamic>>((m) => <String, dynamic>{'name': m['name'] ?? '', 'role': m['role'] ?? '', 'photo_url': m['photoUrl'] ?? m['photo_url'] ?? ''}).toList() ?? <Map<String, dynamic>>[];
     
-    _cities = p?.cities.map((c) => {
+    _cities = p?.cities.map<Map<String, dynamic>>((c) => <String, dynamic>{
       'id': c.id, 'province_id': c.provinceId, 'name': c.name, 'population': c.population?.toString() ?? '',
       'is_capital': c.isCapital, 'mayor': c.mayor ?? '', 'mayor_photo_url': c.mayorPhotoUrl ?? '',
-      'media': c.media != null ? List<Map<String, dynamic>>.from(c.media!) : [],
-    }).toList() ?? [];
+      'media': c.media != null ? List<Map<String, dynamic>>.from(c.media!) : <Map<String, dynamic>>[],
+    }).toList() ?? <Map<String, dynamic>>[];
 
-    _economicSectors = p?.economicResources.map((e) => {
+    _economicSectors = p?.economicResources.map<Map<String, dynamic>>((e) => <String, dynamic>{
       'id': e.id, 'province_id': e.provinceId, 'name': e.name, 'description': e.description ?? '',
-      'media': e.media != null ? List<Map<String, dynamic>>.from(e.media!) : [],
-    }).toList() ?? [];
+      'media': e.media != null ? List<Map<String, dynamic>>.from(e.media!) : <Map<String, dynamic>>[],
+    }).toList() ?? <Map<String, dynamic>>[];
 
-    _tourismSites = p?.tourismSites.map((t) => {
+    _tourismSites = p?.tourismSites.map<Map<String, dynamic>>((t) => <String, dynamic>{
       'id': t.id, 'province_id': t.provinceId, 'name': t.name, 'type': t.type, 'description': t.description ?? '',
-      'media': t.media != null ? List<Map<String, dynamic>>.from(t.media!) : [],
-    }).toList() ?? [];
+      'media': t.media != null ? List<Map<String, dynamic>>.from(t.media!) : <Map<String, dynamic>>[],
+    }).toList() ?? <Map<String, dynamic>>[];
 
-    _emergencyContacts = p?.emergencyContacts.map((e) => {
+    _emergencyContacts = p?.emergencyContacts.map<Map<String, dynamic>>((e) => <String, dynamic>{
       'id': e.id, 'province_id': e.provinceId, 'service': e.service, 'phone': e.phone
-    }).toList() ?? [];
+    }).toList() ?? <Map<String, dynamic>>[];
     
-    _administrativeDivisions = p?.administrativeDivisions.map((a) => {
+    _administrativeDivisions = p?.administrativeDivisions.map<Map<String, dynamic>>((a) => <String, dynamic>{
       'id': a.id, 'province_id': a.provinceId, 'type': a.type, 'name': a.name, 'capital': a.capital ?? '', 
       'population': a.population?.toString() ?? '', 'area': a.area?.toString() ?? '', 'administrator': a.administrator ?? '',
-      'media': a.media != null ? List<Map<String, dynamic>>.from(a.media!) : [],
-    }).toList() ?? [];
+      'media': a.media != null ? List<Map<String, dynamic>>.from(a.media!) : <Map<String, dynamic>>[],
+    }).toList() ?? <Map<String, dynamic>>[];
 
-    _achievements = p?.achievements?.map((a) => {
+    _achievements = p?.achievements?.map<Map<String, dynamic>>((a) => <String, dynamic>{
       'title': a['title'] ?? '', 'description': a['description'] ?? '', 'date': a['date'] ?? '', 'location': a['location'] ?? '',
-      'media': a['media'] != null ? List<Map<String, dynamic>>.from(a['media']) : [],
-    }).toList() ?? [];
+      'media': a['media'] != null ? List<Map<String, dynamic>>.from(a['media']) : <Map<String, dynamic>>[],
+    }).toList() ?? <Map<String, dynamic>>[];
 
-    _tribes = p?.tribes?.map((tr) => {
+    _tribes = p?.tribes?.map<Map<String, dynamic>>((tr) => <String, dynamic>{
       'name': tr['name'] ?? '', 'zone': tr['zone'] ?? '', 'history': tr['history'] ?? '',
-      'media': tr['media'] != null ? List<Map<String, dynamic>>.from(tr['media']) : [],
-    }).toList() ?? [];
+      'media': tr['media'] != null ? List<Map<String, dynamic>>.from(tr['media']) : <Map<String, dynamic>>[],
+    }).toList() ?? <Map<String, dynamic>>[];
 
-    _galleryMedia = p?.galleryMedia?.map((m) => Map<String, dynamic>.from(m)).toList() ?? [];
+    _galleryMedia = p?.galleryMedia?.map<Map<String, dynamic>>((m) => Map<String, dynamic>.from(m)).toList() ?? <Map<String, dynamic>>[];
 
     _languagesController = TextEditingController(text: p?.languages ?? '');
     _resourcesController = TextEditingController(text: p?.resources ?? '');
@@ -189,7 +190,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
       }
     } catch (e) {
       setState(() => _isBusy = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur Médias : $e'), backgroundColor: Colors.red));
     }
   }
 
@@ -245,7 +246,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                     _buildImagePickerRow('Photo du Vice-Gouverneur', _viceGovernorPhotoUrl, 'governors', (url) => setState(() => _viceGovernorPhotoUrl = url)), const SizedBox(height: 16),
                     _buildTextField(_territoriesCountController, 'Nombre de territoires / Villes', Icons.format_list_numbered, isNumber: true),
                     const Divider(height: 32),
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [ const Text('Ministres', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: navyDeep)), ElevatedButton.icon(onPressed: () => setState(() => _ministers.add({'name': '', 'role': '', 'photo_url': ''})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white)) ]),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [ const Text('Ministres', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: navyDeep)), ElevatedButton.icon(onPressed: () => setState(() => _ministers.add(<String, dynamic>{'name': '', 'role': '', 'photo_url': ''})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white)) ]),
                     const SizedBox(height: 12),
                     ..._ministers.asMap().entries.map((entry) {
                       int index = entry.key; var minister = entry.value;
@@ -266,7 +267,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                     _buildTextField(_resourcesController, 'Ressources principales', Icons.diamond), const SizedBox(height: 12),
                     _buildTextField(_descriptionController, 'Description générale & Traditions', Icons.description, maxLines: 3),
                     const Divider(height: 32),
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [ const Text('Peuples & Tribus', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: navyDeep)), ElevatedButton.icon(onPressed: () => setState(() => _tribes.add({'name': '', 'zone': '', 'history': '', 'media': []})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white)) ]),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [ const Text('Peuples & Tribus', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: navyDeep)), ElevatedButton.icon(onPressed: () => setState(() => _tribes.add(<String, dynamic>{'name': '', 'zone': '', 'history': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white)) ]),
                     const SizedBox(height: 12),
                     ..._tribes.asMap().entries.map((entry) {
                       int index = entry.key; var tribe = entry.value;
@@ -284,7 +285,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ]), const SizedBox(height: 16),
 
                   _buildSectionCard(title: 'Villes Principales', icon: Icons.location_city, children: [
-                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _cities.add({'id': null, 'province_id': _provinceId, 'name': '', 'population': '', 'is_capital': false, 'mayor': '', 'mayor_photo_url': '', 'media': []})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter une ville'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
+                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _cities.add(<String, dynamic>{'id': null, 'province_id': _provinceId, 'name': '', 'population': '', 'is_capital': false, 'mayor': '', 'mayor_photo_url': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter une ville'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
                     ..._cities.asMap().entries.map((entry) {
                       int index = entry.key; var city = entry.value;
@@ -302,8 +303,8 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                     }),
                   ]), const SizedBox(height: 16),
 
-                  _buildSectionCard(title: 'Économie & Secteurs', icon: Icons.monetization_on, children: [
-                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _economicSectors.add({'id': null, 'province_id': _provinceId, 'name': '', 'description': '', 'media': []})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
+                  _buildSectionCard(title: 'Économie & Secteurs Clés', icon: Icons.monetization_on, children: [
+                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _economicSectors.add(<String, dynamic>{'id': null, 'province_id': _provinceId, 'name': '', 'description': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter un secteur'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
                     ..._economicSectors.asMap().entries.map((entry) {
                       int index = entry.key; var sector = entry.value;
@@ -319,8 +320,8 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                     }),
                   ]), const SizedBox(height: 16),
 
-                  _buildSectionCard(title: 'Tourisme & Sites', icon: Icons.landscape, children: [
-                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _tourismSites.add({'id': null, 'province_id': _provinceId, 'name': '', 'type': '', 'description': '', 'media': []})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
+                  _buildSectionCard(title: 'Tourisme & Sites Remarquables', icon: Icons.landscape, children: [
+                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _tourismSites.add(<String, dynamic>{'id': null, 'province_id': _provinceId, 'name': '', 'type': '', 'description': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter un site'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
                     ..._tourismSites.asMap().entries.map((entry) {
                       int index = entry.key; var site = entry.value;
@@ -337,8 +338,8 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                     }),
                   ]), const SizedBox(height: 16),
 
-                  _buildSectionCard(title: 'Découpage Administratif', icon: Icons.dashboard_customize, children: [
-                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _administrativeDivisions.add({'id': null, 'province_id': _provinceId, 'type': 'Territoire', 'name': '', 'capital': '', 'population': '', 'area': '', 'administrator': '', 'media': []})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
+                  _buildSectionCard(title: 'Découpage Administratif (Détaillé)', icon: Icons.dashboard_customize, children: [
+                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _administrativeDivisions.add(<String, dynamic>{'id': null, 'province_id': _provinceId, 'type': 'Territoire', 'name': '', 'capital': '', 'population': '', 'area': '', 'administrator': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter une division'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
                     ..._administrativeDivisions.asMap().entries.map((entry) {
                       int index = entry.key; var div = entry.value;
@@ -357,7 +358,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ]), const SizedBox(height: 16),
 
                   _buildSectionCard(title: 'Réalisations Majeures', icon: Icons.emoji_events, children: [
-                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _achievements.add({'title': '', 'description': '', 'date': '', 'location': '', 'media': []})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
+                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _achievements.add(<String, dynamic>{'title': '', 'description': '', 'date': '', 'location': '', 'media': <Map<String, dynamic>>[]})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
                     ..._achievements.asMap().entries.map((entry) {
                       int index = entry.key; var ach = entry.value;
@@ -375,7 +376,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ]), const SizedBox(height: 16),
 
                   _buildSectionCard(title: 'Urgences & Contacts', icon: Icons.emergency, children: [
-                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _emergencyContacts.add({'id': null, 'province_id': _provinceId, 'service': '', 'phone': ''})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
+                    Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _emergencyContacts.add(<String, dynamic>{'id': null, 'province_id': _provinceId, 'service': '', 'phone': ''})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
                     ..._emergencyContacts.asMap().entries.map((entry) {
                       int index = entry.key; var emergency = entry.value;
@@ -436,7 +437,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
               );
             }),
             InkWell(
-              onTap: () => _uploadMultiFiles(folder, (url, type) { mediaList.add({'url': url, 'type': type}); onUpdate(); }),
+              onTap: () => _uploadMultiFiles(folder, (url, type) { mediaList.add(<String, dynamic>{'url': url, 'type': type}); onUpdate(); }),
               child: Container(width: 70, height: 70, decoration: BoxDecoration(color: navyDeep.withOpacity(0.05), borderRadius: BorderRadius.circular(8), border: Border.all(color: navyDeep.withOpacity(0.3), style: BorderStyle.solid)), child: const Icon(Icons.add_a_photo, color: navyDeep)),
             ),
           ],
@@ -473,96 +474,120 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   String? _requiredValidator(String? value) => (value == null || value.trim().isEmpty) ? 'Requis' : null;
   
   void _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    // 1. GESTION DES ERREURS DE VALIDATION (Si on oublie un champ obligatoire)
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ Veuillez remplir les champs obligatoires (avec *).'), backgroundColor: Colors.orange));
+      return;
+    }
     setState(() => _isBusy = true);
 
     try {
-      // ⚠️ TOUT LE BLOC EST MAINTENANT PROTÉGÉ PAR LE TRY...CATCH
-      final mappedCities = _cities.map((c) {
-        final popStr = c['population']?.toString().trim() ?? '';
-        return City.fromJson({
-          'id': c['id']?.toString().isNotEmpty == true ? c['id'] : null,
-          'province_id': _provinceId, 'provinceId': _provinceId,
-          'name': c['name'] ?? '',
-          'population': popStr.isNotEmpty ? int.tryParse(popStr) : null,
-          'is_capital': c['is_capital'] ?? false, 'isCapital': c['is_capital'] ?? false,
-          'mayor': c['mayor'], 'mayor_photo_url': c['mayor_photo_url'], 'mayorPhotoUrl': c['mayor_photo_url'],
-          'media': c['media'] ?? [],
-        });
-      }).toList();
-
-      final mappedEconomy = _economicSectors.map((e) {
-        return ProvinceEconomicResource.fromJson({
-          'id': e['id']?.toString().isNotEmpty == true ? e['id'] : null,
-          'province_id': _provinceId, 'provinceId': _provinceId,
-          'name': e['name'] ?? '', 'description': e['description'],
-          'media': e['media'] ?? [],
-        });
-      }).toList();
-
-      final mappedTourism = _tourismSites.map((t) {
-        return ProvinceTourism.fromJson({
-          'id': t['id']?.toString().isNotEmpty == true ? t['id'] : null,
-          'province_id': _provinceId, 'provinceId': _provinceId,
-          'name': t['name'] ?? '', 'type': t['type'] ?? '', 'description': t['description'],
-          'media': t['media'] ?? [],
-        });
-      }).toList();
-
-      final mappedAdmin = _administrativeDivisions.map((a) {
-        final popStr = a['population']?.toString().trim() ?? '';
-        final areaStr = a['area']?.toString().trim() ?? '';
-        return ProvinceAdministrativeDivision.fromJson({
-          'id': a['id']?.toString().isNotEmpty == true ? a['id'] : null,
-          'province_id': _provinceId, 'provinceId': _provinceId,
-          'type': a['type'] ?? 'Territoire', 'name': a['name'] ?? '', 'capital': a['capital'],
-          'population': popStr.isNotEmpty ? int.tryParse(popStr) : null,
-          'area': areaStr.isNotEmpty ? num.tryParse(areaStr) : null,
-          'administrator': a['administrator'], 'media': a['media'] ?? [],
-        });
-      }).toList();
-
-      final mappedEmergency = _emergencyContacts.map((e) {
-        return ProvinceEmergencyContact.fromJson({
-          'id': e['id']?.toString().isNotEmpty == true ? e['id'] : null,
-          'province_id': _provinceId, 'provinceId': _provinceId,
-          'service': e['service'], 'service_name': e['service'], 'serviceName': e['service'],
-          'phone': e['phone'], 'phone_number': e['phone'], 'phoneNumber': e['phone'],
-        });
-      }).toList();
-
-      final province = Province(
-        id: _provinceId ?? '', name: _nameController.text.trim(), code: _codeController.text.trim(),
-        capital: _capitalController.text.trim(), region: _regionController.text.trim(),
-        area: int.tryParse(_areaController.text.trim()), population: int.tryParse(_populationController.text.trim()),
-        description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
-        
-        history: _historyController.text.trim().isEmpty ? null : _historyController.text.trim(),
-        climate: _climateController.text.trim().isEmpty ? null : _climateController.text.trim(),
-        infrastructure: _infrastructureController.text.trim().isEmpty ? null : _infrastructureController.text.trim(),
-        education: _educationController.text.trim().isEmpty ? null : _educationController.text.trim(),
-
-        coverImageUrl: _coverImageUrl, coatOfArmsUrl: _coatOfArmsUrl, mapUrl: _mapUrl,
-        website: _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
-        governor: _governorController.text.trim().isEmpty ? null : _governorController.text.trim(),
-        governorPhotoUrl: _governorPhotoUrl,
-        viceGovernor: _viceGovernorController.text.trim().isEmpty ? null : _viceGovernorController.text.trim(),
-        viceGovernorPhotoUrl: _viceGovernorPhotoUrl,
-        government: _government,
-        
-        ministers: _ministers.where((m) => (m['name'] ?? '').trim().isNotEmpty).toList(),
-        cities: mappedCities, economicResources: mappedEconomy, tourismSites: mappedTourism,
-        emergencyContacts: mappedEmergency, administrativeDivisions: mappedAdmin,
-        
-        achievements: _achievements.where((a) => (a['title'] ?? '').trim().isNotEmpty).toList(),
-        tribes: _tribes.where((t) => (t['name'] ?? '').trim().isNotEmpty).toList(),
-        galleryMedia: _galleryMedia,
-
-        languages: _languagesController.text.trim().isEmpty ? null : _languagesController.text.trim(),
-        resources: _resourcesController.text.trim().isEmpty ? null : _resourcesController.text.trim(),
-        territoriesCount: int.tryParse(_territoriesCountController.text.trim()),
-      );
+      // 2. DIAGNOSTIC PAR SECTION (L'erreur affichera exactement la section coupable)
       
+      List<City> mappedCities = [];
+      try {
+        mappedCities = _cities.map((c) {
+          final popStr = c['population']?.toString().trim() ?? '';
+          return City.fromJson(<String, dynamic>{
+            'id': c['id']?.toString().isNotEmpty == true ? c['id'] : null,
+            'province_id': _provinceId, 'provinceId': _provinceId,
+            'name': c['name'] ?? '',
+            'population': popStr.isNotEmpty ? int.tryParse(popStr) : null,
+            'is_capital': c['is_capital'] ?? false, 'isCapital': c['is_capital'] ?? false,
+            'mayor': c['mayor'], 'mayor_photo_url': c['mayor_photo_url'], 'mayorPhotoUrl': c['mayor_photo_url'],
+            'media': c['media'] ?? <Map<String, dynamic>>[],
+          });
+        }).toList();
+      } catch(e) { throw 'Section Villes Principales : $e'; }
+
+      List<ProvinceEconomicResource> mappedEconomy = [];
+      try {
+        mappedEconomy = _economicSectors.map((e) {
+          return ProvinceEconomicResource.fromJson(<String, dynamic>{
+            'id': e['id']?.toString().isNotEmpty == true ? e['id'] : null,
+            'province_id': _provinceId, 'provinceId': _provinceId,
+            'name': e['name'] ?? '', 'description': e['description'],
+            'media': e['media'] ?? <Map<String, dynamic>>[],
+          });
+        }).toList();
+      } catch(e) { throw 'Section Économie & Secteurs : $e'; }
+
+      List<ProvinceTourism> mappedTourism = [];
+      try {
+        mappedTourism = _tourismSites.map((t) {
+          return ProvinceTourism.fromJson(<String, dynamic>{
+            'id': t['id']?.toString().isNotEmpty == true ? t['id'] : null,
+            'province_id': _provinceId, 'provinceId': _provinceId,
+            'name': t['name'] ?? '', 'type': t['type'] ?? '', 'description': t['description'],
+            'media': t['media'] ?? <Map<String, dynamic>>[],
+          });
+        }).toList();
+      } catch(e) { throw 'Section Tourisme & Sites : $e'; }
+
+      List<ProvinceAdministrativeDivision> mappedAdmin = [];
+      try {
+        mappedAdmin = _administrativeDivisions.map((a) {
+          final popStr = a['population']?.toString().trim() ?? '';
+          final areaStr = a['area']?.toString().trim() ?? '';
+          return ProvinceAdministrativeDivision.fromJson(<String, dynamic>{
+            'id': a['id']?.toString().isNotEmpty == true ? a['id'] : null,
+            'province_id': _provinceId, 'provinceId': _provinceId,
+            'type': a['type'] ?? 'Territoire', 'name': a['name'] ?? '', 'capital': a['capital'],
+            'population': popStr.isNotEmpty ? int.tryParse(popStr) : null,
+            'area': areaStr.isNotEmpty ? num.tryParse(areaStr) : null,
+            'administrator': a['administrator'], 'media': a['media'] ?? <Map<String, dynamic>>[],
+          });
+        }).toList();
+      } catch(e) { throw 'Section Découpage Administratif : $e'; }
+
+      List<ProvinceEmergencyContact> mappedEmergency = [];
+      try {
+        mappedEmergency = _emergencyContacts.map((e) {
+          return ProvinceEmergencyContact.fromJson(<String, dynamic>{
+            'id': e['id']?.toString().isNotEmpty == true ? e['id'] : null,
+            'province_id': _provinceId, 'provinceId': _provinceId,
+            'service': e['service'], 'service_name': e['service'], 'serviceName': e['service'],
+            'phone': e['phone'], 'phone_number': e['phone'], 'phoneNumber': e['phone'],
+          });
+        }).toList();
+      } catch(e) { throw 'Section Urgences & Contacts : $e'; }
+
+      Province province;
+      try {
+        province = Province(
+          id: _provinceId ?? '', name: _nameController.text.trim(), code: _codeController.text.trim(),
+          capital: _capitalController.text.trim(), region: _regionController.text.trim(),
+          area: int.tryParse(_areaController.text.trim()), population: int.tryParse(_populationController.text.trim()),
+          description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+          
+          history: _historyController.text.trim().isEmpty ? null : _historyController.text.trim(),
+          climate: _climateController.text.trim().isEmpty ? null : _climateController.text.trim(),
+          infrastructure: _infrastructureController.text.trim().isEmpty ? null : _infrastructureController.text.trim(),
+          education: _educationController.text.trim().isEmpty ? null : _educationController.text.trim(),
+
+          coverImageUrl: _coverImageUrl, coatOfArmsUrl: _coatOfArmsUrl, mapUrl: _mapUrl,
+          website: _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
+          governor: _governorController.text.trim().isEmpty ? null : _governorController.text.trim(),
+          governorPhotoUrl: _governorPhotoUrl,
+          viceGovernor: _viceGovernorController.text.trim().isEmpty ? null : _viceGovernorController.text.trim(),
+          viceGovernorPhotoUrl: _viceGovernorPhotoUrl,
+          government: _government,
+          
+          ministers: _ministers.where((m) => (m['name'] ?? '').trim().isNotEmpty).toList(),
+          cities: mappedCities, economicResources: mappedEconomy, tourismSites: mappedTourism,
+          emergencyContacts: mappedEmergency, administrativeDivisions: mappedAdmin,
+          
+          achievements: _achievements.where((a) => (a['title'] ?? '').trim().isNotEmpty).toList(),
+          tribes: _tribes.where((t) => (t['name'] ?? '').trim().isNotEmpty).toList(),
+          galleryMedia: _galleryMedia,
+
+          languages: _languagesController.text.trim().isEmpty ? null : _languagesController.text.trim(),
+          resources: _resourcesController.text.trim().isEmpty ? null : _resourcesController.text.trim(),
+          territoriesCount: int.tryParse(_territoriesCountController.text.trim()),
+        );
+      } catch(e) { throw 'Construction de la province (Infos Générales) : $e'; }
+      
+      // 3. ENREGISTREMENT SUPABASE
       if (_isEditing) {
         await ref.read(adminProvincesProvider.notifier).updateProvince(province);
       } else {
@@ -577,8 +602,8 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isBusy = false);
-        // Si ça échoue, ça affichera la bannière rouge pendant 8 secondes au lieu de tourner à l'infini.
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Erreur de sauvegarde : $e'), backgroundColor: Colors.red, duration: const Duration(seconds: 8)));
+        // C'est ICI que l'erreur spécifique va s'afficher (ex: "❌ Erreur : Section Villes Principales : TypeError...")
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Erreur : $e'), backgroundColor: Colors.red, duration: const Duration(seconds: 10), action: SnackBarAction(label: 'Fermer', textColor: Colors.white, onPressed: () {})));
       }
     }
   }
