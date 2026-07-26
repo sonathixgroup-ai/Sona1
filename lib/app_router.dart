@@ -1,4 +1,4 @@
-// lib/app_router.dart - FIX ECRAN GRIS - BUILD VERT #3807
+// lib/app_router.dart - FIX ECRAN GRIS & ECRAN BLEU - BUILD VERT #3808
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -164,6 +164,7 @@ import 'package:thix_id/presentation/thix_event/admin/pages/analytics/analytics_
 import 'package:thix_id/presentation/thix_event/event_payment_page.dart';
 import 'package:thix_id/presentation/thix_event/event_ticket_page.dart';
 import 'package:thix_id/models/event_model.dart'; 
+
 // Education
 import 'package:thix_id/presentation/education/education_routes.dart';
 
@@ -282,14 +283,6 @@ class AppRouter {
           ElevatedButton(onPressed: ()=> context.go(AppRoutes.home), child: const Text('Accueil')),
         ])),
       ),
-      // 🔑 CORRECTIF PRINCIPAL : TOUT le redirect est maintenant protégé.
-      // Avant, seule la première vérification était dans un try/catch ;
-      // les accès à auth.isAuthenticated / auth.currentUser plus bas
-      // n'étaient PAS protégés. Si Supabase n'a pas fini de s'initialiser
-      // (timeout de 6s dans main.dart, ou échec réseau), ces accès peuvent
-      // lancer une exception qui sort du callback redirect AVANT que
-      // Flutter ait pu peindre quoi que ce soit -> écran gris figé, sans
-      // jamais atteindre le joli errorBuilder bleu ci-dessus.
       redirect: (context, state) {
         try {
           final loc = state.matchedLocation;
@@ -302,10 +295,6 @@ class AppRouter {
               loc.startsWith('/thix-event') || loc.startsWith('/thix-urgent') ||
               loc.startsWith('/thix-reservation/delivery') || isAuthPage;
 
-          // Si auth pas encore prête (Supabase pas init, session en cours de
-          // restauration...), on NE bloque JAMAIS la navigation : on laisse
-          // passer tel quel plutôt que de risquer une exception ou une
-          // redirection prématurée vers /login.
           bool logged;
           AccountType? accountType;
           try {
@@ -328,8 +317,6 @@ class AppRouter {
           }
           return null;
         } catch (e, st) {
-          // Filet de sécurité ultime : quoi qu'il arrive dans ce callback,
-          // on ne laisse JAMAIS une exception remonter et bloquer l'app.
           debugPrint('GoRouter redirect error (ignoré, navigation autorisée): $e\n$st');
           return null;
         }
@@ -427,7 +414,6 @@ class AppRouter {
         GoRoute(path: '/network/story/:storyId', name: 'networkStoryViewer', pageBuilder: (_, state) => NoTransitionPage(child: StoryViewerScreen(storyId: state.pathParameters['storyId']!))),
         GoRoute(path: '/network/comments/:postId', name: 'networkComments', pageBuilder: (_, state) => NoTransitionPage(child: CommentsPage(postId: state.pathParameters['postId']!, currentProfileId: Supabase.instance.client.auth.currentUser?.id ?? ''))),
         GoRoute(path: '/network/hashtag/:tag', name: 'networkHashtag', pageBuilder: (_, state) => NoTransitionPage(child: HashtagPage(tag: state.pathParameters['tag']!))),
-        // FIX: utilise auth capturé, pas context.read
         GoRoute(path: '${AppRoutes.networkPostBasePath}/:postId', name: 'networkPostDetail', pageBuilder: (_, state) => NoTransitionPage(child: PostDetailPage(postId: state.pathParameters['postId']!, currentProfileId: auth.currentUser?.id ?? ''))),
         GoRoute(path: '${AppRoutes.networkProfileBasePath}/:userId', name: 'networkProfile', pageBuilder: (_, state) => NoTransitionPage(child: ProfilePage(userId: state.pathParameters['userId']!))),
         GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (_, __) => const NoTransitionPage(child: ProfilePage())),
@@ -514,25 +500,26 @@ class AppRouter {
         GoRoute(path: '/agency/dashboard', name: 'agency-dashboard', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyDashboardPage())),
         GoRoute(path: '/agency/trip/create', name: 'agency-create-trip', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyCreateTripPage())),
         GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyQrScanPage())),
+        
+        // 🔑 CORRECTION APPLIQUÉE ICI : On crée le Provider localement
         GoRoute(path: AppRoutes.deliveryHome, name: 'delivery-home', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..init(), child: const DeliveryHomePage()))),
         GoRoute(
-  path: AppRoutes.deliveryCheckout, 
-  name: 'delivery-checkout', 
-  pageBuilder: (_, __) => NoTransitionPage(
-    child: ChangeNotifierProvider(
-      create: (_) => DeliveryClientProvider(), // On le crée ici, à la demande
-      child: const DeliveryCheckoutPage(),
-    ),
-  ),
-),
-
-        }),
+          path: AppRoutes.deliveryCheckout, 
+          name: 'delivery-checkout', 
+          pageBuilder: (_, __) => NoTransitionPage(
+            child: ChangeNotifierProvider(
+              create: (_) => DeliveryClientProvider(), // Création propre au lieu d'un context.read global
+              child: const DeliveryCheckoutPage(),
+            ),
+          ),
+        ),
         GoRoute(path: AppRoutes.deliveryTracking, name: 'delivery-tracking', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider(), child: const delivery_tracking.DeliveryTrackingPage()))),
         GoRoute(path: AppRoutes.deliveryHistory, name: 'delivery-history', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..loadMyShipments(refresh: true), child: const DeliveryHistoryPage()))),
         GoRoute(path: AppRoutes.deliveryAdminDashboard, name: 'delivery-admin-dashboard', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..init(), child: const DeliveryAdminDashboardPage()))),
         GoRoute(path: AppRoutes.deliveryAdminRoutes, name: 'delivery-admin-routes', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadRoutes(force: true), child: const DeliveryAdminRoutesPage()))),
         GoRoute(path: AppRoutes.deliveryAdminShipments, name: 'delivery-admin-shipments', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadAllShipments(), child: const DeliveryAdminShipmentsPage()))),
         GoRoute(path: AppRoutes.deliveryAdminScan, name: 'delivery-admin-scan', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryAdminScanPage())),
+        
         GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (_, __) => const NoTransitionPage(child: MarketHomePage()), routes: [
           GoRoute(path: 'home', name: 'marketHome', pageBuilder: (_, __) => const NoTransitionPage(child: MarketHomePage())),
           GoRoute(path: 'search', name: 'marketSearch', pageBuilder: (_, __) => const NoTransitionPage(child: marketSearch.SearchPage())),
