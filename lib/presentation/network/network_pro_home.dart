@@ -237,20 +237,63 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   }
 
   Widget _buildBottomNav() {
-    return AnimatedSlide(duration: const Duration(milliseconds: 260), curve: Curves.easeInOutCubic, offset: _navVisible ? Offset.zero : const Offset(0, 1.6),
-      child: AnimatedOpacity(duration: const Duration(milliseconds: 200), opacity: _navVisible ? 1 : 0,
-        child: IgnorePointer(ignoring: !_navVisible, child: SafeArea(top: false, child: Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-          child: SizedBox(height: 56, child: Stack(clipBehavior: Clip.none, alignment: Alignment.bottomCenter, children: [
-            Container(height: 50, decoration: BoxDecoration(color: ThixColors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: ThixColors.shadow, blurRadius: 14, offset: const Offset(0, 5))]),
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                _navBtn(Icons.home_rounded, 'Accueil', true, () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut)),
-                _navBtn(Icons.explore_outlined, 'Découvrir', false, () => context.push('/network/discover')),
-                const SizedBox(width: 42),
-                _navBtn(Icons.groups_outlined, 'Réseau', false, () => context.push('/network/connections')),
-                _navBtn(Icons.person_outline, 'Profil', false, () => context.push('/profile')),
-              ])),
-            Positioned(top: -12, child: _buildFab()),
-          ]))))));
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeInOutCubic,
+      offset: _navVisible ? Offset.zero : const Offset(0, 1.6),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: _navVisible ? 1 : 0,
+        child: IgnorePointer(
+          ignoring: !_navVisible,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: SizedBox(
+                height: 56,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: ThixColors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
+                          BoxShadow(
+                            color: ThixColors.shadow,
+                            blurRadius: 14,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _navBtn(Icons.home_rounded, 'Accueil', true, () {
+                            _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+                          }),
+                          _navBtn(Icons.explore_outlined, 'Découvrir', false, () => context.push('/network/discover')),
+                          const SizedBox(width: 42),
+                          _navBtn(Icons.groups_outlined, 'Réseau', false, () => context.push('/network/connections')),
+                          _navBtn(Icons.person_outline, 'Profil', false, () => context.push('/profile')),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      top: -12,
+                      child: _buildFab(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildFab() => SizedBox(width: 48, height: 48, child: Container(decoration: BoxDecoration(shape: BoxShape.circle, gradient: const LinearGradient(colors: [ThixColors.primaryDeep, ThixColors.primary]), boxShadow: [BoxShadow(color: ThixColors.primary.withValues(alpha: 0.4), blurRadius: 10, offset: const Offset(0, 5))]),
