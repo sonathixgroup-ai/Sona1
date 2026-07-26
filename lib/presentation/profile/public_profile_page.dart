@@ -13,6 +13,8 @@ import 'package:thix_id/services/document_service.dart';
 const _blue = Color(0xFF0D2CC1);
 const _blueDark = Color(0xFF0A1E8A);
 const _red = Color(0xFFD32F2F);
+const _fieldBg = Color(0xFFF7F8FC);
+const _fieldBorder = Color(0xFFE7EAF3);
 
 // -----------------------------------------------------------------------------
 // HELPERS & EXTRACTEURS DE DONNÉES
@@ -44,13 +46,13 @@ String _get(dynamic map, List<String> keys) {
 List<String> _extractDocs(dynamic e) {
   if (e is! Map) return [];
   Set<String> urls = {};
-  
+
   final possibleKeys = ['proofUrl', 'document', 'documents', 'proofs', 'pieces', 'file', 'files', 'photos', 'url', 'urls', 'preuves', 'preuve'];
-  
+
   for (var key in possibleKeys) {
     var val = e[key];
     if (val == null) continue;
-    
+
     if (val is String && val.trim().isNotEmpty) {
       urls.add(val.trim());
     } else if (val is List) {
@@ -78,14 +80,14 @@ class PublicProfileCtrl extends ChangeNotifier {
   final _profiles = ProfileService();
   final _docs = DocumentService();
   final _access = AccessRequestService();
-  
+
   ThixProfile? profile;
   bool loading = true;
   bool isRequestingAccess = false;
   String? error;
   AccessRequestState? accessState;
   List<Map<String, dynamic>> remoteDocs = [];
-  
+
   StreamSubscription? _profileSub;
   StreamSubscription? _accessSub;
   StreamSubscription? _docSub;
@@ -199,7 +201,7 @@ class _PState extends State<PublicProfilePage> {
         body: Consumer<PublicProfileCtrl>(builder: (_, c, __) {
           if (c.loading) return const Center(child: CircularProgressIndicator(color: _blue));
           if (c.error != null) return Center(child: Text(c.error!));
-          
+
           final p = c.profile!;
           final meId = context.read<AuthController>().currentUser?.id;
           final isOwner = meId == p.userId;
@@ -209,9 +211,9 @@ class _PState extends State<PublicProfilePage> {
             SliverToBoxAdapter(child: _RefHeader(p: p, onBack: () => context.go(AppRoutes.home))),
             SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _RefStats(p: p))),
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
-            
+
             if (!canSee) SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _GateCard(ctrl: c))),
-            
+
             if (canSee)
               SliverToBoxAdapter(
                 child: Padding(
@@ -243,15 +245,15 @@ class _PState extends State<PublicProfilePage> {
                     // 2. Origine
                     _Cadre(title: 'Origine', icon: Icons.map_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Province origine', value: p.originProvince ?? '—'), _Row(label: 'Territoire', value: p.originTerritory ?? '—'), _Row(label: 'Secteur', value: p.originSector ?? '—')]))),
                     const SizedBox(height: 16),
-                    
+
                     // 3. Résidence actuelle
                     _Cadre(title: 'Résidence actuelle', icon: Icons.home_work_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Pays', value: p.residenceCountry ?? '—'), _Row(label: 'Province', value: p.residenceProvince ?? '—'), _Row(label: 'Territoire', value: p.residenceTerritory ?? '—'), _Row(label: 'Ville', value: p.residenceCity ?? '—'), _Row(label: 'Commune', value: p.residenceCommune ?? '—'), _Row(label: 'Quartier', value: p.residenceQuarter ?? '—'), _Row(label: 'Avenue', value: p.residenceAvenue ?? '—'), _Row(label: 'Numéro', value: p.residenceNumber ?? '—')]))),
                     const SizedBox(height: 16),
-                    
+
                     // 4. Biographie
                     _Cadre(title: 'Biographie', icon: Icons.history_edu_rounded, child: _MaskableContent(canSee: canSee, child: _ExpandableTextBody(text: p.bio ?? 'Aucune biographie renseignée.'))),
                     const SizedBox(height: 16),
-                    
+
                     // 5. Profil Professionnel
                     _Cadre(title: 'Profil Professionnel', icon: Icons.work_outline_rounded, child: _MaskableContent(canSee: canSee, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_Row(label: 'Profession', value: p.profession ?? p.occupation ?? '—'), _ExpandableRow(label: 'Compétence', value: p.competence ?? '—'), _Row(label: 'THIX CHAT', value: p.thixChat ?? '—')]))),
                     const SizedBox(height: 16),
@@ -284,7 +286,7 @@ class _PState extends State<PublicProfilePage> {
                     // 7. Contact urgence
                     _Cadre(title: 'Contact urgence', icon: Icons.contact_emergency_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Nom', value: p.emergencyContactName ?? '—'), _Row(label: 'Téléphone', value: p.emergencyContactPhone ?? '—'), _Row(label: 'Lien', value: p.emergencyContactRelation ?? '—'), if (p.emergencyContacts.isNotEmpty) ...p.emergencyContacts.map((e) => ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text((e['name'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)), subtitle: Text('${e['relation'] ?? ''} - ${e['phone'] ?? ''}', style: const TextStyle(fontSize: 12))))]))),
                     const SizedBox(height: 16),
-                    
+
                     // 8. Infos physiques
                     _Cadre(title: 'Infos physiques', icon: Icons.monitor_weight_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Taille cm', value: p.height ?? '—'), _Row(label: 'Poids kg', value: p.weight ?? '—'), _Row(label: 'Groupe sanguin', value: p.bloodGroup ?? '—'), _Row(label: 'Handicap', value: (p.hasPhysicalDisability ?? false) ? 'Oui : ${p.physicalDisabilityDescription ?? ''}' : 'Non')]))),
                     const SizedBox(height: 16),
@@ -304,7 +306,7 @@ class _PState extends State<PublicProfilePage> {
                             _Row(label: 'Date expiration', value: p.idDocumentExpiryDate ?? '—'),
                             _Row(label: 'Lieu émission', value: p.idDocumentIssuePlace ?? '—'),
                             _Row(label: 'Statut', value: _translateStatus(p.idVerificationStatus)),
-                            
+
                             Builder(
                               builder: (context) {
                                 List<Map<String, String>> idDocs = [];
@@ -342,7 +344,7 @@ class _PState extends State<PublicProfilePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 10. Parcours scolaire (AVEC VOIR PLUS SI > 3)
+                    // 10. Parcours scolaire (fiches détaillées + "Voir plus" si > 3)
                     _Cadre(
                       title: 'Cursus & Formations',
                       icon: Icons.account_balance_rounded,
@@ -359,20 +361,22 @@ class _PState extends State<PublicProfilePage> {
                                 final start = _get(e, ['startYear', 'debut', 'start_year']);
                                 final end = _get(e, ['endYear', 'fin', 'end_year']);
                                 final desc = _get(e, ['description', 'details']);
-                                
+
                                 String periodStr = '';
                                 if (start.isNotEmpty && end.isNotEmpty) periodStr = '$start - $end';
                                 else if (start.isNotEmpty) periodStr = start;
                                 else if (end.isNotEmpty) periodStr = end;
                                 else periodStr = _get(e, ['period', 'periode']);
 
-                                return _DetailedListItem(
-                                  titleLabel: 'Diplôme / Titre',
-                                  title: degree.isNotEmpty ? degree : '—', // Diplôme en premier
-                                  subtitleLabel: 'Établissement',
-                                  subtitle: institution,
-                                  location: city,
-                                  period: periodStr,
+                                return _RecordCard(
+                                  headerIcon: Icons.school_rounded,
+                                  headerTitle: degree.isNotEmpty ? degree : 'Formation',
+                                  fields: [
+                                    if (institution.isNotEmpty) _RecordFieldRow(icon: Icons.account_balance, label: 'Établissement / École', value: institution),
+                                    if (degree.isNotEmpty) _RecordFieldRow(icon: Icons.workspace_premium_rounded, label: 'Diplôme / Titre obtenu', value: degree),
+                                    if (city.isNotEmpty) _RecordFieldRow(icon: Icons.location_city, label: 'Ville', value: city),
+                                    if (periodStr.isNotEmpty) _RecordFieldRow(icon: Icons.calendar_month_rounded, label: 'Période', value: periodStr),
+                                  ],
                                   descriptionLabel: 'Description',
                                   description: desc,
                                   documentUrls: _extractDocs(e),
@@ -383,7 +387,7 @@ class _PState extends State<PublicProfilePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 11. Expériences Pro (AVEC VOIR PLUS SI > 3)
+                    // 11. Expériences Pro (fiches détaillées + "Voir plus" si > 3)
                     _Cadre(
                       title: 'Expériences Pro',
                       icon: Icons.business_center_rounded,
@@ -401,15 +405,16 @@ class _PState extends State<PublicProfilePage> {
                                 final period = _get(e, ['period', 'periode', 'dates', 'duree']);
                                 final missions = _get(e, ['missions', 'realisations', 'description', 'tasks', 'taches']);
 
-                                final locationStr = [sector, city].where((s) => s.isNotEmpty).join(' • ');
-
-                                return _DetailedListItem(
-                                  titleLabel: 'Titre / Poste',
-                                  title: title.isNotEmpty ? title : '—',
-                                  subtitleLabel: 'Employeur / Org.',
-                                  subtitle: company,
-                                  location: locationStr,
-                                  period: period,
+                                return _RecordCard(
+                                  headerIcon: Icons.work_rounded,
+                                  headerTitle: title.isNotEmpty ? title : 'Expérience',
+                                  fields: [
+                                    if (title.isNotEmpty) _RecordFieldRow(icon: Icons.badge_rounded, label: 'Titre du poste', value: title),
+                                    if (company.isNotEmpty) _RecordFieldRow(icon: Icons.apartment_rounded, label: 'Entreprise / Organisation', value: company),
+                                    if (sector.isNotEmpty) _RecordFieldRow(icon: Icons.category_rounded, label: 'Secteur', value: sector),
+                                    if (city.isNotEmpty) _RecordFieldRow(icon: Icons.location_city, label: 'Ville', value: city),
+                                    if (period.isNotEmpty) _RecordFieldRow(icon: Icons.calendar_month_rounded, label: 'Période', value: period),
+                                  ],
                                   descriptionLabel: 'Missions et réalisations',
                                   description: missions,
                                   documentUrls: _extractDocs(e),
@@ -621,18 +626,18 @@ class _RefStats extends StatelessWidget {
 class _GateCard extends StatelessWidget {
   final PublicProfileCtrl ctrl;
   const _GateCard({required this.ctrl});
-  
+
   @override
   Widget build(BuildContext context) {
     final s = ctrl.accessState;
     final rawStatus = s?.status?.name;
-    
+
     String label = "Demander l'accès";
     bool isPending = rawStatus == 'pending' || rawStatus == 'En attente';
-    
+
     if (isPending) label = 'Demande envoyée (En attente)';
     if (rawStatus == 'rejected') label = 'Refusé - Redemander';
-    
+
     final btnColor = isPending ? Colors.grey : _red;
 
     return Container(
@@ -670,7 +675,7 @@ class _GateCard extends StatelessWidget {
 }
 
 // -----------------------------------------------------------------------------
-// NOUVEAUX COMPOSANTS : LISTE LIMITÉE ET VRAIE MINIATURE PHOTO
+// LISTE LIMITÉE
 // -----------------------------------------------------------------------------
 
 /// Limite l'affichage à X éléments, et ajoute un bouton "Voir plus" / "Voir moins"
@@ -716,25 +721,33 @@ class _LimitedListState extends State<_LimitedList> {
   }
 }
 
-/// Un élément de cursus/expérience qui affiche les labels corrects et les miniatures
-class _DetailedListItem extends StatelessWidget {
-  final String titleLabel; // NOUVEAU
-  final String title;
-  final String subtitleLabel; // NOUVEAU
-  final String subtitle;
-  final String location;
-  final String period;
+// -----------------------------------------------------------------------------
+// FICHE DÉTAILLÉE — Cursus & Expériences (miroir du formulaire d'ajout)
+// -----------------------------------------------------------------------------
+
+/// Une ligne de champ affichée dans une fiche : icône + label + valeur,
+/// dans un encadré gris clair — même esprit que les champs du formulaire.
+class _RecordFieldRow {
+  final IconData icon;
+  final String label;
+  final String value;
+  const _RecordFieldRow({required this.icon, required this.label, required this.value});
+}
+
+/// Fiche complète (Formation ou Expérience) : en-tête + champs + description
+/// + galerie de preuves (documents/photos) cliquables.
+class _RecordCard extends StatelessWidget {
+  final IconData headerIcon;
+  final String headerTitle;
+  final List<_RecordFieldRow> fields;
   final String? descriptionLabel;
   final String? description;
   final List<String> documentUrls;
 
-  const _DetailedListItem({
-    this.titleLabel = 'Titre / Poste',
-    required this.title,
-    this.subtitleLabel = 'Organisation',
-    required this.subtitle,
-    required this.location,
-    required this.period,
+  const _RecordCard({
+    required this.headerIcon,
+    required this.headerTitle,
+    required this.fields,
     this.descriptionLabel,
     this.description,
     this.documentUrls = const [],
@@ -742,63 +755,95 @@ class _DetailedListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+    final hasDescription = description != null && description!.trim().isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _fieldBorder),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 3))],
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // COLONNE GAUCHE (Toutes les informations textuelles)
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Row(label: titleLabel, value: title),
-                    
-                    if (subtitle.isNotEmpty)
-                      _Row(label: subtitleLabel, value: subtitle),
-                      
-                    if (location.isNotEmpty)
-                      _Row(label: 'Lieu / Ville', value: location),
-                      
-                    if (period.isNotEmpty)
-                      _Row(label: 'Période', value: period),
-                    
-                    if (description != null && description!.trim().isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (descriptionLabel != null) 
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 4.0),
-                                child: Text(descriptionLabel!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
-                              ),
-                            _ExpandableTextBody(text: description!),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: _blue.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: Icon(headerIcon, color: _blue, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(headerTitle, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, color: _blueDark)),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          ...fields.map((f) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _fieldTile(f),
+              )),
+          if (hasDescription) ...[
+            const SizedBox(height: 4),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: _fieldBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _fieldBorder)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Icon(Icons.notes_rounded, size: 15, color: Colors.black45),
+                    const SizedBox(width: 6),
+                    Text(descriptionLabel ?? 'Description', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  ]),
+                  const SizedBox(height: 6),
+                  _ExpandableTextBody(text: description!),
+                ],
               ),
-
-              // COLONNE DROITE (Miniatures des preuves/diplômes empilées)
-              if (documentUrls.isNotEmpty) ...[
-                const SizedBox(width: 12),
-                Column(
-                  children: documentUrls.map((url) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: _ThumbnailViewerButton(label: 'Preuve', documentUrl: url),
-                  )).toList(),
-                ),
-              ],
-            ],
-          ),
-          const Divider(height: 20, color: Color(0xFFF0F0F0)),
+            ),
+          ],
+          if (documentUrls.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(children: [
+              const Icon(Icons.attach_file_rounded, size: 15, color: Colors.black45),
+              const SizedBox(width: 6),
+              Text('Documents & Photos (${documentUrls.length})', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
+            ]),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: documentUrls
+                  .map((url) => _ThumbnailViewerButton(label: 'Preuve', documentUrl: url))
+                  .toList(),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _fieldTile(_RecordFieldRow f) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(color: _fieldBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _fieldBorder)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Icon(f.icon, size: 17, color: Colors.grey.shade600),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(f.label, style: const TextStyle(fontSize: 10.5, color: Colors.black45, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(f.value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.black87)),
+            ],
+          ),
+        ),
+      ]),
     );
   }
 }
@@ -855,12 +900,12 @@ class _ThumbnailViewerButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => _showDocument(context),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        width: 80,
+        width: 84,
         decoration: BoxDecoration(
           color: const Color(0xFFEFF4FF),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: _blue.withOpacity(0.2)),
         ),
         child: Column(
@@ -868,10 +913,10 @@ class _ThumbnailViewerButton extends StatelessWidget {
           children: [
             // Miniature de l'image (Aperçu)
             SizedBox(
-              height: 60,
+              height: 64,
               width: double.infinity,
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
                 child: Image.network(
                   documentUrl,
                   fit: BoxFit.cover,
@@ -884,18 +929,27 @@ class _ThumbnailViewerButton extends StatelessWidget {
             // Petit texte sous la miniature (ex: "Recto", "Preuve")
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
                 border: Border(top: BorderSide(color: _blue.withOpacity(0.1))),
               ),
-              child: Text(
-                label,
-                style: const TextStyle(fontSize: 10, color: _blueDark, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.zoom_in_rounded, size: 11, color: _blueDark),
+                  const SizedBox(width: 3),
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: const TextStyle(fontSize: 10, color: _blueDark, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             )
           ],
