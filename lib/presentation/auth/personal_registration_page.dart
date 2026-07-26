@@ -10,8 +10,7 @@ import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/theme.dart';
-import '../providers/auth_controller.dart';
-
+import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 // ============================================================================
 // THIX ID — GÉNÉRATION & VALIDATION
 // ============================================================================
