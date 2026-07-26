@@ -29,16 +29,13 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      # 👉 Génération des modèles JSON avant la compilation
       - name: Generate data models
         run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Build web
-        # 👉 LA SOLUTION EST ICI : Ajout de --no-tree-shake-icons à la fin de la commande
-        run: flutter build web --release --base-href / --no-tree-shake-icons
+        run: flutter build web --release --base-href /Sona1/ --no-tree-shake-icons --no-wasm-dry-run
 
-      # GitHub Pages does not provide SPA rewrite by default.
-      # Copy index.html to 404.html so deep links (go_router paths) load the app.
+      # SPA fallback pour go_router
       - name: SPA fallback for go_router
         run: cp build/web/index.html build/web/404.html
 
