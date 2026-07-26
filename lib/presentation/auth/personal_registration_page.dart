@@ -4,13 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // Import Riverpod
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/theme.dart';
-import '../providers/auth_controller.dart'; // Ton nouveau provider
+import '../providers/auth_controller.dart';
 
 // ============================================================================
 // THIX ID — GÉNÉRATION & VALIDATION
@@ -45,19 +45,6 @@ class ThixIdGenerator {
       sum += code * weight;
     }
     return sum % 10;
-  }
-
-  static String generate(String countryName) {
-    final codePays = _countryCode(countryName);
-    final now = DateTime.now();
-    final dateStr = '${now.month.toString().padLeft(2, '0')}${now.year.toString().substring(2)}';
-    final variable = _secureRandom.nextInt(90000) + 10000;
-    final codeCompl = String.fromCharCodes(
-      Iterable.generate(3, (_) => _alphabet.codeUnitAt(_secureRandom.nextInt(_alphabet.length))),
-    );
-    final body = '$codePays-$dateStr-$variable-$codeCompl';
-    final cleVerif = _checkDigit(body);
-    return 'THIX-$body-$cleVerif';
   }
 }
 
@@ -214,7 +201,7 @@ class _CompactDropdown extends StatelessWidget {
 }
 
 // ============================================================================
-// PAGE D'INSCRIPTION SIMPLIFIÉE (ConsumerStatefulWidget)
+// PAGE D'INSCRIPTION PRINCIPALE
 // ============================================================================
 
 class PersonalRegistrationPage extends ConsumerStatefulWidget {
@@ -242,7 +229,6 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
   String _thixIdGenerated = '';
   String _uid = '';
   
-  // _isLoading a été supprimé ! On utilise Riverpod.
   bool _otpSent = false;
   bool _isNavigating = false;
   int _step = 1;
@@ -352,7 +338,6 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     if (passIssue != null) return _snack(passIssue, isError: true);
     if (pass != confirm) return _snack('Les mots de passe ne correspondent pas.', isError: true);
 
-    // MOTEUR RIVERPOD
     final authNotifier = ref.read(authControllerProvider.notifier);
     
     try {
@@ -371,7 +356,6 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
       );
       if (!mounted) return;
       
-      // En cas de succès sans exception
       setState(() => _otpSent = true);
       _startResendCooldown();
       _snack('Un code OTP vous a été envoyé par email.');
@@ -400,7 +384,8 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     }
 
     final desiredChatRaw = _thixChatC.text.trim();
-    final desiredChat = desiredChatRaw.isNotEmpty ? desiredChatRaw : _suggestChatFromName(_nameC.text.trim());
+    final desiredChat = desiredChatRaw.isNotEmpty ? desiredChatRaw : '@${_nameC.text.split(' ').first.toLowerCase()}${DateTime.now().millisecondsSinceEpoch % 10000}';
+    
     if (!_isValidThixChat(desiredChat)) {
       _snack('THIX CHAT invalide : utilisez 3 à 20 caractères (lettres minuscules, chiffres, "." ou "_").', isError: true);
       return;
@@ -411,33 +396,22 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     try {
       await authNotifier.verifyOTP(email: _emailC.text.trim().toLowerCase(), token: code);
       
-      // On récupère l'utilisateur depuis l'état du provider
       final me = ref.read(authControllerProvider).value;
-
       if (me == null) throw Exception('Utilisateur introuvable après vérification.');
 
       final claimed = await _userService.ensureThixChat(uid: me.id, desired: desiredChat);
 
-      const maxAttempts = 5;
-      String officialThixId = '';
-      var assigned = false;
-      for (var attempt = 0; attempt < maxAttempts && !assigned; attempt++) {
-        officialThixId = ThixIdGenerator.generate(_country ?? 'Autre');
-        try {
-          await _userService.updateProfile(
-            uid: me.id,
-            thixId: officialThixId,
-            thixChat: claimed,
-            registrationStatus: 'active',
-          );
-          assigned = true;
-        } on PostgrestException catch (e) {
-          final isUniqueViolation = e.code == '23505';
-          if (isUniqueViolation && attempt < maxAttempts - 1) continue;
-          rethrow;
-        }
-      }
-      if (!assigned) throw Exception('Impossible de générer un THIX ID unique pour le moment.');
+      // --- NOUVELLE LOGIQUE SCALABLE RPC ---
+      final countryCode = ThixIdGenerator._countryCode(_country);
+      final officialThixId = await Supabase.instance.client.rpc('generate_thix_id', params: {'country_code': countryCode}) as String;
+
+      await _userService.updateProfile(
+        uid: me.id,
+        thixId: officialThixId,
+        thixChat: claimed,
+        registrationStatus: 'active',
+      );
+      // -------------------------------------
 
       if (mounted) {
         setState(() {
@@ -451,14 +425,6 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     } catch (e) {
       _snack(_userFacingError(e), isError: true);
     }
-  }
-
-  String _suggestChatFromName(String name) {
-    final base = name.trim().split(RegExp(r'\s+')).first.toLowerCase();
-    final cleaned = base.replaceAll(RegExp(r'[^a-z0-9._]'), '');
-    final suffix = DateTime.now().millisecondsSinceEpoch.toString().substring(9);
-    final candidate = '@${cleaned.isEmpty ? 'user' : cleaned}${suffix.padLeft(4, '0')}';
-    return candidate.length > 21 ? candidate.substring(0, 21) : candidate;
   }
 
   @override
