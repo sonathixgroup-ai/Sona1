@@ -9,13 +9,7 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
 
   @override
   Future<List<NetworkPost>> build() async {
-    try {
-      // TODO: rebranche ta vraie requête quand tu auras le nom exact
-      // ex: return await ref.read(networkServiceProvider).getPosts();
-      return [];
-    } catch (_) {
-      return [];
-    }
+    return [];
   }
 
   Future<void> loadFeed({String? feedType, bool force = false}) async {
@@ -39,12 +33,10 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
     final current = state.valueOrNull?? [];
     final idx = current.indexWhere((p) => p.id == postId);
     if (idx == -1) return;
-
     final oldPost = current[idx];
     final wasLiked = (oldPost as dynamic).isLiked as bool??? false;
     final oldCount = (oldPost as dynamic).likesCount as int??? 0;
 
-    // optimistic update
     try {
       final updated = (oldPost as dynamic).copyWith(
         isLiked:!wasLiked,
@@ -53,9 +45,7 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
       final newList = [...current];
       newList[idx] = updated;
       state = AsyncData(newList);
-    } catch (_) {
-      // si pas de copyWith, on laisse quand même l'appel serveur
-    }
+    } catch (_) {}
 
     try {
       final service = ref.read(networkServiceProvider);
@@ -65,7 +55,6 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
         await service.likePost(postId);
       }
     } catch (_) {
-      // rollback si erreur
       state = AsyncData(current);
     }
   }
