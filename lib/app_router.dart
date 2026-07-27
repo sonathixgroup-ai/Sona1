@@ -315,6 +315,9 @@ final appRouter = GoRouter(
       path: AppRoutes.home, // ex: '/home' ou '/network'
       builder: (context, state) => const NetworkProHome(),
     ),
+  ], // <-- 1. Fermeture du tableau des routes (crochet)
+);   // <-- 2. Fermeture du GoRouter avec la parenthèse ET le fameux point-virgule !
+
     
         GoRoute(path: AppRoutes.start, name: 'start', pageBuilder: (_, __) => const NoTransitionPage(child: ThixIdStartPage())),
         GoRoute(path: AppRoutes.home, name: 'home', pageBuilder: (_, __) => const NoTransitionPage(child: HomePagePremium())),
