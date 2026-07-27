@@ -23,17 +23,21 @@ final priceAlertsProvider = FutureProvider<List<Map<String,dynamic>>>((ref) asyn
   final res = await db.from('price_alerts').select('id, target_price, product_id, products(title, image_url, price, currency, shop:shops(name))').eq('user_id', uid).order('created_at', ascending: false);
   List<Map<String,dynamic>> list = [];
   for(final alert in (res as List)){
-    final prod = alert['products'] as Map??? {};
-    final shop = prod['shop'] as Map??? {};
+    final prodRaw = alert['products'];
+    Map<String,dynamic> prod = {};
+    if(prodRaw is Map) prod = Map<String,dynamic>.from(prodRaw);
+    final shopRaw = prod['shop'];
+    Map<String,dynamic> shop = {};
+    if(shopRaw is Map) shop = Map<String,dynamic>.from(shopRaw);
     list.add({
       'id': alert['id'].toString(),
       'product_id': alert['product_id'].toString(),
-      'title': prod['title']?? 'Produit inconnu',
-      'image_url': prod['image_url']?? '',
-      'shop_name': shop['name']?? 'Boutique',
-      'current_price': prod['price']?? 0,
-      'target_price': alert['target_price']?? 0,
-      'currency': prod['currency']?? 'FC',
+      'title': prod['title']!=null? prod['title'].toString() : 'Produit inconnu',
+      'image_url': prod['image_url']!=null? prod['image_url'].toString() : '',
+      'shop_name': shop['name']!=null? shop['name'].toString() : 'Boutique',
+      'current_price': prod['price']!=null? prod['price'] : 0,
+      'target_price': alert['target_price']!=null? alert['target_price'] : 0,
+      'currency': prod['currency']!=null? prod['currency'].toString() : 'FC',
     });
   }
   return list;
@@ -41,7 +45,6 @@ final priceAlertsProvider = FutureProvider<List<Map<String,dynamic>>>((ref) asyn
 
 class PriceAlertsPage extends ConsumerWidget {
   const PriceAlertsPage({super.key});
-
   Future<void> deleteAlert(WidgetRef ref, BuildContext context, String id) async {
     try{
       final db = ref.read(supabaseClientProvider);
@@ -50,7 +53,6 @@ class PriceAlertsPage extends ConsumerWidget {
       if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alerte supprimée'), backgroundColor: _MarketColors.successGreen));
     }catch(e){ debugPrint('del $e'); }
   }
-
   @override Widget build(BuildContext context, WidgetRef ref){
     final asyncAlerts = ref.watch(priceAlertsProvider);
     return Scaffold(
@@ -66,7 +68,6 @@ class PriceAlertsPage extends ConsumerWidget {
       ),
     );
   }
-
   Widget _empty(BuildContext context)=> Center(child: Padding(padding: const EdgeInsets.all(32), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
     Container(padding: const EdgeInsets.all(24), decoration: const BoxDecoration(color: _MarketColors.creamBg, shape: BoxShape.circle), child: const Icon(Icons.notifications_active_outlined, size: 64, color: _MarketColors.gold)),
     const SizedBox(height: 24),
@@ -76,7 +77,6 @@ class PriceAlertsPage extends ConsumerWidget {
     const SizedBox(height: 32),
     ElevatedButton(onPressed: ()=> context.go('/market/home'), style: ElevatedButton.styleFrom(backgroundColor: _MarketColors.red, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), elevation: 0), child: const Text('Explorer le marché', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
   ])));
-
   Widget _card(BuildContext context, WidgetRef ref, Map<String,dynamic> alert){
     double current = 0;
     double target = 0;
