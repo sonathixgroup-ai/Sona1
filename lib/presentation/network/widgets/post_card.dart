@@ -126,7 +126,6 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
       pageBuilder: (_, anim, __) => FadeTransition(opacity: anim, child: _FullScreenGallery(imageUrls: urls, initialIndex: initialIndex, postId: postId))));
   }
   
-  // 🔴 CORRECTION : Remplacement de CachedNetworkImage par Image.network
   Widget _buildNetworkImage(String url, {double? width, double height = 200, BoxFit fit = BoxFit.cover, Alignment alignment = Alignment.center}) {
     return Image.network(
       url, width: width, height: height, fit: fit, alignment: alignment,
@@ -136,17 +135,20 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
   }
 
   Widget _tappableImage(String url, int index, List<String> allUrls, String postId, {required double height}) {
-    return GestureDetector(onTap: () => _openGallery(index, allUrls, postId), child: Hero(tag: 'post_${postId}_image_$index', child: _buildNetworkImage(url, width: double.infinity, height: height, alignment: Alignment.topCenter)));
+    return GestureDetector(
+      onTap: () => _openGallery(index, allUrls, postId), 
+      child: _buildNetworkImage(url, width: double.infinity, height: height, alignment: Alignment.topCenter)
+    );
   }
   
   Widget _buildImageGrid(List<String> urls, String postId) {
     if (urls.isEmpty) return const SizedBox.shrink(); const spacing = 4.0; final radius = BorderRadius.circular(12);
-    if (urls.length == 1) return ClipRRect(borderRadius: BorderRadius.circular(18), child: GestureDetector(onTap: () => _openGallery(0, urls, postId), child: Hero(tag: 'post_${postId}_image_0', child: _AdaptiveSingleImage(imageUrl: urls[0]))));
-    if (urls.length == 2) return Row(children: [Expanded(child: ClipRRect(borderRadius: radius, child: GestureDetector(onTap: () => _openGallery(0, urls, postId), child: Hero(tag: 'post_${postId}_image_0', child: _AdaptivePairImage(imageUrl: urls[0], groupKey: urls))))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: GestureDetector(onTap: () => _openGallery(1, urls, postId), child: Hero(tag: 'post_${postId}_image_1', child: _AdaptivePairImage(imageUrl: urls[1], groupKey: urls))))),]);
+    if (urls.length == 1) return ClipRRect(borderRadius: BorderRadius.circular(18), child: GestureDetector(onTap: () => _openGallery(0, urls, postId), child: _AdaptiveSingleImage(imageUrl: urls[0])));
+    if (urls.length == 2) return Row(children: [Expanded(child: ClipRRect(borderRadius: radius, child: GestureDetector(onTap: () => _openGallery(0, urls, postId), child: _AdaptivePairImage(imageUrl: urls[0], groupKey: urls)))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: GestureDetector(onTap: () => _openGallery(1, urls, postId), child: _AdaptivePairImage(imageUrl: urls[1], groupKey: urls)))),]);
     if (urls.length == 3) return SizedBox(height: 240, child: Row(children: [Expanded(flex: 3, child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, urls, postId, height: 240))), const SizedBox(width: spacing), Expanded(flex: 2, child: Column(children: [Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, urls, postId, height: 118))), const SizedBox(height: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[2], 2, urls, postId, height: 118)))]))]));
     if (urls.length == 4) return SizedBox(height: 320, child: Column(children: [Expanded(child: Row(children: [Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, urls, postId, height: 158))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, urls, postId, height: 158)))])), const SizedBox(height: spacing), Expanded(child: Row(children: [Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[2], 2, urls, postId, height: 158))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[3], 3, urls, postId, height: 158)))]))]));
     final remaining = urls.length - 5;
-    return SizedBox(height: 320, child: Column(children: [Expanded(flex: 3, child: Row(children: [Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, urls, postId, height: 190))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, urls, postId, height: 190)))])), const SizedBox(height: spacing), Expanded(flex: 2, child: Row(children: [Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[2], 2, urls, postId, height: 126))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[3], 3, urls, postId, height: 126))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: GestureDetector(onTap: () => _openGallery(4, urls, postId), child: Stack(alignment: Alignment.center, children: [Hero(tag: 'post_${postId}_image_4', child: _buildNetworkImage(urls[4], width: double.infinity, height: 126, alignment: Alignment.topCenter)), if (remaining > 0) Container(color: Colors.black54, child: Center(child: Text('+$remaining', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))))]))))]))]));
+    return SizedBox(height: 320, child: Column(children: [Expanded(flex: 3, child: Row(children: [Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, urls, postId, height: 190))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, urls, postId, height: 190)))])), const SizedBox(height: spacing), Expanded(flex: 2, child: Row(children: [Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[2], 2, urls, postId, height: 126))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[3], 3, urls, postId, height: 126))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: GestureDetector(onTap: () => _openGallery(4, urls, postId), child: Stack(alignment: Alignment.center, children: [_buildNetworkImage(urls[4], width: double.infinity, height: 126, alignment: Alignment.topCenter), if (remaining > 0) Container(color: Colors.black54, child: Center(child: Text('+$remaining', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))))]))))]))]));
   }
   
   Widget _buildPollWidget(NetworkPost post, WidgetRef ref) {
@@ -185,7 +187,6 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
                 onTap: () => context.push('/network/profile/${post.userId}'), 
                 child: Container(
                     width: 42, height: 42, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [_PostColors.primaryDeep, _PostColors.primary])), 
-                    // 🔴 CORRECTION : Remplacement par NetworkImage
                     child: CircleAvatar(radius: 19, backgroundColor: _PostColors.softBlue, backgroundImage: post.authorAvatar!= null && post.authorAvatar!.isNotEmpty? NetworkImage(post.authorAvatar!) : null, child: post.authorAvatar == null || post.authorAvatar!.isEmpty? const Icon(Icons.person_rounded, size: 18, color: _PostColors.primaryDeep) : null))),
             const SizedBox(width: 10),
             Expanded(child: GestureDetector(onTap: () => context.push('/network/profile/${post.userId}'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: _PostColors.textDark), maxLines: 1, overflow: TextOverflow.ellipsis), if (post.authorTitle!= null && post.authorTitle!.isNotEmpty) Text(post.authorTitle!, style: const TextStyle(fontSize: 10.5, color: _PostColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis), Row(children: [Text(_getTimeAgo(post.createdAt), style: const TextStyle(fontSize: 10, color: _PostColors.textSecondary)), const SizedBox(width: 4), const Icon(Icons.public_rounded, size: 11, color: _PostColors.textSecondary)])]))),
@@ -245,7 +246,6 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
   }
 }
 
-// 🔴 CORRECTION : Remplacement de CachedNetworkImage par Image.network
 class _AdaptiveSingleImage extends StatefulWidget { final String imageUrl; const _AdaptiveSingleImage({required this.imageUrl}); @override State<_AdaptiveSingleImage> createState() => _AdaptiveSingleImageState(); }
 class _AdaptiveSingleImageState extends State<_AdaptiveSingleImage> {
   static const _minHeight = 220.0; static const _maxHeight = 520.0; double? _aspectRatio; ImageStream? _stream; late ImageStreamListener _listener;
@@ -257,7 +257,6 @@ class _AdaptiveSingleImageState extends State<_AdaptiveSingleImage> {
   @override Widget build(BuildContext context) => LayoutBuilder(builder: (context, c){ final width=c.maxWidth; if(_aspectRatio==null) return Container(height: 300, width: width, color: _PostColors.softBlue, child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2))); double nh=width/_aspectRatio!; final ch=nh.clamp(_minHeight,_maxHeight); final needCrop=nh!=ch; return SizedBox(width: width, height: ch, child: Image.network(widget.imageUrl, width: width, height: ch, fit: needCrop?BoxFit.cover:BoxFit.contain, alignment: Alignment.topCenter, errorBuilder: (_,__,___)=>Container(color: _PostColors.softBlue, child: const Icon(Icons.broken_image)))); });
 }
 
-// 🔴 CORRECTION : Remplacement de CachedNetworkImage par Image.network
 class _AdaptivePairImage extends StatefulWidget { final String imageUrl; final List<String> groupKey; const _AdaptivePairImage({required this.imageUrl, required this.groupKey}); @override State<_AdaptivePairImage> createState() => _AdaptivePairImageState(); }
 class _AdaptivePairImageState extends State<_AdaptivePairImage> {
   static const _minHeight=180.0; static const _maxHeight=320.0; double? _aspectRatio; ImageStream? _stream; late ImageStreamListener _listener;
@@ -269,7 +268,6 @@ class _AdaptivePairImageState extends State<_AdaptivePairImage> {
   @override Widget build(BuildContext context)=>LayoutBuilder(builder: (context,c){ final cw=c.maxWidth; if(_aspectRatio==null) return Container(height: 240, width: cw, color: _PostColors.softBlue, child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2))); final nh=(cw/_aspectRatio!).clamp(_minHeight,_maxHeight); return SizedBox(width: cw, height: nh, child: Image.network(widget.imageUrl, width: cw, height: nh, fit: BoxFit.cover, alignment: Alignment.topCenter, errorBuilder: (_,__,___)=>Container(color: _PostColors.softBlue, child: const Icon(Icons.broken_image)))); });
 }
 
-// 🔴 CORRECTION : Remplacement de CachedNetworkImage par Image.network
 class _FullScreenGallery extends StatefulWidget { final List<String> imageUrls; final int initialIndex; final String postId; const _FullScreenGallery({required this.imageUrls, required this.initialIndex, required this.postId}); @override State<_FullScreenGallery> createState() => _FullScreenGalleryState(); }
 class _FullScreenGalleryState extends State<_FullScreenGallery> {
   late final PageController _pageController; late int _currentIndex;
@@ -277,7 +275,26 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
   @override void dispose(){ _pageController.dispose(); super.dispose(); }
   @override Widget build(BuildContext context){
     return Scaffold(backgroundColor: Colors.black, body: Stack(children: [
-      PageView.builder(controller: _pageController, itemCount: widget.imageUrls.length, onPageChanged: (i)=>setState(()=>_currentIndex=i), itemBuilder: (context,index)=>GestureDetector(onTap: ()=>Navigator.of(context).pop(), child: Center(child: Hero(tag: 'post_${widget.postId}_image_$index', child: InteractiveViewer(minScale: 1, maxScale: 4, child: Image.network(widget.imageUrls[index], fit: BoxFit.contain, loadingBuilder: (_, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)), errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded, color: Colors.white54, size: 48))))))),
+      PageView.builder(
+        controller: _pageController, 
+        itemCount: widget.imageUrls.length, 
+        onPageChanged: (i)=>setState(()=>_currentIndex=i), 
+        itemBuilder: (context,index)=>GestureDetector(
+          onTap: ()=>Navigator.of(context).pop(), 
+          child: Center(
+            child: InteractiveViewer(
+              minScale: 1, 
+              maxScale: 4, 
+              child: Image.network(
+                widget.imageUrls[index], 
+                fit: BoxFit.contain, 
+                loadingBuilder: (_, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)), 
+                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded, color: Colors.white54, size: 48)
+              )
+            )
+          )
+        )
+      ),
       Positioned(top: 12, right: 12, child: SafeArea(child: GestureDetector(onTap: ()=>Navigator.of(context).pop(), child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, color: Colors.white, size: 22))))),
       if(widget.imageUrls.length>1) Positioned(top: 12, left: 0, right: 0, child: SafeArea(child: Center(child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(20)), child: Text('${_currentIndex+1} / ${widget.imageUrls.length}', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)))))),
       if(widget.imageUrls.length>1) Positioned(bottom: 24, left: 0, right: 0, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(widget.imageUrls.length, (i){ final active=i==_currentIndex; return AnimatedContainer(duration: const Duration(milliseconds: 200), margin: const EdgeInsets.symmetric(horizontal: 3), width: active?18:6, height: 6, decoration: BoxDecoration(color: active?Colors.white:Colors.white38, borderRadius: BorderRadius.circular(3))); }))),
