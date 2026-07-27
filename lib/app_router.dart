@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart' as app_provider;
-
+import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/account_type.dart';
 import 'package:thix_id/nav.dart';
@@ -300,6 +300,22 @@ class AppRouter {
         }
       },
       routes: [
+        
+
+
+// dans tes routes
+final appRouter = GoRouter(
+  initialLocation: '/',
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const ThixIdStartPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.home, // ex: '/home' ou '/network'
+      builder: (context, state) => const NetworkProHome(),
+    ),
+    
         GoRoute(path: AppRoutes.start, name: 'start', pageBuilder: (_, __) => const NoTransitionPage(child: ThixIdStartPage())),
         GoRoute(path: AppRoutes.home, name: 'home', pageBuilder: (_, __) => const NoTransitionPage(child: HomePagePremium())),
         GoRoute(path: AppRoutes.login, name: 'login', pageBuilder: (_, __) => const NoTransitionPage(child: LoginPage())),
