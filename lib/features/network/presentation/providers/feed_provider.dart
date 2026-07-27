@@ -5,16 +5,24 @@ import 'package:thix_id/features/network/data/network_service_provider.dart';
 final feedProvider = AsyncNotifierProvider<Feed, List<NetworkPost>>(Feed.new);
 
 class Feed extends AsyncNotifier<List<NetworkPost>> {
-  bool get hasMore => false;
-
   @override
   Future<List<NetworkPost>> build() async {
-    return [];
+    // CHARGE VRAIMENT LA DB AU DEMARRAGE
+    final service = ref.read(networkServiceProvider);
+    return await service.getPosts();
   }
 
   Future<void> loadFeed({String? feedType, bool force = false}) async {
-    if (force) state = const AsyncLoading();
-    state = await AsyncValue.guard(() async => await build());
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final service = ref.read(networkServiceProvider);
+      return await service.getPosts(feedType: feedType);
+    });
+  }
+
+  void addPostOnTop(NetworkPost post) {
+    final current = state.valueOrNull?? [];
+    state = AsyncData([post,...current]);
   }
 
   Future<void> loadMore() async {}
@@ -22,39 +30,27 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
   Future<void> deletePost(String postId) async {
     final current = state.valueOrNull?? [];
     state = AsyncData(current.where((p) => p.id!= postId).toList());
-    try {
-      await ref.read(networkServiceProvider).deletePost(postId);
-    } catch (_) {
-      state = AsyncData(current);
-    }
+    await ref.read(networkServiceProvider).deletePost(postId);
   }
 
   Future<void> toggleLike(String postId) async {
+    // garde ton code like existant
     final current = state.valueOrNull?? [];
     final idx = current.indexWhere((p) => p.id == postId);
     if (idx == -1) return;
     final oldPost = current[idx];
-
-    final wasLiked = ((oldPost as dynamic).isLiked as bool?)?? false;
-    final oldCount = ((oldPost as dynamic).likesCount as int?)?? 0;
-
+    final wasLiked = (oldPost as dynamic).isLiked?? false;
+    final oldCount = (oldPost as dynamic).likesCount?? 0;
+    final updated = (oldPost as dynamic).copyWith(
+      isLiked:!wasLiked,
+      likesCount: wasLiked? oldCount - 1 : oldCount + 1,
+    ) as NetworkPost;
+    final newList = [...current];
+    newList[idx] = updated;
+    state = AsyncData(newList);
     try {
-      final updated = (oldPost as dynamic).copyWith(
-        isLiked:!wasLiked,
-        likesCount: wasLiked? oldCount - 1 : oldCount + 1,
-      ) as NetworkPost;
-      final newList = [...current];
-      newList[idx] = updated;
-      state = AsyncData(newList);
-    } catch (_) {}
-
-    try {
-      final service = ref.read(networkServiceProvider);
-      if (wasLiked) {
-        await service.unlikePost(postId);
-      } else {
-        await service.likePost(postId);
-      }
+      final s = ref.read(networkServiceProvider);
+      wasLiked? await s.unlikePost(postId) : await s.likePost(postId);
     } catch (_) {
       state = AsyncData(current);
     }
