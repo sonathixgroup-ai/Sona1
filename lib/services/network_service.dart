@@ -149,8 +149,29 @@ class NetworkService extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> getComments(String postId) async { final res = await _supabase.from('comments').select('*, profiles!user_id(display_name, avatar_url)').eq('post_id', postId).order('created_at', ascending: true); return (res as List).map((e) => {'id': e['id'], 'user_id': e['user_id'], 'user_name': e['profiles']?['display_name'], 'user_avatar': e['profiles']?['avatar_url'], 'content': e['content'], 'created_at': e['created_at']}).toList(); }
   Future<bool> updateComment(String commentId, String newContent) async { try { await _supabase.from('comments').update({'content': newContent.trim(), 'is_edited': true}).eq('id', commentId); notifyListeners(); return true; } catch (_) { return false; } }
   Future<bool> deleteComment(String commentId) async { try { await _supabase.from('comments').delete().eq('id', commentId); notifyListeners(); return true; } catch (_) { return false; } }
-  Future<bool> likeComment(String commentId) async { if (_uid == null) return false; try { await _supabase.from('comment_likes').upsert({'comment_id': commentId, 'user_id': _uid}, onConflict: 'comment_id,user_id', ignoreDuplicates: true); notifyListeners(); return true; } catch (_) { return false; } }
-  Future<bool> unlikeComment(String commentId) async { try { await _supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', _uid!); notifyListeners(); return true; } catch (_) { return false; } }
+
+    Future<void> likePost(String id) async { 
+    try {
+      await _supabase.from('post_likes').insert({'post_id': id, 'user_id': currentUserId}); 
+      final owner = await _getPostOwnerId(id); 
+      if (owner != currentUserId) {
+        unawaited(_createNotification(userId: owner, type: 'like', postId: id)); 
+      }
+    } catch (e) {
+      debugPrint('likePost erreur ignorée : $e');
+    }
+    notifyListeners(); 
+  }
+
+  Future<void> unlikePost(String id) async { 
+    try {
+      await _supabase.from('post_likes').delete().eq('post_id', id).eq('user_id', currentUserId); 
+    } catch (e) {
+      debugPrint('unlikePost erreur : $e');
+    }
+    notifyListeners(); 
+  }
+
   Future<String> createPollPost({required String content, required List<String> options, List<String> images = const []}) async { final formattedOptions = options.map((opt) => {'text': opt, 'votes': <String>[]}).toList(); final res = await _supabase.from('posts').insert({ 'user_id': currentUserId, 'content': content.trim(), 'media_urls': images, 'image_urls': images, 'post_type': 'poll', 'poll_data': {'options': formattedOptions}, 'is_public': true, }).select('id').single(); notifyListeners(); return res['id'] as String; }
   Future<String> createChallengePost({required String title, required String description, required DateTime endDate, List<String> images = const []}) async { final res = await _supabase.from('posts').insert({ 'user_id': currentUserId, 'content': title.trim(), 'media_urls': images, 'image_urls': images, 'post_type': 'challenge', 'challenge_data': { 'description': description, 'end_date': endDate.toIso8601String(), 'participants_count': 0, }, 'is_public': true, }).select('id').single(); notifyListeners(); return res['id'] as String; }
   Future<void> votePoll(String postId, int optionIndex) async { final postRes = await _supabase.from('posts').select('poll_data').eq('id', postId).single(); final pollData = postRes['poll_data'] as Map<String, dynamic>?; if (pollData == null) return; final options = List<Map<String, dynamic>>.from(pollData['options']?? []); for (var opt in options) { final votes = List<String>.from(opt['votes']?? []); votes.remove(currentUserId); opt['votes'] = votes; } if (optionIndex >= 0 && optionIndex < options.length) { final targetVotes = List<String>.from(options[optionIndex]['votes']?? []); if (!targetVotes.contains(currentUserId)) { targetVotes.add(currentUserId); } options[optionIndex]['votes'] = targetVotes; } await _supabase.from('posts').update({ 'poll_data': {'options': options} }).eq('id', postId); notifyListeners(); }
