@@ -155,9 +155,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                         // ProviderScope par post = chaque PostCard vit seul = scale millions
                         return ProviderScope(
                           overrides: [
-                            postItemProvider.overrideWithProvider(
-                              StateNotifierProvider<PostItemNotifier, dynamic>((ref) => PostItemNotifier(post, ref)),
-                            ),
+                            postItemProvider.overrideWith((ref) => PostItemNotifier(post, ref)),
                           ],
                           child: PostCard(
                             key: ValueKey(post.id),
