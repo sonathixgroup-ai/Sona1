@@ -18,6 +18,7 @@ class AllCommunities extends AsyncNotifier<List<NetworkCommunity>> {
   int offset = 0;
   bool hasMoreFlag = true;
   bool get hasMore => hasMoreFlag;
+
   @override
   Future<List<NetworkCommunity>> build() async {
     offset = 0;
@@ -27,16 +28,20 @@ class AllCommunities extends AsyncNotifier<List<NetworkCommunity>> {
     hasMoreFlag = list.length >= limit;
     return list;
   }
+
   Future<void> loadMore() async {
     if (!hasMoreFlag) return;
     final current = state.valueOrNull?? [];
-    final more = await ref.read(networkServiceProvider).getAllCommunities(limit: limit, offset: offset);
+    // PAS de offset param - ton service ne l'a pas
+    final more = await ref.read(networkServiceProvider).getAllCommunities(limit: limit + offset);
     if (more.isEmpty) { hasMoreFlag = false; return; }
     final ids = current.map((e) => e.id).toSet();
     final filtered = more.where((e) =>!ids.contains(e.id)).toList();
-    offset += filtered.length;
+    offset = offset + filtered.length;
+    if (filtered.isEmpty) hasMoreFlag = false;
     state = AsyncData([...current,...filtered]);
   }
+
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() => build());
