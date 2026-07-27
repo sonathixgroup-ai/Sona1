@@ -145,9 +145,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         int stock = 0;
         if(product['stock']!=null) stock = (product['stock'] as num).toInt();
         bool available = stock>0;
-        List variants = product['variants'] as List??? [];
-        List colors = product['colors'] as List??? [];
-        List reviews = product['reviews'] as List??? [];
+                List variants = [];
+        if(product['variants'] is List) variants = product['variants'] as List;
+        List colors = [];
+        if(product['colors'] is List) colors = product['colors'] as List;
+        List reviews = [];
+        if(product['reviews'] is List) reviews = product['reviews'] as List;
         bool isFav = favAsync.valueOrNull?? false;
 
         return Scaffold(
