@@ -9,13 +9,9 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
 
   @override
   Future<List<NetworkPost>> build() async {
-    // TODO: rebranche ta vraie méthode: ex: ref.read(networkServiceProvider).getPosts()
-    // Pour que le build WEB passe on retourne vide
     try {
-      final service = ref.read(networkServiceProvider);
-      // si tu as getPosts() / fetchFeed() / getAllPosts() mets-le ici
-      // final posts = await service.getPosts();
-      // return posts;
+      // TODO: rebranche ta vraie requête quand tu auras le nom exact
+      // ex: return await ref.read(networkServiceProvider).getPosts();
       return [];
     } catch (_) {
       return [];
@@ -30,11 +26,46 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
   Future<void> loadMore() async {}
 
   Future<void> deletePost(String postId) async {
-    final current = state.valueOrNull ?? [];
-    state = AsyncData(current.where((p) => p.id != postId).toList());
+    final current = state.valueOrNull?? [];
+    state = AsyncData(current.where((p) => p.id!= postId).toList());
     try {
       await ref.read(networkServiceProvider).deletePost(postId);
     } catch (_) {
+      state = AsyncData(current);
+    }
+  }
+
+  Future<void> toggleLike(String postId) async {
+    final current = state.valueOrNull?? [];
+    final idx = current.indexWhere((p) => p.id == postId);
+    if (idx == -1) return;
+
+    final oldPost = current[idx];
+    final wasLiked = (oldPost as dynamic).isLiked as bool??? false;
+    final oldCount = (oldPost as dynamic).likesCount as int??? 0;
+
+    // optimistic update
+    try {
+      final updated = (oldPost as dynamic).copyWith(
+        isLiked:!wasLiked,
+        likesCount: wasLiked? oldCount - 1 : oldCount + 1,
+      ) as NetworkPost;
+      final newList = [...current];
+      newList[idx] = updated;
+      state = AsyncData(newList);
+    } catch (_) {
+      // si pas de copyWith, on laisse quand même l'appel serveur
+    }
+
+    try {
+      final service = ref.read(networkServiceProvider);
+      if (wasLiked) {
+        await service.unlikePost(postId);
+      } else {
+        await service.likePost(postId);
+      }
+    } catch (_) {
+      // rollback si erreur
       state = AsyncData(current);
     }
   }
