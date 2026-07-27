@@ -44,10 +44,17 @@ class NetworkService extends ChangeNotifier {
   }
 
   Future<List<NetworkPost>> getPosts({String? feedType}) => getFeedPosts(feedType: feedType?? 'recent');
-  Future<Set<String>> _getConnectionIds() async {
-    final res = await _supabase.from('connections').select('connection_id').eq('user_id', currentUserId).eq('status', 'accepted');
-    return (res as List).map((e) => e['connection_id'] as String).toSet();
+  
+    Future<Set<String>> _getConnectionIds() async {
+    // ⚠️ Remplace 'connected_user_id' si le nom de ta colonne sur Supabase est différent
+    final res = await _supabase.from('connections')
+        .select('connected_user_id')
+        .eq('user_id', currentUserId)
+        .eq('status', 'accepted');
+        
+    return (res as List).map((e) => e['connected_user_id'] as String).toSet();
   }
+
 
   Future<NetworkPost?> getPostById(String postId) async {
     try {
@@ -144,9 +151,33 @@ class NetworkService extends ChangeNotifier {
   Future<void> markStoryAsViewed(String storyId) async { await _supabase.from('story_views').upsert({'story_id': storyId, 'user_id': currentUserId}, onConflict: 'story_id,user_id', ignoreDuplicates: true); }
   Future<List<Highlight>> getUserHighlights(String userId) async { final res = await _supabase.from('story_highlights').select().eq('user_id', userId).order('created_at', ascending: false); return (res as List).map((e) => Highlight(id: e['id'], name: e['name'], coverImage: e['cover_image'], storyIds: List<String>.from(e['story_ids']?? []), createdAt: DateTime.parse(e['created_at']))).toList(); }
   Future<void> createHighlight(String name, List<String> storyIds, String? coverImage) async { await _supabase.from('story_highlights').insert({'user_id': currentUserId, 'name': name, 'cover_image': coverImage, 'story_ids': storyIds}); }
-  Future<List<NetworkConnection>> getSuggestedConnections({int limit = 10}) async { try { final res = await _supabase.rpc('get_suggested_connections', params: {'p_user_id': currentUserId, 'p_limit': limit}); return (res as List).map((e) => NetworkConnection(id: e['id'], name: e['display_name']?? 'Utilisateur', avatar: e['avatar_url'], title: e['profession']?? 'Membre', mutualConnections: (e['mutual_count'] as num?)?.toInt()?? 0)).toList(); } catch (e) { debugPrint('getSuggestedConnections: $e'); return []; } }
-  Future<void> sendConnectionRequest(String targetId) async { await _supabase.from('connection_requests').upsert({'sender_id': currentUserId, 'receiver_id': targetId, 'status': 'pending'}, onConflict: 'sender_id,receiver_id'); if (targetId!= currentUserId) unawaited(_createNotification(userId: targetId, type: 'connection')); }
-  Future<void> acceptConnectionRequest(String requestId) async { await _supabase.from('connection_requests').update({'status': 'accepted'}).eq('id', requestId); final req = await _supabase.from('connection_requests').select('sender_id, receiver_id').eq('id', requestId).single(); await _supabase.from('connections').upsert([{'user_id': req['sender_id'], 'connection_id': req['receiver_id'], 'status': 'accepted'}, {'user_id': req['receiver_id'], 'connection_id': req['sender_id'], 'status': 'accepted'}], onConflict: 'user_id,connection_id'); }
+ 
+    Future<List<NetworkConnection>> getSuggestedConnections({int limit = 10}) async { 
+    try { 
+      final res = await _supabase.rpc('get_suggested_connections', params: {'p_user_id': currentUserId, 'p_limit': limit}); 
+      return (res as List).map((e) => NetworkConnection(id: e['id'], name: e['display_name']?? 'Utilisateur', avatar: e['avatar_url'], title: e['profession']?? 'Membre', mutualConnections: (e['mutual_count'] as num?)?.toInt()?? 0)).toList(); 
+    } catch (e) { 
+      debugPrint('getSuggestedConnections: $e'); 
+      return []; 
+    } 
+  }
+ 
+  Future<void> sendConnectionRequest(String targetId) async { 
+    await _supabase.from('connection_requests').upsert({'sender_id': currentUserId, 'receiver_id': targetId, 'status': 'pending'}, onConflict: 'sender_id,receiver_id'); 
+    if (targetId != currentUserId) unawaited(_createNotification(userId: targetId, type: 'connection')); 
+  }
+
+  Future<void> acceptConnectionRequest(String requestId) async { 
+    await _supabase.from('connection_requests').update({'status': 'accepted'}).eq('id', requestId); 
+    final req = await _supabase.from('connection_requests').select('sender_id, receiver_id').eq('id', requestId).single(); 
+    
+    // 👇 CORRECTION ICI : connection_id remplacé par connected_user_id
+    await _supabase.from('connections').upsert([
+      {'user_id': req['sender_id'], 'connected_user_id': req['receiver_id'], 'status': 'accepted'}, 
+      {'user_id': req['receiver_id'], 'connected_user_id': req['sender_id'], 'status': 'accepted'}
+    ], onConflict: 'user_id,connected_user_id'); 
+  }
+
   Future<List<NetworkCommunity>> getAllCommunities({int limit = 50}) async { try { final res = await _supabase.from('communities_with_membership').select().eq('current_user_id', currentUserId).order('members_count', ascending: false).limit(limit); return (res as List).map((e) => NetworkCommunity.fromJson(e)).toList(); } catch (_) { final res = await _supabase.from('communities').select().order('members_count', ascending: false).limit(limit); return (res as List).map((e) => NetworkCommunity.fromJson(e)).toList(); } }
   Future<List<NetworkCommunity>> getSuggestedCommunities({int limit = 10}) async { final res = await _supabase.from('communities').select().order('members_count', ascending: false).limit(limit); return (res as List).map((e) => NetworkCommunity.fromJson(e)).toList(); }
   Future<List<NetworkCommunity>> getMyCommunities() async { final res = await _supabase.from('community_members').select('communities(*)').eq('user_id', currentUserId); return (res as List).map((e) => NetworkCommunity.fromJson({...e['communities'], 'is_member': true})).toList(); }
