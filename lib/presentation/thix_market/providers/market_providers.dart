@@ -15,31 +15,51 @@ class ForYouNotifier extends AsyncNotifier<List<Map<String,dynamic>>> {
   int _page=0;
   bool _hasMore=true;
   bool get hasMore=> _hasMore;
+
   @override Future<List<Map<String,dynamic>>> build() async {
-    _page=0; _hasMore=true;
+    _page=0;
+    _hasMore=true;
     final first = await ref.read(marketRepositoryProvider).fetchProducts(page:0,limit:20);
-    _page=1; _hasMore=first.length==20;
+    _page=1;
+    _hasMore=first.length==20;
     return first;
   }
+
   Future<void> loadMore() async {
-    if(!_hasMore || state.isLoading) return;
-    final cur = state.valueOrNull??[];
-    state = const AsyncLoading<List<Map<String,dynamic>>>().copyWithPrevious(AsyncData(cur));
+    if(!_hasMore) return;
+    if(state.isLoading) return;
+    final cur = state.valueOrNull?? <Map<String,dynamic>>[];
+    if(cur.isEmpty) return;
+
+    state = AsyncData<List<Map<String,dynamic>>>(cur).copyWith(isLoading: true);
+
     try{
       final more = await ref.read(marketRepositoryProvider).fetchProducts(page:_page,limit:20);
       if(more.length<20) _hasMore=false;
       _page++;
-      state=AsyncData([...cur,...more]);
-    }catch(e,st){ state=AsyncError(e,st).copyWithPrevious(AsyncData(cur)); }
+      state = AsyncData<List<Map<String,dynamic>>>([...cur,...more]);
+    }catch(e,st){
+      state = AsyncValue<List<Map<String,dynamic>>>.error(e,st).copyWithPrevious(AsyncData(cur));
+    }
   }
-  Future<void> refresh() async { _page=0; _hasMore=true; ref.invalidateSelf(); await future; }
+
+  Future<void> refresh() async {
+    _page=0;
+    _hasMore=true;
+    ref.invalidateSelf();
+    await future;
+  }
 }
+
 final forYouProvider = AsyncNotifierProvider<ForYouNotifier,List<Map<String,dynamic>>>(ForYouNotifier.new);
 
 final allMarketProductsProvider = Provider<List<Map<String,dynamic>>>((ref){
-  final flash = ref.watch(flashSalesProvider).valueOrNull??[];
-  final forYou = ref.watch(forYouProvider).valueOrNull??[];
+  final flash = ref.watch(flashSalesProvider).valueOrNull?? <Map<String,dynamic>>[];
+  final forYou = ref.watch(forYouProvider).valueOrNull?? <Map<String,dynamic>>[];
   final map=<String,Map<String,dynamic>>{};
-  for(final p in [...flash,...forYou]){ final id=p['id']?.toString(); if(id!=null) map[id]=p; }
+  for(final p in [...flash,...forYou]){
+    final id=p['id']?.toString();
+    if(id!=null) map[id]=p;
+  }
   return map.values.toList();
 });
