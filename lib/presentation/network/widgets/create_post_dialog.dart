@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
-import 'package:thix_id/presentation/providers/feed_provider.dart';
+import 'package:thix_id/features/network/presentation/providers/feed_provider.dart';
 import 'package:thix_id/services/ai/ai_service.dart';
 
 class _DialogColors {
