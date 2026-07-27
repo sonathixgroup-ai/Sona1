@@ -4,7 +4,8 @@ import 'market_providers.dart';
 
 // ================= MY SHOPS =================
 class MyShopsNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
-  @override Future<List<Map<String, dynamic>>> build() async => _load();
+  @override
+  Future<List<Map<String, dynamic>>> build() async => _load();
 
   Future<List<Map<String, dynamic>>> _load() async {
     final db = ref.read(supabaseClientProvider);
@@ -17,14 +18,15 @@ class MyShopsNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
   Future<Map<String, dynamic>> create(Map<String, dynamic> data) async {
     final db = ref.read(supabaseClientProvider);
     final uid = db.auth.currentUser?.id;
-    if (uid == null) throw Exception('Non connecté');
+    if (uid == null) throw Exception('Non connecte');
     final res = await db.from('shops').insert({...data, 'owner_id': uid, 'status': 'active'}).select().single();
     final cur = state.valueOrNull ?? [];
     state = AsyncData([res, ...cur]);
     return res;
   }
 
-  Future<void> update(String shopId, Map<String, dynamic> updates) async {
+  // RENOMME : updateShop au lieu de update
+  Future<void> updateShop(String shopId, Map<String, dynamic> updates) async {
     final db = ref.read(supabaseClientProvider);
     final cur = state.valueOrNull ?? [];
     try {
@@ -36,6 +38,9 @@ class MyShopsNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
       rethrow;
     }
   }
+
+  // compat ancien code
+  Future<void> updateShopData(String shopId, Map<String, dynamic> updates) => updateShop(shopId, updates);
 
   bool get hasShop => (state.valueOrNull?.isNotEmpty ?? false);
   String? get myShopId => state.valueOrNull?.isNotEmpty == true ? state.valueOrNull!.first['id'] as String? : null;
@@ -52,7 +57,8 @@ final myShopIdProvider = Provider<String?>((ref) {
 
 // ================= FOLLOWED SHOPS =================
 class FollowedShopsNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
-  @override Future<List<Map<String, dynamic>>> build() async {
+  @override
+  Future<List<Map<String, dynamic>>> build() async {
     final db = ref.read(supabaseClientProvider);
     final uid = db.auth.currentUser?.id;
     if (uid == null) return [];
@@ -65,32 +71,28 @@ final followedShopsProvider = AsyncNotifierProvider<FollowedShopsNotifier, List<
 
 // ================= CURRENT SHOP DETAIL =================
 class CurrentShopNotifier extends AsyncNotifier<Map<String, dynamic>?> {
-  String? _currentId;
-  @override Future<Map<String, dynamic>?> build() async => null;
+  @override
+  Future<Map<String, dynamic>?> build() async => null;
 
-  // pour compat avec ton create_shop_page.dart qui faisait createShop({name,city,description})
-  Future<Map<String, dynamic>> createShop({required String name, String? city, String? description}) async {
+  Future<Map<String, dynamic>> createShop({required String name, String? city, String? description}) {
     return createShopFromMap({'name': name, 'city': city, 'description': description});
   }
 
   Future<Map<String, dynamic>> createShopFromMap(Map<String, dynamic> data) async {
     final db = ref.read(supabaseClientProvider);
     final uid = db.auth.currentUser?.id;
-    if (uid == null) throw Exception('Non connecté');
+    if (uid == null) throw Exception('Non connecte');
     final payload = {...data, 'owner_id': uid, 'status': 'active'};
     final res = await db.from('shops').insert(payload).select().single();
-    // update myShops cache
     final myShops = ref.read(myShopsProvider).valueOrNull ?? [];
     ref.read(myShopsProvider.notifier).state = AsyncData([res, ...myShops]);
     state = AsyncData(res);
     return res;
   }
 
-  // alias utilisé par ancien code
   Future<Map<String, dynamic>> create(Map<String, dynamic> data) => createShopFromMap(data);
 
   Future<void> load(String shopId) async {
-    _currentId = shopId;
     state = const AsyncLoading();
     try {
       final db = ref.read(supabaseClientProvider);
