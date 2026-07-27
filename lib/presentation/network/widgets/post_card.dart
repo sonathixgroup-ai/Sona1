@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
-import 'package:thix_id/presentation/network/post_detail_page.dart';
 import 'package:go_router/go_router.dart';
 
 class _PostColors {
@@ -33,7 +31,7 @@ class PostItemNotifier extends StateNotifier<NetworkPost> {
   Future<void> toggleLike() async {
     final wasLiked = state.isLiked;
     final oldCount = state.likesCount;
-    state = state.copyWith(isLiked:!wasLiked, likesCount: wasLiked? oldCount - 1 : oldCount + 1);
+    state = state.copyWith(isLiked: !wasLiked, likesCount: wasLiked ? oldCount - 1 : oldCount + 1);
     try {
       if (wasLiked) { await ref.read(networkServiceProvider).unlikePost(state.id); }
       else { await ref.read(networkServiceProvider).likePost(state.id); }
@@ -41,7 +39,7 @@ class PostItemNotifier extends StateNotifier<NetworkPost> {
   }
   Future<void> toggleSave() async {
     final was = state.isSaved;
-    state = state.copyWith(isSaved:!was);
+    state = state.copyWith(isSaved: !was);
     try {
       if (was) { await ref.read(networkServiceProvider).unsavePost(state.id); }
       else { await ref.read(networkServiceProvider).savePost(state.id); }
@@ -127,14 +125,20 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
     Navigator.push(context, PageRouteBuilder(opaque: false, barrierColor: Colors.black, transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (_, anim, __) => FadeTransition(opacity: anim, child: _FullScreenGallery(imageUrls: urls, initialIndex: initialIndex, postId: postId))));
   }
+  
+  // 🔴 CORRECTION : Remplacement de CachedNetworkImage par Image.network
   Widget _buildNetworkImage(String url, {double? width, double height = 200, BoxFit fit = BoxFit.cover, Alignment alignment = Alignment.center}) {
-    return CachedNetworkImage(imageUrl: url, width: width, height: height, fit: fit, alignment: alignment,
-      placeholder: (_, __) => Container(height: height, width: width, color: _PostColors.softBlue, child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2))),
-      errorWidget: (_, __, ___) => Container(height: height, width: width, color: _PostColors.softBlue, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.broken_image_rounded, size: 36, color: _PostColors.primary.withOpacity(0.4)), const SizedBox(height: 6), const Text('Image non disponible', style: TextStyle(color: _PostColors.textSecondary, fontSize: 11))])) );
+    return Image.network(
+      url, width: width, height: height, fit: fit, alignment: alignment,
+      loadingBuilder: (_, child, progress) => progress == null ? child : Container(height: height, width: width, color: _PostColors.softBlue, child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2))),
+      errorBuilder: (_, __, ___) => Container(height: height, width: width, color: _PostColors.softBlue, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.broken_image_rounded, size: 36, color: _PostColors.primary.withOpacity(0.4)), const SizedBox(height: 6), const Text('Image non disponible', style: TextStyle(color: _PostColors.textSecondary, fontSize: 11))])),
+    );
   }
+
   Widget _tappableImage(String url, int index, List<String> allUrls, String postId, {required double height}) {
     return GestureDetector(onTap: () => _openGallery(index, allUrls, postId), child: Hero(tag: 'post_${postId}_image_$index', child: _buildNetworkImage(url, width: double.infinity, height: height, alignment: Alignment.topCenter)));
   }
+  
   Widget _buildImageGrid(List<String> urls, String postId) {
     if (urls.isEmpty) return const SizedBox.shrink(); const spacing = 4.0; final radius = BorderRadius.circular(12);
     if (urls.length == 1) return ClipRRect(borderRadius: BorderRadius.circular(18), child: GestureDetector(onTap: () => _openGallery(0, urls, postId), child: Hero(tag: 'post_${postId}_image_0', child: _AdaptiveSingleImage(imageUrl: urls[0]))));
@@ -144,6 +148,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
     final remaining = urls.length - 5;
     return SizedBox(height: 320, child: Column(children: [Expanded(flex: 3, child: Row(children: [Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, urls, postId, height: 190))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, urls, postId, height: 190)))])), const SizedBox(height: spacing), Expanded(flex: 2, child: Row(children: [Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[2], 2, urls, postId, height: 126))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[3], 3, urls, postId, height: 126))), const SizedBox(width: spacing), Expanded(child: ClipRRect(borderRadius: radius, child: GestureDetector(onTap: () => _openGallery(4, urls, postId), child: Stack(alignment: Alignment.center, children: [Hero(tag: 'post_${postId}_image_4', child: _buildNetworkImage(urls[4], width: double.infinity, height: 126, alignment: Alignment.topCenter)), if (remaining > 0) Container(color: Colors.black54, child: Center(child: Text('+$remaining', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))))]))))]))]));
   }
+  
   Widget _buildPollWidget(NetworkPost post, WidgetRef ref) {
     final pollData = post.pollData?? {}; final options = (pollData['options'] as List?)?? [];
     if (options.isEmpty) return const SizedBox.shrink(); int totalVotes = 0; for (var opt in options) totalVotes += ((opt['votes'] as List?)?.length?? 0);
@@ -152,10 +157,12 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
       return Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: InkWell(onTap: () async { try { await ref.read(networkServiceProvider).votePoll(post.id, index); widget.onRefresh?.call(); } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur vote: $e'), backgroundColor: _PostColors.red)); } }, borderRadius: BorderRadius.circular(12), child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: _PostColors.background, borderRadius: BorderRadius.circular(12), border: Border.all(color: _PostColors.border)), child: Stack(children: [Positioned.fill(child: FractionallySizedBox(alignment: Alignment.centerLeft, widthFactor: percentage, child: Container(decoration: BoxDecoration(color: _PostColors.primary.withOpacity(0.15), borderRadius: BorderRadius.circular(8))))), Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text(text, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: _PostColors.textDark))), Text('${(percentage * 100).toStringAsFixed(0)}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _PostColors.primary))])]))));
     }).toList());
   }
+  
   Widget _buildChallengeWidget(NetworkPost post) {
     final challengeData = post.challengeData?? {}; final description = challengeData['description']?? ''; final participantsCount = challengeData['participants_count']?? 0;
     return Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: _PostColors.softBlue, borderRadius: BorderRadius.circular(16), border: Border.all(color: _PostColors.border)), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [if (description.isNotEmpty)...[Text(description, style: const TextStyle(fontSize: 13.5, height: 1.4, color: _PostColors.textDark)), const SizedBox(height: 12)], Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Row(children: [Icon(Icons.emoji_events_rounded, color: _PostColors.gold, size: 20), SizedBox(width: 6), Text('Challenge Actif', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: _PostColors.textDark))]), Row(children: [const Icon(Icons.people_alt_rounded, color: _PostColors.primary, size: 18), const SizedBox(width: 6), Text('$participantsCount participants', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: _PostColors.textSecondary))])]), const SizedBox(height: 12), ElevatedButton.icon(onPressed: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Participation enregistrée!'), backgroundColor: _PostColors.green)); }, style: ElevatedButton.styleFrom(backgroundColor: _PostColors.primaryDeep, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), icon: const Icon(Icons.check_circle_outline_rounded, size: 18), label: const Text('RELEVER LE DÉFI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))]));
   }
+  
   Widget _buildFactCheckBanner(bool isMisinformation, String? message) {
     if (!isMisinformation || message == null || message.isEmpty) return const SizedBox.shrink();
     return Container(margin: const EdgeInsets.symmetric(vertical: 8).copyWith(left: -_cardHorizontalPadding, right: -_cardHorizontalPadding), padding: const EdgeInsets.symmetric(horizontal: _cardHorizontalPadding, vertical: 9), decoration: BoxDecoration(color: Colors.red.shade50, border: Border(top: BorderSide(color: Colors.red.shade200), bottom: BorderSide(color: Colors.red.shade200))), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 18), const SizedBox(width: 8), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("Alerte Fact-Check THIX : Désinformation potentielle", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 11.5)), const SizedBox(height: 2), Text(message, style: TextStyle(color: Colors.red.shade900, fontSize: 11, height: 1.3))]))]));
@@ -174,7 +181,12 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
 
         return AnimatedContainer(duration: const Duration(milliseconds: 200), transform: Matrix4.identity()..scale(_isPressed? 0.98 : 1.0), child: Container(margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 7), decoration: BoxDecoration(color: _PostColors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: _PostColors.border), boxShadow: [BoxShadow(color: _PostColors.shadow, blurRadius: _isPressed? 6 : 16, offset: Offset(0, _isPressed? 2 : 8))]), child: ClipRRect(borderRadius: BorderRadius.circular(22), child: InkWell(onTapDown: (_) => setState(() => _isPressed = true), onTapUp: (_) => setState(() => _isPressed = false), onTapCancel: () => setState(() => _isPressed = false), onTap: widget.onTap?? () => _openPostDetails(post.id), child: Padding(padding: const EdgeInsets.all(_cardHorizontalPadding), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            GestureDetector(onTap: () => context.push('/network/profile/${post.userId}'), child: Container(width: 42, height: 42, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [_PostColors.primaryDeep, _PostColors.primary])), child: CircleAvatar(radius: 19, backgroundColor: _PostColors.softBlue, backgroundImage: post.authorAvatar!= null && post.authorAvatar!.isNotEmpty? CachedNetworkImageProvider(post.authorAvatar!) : null, child: post.authorAvatar == null || post.authorAvatar!.isEmpty? const Icon(Icons.person_rounded, size: 18, color: _PostColors.primaryDeep) : null))),
+            GestureDetector(
+                onTap: () => context.push('/network/profile/${post.userId}'), 
+                child: Container(
+                    width: 42, height: 42, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [_PostColors.primaryDeep, _PostColors.primary])), 
+                    // 🔴 CORRECTION : Remplacement par NetworkImage
+                    child: CircleAvatar(radius: 19, backgroundColor: _PostColors.softBlue, backgroundImage: post.authorAvatar!= null && post.authorAvatar!.isNotEmpty? NetworkImage(post.authorAvatar!) : null, child: post.authorAvatar == null || post.authorAvatar!.isEmpty? const Icon(Icons.person_rounded, size: 18, color: _PostColors.primaryDeep) : null))),
             const SizedBox(width: 10),
             Expanded(child: GestureDetector(onTap: () => context.push('/network/profile/${post.userId}'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: _PostColors.textDark), maxLines: 1, overflow: TextOverflow.ellipsis), if (post.authorTitle!= null && post.authorTitle!.isNotEmpty) Text(post.authorTitle!, style: const TextStyle(fontSize: 10.5, color: _PostColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis), Row(children: [Text(_getTimeAgo(post.createdAt), style: const TextStyle(fontSize: 10, color: _PostColors.textSecondary)), const SizedBox(width: 4), const Icon(Icons.public_rounded, size: 11, color: _PostColors.textSecondary)])]))),
             PopupMenuButton<String>(icon: const Icon(Icons.more_vert_rounded, size: 18, color: _PostColors.textSecondary), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), onSelected: (v) async {
@@ -233,28 +245,31 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
   }
 }
 
+// 🔴 CORRECTION : Remplacement de CachedNetworkImage par Image.network
 class _AdaptiveSingleImage extends StatefulWidget { final String imageUrl; const _AdaptiveSingleImage({required this.imageUrl}); @override State<_AdaptiveSingleImage> createState() => _AdaptiveSingleImageState(); }
 class _AdaptiveSingleImageState extends State<_AdaptiveSingleImage> {
   static const _minHeight = 220.0; static const _maxHeight = 520.0; double? _aspectRatio; ImageStream? _stream; late ImageStreamListener _listener;
   @override void initState() { super.initState(); _listener = ImageStreamListener(_onResolved, onError: (_, __){ if(mounted) setState(()=>_aspectRatio=1.0); }); _resolve(); }
-  void _resolve() { final p = CachedNetworkImageProvider(widget.imageUrl); _stream = p.resolve(const ImageConfiguration()); _stream!.addListener(_listener); }
+  void _resolve() { final p = NetworkImage(widget.imageUrl); _stream = p.resolve(const ImageConfiguration()); _stream!.addListener(_listener); }
   void _onResolved(ImageInfo info, bool _) { if(!mounted) return; final w=info.image.width.toDouble(); final h=info.image.height.toDouble(); if(h>0) setState(()=>_aspectRatio=w/h); }
   @override void didUpdateWidget(covariant _AdaptiveSingleImage old){ super.didUpdateWidget(old); if(old.imageUrl!=widget.imageUrl){ _stream?.removeListener(_listener); _aspectRatio=null; _resolve(); } }
   @override void dispose(){ _stream?.removeListener(_listener); super.dispose(); }
-  @override Widget build(BuildContext context) => LayoutBuilder(builder: (context, c){ final width=c.maxWidth; if(_aspectRatio==null) return Container(height: 300, width: width, color: _PostColors.softBlue, child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2))); double nh=width/_aspectRatio!; final ch=nh.clamp(_minHeight,_maxHeight); final needCrop=nh!=ch; return SizedBox(width: width, height: ch, child: CachedNetworkImage(imageUrl: widget.imageUrl, width: width, height: ch, fit: needCrop?BoxFit.cover:BoxFit.contain, alignment: Alignment.topCenter)); });
+  @override Widget build(BuildContext context) => LayoutBuilder(builder: (context, c){ final width=c.maxWidth; if(_aspectRatio==null) return Container(height: 300, width: width, color: _PostColors.softBlue, child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2))); double nh=width/_aspectRatio!; final ch=nh.clamp(_minHeight,_maxHeight); final needCrop=nh!=ch; return SizedBox(width: width, height: ch, child: Image.network(widget.imageUrl, width: width, height: ch, fit: needCrop?BoxFit.cover:BoxFit.contain, alignment: Alignment.topCenter, errorBuilder: (_,__,___)=>Container(color: _PostColors.softBlue, child: const Icon(Icons.broken_image)))); });
 }
 
+// 🔴 CORRECTION : Remplacement de CachedNetworkImage par Image.network
 class _AdaptivePairImage extends StatefulWidget { final String imageUrl; final List<String> groupKey; const _AdaptivePairImage({required this.imageUrl, required this.groupKey}); @override State<_AdaptivePairImage> createState() => _AdaptivePairImageState(); }
 class _AdaptivePairImageState extends State<_AdaptivePairImage> {
   static const _minHeight=180.0; static const _maxHeight=320.0; double? _aspectRatio; ImageStream? _stream; late ImageStreamListener _listener;
   @override void initState(){ super.initState(); _listener=ImageStreamListener(_onResolved, onError: (_, __){ if(mounted) setState(()=>_aspectRatio=0.75); }); _resolve(); }
-  void _resolve(){ final p=CachedNetworkImageProvider(widget.imageUrl); _stream=p.resolve(const ImageConfiguration()); _stream!.addListener(_listener); }
+  void _resolve(){ final p=NetworkImage(widget.imageUrl); _stream=p.resolve(const ImageConfiguration()); _stream!.addListener(_listener); }
   void _onResolved(ImageInfo info, bool _){ if(!mounted) return; final w=info.image.width.toDouble(); final h=info.image.height.toDouble(); if(h>0) setState(()=>_aspectRatio=w/h); }
   @override void didUpdateWidget(covariant _AdaptivePairImage old){ super.didUpdateWidget(old); if(old.imageUrl!=widget.imageUrl){ _stream?.removeListener(_listener); _aspectRatio=null; _resolve(); } }
   @override void dispose(){ _stream?.removeListener(_listener); super.dispose(); }
-  @override Widget build(BuildContext context)=>LayoutBuilder(builder: (context,c){ final cw=c.maxWidth; if(_aspectRatio==null) return Container(height: 240, width: cw, color: _PostColors.softBlue, child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2))); final nh=(cw/_aspectRatio!).clamp(_minHeight,_maxHeight); return SizedBox(width: cw, height: nh, child: CachedNetworkImage(imageUrl: widget.imageUrl, width: cw, height: nh, fit: BoxFit.cover, alignment: Alignment.topCenter)); });
+  @override Widget build(BuildContext context)=>LayoutBuilder(builder: (context,c){ final cw=c.maxWidth; if(_aspectRatio==null) return Container(height: 240, width: cw, color: _PostColors.softBlue, child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2))); final nh=(cw/_aspectRatio!).clamp(_minHeight,_maxHeight); return SizedBox(width: cw, height: nh, child: Image.network(widget.imageUrl, width: cw, height: nh, fit: BoxFit.cover, alignment: Alignment.topCenter, errorBuilder: (_,__,___)=>Container(color: _PostColors.softBlue, child: const Icon(Icons.broken_image)))); });
 }
 
+// 🔴 CORRECTION : Remplacement de CachedNetworkImage par Image.network
 class _FullScreenGallery extends StatefulWidget { final List<String> imageUrls; final int initialIndex; final String postId; const _FullScreenGallery({required this.imageUrls, required this.initialIndex, required this.postId}); @override State<_FullScreenGallery> createState() => _FullScreenGalleryState(); }
 class _FullScreenGalleryState extends State<_FullScreenGallery> {
   late final PageController _pageController; late int _currentIndex;
@@ -262,7 +277,7 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
   @override void dispose(){ _pageController.dispose(); super.dispose(); }
   @override Widget build(BuildContext context){
     return Scaffold(backgroundColor: Colors.black, body: Stack(children: [
-      PageView.builder(controller: _pageController, itemCount: widget.imageUrls.length, onPageChanged: (i)=>setState(()=>_currentIndex=i), itemBuilder: (context,index)=>GestureDetector(onTap: ()=>Navigator.of(context).pop(), child: Center(child: Hero(tag: 'post_${widget.postId}_image_$index', child: InteractiveViewer(minScale: 1, maxScale: 4, child: CachedNetworkImage(imageUrl: widget.imageUrls[index], fit: BoxFit.contain, placeholder: (_, __)=>const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)), errorWidget: (_, __, ___)=>const Icon(Icons.broken_image_rounded, color: Colors.white54, size: 48))))))),
+      PageView.builder(controller: _pageController, itemCount: widget.imageUrls.length, onPageChanged: (i)=>setState(()=>_currentIndex=i), itemBuilder: (context,index)=>GestureDetector(onTap: ()=>Navigator.of(context).pop(), child: Center(child: Hero(tag: 'post_${widget.postId}_image_$index', child: InteractiveViewer(minScale: 1, maxScale: 4, child: Image.network(widget.imageUrls[index], fit: BoxFit.contain, loadingBuilder: (_, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)), errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded, color: Colors.white54, size: 48))))))),
       Positioned(top: 12, right: 12, child: SafeArea(child: GestureDetector(onTap: ()=>Navigator.of(context).pop(), child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, color: Colors.white, size: 22))))),
       if(widget.imageUrls.length>1) Positioned(top: 12, left: 0, right: 0, child: SafeArea(child: Center(child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(20)), child: Text('${_currentIndex+1} / ${widget.imageUrls.length}', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)))))),
       if(widget.imageUrls.length>1) Positioned(bottom: 24, left: 0, right: 0, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(widget.imageUrls.length, (i){ final active=i==_currentIndex; return AnimatedContainer(duration: const Duration(milliseconds: 200), margin: const EdgeInsets.symmetric(horizontal: 3), width: active?18:6, height: 6, decoration: BoxDecoration(color: active?Colors.white:Colors.white38, borderRadius: BorderRadius.circular(3))); }))),
