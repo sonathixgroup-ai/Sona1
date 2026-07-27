@@ -24,10 +24,9 @@ class _PostColors {
 }
 
 // Riverpod famille: 1 notifier par postId = scalable millions
-final postItemProvider = StateNotifierProvider.family<PostItemNotifier, NetworkPost, String>(
-  (ref, id) => throw UnimplementedError('overridden'),
+final postItemProvider = StateNotifierProvider<PostItemNotifier, NetworkPost>(
+  (ref) => throw UnimplementedError('must override'),
 );
-
 class PostItemNotifier extends StateNotifier<NetworkPost> {
   PostItemNotifier(super.post, this.ref);
   final Ref ref;
