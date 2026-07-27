@@ -1,4 +1,7 @@
 // lib/presentation/network/widgets/create_post_dialog.dart
+
+
+     // lib/presentation/network/widgets/create_post_dialog.dart
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -224,4 +227,4 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
     return Expanded(child: InkWell(onTap: ()=> setState(()=> _postTypeMode=mode), borderRadius: BorderRadius.circular(12), child: Container(padding: const EdgeInsets.symmetric(vertical:8), decoration: BoxDecoration(color: sel ? _DialogColors.primary : _DialogColors.softBlue, borderRadius: BorderRadius.circular(12)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children:[Icon(icon,size:16,color: sel? Colors.white : _DialogColors.primaryDeep), const SizedBox(width:4), Text(label, style: TextStyle(fontSize:12,fontWeight: FontWeight.bold, color: sel? Colors.white : _DialogColors.textDark))]))));
   }
   Widget _mediaBtn(IconData icon, VoidCallback tap, Color color) => Padding(padding: const EdgeInsets.only(right:8), child: InkWell(onTap: tap, borderRadius: BorderRadius.circular(12), child: Container(width:38,height:38, decoration: BoxDecoration(color: _DialogColors.softBlue, borderRadius: BorderRadius.circular(12)), child: Icon(icon,size:18,color: color))));
-}
+}   
