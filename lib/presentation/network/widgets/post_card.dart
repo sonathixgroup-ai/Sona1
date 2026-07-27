@@ -271,7 +271,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
   Widget build(BuildContext context) {
     super.build(context);
     return ProviderScope(
-      overrides: [postItemProvider.overrideWithProvider(StateNotifierProvider<PostItemNotifier, NetworkPost>((ref) => PostItemNotifier(widget.post, ref)))],
+      overrides: [postItemProvider.overrideWith((ref) => PostItemNotifier(widget.post, ref))],
       child: Consumer(builder: (context, ref, _) {
         final post = ref.watch(postItemProvider(widget.post.id));
         final isLiked = ref.watch(postItemProvider(widget.post.id).select((p) => p.isLiked));
