@@ -1,178 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class WishlistButton extends StatefulWidget {
-  final String productId;
-  final bool initialIsFavorite;
-  final Function(bool)? onChanged;
-  final double size;
-  final Color? activeColor;
-  final Color? inactiveColor;
+final wishlistIdsProvider = StateNotifierProvider<WishlistNotifier, Set<String>>((ref)=> WishlistNotifier());
 
-  const WishlistButton({
-    super.key,
-    required this.productId,
-    this.initialIsFavorite = false,
-    this.onChanged,
-    this.size = 24,
-    this.activeColor,
-    this.inactiveColor,
-  });
-
-  @override
-  State<WishlistButton> createState() => _WishlistButtonState();
+class WishlistNotifier extends StateNotifier<Set<String>> {
+  WishlistNotifier(): super({}) { _load(); }
+  Future<void> _load() async {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if(uid==null) return;
+    try{
+      final res = await Supabase.instance.client.from('wishlist').select('product_id').eq('user_id', uid);
+      state = (res as List).map((e)=> e['product_id'].toString()).toSet();
+    }catch(_){}
+  }
+  bool contains(String id) => state.contains(id);
+  Future<void> toggle(String id) async {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if(uid==null) return;
+    final isFav = state.contains(id);
+    state = isFav? {...state}..remove(id) : {...state, id};
+    try{
+      if(isFav){ await Supabase.instance.client.from('wishlist').delete().match({'user_id': uid, 'product_id': id}); }
+      else { await Supabase.instance.client.from('wishlist').insert({'user_id': uid, 'product_id': id}); }
+    }catch(_){ state = isFav? {...state, id} : {...state}..remove(id); }
+  }
 }
 
-class _WishlistButtonState extends State<WishlistButton>
-    with SingleTickerProviderStateMixin {
-  late bool _isFavorite;
-  bool _isLoading = false;
+class WishlistButton extends ConsumerStatefulWidget {
+  final String productId; final double size; final Color? activeColor; final Color? inactiveColor;
+  const WishlistButton({super.key, required this.productId, this.size=24, this.activeColor, this.inactiveColor});
+  @override ConsumerState<WishlistButton> createState()=> _WishlistButtonState();
+}
 
-  // Animation pour le tap
-  late AnimationController _scaleController;
-  late Animation<double> _scaleAnimation;
+class _WishlistButtonState extends ConsumerState<WishlistButton> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl; late Animation<double> _anim; bool _loading=false;
+  @override void initState(){ super.initState(); _ctrl=AnimationController(duration: const Duration(milliseconds:100), vsync: this); _anim=Tween(begin:1.0,end:0.8).animate(CurvedAnimation(parent:_ctrl, curve: Curves.easeInOut)); }
+  @override void dispose(){ _ctrl.dispose(); super.dispose(); }
 
-  @override
-  void initState() {
-    super.initState();
-    _isFavorite = widget.initialIsFavorite;
-
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 100),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.8).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _scaleController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _toggleWishlist() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-
-    if (userId == null) {
-      _showLoginRequired();
-      return;
-    }
-
-    // Animation au tap
-    _scaleController.forward().then((_) => _scaleController.reverse());
-
-    setState(() => _isLoading = true);
-
-    try {
-      if (_isFavorite) {
-        // Supprimer des favoris
-        await Supabase.instance.client
-            .from('wishlist')
-            .delete()
-            .match({
-              'user_id': userId,
-              'product_id': widget.productId,
-            });
-      } else {
-        // Ajouter aux favoris
-        await Supabase.instance.client
-            .from('wishlist')
-            .insert({
-              'user_id': userId,
-              'product_id': widget.productId,
-              'created_at': DateTime.now().toIso8601String(),
-            });
-      }
-
-      setState(() {
-        _isFavorite = !_isFavorite;
-        _isLoading = false;
-      });
-
-      widget.onChanged?.call(_isFavorite);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_isFavorite ? 'Ajouté aux favoris' : 'Retiré des favoris'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error toggling wishlist: $e');
-      setState(() => _isLoading = false);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Une erreur est survenue')),
-        );
-      }
-    }
-  }
-
-  void _showLoginRequired() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Connexion requise'),
-        content: const Text('Veuillez vous connecter pour ajouter des produits à vos favoris'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Navigation GoRouter
-              context.go('/login');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE5592F),
-            ),
-            child: const Text('Se connecter'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build(BuildContext context){
+    final favIds = ref.watch(wishlistIdsProvider);
+    final isFav = favIds.contains(widget.productId);
     return GestureDetector(
-      onTap: _toggleWishlist,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          switchInCurve: Curves.easeIn,
-          switchOutCurve: Curves.easeOut,
-          child: _isLoading
-              ? SizedBox(
-                  key: const ValueKey('loading'),
-                  width: widget.size,
-                  height: widget.size,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: _isFavorite
-                        ? (widget.activeColor ?? Colors.red)
-                        : Colors.grey,
-                  ),
-                )
-              : Icon(
-                  _isFavorite ? Icons.favorite : Icons.favorite_border,
-                  key: ValueKey(_isFavorite),
-                  size: widget.size,
-                  color: _isFavorite
-                      ? (widget.activeColor ?? Colors.red)
-                      : (widget.inactiveColor ?? Colors.grey),
-                ),
-        ),
-      ),
+      onTap: () async {
+        final uid = Supabase.instance.client.auth.currentUser?.id;
+        if(uid==null){ context.go('/login'); return; }
+        _ctrl.forward().then((_)=> _ctrl.reverse());
+        setState(()=> _loading=true);
+        await ref.read(wishlistIdsProvider.notifier).toggle(widget.productId);
+        if(mounted) setState(()=> _loading=false);
+      },
+      child: ScaleTransition(scale: _anim, child: _loading? SizedBox(width: widget.size, height: widget.size, child: CircularProgressIndicator(strokeWidth:2, color: isFav? (widget.activeColor??Colors.red) : Colors.grey)) : Icon(isFav? Icons.favorite : Icons.favorite_border, size: widget.size, color: isFav? (widget.activeColor??Colors.red) : (widget.inactiveColor??Colors.grey))),
     );
   }
 }
