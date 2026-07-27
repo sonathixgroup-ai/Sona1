@@ -11,7 +11,7 @@ import 'package:thix_id/supabase/supabase_config.dart';
 
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/services/user_service.dart';
-import 'package:thix_id/providers/feed_provider.dart';
+
 
 import 'presentation/home/home_page.dart';
 import 'package:thix_id/presentation/auth/login_page.dart';
@@ -316,7 +316,11 @@ class AppRouter {
         GoRoute(path: AppRoutes.publicProfile, name: 'publicProfile', pageBuilder: (_, state) => NoTransitionPage(child: public_profile.PublicProfilePage(initialThixId: state.uri.queryParameters['thixId']))),
         GoRoute(path: AppRoutes.userDashboard, name: 'userDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: UserDashboardPage())),
         GoRoute(path: AppRoutes.enterpriseDashboard, name: 'enterpriseDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: EnterpriseDashboardPage())),
-        GoRoute(path: AppRoutes.network, name: 'network', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.MultiProvider(providers: [app_provider.Provider<NetworkService>(create: (_) => NetworkService(SupabaseConfig.client)), app_provider.Provider<UserService>(create: (_) => UserService(SupabaseConfig.client)), app_provider.ChangeNotifierProvider<FeedProvider>(create: (ctx) => FeedProvider(ctx.read<NetworkService>(), supabase: SupabaseConfig.client)..initRealtime())], child: const NetworkProHome()))),
+        GoRoute(
+  path: AppRoutes.network,
+  name: 'network',
+  pageBuilder: (_, __) => const NoTransitionPage(child: NetworkProHome()),
+),
         GoRoute(path: AppRoutes.networkSearch, name: 'networkSearch', pageBuilder: (_, __) => const NoTransitionPage(child: SearchNetworkPage())),
         GoRoute(path: AppRoutes.networkNotifications, name: 'networkNotifications', pageBuilder: (_, __) => const NoTransitionPage(child: NotificationsPage())),
         GoRoute(path: AppRoutes.networkMessages, name: 'networkMessages', pageBuilder: (_, __) => const NoTransitionPage(child: ConversationsList())),
