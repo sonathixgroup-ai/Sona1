@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/market_providers.dart';
+import '../cart/cart_provider.dart';
 
 // CHARTE
 class _MarketColors {
