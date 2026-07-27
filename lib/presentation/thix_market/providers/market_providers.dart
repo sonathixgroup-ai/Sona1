@@ -28,16 +28,16 @@ class ForYouNotifier extends AsyncNotifier<List<Map<String,dynamic>>> {
   Future<void> loadMore() async {
     if(!_hasMore) return;
     if(state.isLoading) return;
-    final cur = state.valueOrNull?? <Map<String,dynamic>>[];
-    if(cur.isEmpty) return;
+    final cur = state.valueOrNull;
+    if(cur==null || cur.isEmpty) return;
 
-    state = AsyncData<List<Map<String,dynamic>>>(cur).copyWith(isLoading: true);
+    state = AsyncLoading<List<Map<String,dynamic>>>().copyWithPrevious(AsyncData(cur));
 
     try{
       final more = await ref.read(marketRepositoryProvider).fetchProducts(page:_page,limit:20);
       if(more.length<20) _hasMore=false;
       _page++;
-      state = AsyncData<List<Map<String,dynamic>>>([...cur,...more]);
+      state = AsyncData([...cur,...more]);
     }catch(e,st){
       state = AsyncValue<List<Map<String,dynamic>>>.error(e,st).copyWithPrevious(AsyncData(cur));
     }
@@ -54,8 +54,8 @@ class ForYouNotifier extends AsyncNotifier<List<Map<String,dynamic>>> {
 final forYouProvider = AsyncNotifierProvider<ForYouNotifier,List<Map<String,dynamic>>>(ForYouNotifier.new);
 
 final allMarketProductsProvider = Provider<List<Map<String,dynamic>>>((ref){
-  final flash = ref.watch(flashSalesProvider).valueOrNull?? <Map<String,dynamic>>[];
-  final forYou = ref.watch(forYouProvider).valueOrNull?? <Map<String,dynamic>>[];
+  final flash = ref.watch(flashSalesProvider).valueOrNull?? const <Map<String,dynamic>>[];
+  final forYou = ref.watch(forYouProvider).valueOrNull?? const <Map<String,dynamic>>[];
   final map=<String,Map<String,dynamic>>{};
   for(final p in [...flash,...forYou]){
     final id=p['id']?.toString();
