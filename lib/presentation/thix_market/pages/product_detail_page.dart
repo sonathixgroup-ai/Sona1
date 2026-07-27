@@ -8,6 +8,9 @@ import 'package:intl/intl.dart';
 import '../providers/market_providers.dart';
 import '../widgets/products/product_card.dart';
 import '../checkout/checkout_page.dart';
+import '../cart/cart_provider.dart';
+import '../providers/product_provider.dart'; 
+
 
 // CHARTE
 class _MarketColors {
