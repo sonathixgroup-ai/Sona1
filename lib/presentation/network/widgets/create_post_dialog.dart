@@ -242,26 +242,32 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
       if (user == null) throw Exception('Non authentifié');
 
       final Map<String, dynamic> payload = {};
-      payload['user_id'] = user.id;
-      payload['content'] = textContent;
-      payload['media_urls'] = allMedia;
-      payload['community_id'] = widget.communityId;
-      payload['is_fact_checked'] = true;
-      payload['is_misinformation'] = isMisinformation;
-      payload['fact_check_message'] = factCheckMessage;
-      payload['fact_check_severity'] = factCheckSeverity;
+payload['user_id'] = user.id;
+payload['content'] = textContent;
+payload['is_public'] = true; // <--- FIX ton bug
+payload['is_fact_checked'] = true;
+payload['is_misinformation'] = isMisinformation;
+payload['fact_check_message'] = factCheckMessage;
+payload['fact_check_severity'] = factCheckSeverity;
 
-      if (_postTypeMode == 1) {
-        final options = _pollOptionControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
-        if (options.length < 2) throw Exception('2 options minimum');
-        payload['post_type'] = 'poll';
-        payload['poll_data'] = {'options': options.map((o) => {'text': o, 'votes': []}).toList()};
-      } else if (_postTypeMode == 2) {
-        payload['post_type'] = 'challenge';
-        payload['challenge_data'] = {'description': _challengeDescController.text.trim(), 'end_date': _challengeEndDate?.toIso8601String(), 'participants_count': 0};
-      } else {
-        payload['post_type'] = 'standard';
-      }
+// FIX images - ton posts_view lit image_urls
+payload['image_urls'] = allMedia;
+payload['media_urls'] = allMedia;
+payload['media_url'] = allMedia.isNotEmpty ? allMedia.first : null;
+
+payload['community_id'] = widget.communityId;
+
+// si c'est poll / challenge tu gardes
+if (_postTypeMode == 1) {
+  final options = _pollOptionControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
+  payload['post_type'] = 'poll';
+  payload['poll_data'] = {'options': options.map((o) => {'text': o, 'votes': []}).toList()};
+} else if (_postTypeMode == 2) {
+  payload['post_type'] = 'challenge';
+  payload['challenge_data'] = {'description': _challengeDescController.text.trim(), 'end_date': _challengeEndDate?.toIso8601String(), 'participants_count': 0};
+} else {
+  payload['post_type'] = 'standard';
+}
 
       await Supabase.instance.client.from('posts').insert(payload);
       ref.invalidate(feedProvider);
