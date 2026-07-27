@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:intl/intl.dart';
@@ -148,7 +147,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         int stock = 0;
         if(product['stock']!=null) stock = (product['stock'] as num).toInt();
         bool available = stock>0;
-                List variants = [];
+        List variants = [];
         if(product['variants'] is List) variants = product['variants'] as List;
         List colors = [];
         if(product['colors'] is List) colors = product['colors'] as List;
@@ -170,7 +169,17 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
               ],
               flexibleSpace: FlexibleSpaceBar(background: Stack(children: [
                 Container(color: _MarketColors.pureWhite),
-                CarouselSlider(options: CarouselOptions(height: 400, viewportFraction: 1, enableInfiniteScroll: images.length>1, onPageChanged: (i,_ )=> setState(()=> imgIndex=i)), items: images.map((img)=> CachedNetworkImage(imageUrl: img, fit: BoxFit.contain, width: double.infinity, placeholder: (a,b)=> const Center(child: CircularProgressIndicator(color: _MarketColors.red)), errorWidget: (a,b,c)=> const Center(child: Icon(Icons.broken_image_rounded, size: 50, color: _MarketColors.mutedText)))).toList()),
+                // 🔴 CORRECTION : Remplacement de CachedNetworkImage par Image.network
+                CarouselSlider(
+                  options: CarouselOptions(height: 400, viewportFraction: 1, enableInfiniteScroll: images.length>1, onPageChanged: (i,_ )=> setState(()=> imgIndex=i)), 
+                  items: images.map((img)=> Image.network(
+                    img, 
+                    fit: BoxFit.contain, 
+                    width: double.infinity, 
+                    loadingBuilder: (_, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator(color: _MarketColors.red)), 
+                    errorBuilder: (a,b,c)=> const Center(child: Icon(Icons.broken_image_rounded, size: 50, color: _MarketColors.mutedText))
+                  )).toList()
+                ),
                 if(images.length>1) Positioned(bottom: 24, left: 0, right: 0, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: images.asMap().entries.map((e){ final active = imgIndex==e.key; return AnimatedContainer(duration: const Duration(milliseconds: 250), width: active? 24 : 8, height: 6, margin: const EdgeInsets.symmetric(horizontal: 4), decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: active? _MarketColors.red : _MarketColors.cardBorder)); }).toList())),
               ])),
             ),
@@ -208,7 +217,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                 if(colors.isNotEmpty) _buildColors(colors),
               ])),
               _card(child: InkWell(onTap: ()=> context.push('/market/shop/${product['shop_id']}'), child: Row(children: [
-                CircleAvatar(radius: 27, backgroundImage: (product['shop']?['logo_url']!=null)? CachedNetworkImageProvider(product['shop']['logo_url'].toString()) : null, backgroundColor: _MarketColors.lightBg, child: product['shop']?['logo_url']==null? const Icon(Icons.storefront_rounded) : null),
+                // 🔴 CORRECTION : Remplacement de CachedNetworkImageProvider par NetworkImage
+                CircleAvatar(radius: 27, backgroundImage: (product['shop']?['logo_url']!=null)? NetworkImage(product['shop']['logo_url'].toString()) : null, backgroundColor: _MarketColors.lightBg, child: product['shop']?['logo_url']==null? const Icon(Icons.storefront_rounded) : null),
                 const SizedBox(width: 14),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(product['shop']?['name']!=null? product['shop']['name'].toString() : 'Boutique Partenaire', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
@@ -263,6 +273,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   Widget _buildVariants(List list)=> Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Taille / Modèle', style: TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 12), Wrap(spacing: 10, runSpacing: 10, children: list.map((v){ final label = v is String? v : v['name'].toString(); final sel = variant==label; return _chip(label, sel, ()=> setState(()=> variant = sel? null : label)); }).toList())]);
   Widget _buildColors(List list)=> Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Couleurs', style: TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 12), Wrap(spacing: 10, runSpacing: 10, children: list.map((c){ final label = c is String? c : c['name'].toString(); final sel = colorSel==label; return _chip(label, sel, ()=> setState(()=> colorSel = sel? null : label)); }).toList())]);
   Widget _chip(String label, bool sel, VoidCallback onTap)=> InkWell(onTap: onTap, borderRadius: BorderRadius.circular(12), child: AnimatedContainer(duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(color: sel? _MarketColors.red : _MarketColors.lightBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: sel? _MarketColors.red : _MarketColors.cardBorder)), child: Text(label, style: TextStyle(fontWeight: sel? FontWeight.w900 : FontWeight.w600, fontSize: 13, color: sel? Colors.white : _MarketColors.darkText))));
+  
   Widget _reviewCard(Map<String,dynamic> review){
     final user = review['user'] as Map?;
     String name = 'Client vérifié';
@@ -275,7 +286,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     if(review['created_at']!=null){ try{ date = DateFormat('dd/MM/yyyy').format(DateTime.parse(review['created_at'].toString())); }catch(_){} }
     return Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: _MarketColors.lightBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: _MarketColors.cardBorder)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        CircleAvatar(radius: 18, backgroundImage: avatar!=null? CachedNetworkImageProvider(avatar) : null, backgroundColor: _MarketColors.cardBorder, child: avatar==null? const Icon(Icons.person_rounded, size: 18, color: _MarketColors.mutedText) : null),
+        // 🔴 CORRECTION : Remplacement de CachedNetworkImageProvider par NetworkImage
+        CircleAvatar(radius: 18, backgroundImage: avatar!=null? NetworkImage(avatar) : null, backgroundColor: _MarketColors.cardBorder, child: avatar==null? const Icon(Icons.person_rounded, size: 18, color: _MarketColors.mutedText) : null),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
@@ -287,6 +299,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       if(comment.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Text(comment, style: const TextStyle(height: 1.5, fontSize: 13))),
     ]));
   }
+  
   void _showAllReviews(List reviews){
     showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_)=> Container(decoration: const BoxDecoration(color: _MarketColors.pureWhite, borderRadius: BorderRadius.vertical(top: Radius.circular(24))), padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom), child: DraggableScrollableSheet(initialChildSize: 0.9, minChildSize: 0.5, maxChildSize: 0.95, expand: false, builder: (c, ctrl){ return Column(children: [
       Padding(padding: const EdgeInsets.all(20), child: Row(children: [const Text('Tous les avis', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)), const Spacer(), InkWell(onTap: ()=> Navigator.pop(context), child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: _MarketColors.lightBg, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, size: 18)))])),
