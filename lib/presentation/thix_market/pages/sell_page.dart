@@ -4,11 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../providers/market_providers.dart';
-import '../providers/shop_provider.dart';
 
-// ============================================================
-// PROVIDERS PROD — scalables
-// ============================================================
 final myAnnouncementsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final db = ref.read(supabaseClientProvider);
   final uid = db.auth.currentUser?.id;
@@ -37,14 +33,20 @@ final sellerStatsProvider = FutureProvider<Map<String,dynamic>>((ref) async {
   final orders = await ref.watch(myOrdersProvider.future);
   final ann = await ref.watch(myAnnouncementsProvider.future);
   final totalSales = orders.length;
-  final revenue = orders.fold<int>(0, (s,e)=> s + ((e['total'] as num?)?.toInt()??0));
-  final views = ann.fold<int>(0, (s,e)=> s + ((e['views'] as num?)?.toInt()??0));
+  int revenue = 0;
+  for(final o in orders){ revenue += ((o['total'] as num?)?.toInt()?? 0); }
+  int views = 0;
+  for(final a in ann){ views += ((a['views'] as num?)?.toInt()?? 0); }
+  final conv = ann.isEmpty? 0.0 : (totalSales / ann.length * 100).clamp(0,100).toDouble();
   return {
     'total_sales': totalSales,
     'revenue': revenue,
     'total_views': views,
-    'conversion_rate': ann.isEmpty? 0.0 : (totalSales/ann.length*100).clamp(0,100).toDouble(),
-    'sales_data': List.generate(6, (i)=> {'label': DateFormat('MMM').format(DateTime.now().subtract(Duration(days: (5-i)*30))), 'value': (i+1)* (revenue/6)}),
+    'conversion_rate': conv,
+    'sales_data': List.generate(6, (i){
+      final d = DateTime.now().subtract(Duration(days: (5-i)*30));
+      return {'label': DateFormat('MMM').format(d), 'value': (i+1) * (revenue>0? revenue/6.0 : 10.0)};
+    }),
     'top_products': ann.take(5).map((e)=> {'image_url': e['image_url'], 'name': e['title'], 'sales': e['views']??0, 'revenue': e['price']??0}).toList(),
   };
 });
@@ -56,18 +58,8 @@ class SellPage extends ConsumerStatefulWidget {
 
 class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  @override void initState(){
-    super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    _tabController.addListener(()=> setState((){}));
-  }
-  Future<void> _refresh() async {
-    ref.invalidate(myAnnouncementsProvider);
-    ref.invalidate(myOrdersProvider);
-    ref.invalidate(myLivesProvider);
-    ref.invalidate(sellerStatsProvider);
-  }
+  @override void initState(){ super.initState(); _tabController = TabController(length: 4, vsync: this); _tabController.addListener(()=> setState((){})); }
+  Future<void> _refresh() async { ref.invalidate(myAnnouncementsProvider); ref.invalidate(myOrdersProvider); ref.invalidate(myLivesProvider); ref.invalidate(sellerStatsProvider); }
   @override void dispose(){ _tabController.dispose(); super.dispose(); }
 
   @override Widget build(BuildContext context){
@@ -76,19 +68,10 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
       appBar: AppBar(
         title: const Text('Espace Vendeur', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF1A1D29))),
         backgroundColor: Colors.white, elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [Tab(text: 'Annonces'), Tab(text: 'Commandes'), Tab(text: 'Stats'), Tab(text: 'Lives')],
-          indicatorColor: const Color(0xFF1A73E8), labelColor: const Color(0xFF1A73E8), unselectedLabelColor: Colors.grey,
-        ),
+        bottom: TabBar(controller: _tabController, tabs: const [Tab(text: 'Annonces'), Tab(text: 'Commandes'), Tab(text: 'Stats'), Tab(text: 'Lives')], indicatorColor: Color(0xFF1A73E8), labelColor: Color(0xFF1A73E8), unselectedLabelColor: Colors.grey),
         actions: [IconButton(icon: const Icon(Icons.refresh, color: Colors.black87), onPressed: _refresh)],
       ),
-      body: TabBarView(controller: _tabController, children: [
-        _annoncesTab(),
-        _ordersTab(),
-        _statsTab(),
-        _livesTab(),
-      ]),
+      body: TabBarView(controller: _tabController, children: [_annoncesTab(), _ordersTab(), _statsTab(), _livesTab()]),
       floatingActionButton: _tabController.index==0 || _tabController.index==3? FloatingActionButton.extended(
         onPressed: _tabController.index==0? ()=> context.push('/market/announcement/publish') : ()=> context.push('/market/live/create'),
         backgroundColor: const Color(0xFF1A73E8),
@@ -98,14 +81,13 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
     );
   }
 
-  // TAB 1
   Widget _annoncesTab(){
     final async = ref.watch(myAnnouncementsProvider);
     return async.when(
       loading: ()=> const Center(child: CircularProgressIndicator()),
       error: (e,_ )=> Center(child: Text('Erreur $e')),
       data: (list){
-        if(list.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.sell, size: 72, color: Colors.grey.shade300), const SizedBox(height: 12), const Text('Aucune annonce'), const SizedBox(height: 12), ElevatedButton(onPressed: ()=> context.push('/market/announcement/publish'), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A73E8)), child: const Text('Publier', style: TextStyle(color: Colors.white)))]));
+        if(list.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.sell, size: 72, color: Colors.grey.shade300), const SizedBox(height: 12), const Text('Aucune annonce'), const SizedBox(height: 12), ElevatedButton(onPressed: ()=> context.push('/market/announcement/publish'), style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF1A73E8)), child: Text('Publier', style: TextStyle(color: Colors.white)))]));
         return RefreshIndicator(onRefresh: _refresh, child: ListView.builder(padding: const EdgeInsets.all(12), itemCount: list.length, itemBuilder: (_,i)=> _announcementCard(list[i])));
       },
     );
@@ -113,18 +95,24 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
 
   Widget _announcementCard(Map<String,dynamic> ann){
     final statusColors = {'active': Colors.green, 'pending': Colors.orange, 'expired': Colors.grey, 'refused': Colors.red};
-    final status = ann['status']?? 'active';
-    final hasDiscount = ann['discount_price']!=null && (ann['discount_price'] as num) < (ann['price'] as num??? 0);
+    final status = (ann['status'] as String?)?? 'active';
+    final priceVal = (ann['price'] as num?)?.toInt()?? 0;
+    final discountVal = (ann['discount_price'] as num?)?.toInt();
+    final hasDiscount = discountVal!=null && discountVal < priceVal;
+    final displayPrice = hasDiscount? discountVal : priceVal;
     final images = ann['images'] is List? List.from(ann['images']) : [];
     final img = ann['image_url']?? (images.isNotEmpty? images.first : null);
     return Card(margin: const EdgeInsets.only(bottom: 12), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        ClipRRect(borderRadius: BorderRadius.circular(8), child: img==null? Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.image, color: Colors.grey)) : Image.network(img, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (a,b,c)=> Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.image)))),
+        ClipRRect(borderRadius: BorderRadius.circular(8), child: img==null? Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.image, color: Colors.grey)) : Image.network(img.toString(), width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (a,b,c)=> Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.image)))),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(ann['title']?? 'Sans titre', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+          Text((ann['title'] as String?)?? 'Sans titre', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
           const SizedBox(height: 4),
-          Row(children: [Text('${(hasDiscount? ann['discount_price'] : ann['price']??0).toString()} FCFA', style: const TextStyle(color: Color(0xFF1A73E8), fontWeight: FontWeight.bold)), if(hasDiscount) Padding(padding: const EdgeInsets.only(left: 6), child: Text('${ann['price']} FCFA', style: TextStyle(decoration: TextDecoration.lineThrough, fontSize: 12, color: Colors.grey.shade500)))]),
+          Row(children: [
+            Text('$displayPrice FCFA', style: const TextStyle(color: Color(0xFF1A73E8), fontWeight: FontWeight.bold)),
+            if(hasDiscount) Padding(padding: const EdgeInsets.only(left: 6), child: Text('$priceVal FCFA', style: TextStyle(decoration: TextDecoration.lineThrough, fontSize: 12, color: Colors.grey.shade500))),
+          ]),
           const SizedBox(height: 4),
           Row(children: [
             Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: (statusColors[status]?? Colors.grey).withOpacity(0.1), borderRadius: BorderRadius.circular(4)), child: Text(status, style: TextStyle(color: statusColors[status], fontSize: 11))),
@@ -139,12 +127,11 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
         const SizedBox(width: 8),
         Expanded(child: OutlinedButton.icon(onPressed: ()=> _showBoost(ann['id'].toString()), icon: const Icon(Icons.trending_up, size: 18), label: const Text('Booster'))),
         const SizedBox(width: 8),
-        Expanded(child: OutlinedButton.icon(onPressed: ()=> ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Partage bientôt'))), icon: const Icon(Icons.share, size: 18), label: const Text('Partager'))),
+        Expanded(child: OutlinedButton.icon(onPressed: (){}, icon: const Icon(Icons.share, size: 18), label: const Text('Partager'))),
       ]),
     ])));
   }
 
-  // TAB 2
   Widget _ordersTab(){
     final async = ref.watch(myOrdersProvider);
     return async.when(
@@ -168,11 +155,11 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
     if(orders.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.inbox, size: 64, color: Colors.grey.shade300), const SizedBox(height: 12), Text('Aucune commande', style: TextStyle(color: Colors.grey.shade600))]));
     return ListView.builder(padding: const EdgeInsets.all(12), itemCount: orders.length, itemBuilder: (_,i){
       final o = orders[i];
-      return Card(margin: const EdgeInsets.only(bottom: 12), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: ListTile(onTap: ()=> context.push('/market/order/${o['id']}'), title: Text('Commande #${o['id'].toString().substring(0,8)}', style: const TextStyle(fontWeight: FontWeight.w600)), subtitle: Text('${o['total']??0} FCFA'), trailing: Text(o['status']??'', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))));
+      final total = (o['total'] as num?)?.toInt()?? 0;
+      return Card(margin: const EdgeInsets.only(bottom: 12), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: ListTile(onTap: ()=> context.push('/market/order/${o['id']}'), title: Text('Commande #${o['id'].toString().substring(0,8)}', style: const TextStyle(fontWeight: FontWeight.w600)), subtitle: Text('$total FCFA'), trailing: Text((o['status'] as String?)?? '', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))));
     });
   }
 
-  // TAB 3
   Widget _statsTab(){
     final async = ref.watch(sellerStatsProvider);
     return async.when(
@@ -180,11 +167,11 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
       error: (e,_ )=> Center(child: Text('Erreur $e')),
       data: (stats){
         final salesData = (stats['sales_data'] as List).map((e)=> (e['value'] as num).toDouble()).toList();
-        final labels = (stats['sales_data'] as List).map((e)=> e['label'] as String).toList();
+        final labels = (stats['sales_data'] as List).map((e)=> (e['label'] as String)).toList();
         return SingleChildScrollView(padding: const EdgeInsets.all(12), child: Column(children: [
           GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.1, children: [
             _statCard('Ventes totales', '${stats['total_sales']}', Icons.trending_up, Colors.green),
-            _statCard('Chiffre', '${stats['revenue']} FCFA', Icons.attach_money, const Color(0xFF1A73E8)),
+            _statCard('Chiffre', '${stats['revenue']} CDF', Icons.attach_money, const Color(0xFF1A73E8)),
             _statCard('Vues', '${stats['total_views']}', Icons.visibility, Colors.purple),
             _statCard('Conversion', '${(stats['conversion_rate'] as double).toStringAsFixed(1)}%', Icons.percent, Colors.orange),
           ]),
@@ -203,7 +190,6 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
     return Card(elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: Padding(padding: const EdgeInsets.all(12), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(ic, color: c, size: 28), const SizedBox(height: 6), Text(v, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis), Text(t, style: TextStyle(fontSize: 11, color: Colors.grey.shade600), textAlign: TextAlign.center)])));
   }
 
-  // TAB 4
   Widget _livesTab(){
     final async = ref.watch(myLivesProvider);
     return async.when(
@@ -214,13 +200,14 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
         return RefreshIndicator(onRefresh: _refresh, child: ListView.builder(padding: const EdgeInsets.all(12), itemCount: lives.length, itemBuilder: (_,i){
           final live = lives[i];
           final isLive = live['status']=='live';
+          final thumb = live['thumbnail'] as String?;
           return Card(margin: const EdgeInsets.only(bottom: 12), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: Padding(padding: const EdgeInsets.all(12), child: Row(children: [
-            ClipRRect(borderRadius: BorderRadius.circular(8), child: live['thumbnail']==null? Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.live_tv, color: Colors.grey)) : Image.network(live['thumbnail'], width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (a,b,c)=> Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.live_tv))))),
+            ClipRRect(borderRadius: BorderRadius.circular(8), child: thumb==null? Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.live_tv, color: Colors.grey)) : Image.network(thumb, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (a,b,c)=> Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.live_tv))))),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [Expanded(child: Text(live['title']?? 'Live', style: const TextStyle(fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis)), if(isLive) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(4)), child: const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))]),
+              Row(children: [Expanded(child: Text((live['title'] as String?)?? 'Live', style: const TextStyle(fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis)), if(isLive) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(4)), child: const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))]),
               const SizedBox(height: 4),
-              Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.tryParse(live['created_at']??'')?? DateTime.now()), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+              Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.tryParse((live['created_at'] as String?)?? '')?? DateTime.now()), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
               const SizedBox(height: 8),
               Row(children: [
                 if(isLive) Expanded(child: ElevatedButton.icon(onPressed: ()=> context.push('/market/live/${live['id']}'), icon: const Icon(Icons.visibility, size: 16), label: const Text('Voir', style: TextStyle(fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE53935), foregroundColor: Colors.white))),
