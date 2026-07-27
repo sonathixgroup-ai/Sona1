@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
+import 'package:flutter/foundation.dart';
 
 final feedProvider = AsyncNotifierProvider<Feed, List<NetworkPost>>(Feed.new);
 
