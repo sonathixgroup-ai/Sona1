@@ -14,18 +14,14 @@ class MyShopsNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     return List<Map<String, dynamic>>.from(res);
   }
 
-  Future<void> create(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> create(Map<String, dynamic> data) async {
     final db = ref.read(supabaseClientProvider);
     final uid = db.auth.currentUser?.id;
-    if (uid == null) return;
+    if (uid == null) throw Exception('Non connecté');
+    final res = await db.from('shops').insert({...data, 'owner_id': uid, 'status': 'active'}).select().single();
     final cur = state.valueOrNull ?? [];
-    try {
-      final res = await db.from('shops').insert({...data, 'owner_id': uid, 'status': 'pending'}).select().single();
-      state = AsyncData([res, ...cur]);
-    } catch (e) {
-      debugPrint('createShop $e');
-      rethrow;
-    }
+    state = AsyncData([res, ...cur]);
+    return res;
   }
 
   Future<void> update(String shopId, Map<String, dynamic> updates) async {
@@ -34,7 +30,6 @@ class MyShopsNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     try {
       final res = await db.from('shops').update({...updates, 'updated_at': DateTime.now().toIso8601String()}).eq('id', shopId).select().single();
       state = AsyncData(cur.map((s) => s['id'] == shopId ? res : s).toList());
-      // aussi mettre à jour le detail si ouvert
       ref.read(currentShopProvider.notifier).patchIfSameShop(res);
     } catch (e) {
       debugPrint('updateShop $e');
@@ -44,7 +39,6 @@ class MyShopsNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
 
   bool get hasShop => (state.valueOrNull?.isNotEmpty ?? false);
   String? get myShopId => state.valueOrNull?.isNotEmpty == true ? state.valueOrNull!.first['id'] as String? : null;
-
   Future<void> refresh() async => ref.invalidateSelf();
 }
 
@@ -65,10 +59,8 @@ class FollowedShopsNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
     final res = await db.from('shop_followers').select('shop:shops(*)').eq('user_id', uid);
     return res.map((e) => Map<String, dynamic>.from(e['shop'] as Map)).toList();
   }
-
   Future<void> refresh() async => ref.invalidateSelf();
 }
-
 final followedShopsProvider = AsyncNotifierProvider<FollowedShopsNotifier, List<Map<String, dynamic>>>(FollowedShopsNotifier.new);
 
 // ================= CURRENT SHOP DETAIL =================
@@ -76,15 +68,34 @@ class CurrentShopNotifier extends AsyncNotifier<Map<String, dynamic>?> {
   String? _currentId;
   @override Future<Map<String, dynamic>?> build() async => null;
 
+  // pour compat avec ton create_shop_page.dart qui faisait createShop({name,city,description})
+  Future<Map<String, dynamic>> createShop({required String name, String? city, String? description}) async {
+    return createShopFromMap({'name': name, 'city': city, 'description': description});
+  }
+
+  Future<Map<String, dynamic>> createShopFromMap(Map<String, dynamic> data) async {
+    final db = ref.read(supabaseClientProvider);
+    final uid = db.auth.currentUser?.id;
+    if (uid == null) throw Exception('Non connecté');
+    final payload = {...data, 'owner_id': uid, 'status': 'active'};
+    final res = await db.from('shops').insert(payload).select().single();
+    // update myShops cache
+    final myShops = ref.read(myShopsProvider).valueOrNull ?? [];
+    ref.read(myShopsProvider.notifier).state = AsyncData([res, ...myShops]);
+    state = AsyncData(res);
+    return res;
+  }
+
+  // alias utilisé par ancien code
+  Future<Map<String, dynamic>> create(Map<String, dynamic> data) => createShopFromMap(data);
+
   Future<void> load(String shopId) async {
     _currentId = shopId;
     state = const AsyncLoading();
     try {
       final db = ref.read(supabaseClientProvider);
       final uid = db.auth.currentUser?.id;
-
       final shop = await db.from('shops').select('*, products:products(*)').eq('id', shopId).single();
-
       bool isFollowed = false;
       if (uid != null) {
         final check = await db.from('shop_followers').select('id').match({'user_id': uid, 'shop_id': shopId}).maybeSingle();
@@ -111,12 +122,9 @@ class CurrentShopNotifier extends AsyncNotifier<Map<String, dynamic>?> {
     if (uid == null) return;
     final cur = state.valueOrNull;
     final wasFollowed = cur?['is_followed'] == true;
-
-    // optimistic
     if (cur != null && cur['id'] == shopId) {
       state = AsyncData({...cur, 'is_followed': !wasFollowed});
     }
-
     try {
       final existing = await db.from('shop_followers').select().match({'user_id': uid, 'shop_id': shopId}).maybeSingle();
       if (existing != null) {
