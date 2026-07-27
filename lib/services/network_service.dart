@@ -45,15 +45,24 @@ class NetworkService extends ChangeNotifier {
 
   Future<List<NetworkPost>> getPosts({String? feedType}) => getFeedPosts(feedType: feedType?? 'recent');
   
-    Future<Set<String>> _getConnectionIds() async {
-    // ⚠️ Remplace 'connected_user_id' si le nom de ta colonne sur Supabase est différent
+      Future<Set<String>> _getConnectionIds() async {
+    final uid = currentUserId;
+    if (uid.isEmpty) return {};
+
+    // On cherche les connexions où l'utilisateur est soit user1_id, soit user2_id
+    // (J'ai retiré le .eq('status', 'accepted') car la colonne status n'existe pas dans ta table)
     final res = await _supabase.from('connections')
-        .select('connected_user_id')
-        .eq('user_id', currentUserId)
-        .eq('status', 'accepted');
+        .select('user1_id, user2_id')
+        .or('user1_id.eq.$uid,user2_id.eq.$uid');
         
-    return (res as List).map((e) => e['connected_user_id'] as String).toSet();
+    // On extrait l'ID de l'AUTRE personne pour chaque ligne
+    return (res as List).map((e) {
+      final user1 = e['user1_id'] as String;
+      final user2 = e['user2_id'] as String;
+      return user1 == uid ? user2 : user1;
+    }).toSet();
   }
+
 
 
   Future<NetworkPost?> getPostById(String postId) async {
@@ -167,16 +176,20 @@ class NetworkService extends ChangeNotifier {
     if (targetId != currentUserId) unawaited(_createNotification(userId: targetId, type: 'connection')); 
   }
 
-  Future<void> acceptConnectionRequest(String requestId) async { 
+    Future<void> acceptConnectionRequest(String requestId) async { 
+    // 1. On met à jour la requête
     await _supabase.from('connection_requests').update({'status': 'accepted'}).eq('id', requestId); 
+    
+    // 2. On récupère les infos
     final req = await _supabase.from('connection_requests').select('sender_id, receiver_id').eq('id', requestId).single(); 
     
-    // 👇 CORRECTION ICI : connection_id remplacé par connected_user_id
-    await _supabase.from('connections').upsert([
-      {'user_id': req['sender_id'], 'connected_user_id': req['receiver_id'], 'status': 'accepted'}, 
-      {'user_id': req['receiver_id'], 'connected_user_id': req['sender_id'], 'status': 'accepted'}
-    ], onConflict: 'user_id,connected_user_id'); 
+    // 3. On insère dans la table connections avec TES vrais noms de colonnes
+    await _supabase.from('connections').insert({
+      'user1_id': req['sender_id'], 
+      'user2_id': req['receiver_id']
+    }); 
   }
+
 
   Future<List<NetworkCommunity>> getAllCommunities({int limit = 50}) async { try { final res = await _supabase.from('communities_with_membership').select().eq('current_user_id', currentUserId).order('members_count', ascending: false).limit(limit); return (res as List).map((e) => NetworkCommunity.fromJson(e)).toList(); } catch (_) { final res = await _supabase.from('communities').select().order('members_count', ascending: false).limit(limit); return (res as List).map((e) => NetworkCommunity.fromJson(e)).toList(); } }
   Future<List<NetworkCommunity>> getSuggestedCommunities({int limit = 10}) async { final res = await _supabase.from('communities').select().order('members_count', ascending: false).limit(limit); return (res as List).map((e) => NetworkCommunity.fromJson(e)).toList(); }
