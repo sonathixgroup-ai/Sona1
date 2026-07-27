@@ -158,9 +158,10 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
                                     ]),
                                     const SizedBox(height: 12),
                                     Text(_post!.content),
-                                    if (_post!.imageUrl != null && _post!.imageUrl!.isNotEmpty) ...[
+                                    // 🔴 CORRECTION ICI : imageUrls (au pluriel) et imageUrls.first
+                                    if (_post!.imageUrls.isNotEmpty) ...[
                                       const SizedBox(height: 12),
-                                      ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(_post!.imageUrl!, errorBuilder: (a, b, c) => const SizedBox()))
+                                      ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(_post!.imageUrls.first, errorBuilder: (a, b, c) => const SizedBox()))
                                     ],
                                   ],
                                 ),
