@@ -60,7 +60,8 @@ class CartPage extends ConsumerWidget {
                         itemCount: cartState.items.length,
                         itemBuilder: (context, index) {
                           final cartItem = cartState.items[index];
-                          final product = cartItem['product'] as Map<String, dynamic>??? {};
+                          // CORRECTION ICI : Remplacement de "???" par "?) ?? "
+                          final product = (cartItem['product'] as Map<String, dynamic>?) ?? {};
                           final realPrice = cart.getItemRealPrice(cartItem);
                           final oldPrice = cart.getItemOldPrice(cartItem);
                           final discount = cart.getItemDiscountPercent(cartItem);
@@ -75,7 +76,7 @@ class CartPage extends ConsumerWidget {
                             onQuantityChanged: (newQty) {
                               if (newQty <= 0) { cart.removeFromCart(cartRowId); }
                               else {
-                                final stock = (product['stock'] as num?)?.toInt()?? 9999;
+                                final stock = (product['stock'] as num?)?.toInt() ?? 9999;
                                 if (newQty > stock) {
                                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Stock limité à $stock')));
                                   return;
