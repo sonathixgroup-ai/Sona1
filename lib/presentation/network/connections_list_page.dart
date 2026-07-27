@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
 import 'package:thix_id/presentation/network/widgets/connection_card.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-part 'connections_list_page.g.dart';
+final connectionsProvider = AsyncNotifierProvider<Connections, List<Map<String, dynamic>>>(Connections.new);
 
-@riverpod
-class Connections extends _$Connections {
+class Connections extends AsyncNotifier<List<Map<String, dynamic>>> {
   static const _limit = 30;
   int _offset = 0;
   bool _hasMore = true;
@@ -22,7 +21,7 @@ class Connections extends _$Connections {
   }
 
   Future<List<Map<String, dynamic>>> _fetch(int offset) async {
-    final supa = ref.read(supabaseClientProvider);
+    final supa = Supabase.instance.client;
     final userId = supa.auth.currentUser?.id;
     if (userId == null) return [];
 
@@ -46,7 +45,6 @@ class Connections extends _$Connections {
         });
       }
     }
-    // filtre local search
     if (_search.isNotEmpty) {
       final q = _search.toLowerCase();
       return list.where((c) => (c['display_name'] as String).toLowerCase().contains(q)).toList();
@@ -56,23 +54,24 @@ class Connections extends _$Connections {
 
   Future<void> loadMore() async {
     if (!_hasMore) return;
-    final current = state.valueOrNull?? [];
+    final current = state.valueOrNull?? <Map<String, dynamic>>[];
     final more = await _fetch(_offset + _limit);
     if (more.isEmpty) { _hasMore = false; return; }
     _offset += _limit;
     _hasMore = more.length >= _limit;
-    state = AsyncData([...current, ...more]);
+    state = AsyncData([...current,...more]);
   }
 
   void search(String q) { _search = q; ref.invalidateSelf(); }
 
   Future<void> removeConnection(String connectionId) async {
-    final current = [...state.valueOrNull?? []];
-    state = AsyncData(current.where((c) => c['id']!= connectionId).toList()); // optimistic
+    final current = [...state.valueOrNull?? <Map<String, dynamic>>[]];
+    final filtered = current.where((c) => c['id']!= connectionId).toList();
+    state = AsyncData(filtered);
     try {
-      await ref.read(supabaseClientProvider).from('connections').delete().eq('id', connectionId);
+      await Supabase.instance.client.from('connections').delete().eq('id', connectionId);
     } catch (e) {
-      state = AsyncData(current); // rollback
+      state = AsyncData(current);
       rethrow;
     }
   }
@@ -101,7 +100,7 @@ class _ConnectionsListPageState extends ConsumerState<ConnectionsListPage> {
   void dispose() { _scroll.dispose(); _searchCtrl.dispose(); super.dispose(); }
 
   Future<void> _removeConnection(String connectionId, String userName) async {
-    final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('Supprimer la connexion'), content: Text('Voulez-vous vraiment retirer $userName de vos connexions ?'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Annuler')), TextButton(onPressed: () => Navigator.pop(c, true), style: TextButton.styleFrom(foregroundColor: Colors.red), child: const Text('Supprimer'))]));
+    final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('Supprimer la connexion'), content: Text('Voulez-vous vraiment retirer $userName de vos connexions?'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Annuler')), TextButton(onPressed: () => Navigator.pop(c, true), style: TextButton.styleFrom(foregroundColor: Colors.red), child: const Text('Supprimer'))]));
     if (confirm!= true) return;
     try {
       await ref.read(connectionsProvider.notifier).removeConnection(connectionId);
@@ -114,7 +113,6 @@ class _ConnectionsListPageState extends ConsumerState<ConnectionsListPage> {
   @override
   Widget build(BuildContext context) {
     final asyncConnections = ref.watch(connectionsProvider);
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
