@@ -571,7 +571,11 @@ final appRouter = GoRouter(
 extension GoRouterBackHelpers on BuildContext {
   void popOrGo(String fallbackLocation) {
     final router = GoRouter.of(this);
-    if (router.canPop()) { pop(); return; }
+    if (router.canPop()) { 
+      pop(); 
+      return; 
+    }
     go(fallbackLocation);
   }
 }
+
