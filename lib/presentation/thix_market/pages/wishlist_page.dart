@@ -17,7 +17,8 @@ class _WishlistPageState extends ConsumerState<WishlistPage> {
       final db = ref.read(supabaseClientProvider);
       await db.from('wishlist').delete().eq('id', wishlistId);
       ref.invalidate(favoritesProvider);
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Produit retiré des favoris'), backgroundColor: MarketColors.successGreen));
+      // CORRECTION : Remplacement de MarketColors.successGreen par Colors.green
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Produit retiré des favoris'), backgroundColor: Colors.green));
     }catch(e){ debugPrint('remove fav $e'); }
   }
 
@@ -32,7 +33,8 @@ class _WishlistPageState extends ConsumerState<WishlistPage> {
       } else {
         await db.from('cart').insert({'user_id': uid, 'product_id': productId, 'quantity': 1});
       }
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ajouté au panier !'), backgroundColor: MarketColors.successGreen));
+      // CORRECTION : Remplacement de MarketColors.successGreen par Colors.green
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ajouté au panier !'), backgroundColor: Colors.green));
     }catch(e){ debugPrint('addCart $e'); }
   }
 
@@ -124,7 +126,8 @@ class _WishlistPageState extends ConsumerState<WishlistPage> {
                 const SizedBox(height: 6),
                 Text('${price.toInt()} $currency', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: MarketColors.red)),
                 const SizedBox(height: 6),
-                Text(isAvailable? 'En stock' : 'Rupture de stock', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isAvailable? MarketColors.successGreen : MarketColors.mutedText)),
+                // CORRECTION : Remplacement de MarketColors.successGreen par Colors.green
+                Text(isAvailable? 'En stock' : 'Rupture de stock', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isAvailable? Colors.green : MarketColors.mutedText)),
               ])),
               if(isAvailable)
                 IconButton(onPressed: ()=> _addToCart(productId), icon: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: MarketColors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.shopping_cart_outlined, color: MarketColors.red, size: 20))),
