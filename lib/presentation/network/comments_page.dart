@@ -7,7 +7,7 @@ import 'package:thix_id/features/network/presentation/providers/comments_provide
 import 'package:thix_id/presentation/network/widgets/post_card.dart';
 import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:thix_id/features/network/presentation/providers/comments_provider.dart';
+
 class CommentsPage extends ConsumerStatefulWidget {
   final String postId;
   final String currentProfileId;
@@ -20,7 +20,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-
   NetworkPost? _post;
   bool _isLoadingPost = true;
   bool _isSubmitting = false;
@@ -75,8 +74,8 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     final oldCount = comment.likesCount;
     setState(() { comment.isLiked =!oldLiked; comment.likesCount = oldLiked? oldCount - 1 : oldCount + 1; });
     try {
-      if (comment.isLiked) { await ref.read(networkServiceProvider).likeComment(comment.id); }
-      else { await ref.read(networkServiceProvider).unlikeComment(comment.id); }
+      if (comment.isLiked) await ref.read(networkServiceProvider).likeComment(comment.id);
+      else await ref.read(networkServiceProvider).unlikeComment(comment.id);
     } catch (_) {
       setState(() { comment.isLiked = oldLiked; comment.likesCount = oldCount; });
     }
@@ -94,7 +93,8 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text('Commentaires', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white, elevation: 0,
+        backgroundColor: Colors.white,
+        elevation: 0,
         actions: [IconButton(onPressed: () => ref.invalidate(commentsProvider(widget.postId)), icon: const Icon(Icons.refresh_rounded, color: Colors.grey))],
       ),
       body: _isLoadingPost && _post == null
@@ -112,7 +112,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                         loading: () => const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))),
                         error: (e, _) => SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Erreur: $e')))),
                         data: (comments) => comments.isEmpty
-                           ? SliverFillRemaining(child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.comment_outlined, size: 60, color: Colors.grey[300]), const SizedBox(height: 12), Text('Aucun commentaire', style: TextStyle(color: Colors.grey[600])), const SizedBox(height: 8), Text('Soyez le premier à réagir!', style: TextStyle(color: Colors.grey[400]))])))
+                           ? SliverFillRemaining(child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.comment_outlined, size: 60, color: Colors.grey[300]), const SizedBox(height: 12), Text('Aucun commentaire', style: TextStyle(color: Colors.grey[600]))])))
                             : SliverList(delegate: SliverChildBuilderDelegate((context, index) => _buildCommentTile(comments[index], currentUserId, isRoot: true), childCount: comments.length)),
                       ),
                     ],
@@ -136,30 +136,31 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             leading: CircleAvatar(radius: 18, backgroundImage: comment.userAvatar!= null && comment.userAvatar!.isNotEmpty? NetworkImage(comment.userAvatar!) : null, child: comment.userAvatar == null || comment.userAvatar!.isEmpty? Icon(Icons.person, size: 18, color: Colors.grey[600]) : null),
             title: Row(children: [Text(comment.userName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), const SizedBox(width: 6), Text(timeago.format(comment.createdAt, locale: 'fr'), style: TextStyle(color: Colors.grey[500], fontSize: 10))]),
-            trailing: PopupMenuButton(icon: const Icon(Icons.more_vert, size: 18, color: Colors.grey), onSelected: (v) {}, itemBuilder: (context) => [if (isOwn) const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, color: Colors.red, size: 18), SizedBox(width: 8), Text('Supprimer', style: TextStyle(color: Colors.red))])), const PopupMenuItem(value: 'report', child: Row(children: [Icon(Icons.flag_outlined, color: Colors.orange, size: 18), SizedBox(width: 8), Text('Signaler')]))]),
           ),
           Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(comment.content, style: const TextStyle(fontSize: 14, height: 1.4))),
           Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), child: Row(children: [
             _actionButton(icon: comment.isLiked? Icons.favorite_rounded : Icons.favorite_border_rounded, iconColor: comment.isLiked? Colors.red : Colors.grey[600]!, label: comment.likesCount > 0? '${comment.likesCount}' : '', onTap: () => _toggleLikeComment(comment)),
             const SizedBox(width: 12),
             _actionButton(icon: Icons.reply_rounded, iconColor: Colors.grey[600]!, label: 'Répondre', onTap: () => _startReply(comment.userName, comment.id)),
-            if (isOwn)...[const SizedBox(width: 12), _actionButton(icon: Icons.edit_outlined, iconColor: Colors.grey[600]!, label: 'Modifier', onTap: () => _editComment(comment))],
           ])),
-          if (hasReplies)...[Divider(height: 1, thickness: 0.8, color: Colors.grey[200]), Padding(padding: const EdgeInsets.only(top: 4), child: Column(children: comment.replies.map((r) => _buildCommentTile(r, currentUserId, isRoot: false)).toList()))],
+          if (hasReplies)...[
+            Divider(height: 1, thickness: 0.8, color: Colors.grey[200]),
+            Padding(padding: const EdgeInsets.only(top: 4), child: Column(children: comment.replies.map((r) => _buildCommentTile(r, currentUserId, isRoot: false)).toList())),
+          ],
         ]),
       ),
     );
   }
 
   Widget _actionButton({required IconData icon, required Color iconColor, required String label, required VoidCallback onTap}) {
-    return InkWell(onTap: onTap, borderRadius: BorderRadius.circular(20), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 16, color: iconColor), if (label.isNotEmpty)...[const SizedBox(width: 4), Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w500))]])));
+    return InkWell(onTap: onTap, borderRadius: BorderRadius.circular(20), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 16, color: iconColor), if (label.isNotEmpty)...[const SizedBox(width: 4), Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600]))]])));
   }
 
   void _editComment(Comment comment) async {
     final controller = TextEditingController(text: comment.content);
-    final newContent = await showDialog<String>(context: context, builder: (context) => AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), title: const Text('Modifier le commentaire'), content: TextField(controller: controller, maxLines: 3, decoration: InputDecoration(hintText: 'Modifiez votre commentaire...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')), ElevatedButton(onPressed: () => Navigator.pop(context, controller.text), style: ElevatedButton.styleFrom(backgroundColor: Colors.blue), child: const Text('Enregistrer'))]));
+    final newContent = await showDialog<String>(context: context, builder: (c) => AlertDialog(title: const Text('Modifier'), content: TextField(controller: controller, maxLines: 3), actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Annuler')), ElevatedButton(onPressed: () => Navigator.pop(c, controller.text), child: const Text('Enregistrer'))]));
     if (newContent!= null && newContent!= comment.content) {
-      try { await ref.read(networkServiceProvider).updateComment(comment.id, newContent); setState(() => comment.content = newContent); } catch (e) { if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red)); }
+      try { await ref.read(networkServiceProvider).updateComment(comment.id, newContent); setState(() => comment.content = newContent); } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e'))); }
     }
   }
 
@@ -169,7 +170,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, -2))]),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         if (_replyingTo!= null)
-          Container(margin: const EdgeInsets.only(bottom: 6), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(20)), child: Row(children: [Icon(Icons.reply_rounded, size: 14, color: Colors.blue[700]), const SizedBox(width: 6), Text('Réponse à $_replyingToName', style: TextStyle(fontSize: 12, color: Colors.blue[700])), const Spacer(), InkWell(onTap: _clearReply, child: const Icon(Icons.close, size: 16, color: Colors.grey))])),
+          Container(margin: const EdgeInsets.only(bottom: 6), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(20)), child: Row(children: [Icon(Icons.reply_rounded, size: 14, color: Colors.blue[700]), const SizedBox(width: 6), Text('Réponse à $_replyingToName', style: TextStyle(fontSize: 12, color: Colors.blue[700])), const Spacer(), InkWell(onTap: _clearReply, child: const Icon(Icons.close, size: 16))])),
         Row(children: [
           Expanded(child: TextField(controller: _controller, focusNode: _focusNode, onSubmitted: (_) => _submitComment(), decoration: InputDecoration(hintText: _replyingTo!= null? 'Écrire une réponse...' : 'Écrire un commentaire...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none), filled: true, fillColor: Colors.grey[100], contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)))),
           const SizedBox(width: 8),
