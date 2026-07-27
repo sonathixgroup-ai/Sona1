@@ -12,7 +12,6 @@ import 'widgets/create_story_dialog.dart';
 import 'widgets/post_card.dart';
 import 'widgets/story_viewer.dart';
 
-// ─── COULEURS THIX ───
 class ThixColors {
   static const background = Color(0xFFF6F9FF);
   static const white = Color(0xFFFFFFFF);
@@ -34,13 +33,15 @@ class NetworkProHome extends ConsumerStatefulWidget {
 
 class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<bool> _navVisible = ValueNotifier(true);
   String _feedType = 'smart';
   List<NetworkStory> _stories = [];
   bool _loadingStories = true;
   List<dynamic> _suggestions = [];
-  bool _navVisible = true;
+  bool _isLoadingMore = false;
 
-  @override bool get wantKeepAlive => true;
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -51,16 +52,23 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
 
   void _onScroll() {
     final pos = _scrollController.position;
-    if (pos.pixels >= pos.maxScrollExtent - 600) {
-      ref.read(feedProvider.notifier).loadMore();
+    // Pagination millions avec guard
+    if (pos.pixels >= pos.maxScrollExtent - 700 && !_isLoadingMore) {
+      final notifier = ref.read(feedProvider.notifier);
+      final feedState = ref.read(feedProvider);
+      if (!feedState.isLoading && notifier.hasMore) {
+        _isLoadingMore = true;
+        notifier.loadMore().whenComplete(() => _isLoadingMore = false);
+      }
     }
-    final direction = pos.userScrollDirection;
-    if (direction == ScrollDirection.reverse && _navVisible) {
-      setState(() => _navVisible = false);
-    } else if (direction == ScrollDirection.forward && !_navVisible) {
-      setState(() => _navVisible = true);
-    } else if (pos.pixels <= 0 && !_navVisible) {
-      setState(() => _navVisible = true);
+    // Hide/show nav sans setState global
+    final dir = pos.userScrollDirection;
+    if (dir == ScrollDirection.reverse && _navVisible.value) {
+      _navVisible.value = false;
+    } else if (dir == ScrollDirection.forward && !_navVisible.value) {
+      _navVisible.value = true;
+    } else if (pos.pixels <= 0 && !_navVisible.value) {
+      _navVisible.value = true;
     }
   }
 
@@ -100,7 +108,11 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   }
 
   @override
-  void dispose() { _scrollController.dispose(); super.dispose(); }
+  void dispose() {
+    _scrollController.dispose();
+    _navVisible.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -134,31 +146,42 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                   data: (posts) {
                     if (posts.isEmpty) return SliverToBoxAdapter(child: _buildEmpty());
                     return SliverList.builder(
-                      itemCount: posts.length,
+                      itemCount: posts.length + (ref.read(feedProvider.notifier).hasMore ? 1 : 0),
                       itemBuilder: (c, i) {
+                        if (i == posts.length) {
+                          return const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+                        }
                         final post = posts[i];
-                        return PostCard(
-                          key: ValueKey(post.id),
-                          post: post,
-                          currentProfileId: currentUser.id,
-                          onLike: () => ref.read(feedProvider.notifier).toggleLike(post.id),
-                          onComment: () => context.push('/network/comments/${post.id}'),
-                          onShare: () => _showShareSheet(post),
-                          onDelete: () => ref.read(feedProvider.notifier).loadFeed(force: true),
+                        // ProviderScope par post = chaque PostCard vit seul = scale millions
+                        return ProviderScope(
+                          overrides: [
+                            postItemProvider.overrideWithProvider(
+                              StateNotifierProvider<PostItemNotifier, dynamic>((ref) => PostItemNotifier(post, ref)),
+                            ),
+                          ],
+                          child: PostCard(
+                            key: ValueKey(post.id),
+                            post: post,
+                            currentProfileId: currentUser.id,
+                            onLike: () {}, // géré dans PostCard lui-même
+                            onComment: () => context.push('/network/comments/${post.id}'),
+                            onShare: () => _showShareSheet(post),
+                            onDelete: () => ref.read(feedProvider.notifier).loadFeed(force: true),
+                          ),
                         );
                       },
                     );
                   },
                 ),
-                if (feedAsync.isLoading)
-                  const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))),
-                if (_suggestions.isNotEmpty)
-                  SliverToBoxAdapter(child: _buildSuggestions()),
+                if (_suggestions.isNotEmpty) SliverToBoxAdapter(child: _buildSuggestions()),
                 const SliverToBoxAdapter(child: SizedBox(height: 110)),
               ],
             ),
           ),
-          Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomNav()),
+          ValueListenableBuilder<bool>(
+            valueListenable: _navVisible,
+            builder: (context, visible, _) => Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomNav(visible)),
+          ),
         ],
       ),
     );
@@ -236,16 +259,16 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
     );
   }
 
-  Widget _buildBottomNav() {
+  Widget _buildBottomNav(bool visible) {
     return AnimatedSlide(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeInOutCubic,
-      offset: _navVisible ? Offset.zero : const Offset(0, 1.6),
+      offset: visible ? Offset.zero : const Offset(0, 1.6),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 200),
-        opacity: _navVisible ? 1 : 0,
+        opacity: visible ? 1 : 0,
         child: IgnorePointer(
-          ignoring: !_navVisible,
+          ignoring: !visible,
           child: SafeArea(
             top: false,
             child: Padding(
@@ -258,34 +281,16 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                   children: [
                     Container(
                       height: 50,
-                      decoration: BoxDecoration(
-                        color: ThixColors.white,
-                        borderRadius: BorderRadius.circular(25),
-                        boxShadow: [
-                          BoxShadow(
-                            color: ThixColors.shadow,
-                            blurRadius: 14,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _navBtn(Icons.home_rounded, 'Accueil', true, () {
-                            _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-                          }),
-                          _navBtn(Icons.explore_outlined, 'Découvrir', false, () => context.push('/network/discover')),
-                          const SizedBox(width: 42),
-                          _navBtn(Icons.groups_outlined, 'Réseau', false, () => context.push('/network/connections')),
-                          _navBtn(Icons.person_outline, 'Profil', false, () => context.push('/profile')),
-                        ],
-                      ),
+                      decoration: BoxDecoration(color: ThixColors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: ThixColors.shadow, blurRadius: 14, offset: const Offset(0, 5))]),
+                      child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                        _navBtn(Icons.home_rounded, 'Accueil', true, () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut)),
+                        _navBtn(Icons.explore_outlined, 'Découvrir', false, () => context.push('/network/discover')),
+                        const SizedBox(width: 42),
+                        _navBtn(Icons.groups_outlined, 'Réseau', false, () => context.push('/network/connections')),
+                        _navBtn(Icons.person_outline, 'Profil', false, () => context.push('/profile')),
+                      ]),
                     ),
-                    Positioned(
-                      top: -12,
-                      child: _buildFab(),
-                    ),
+                    Positioned(top: -12, child: _buildFab()),
                   ],
                 ),
               ),
@@ -296,11 +301,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
     );
   }
 
-  Widget _buildFab() => SizedBox(width: 48, height: 48, child: Container(decoration: BoxDecoration(shape: BoxShape.circle, gradient: const LinearGradient(colors: [ThixColors.primaryDeep, ThixColors.primary]), boxShadow: [BoxShadow(color: ThixColors.primary.withValues(alpha: 0.4), blurRadius: 10, offset: const Offset(0, 5))]),
-    child: FloatingActionButton(elevation: 0, backgroundColor: Colors.transparent, onPressed: () => showDialog(context: context, builder: (_) => const CreatePostDialog()), child: const Icon(Icons.add_rounded, size: 24, color: Colors.white))));
+  Widget _buildFab() => SizedBox(width: 48, height: 48, child: Container(decoration: BoxDecoration(shape: BoxShape.circle, gradient: const LinearGradient(colors: [ThixColors.primaryDeep, ThixColors.primary]), boxShadow: [BoxShadow(color: ThixColors.primary.withValues(alpha: 0.4), blurRadius: 10, offset: const Offset(0, 5))]), child: FloatingActionButton(elevation: 0, backgroundColor: Colors.transparent, onPressed: () => showDialog(context: context, builder: (_) => const CreatePostDialog()), child: const Icon(Icons.add_rounded, size: 24, color: Colors.white))));
 
-  Widget _navBtn(IconData ic, String label, bool active, VoidCallback tap) => InkWell(onTap: tap, borderRadius: BorderRadius.circular(12),
-    child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(ic, size: 19, color: active ? ThixColors.primary : ThixColors.textSecondary), const SizedBox(height: 1), Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: active ? ThixColors.primary : ThixColors.textSecondary))])));
+  Widget _navBtn(IconData ic, String label, bool active, VoidCallback tap) => InkWell(onTap: tap, borderRadius: BorderRadius.circular(12), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(ic, size: 19, color: active ? ThixColors.primary : ThixColors.textSecondary), const SizedBox(height: 1), Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: active ? ThixColors.primary : ThixColors.textSecondary))])));
 
   Widget _buildShimmerFeed() => Column(children: List.generate(3, (i) => Container(margin: const EdgeInsets.all(14), height: 180, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)))));
   Widget _buildEmpty() => const Padding(padding: EdgeInsets.all(60), child: Column(children: [Icon(Icons.feed_outlined, size: 48, color: ThixColors.textSecondary), SizedBox(height: 12), Text('Aucune publication pour ce filtre', style: TextStyle(color: ThixColors.textSecondary))]));
