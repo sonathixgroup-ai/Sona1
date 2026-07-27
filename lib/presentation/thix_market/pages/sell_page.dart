@@ -32,23 +32,28 @@ final myLivesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
 final sellerStatsProvider = FutureProvider<Map<String,dynamic>>((ref) async {
   final orders = await ref.watch(myOrdersProvider.future);
   final ann = await ref.watch(myAnnouncementsProvider.future);
-  final totalSales = orders.length;
   int revenue = 0;
-  for(final o in orders){ revenue += ((o['total'] as num?)?.toInt()?? 0); }
+  for(final o in orders){
+    final t = o['total'];
+    if(t!=null) revenue += (t as num).toInt();
+  }
   int views = 0;
-  for(final a in ann){ views += ((a['views'] as num?)?.toInt()?? 0); }
-  final conv = ann.isEmpty? 0.0 : (totalSales / ann.length * 100).clamp(0,100).toDouble();
-  return {
-    'total_sales': totalSales,
-    'revenue': revenue,
-    'total_views': views,
-    'conversion_rate': conv,
-    'sales_data': List.generate(6, (i){
-      final d = DateTime.now().subtract(Duration(days: (5-i)*30));
-      return {'label': DateFormat('MMM').format(d), 'value': (i+1) * (revenue>0? revenue/6.0 : 10.0)};
-    }),
-    'top_products': ann.take(5).map((e)=> {'image_url': e['image_url'], 'name': e['title'], 'sales': e['views']??0, 'revenue': e['price']??0}).toList(),
-  };
+  for(final a in ann){
+    final v = a['views'];
+    if(v!=null) views += (v as num).toInt();
+  }
+  double conv = 0;
+  if(ann.isNotEmpty) conv = (orders.length / ann.length * 100).clamp(0,100).toDouble();
+  List<Map<String,dynamic>> sales = [];
+  for(int i=0;i<6;i++){
+    final d = DateTime.now().subtract(Duration(days: (5-i)*30));
+    final label = DateFormat('MMM').format(d);
+    double val = 10;
+    if(revenue>0) val = (i+1) * revenue / 6.0;
+    sales.add({'label': label, 'value': val});
+  }
+  final top = ann.take(5).map((e)=> {'image_url': e['image_url'], 'name': e['title'], 'sales': e['views'], 'revenue': e['price']}).toList();
+  return {'total_sales': orders.length, 'revenue': revenue, 'total_views': views, 'conversion_rate': conv, 'sales_data': sales, 'top_products': top};
 });
 
 class SellPage extends ConsumerStatefulWidget {
@@ -94,38 +99,43 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
   }
 
   Widget _announcementCard(Map<String,dynamic> ann){
-    final statusColors = {'active': Colors.green, 'pending': Colors.orange, 'expired': Colors.grey, 'refused': Colors.red};
-    final status = (ann['status'] as String?)?? 'active';
-    final priceVal = (ann['price'] as num?)?.toInt()?? 0;
-    final discountVal = (ann['discount_price'] as num?)?.toInt();
-    final hasDiscount = discountVal!=null && discountVal < priceVal;
-    final displayPrice = hasDiscount? discountVal : priceVal;
-    final images = ann['images'] is List? List.from(ann['images']) : [];
-    final img = ann['image_url']?? (images.isNotEmpty? images.first : null);
+    String status = 'active';
+    if(ann['status']!=null) status = ann['status'].toString();
+    int priceVal = 0;
+    if(ann['price']!=null) priceVal = (ann['price'] as num).toInt();
+    int discountVal = -1;
+    if(ann['discount_price']!=null) discountVal = (ann['discount_price'] as num).toInt();
+    bool hasDiscount = discountVal>=0 && discountVal < priceVal;
+    int displayPrice = hasDiscount? discountVal : priceVal;
+    String img = '';
+    if(ann['image_url']!=null) img = ann['image_url'].toString();
+    else if(ann['images']!=null && (ann['images'] as List).isNotEmpty) img = (ann['images'] as List).first.toString();
+    int views = 0;
+    if(ann['views']!=null) views = (ann['views'] as num).toInt();
+    String title = 'Sans titre';
+    if(ann['title']!=null) title = ann['title'].toString();
+    String id = '';
+    if(ann['id']!=null) id = ann['id'].toString();
     return Card(margin: const EdgeInsets.only(bottom: 12), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        ClipRRect(borderRadius: BorderRadius.circular(8), child: img==null? Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.image, color: Colors.grey)) : Image.network(img.toString(), width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (a,b,c)=> Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.image)))),
+        ClipRRect(borderRadius: BorderRadius.circular(8), child: img.isEmpty? Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.image, color: Colors.grey)) : Image.network(img, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (a,b,c)=> Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.image)))),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text((ann['title'] as String?)?? 'Sans titre', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+          Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
           const SizedBox(height: 4),
           Row(children: [
             Text('$displayPrice FCFA', style: const TextStyle(color: Color(0xFF1A73E8), fontWeight: FontWeight.bold)),
             if(hasDiscount) Padding(padding: const EdgeInsets.only(left: 6), child: Text('$priceVal FCFA', style: TextStyle(decoration: TextDecoration.lineThrough, fontSize: 12, color: Colors.grey.shade500))),
           ]),
           const SizedBox(height: 4),
-          Row(children: [
-            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: (statusColors[status]?? Colors.grey).withOpacity(0.1), borderRadius: BorderRadius.circular(4)), child: Text(status, style: TextStyle(color: statusColors[status], fontSize: 11))),
-            const SizedBox(width: 8),
-            Text('Vues: ${ann['views']??0}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-          ]),
+          Text('Vues: $views', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
         ])),
       ]),
       const Divider(height: 20),
       Row(children: [
-        Expanded(child: OutlinedButton.icon(onPressed: ()=> context.push('/market/announcement/${ann['id']}/edit'), icon: const Icon(Icons.edit, size: 18), label: const Text('Modifier'))),
+        Expanded(child: OutlinedButton.icon(onPressed: ()=> context.push('/market/announcement/$id/edit'), icon: const Icon(Icons.edit, size: 18), label: const Text('Modifier'))),
         const SizedBox(width: 8),
-        Expanded(child: OutlinedButton.icon(onPressed: ()=> _showBoost(ann['id'].toString()), icon: const Icon(Icons.trending_up, size: 18), label: const Text('Booster'))),
+        Expanded(child: OutlinedButton.icon(onPressed: ()=> _showBoost(id), icon: const Icon(Icons.trending_up, size: 18), label: const Text('Booster'))),
         const SizedBox(width: 8),
         Expanded(child: OutlinedButton.icon(onPressed: (){}, icon: const Icon(Icons.share, size: 18), label: const Text('Partager'))),
       ]),
@@ -139,10 +149,17 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
       error: (e,_ )=> Center(child: Text('Erreur $e')),
       data: (orders){
         if(orders.isEmpty) return const Center(child: Text('Aucune commande'));
-        final pending = orders.where((o)=> o['status']=='pending').toList();
-        final preparing = orders.where((o)=> o['status']=='preparing').toList();
-        final shipped = orders.where((o)=> o['status']=='shipped').toList();
-        final completed = orders.where((o)=> o['status']=='completed').toList();
+        List<Map<String,dynamic>> pending = [];
+        List<Map<String,dynamic>> preparing = [];
+        List<Map<String,dynamic>> shipped = [];
+        List<Map<String,dynamic>> completed = [];
+        for(final o in orders){
+          final s = o['status'].toString();
+          if(s=='pending') pending.add(o);
+          else if(s=='preparing') preparing.add(o);
+          else if(s=='shipped') shipped.add(o);
+          else if(s=='completed') completed.add(o);
+        }
         return DefaultTabController(length: 4, child: Column(children: [
           const TabBar(tabs: [Tab(text: 'À traiter'), Tab(text: 'Préparation'), Tab(text: 'Expédiées'), Tab(text: 'Terminées')], isScrollable: true, indicatorColor: Color(0xFF1A73E8), labelColor: Color(0xFF1A73E8), unselectedLabelColor: Colors.grey),
           Expanded(child: TabBarView(children: [_orderList(pending), _orderList(preparing), _orderList(shipped), _orderList(completed)])),
@@ -155,8 +172,13 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
     if(orders.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.inbox, size: 64, color: Colors.grey.shade300), const SizedBox(height: 12), Text('Aucune commande', style: TextStyle(color: Colors.grey.shade600))]));
     return ListView.builder(padding: const EdgeInsets.all(12), itemCount: orders.length, itemBuilder: (_,i){
       final o = orders[i];
-      final total = (o['total'] as num?)?.toInt()?? 0;
-      return Card(margin: const EdgeInsets.only(bottom: 12), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: ListTile(onTap: ()=> context.push('/market/order/${o['id']}'), title: Text('Commande #${o['id'].toString().substring(0,8)}', style: const TextStyle(fontWeight: FontWeight.w600)), subtitle: Text('$total FCFA'), trailing: Text((o['status'] as String?)?? '', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))));
+      int total = 0;
+      if(o['total']!=null) total = (o['total'] as num).toInt();
+      String sid = o['id'].toString();
+      String s = '';
+      if(o['status']!=null) s = o['status'].toString();
+      String shortId = sid.length>8? sid.substring(0,8) : sid;
+      return Card(margin: const EdgeInsets.only(bottom: 12), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: ListTile(onTap: ()=> context.push('/market/order/$sid'), title: Text('Commande #$shortId', style: const TextStyle(fontWeight: FontWeight.w600)), subtitle: Text('$total FCFA'), trailing: Text(s, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))));
     });
   }
 
@@ -166,20 +188,25 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
       loading: ()=> const Center(child: CircularProgressIndicator()),
       error: (e,_ )=> Center(child: Text('Erreur $e')),
       data: (stats){
-        final salesData = (stats['sales_data'] as List).map((e)=> (e['value'] as num).toDouble()).toList();
-        final labels = (stats['sales_data'] as List).map((e)=> (e['label'] as String)).toList();
+        final salesData = stats['sales_data'] as List;
+        List<double> vals = [];
+        List<String> labs = [];
+        for(final e in salesData){
+          vals.add((e['value'] as num).toDouble());
+          labs.add(e['label'].toString());
+        }
         return SingleChildScrollView(padding: const EdgeInsets.all(12), child: Column(children: [
           GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.1, children: [
-            _statCard('Ventes totales', '${stats['total_sales']}', Icons.trending_up, Colors.green),
-            _statCard('Chiffre', '${stats['revenue']} CDF', Icons.attach_money, const Color(0xFF1A73E8)),
-            _statCard('Vues', '${stats['total_views']}', Icons.visibility, Colors.purple),
+            _statCard('Ventes totales', stats['total_sales'].toString(), Icons.trending_up, Colors.green),
+            _statCard('Chiffre', '${stats['revenue']} FCFA', Icons.attach_money, const Color(0xFF1A73E8)),
+            _statCard('Vues', stats['total_views'].toString(), Icons.visibility, Colors.purple),
             _statCard('Conversion', '${(stats['conversion_rate'] as double).toStringAsFixed(1)}%', Icons.percent, Colors.orange),
           ]),
           const SizedBox(height: 16),
           Card(elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Ventes mensuelles', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            SizedBox(height: 200, child: LineChart(LineChartData(gridData: const FlGridData(show: false), titlesData: FlTitlesData(bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v,m){ final idx=v.toInt(); if(idx>=0 && idx<labels.length) return Text(labels[idx], style: const TextStyle(fontSize: 10)); return const Text(''); }, reservedSize: 24)), leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false))), lineBarsData: [LineChartBarData(spots: List.generate(salesData.length, (i)=> FlSpot(i.toDouble(), salesData[i])), isCurved: true, color: const Color(0xFF1A73E8), barWidth: 3, dotData: const FlDotData(show: false), belowBarData: BarAreaData(show: true, color: const Color(0xFF1A73E8).withOpacity(0.1)))]))),
+            SizedBox(height: 200, child: LineChart(LineChartData(gridData: const FlGridData(show: false), titlesData: FlTitlesData(bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v,m){ int idx=v.toInt(); if(idx>=0 && idx<labs.length) return Text(labs[idx], style: const TextStyle(fontSize: 10)); return const Text(''); }, reservedSize: 24)), leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false))), lineBarsData: [LineChartBarData(spots: List.generate(vals.length, (i)=> FlSpot(i.toDouble(), vals[i])), isCurved: true, color: const Color(0xFF1A73E8), barWidth: 3, dotData: const FlDotData(show: false), belowBarData: BarAreaData(show: true, color: const Color(0xFF1A73E8).withOpacity(0.1)))]))),
           ]))),
         ]));
       },
@@ -199,21 +226,31 @@ class _SellPageState extends ConsumerState<SellPage> with SingleTickerProviderSt
         if(lives.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.live_tv, size: 80, color: Colors.grey.shade300), const SizedBox(height: 16), const Text('Aucun live', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), const SizedBox(height: 8), Text('Créez votre premier live', style: TextStyle(color: Colors.grey.shade600)), const SizedBox(height: 24), ElevatedButton.icon(onPressed: ()=> context.push('/market/live/create'), icon: const Icon(Icons.videocam), label: const Text('Démarrer un live'), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A73E8)))]));
         return RefreshIndicator(onRefresh: _refresh, child: ListView.builder(padding: const EdgeInsets.all(12), itemCount: lives.length, itemBuilder: (_,i){
           final live = lives[i];
-          final isLive = live['status']=='live';
-          final thumb = live['thumbnail'] as String?;
+          String title = 'Live';
+          if(live['title']!=null) title = live['title'].toString();
+          String thumb = '';
+          if(live['thumbnail']!=null) thumb = live['thumbnail'].toString();
+          String status = '';
+          if(live['status']!=null) status = live['status'].toString();
+          bool isLive = status=='live';
+          String created = '';
+          if(live['created_at']!=null) created = live['created_at'].toString();
+          String dateStr = '';
+          try{ dateStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(created)); }catch(_){ dateStr = created; }
+          String id = live['id'].toString();
           return Card(margin: const EdgeInsets.only(bottom: 12), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: Padding(padding: const EdgeInsets.all(12), child: Row(children: [
-            ClipRRect(borderRadius: BorderRadius.circular(8), child: thumb==null? Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.live_tv, color: Colors.grey)) : Image.network(thumb, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (a,b,c)=> Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.live_tv))))),
+            ClipRRect(borderRadius: BorderRadius.circular(8), child: thumb.isEmpty? Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.live_tv, color: Colors.grey)) : Image.network(thumb, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (a,b,c)=> Container(width: 80, height: 80, color: Colors.grey.shade200, child: const Icon(Icons.live_tv))))),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [Expanded(child: Text((live['title'] as String?)?? 'Live', style: const TextStyle(fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis)), if(isLive) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(4)), child: const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))]),
+              Row(children: [Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis)), if(isLive) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(4)), child: const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))]),
               const SizedBox(height: 4),
-              Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.tryParse((live['created_at'] as String?)?? '')?? DateTime.now()), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+              Text(dateStr, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
               const SizedBox(height: 8),
               Row(children: [
-                if(isLive) Expanded(child: ElevatedButton.icon(onPressed: ()=> context.push('/market/live/${live['id']}'), icon: const Icon(Icons.visibility, size: 16), label: const Text('Voir', style: TextStyle(fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE53935), foregroundColor: Colors.white))),
-                if(!isLive) Expanded(child: OutlinedButton.icon(onPressed: ()=> context.push('/market/live/${live['id']}/replay'), icon: const Icon(Icons.replay, size: 16), label: const Text('Replay', style: TextStyle(fontSize: 12)))),
+                if(isLive) Expanded(child: ElevatedButton.icon(onPressed: ()=> context.push('/market/live/$id'), icon: const Icon(Icons.visibility, size: 16), label: const Text('Voir', style: TextStyle(fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE53935), foregroundColor: Colors.white))),
+                if(!isLive) Expanded(child: OutlinedButton.icon(onPressed: ()=> context.push('/market/live/$id/replay'), icon: const Icon(Icons.replay, size: 16), label: const Text('Replay', style: TextStyle(fontSize: 12)))),
                 const SizedBox(width: 8),
-                Expanded(child: OutlinedButton.icon(onPressed: ()=> context.push('/market/live/${live['id']}/stats'), icon: const Icon(Icons.bar_chart, size: 16), label: const Text('Stats', style: TextStyle(fontSize: 12)))),
+                Expanded(child: OutlinedButton.icon(onPressed: ()=> context.push('/market/live/$id/stats'), icon: const Icon(Icons.bar_chart, size: 16), label: const Text('Stats', style: TextStyle(fontSize: 12)))),
               ]),
             ])),
           ])));
