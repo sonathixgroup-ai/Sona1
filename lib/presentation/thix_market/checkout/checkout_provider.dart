@@ -1,370 +1,170 @@
-// lib/presentation/thix_market/checkout/checkout_provider.dart
-import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/market_providers.dart';
+import '../cart/cart_provider.dart';
 
-class CheckoutProvider extends ChangeNotifier {
-  final SupabaseClient _supabase = Supabase.instance.client;
+class CheckoutState {
+  final bool isLoading;
+  final bool isProcessing;
+  final String? error;
+  final String currentStep;
+  final List<Map<String,dynamic>> savedAddresses;
+  final Map<String,dynamic>? selectedAddress;
+  final Map<String,dynamic>? selectedShipping;
+  final Map<String,dynamic>? selectedPayment;
+  final Map<String,dynamic> userInfo;
+  final Map<String,dynamic>? createdOrder;
+  const CheckoutState({this.isLoading=false, this.isProcessing=false, this.error, this.currentStep='address', this.savedAddresses=const [], this.selectedAddress, this.selectedShipping, this.selectedPayment, this.userInfo=const {}, this.createdOrder});
+  CheckoutState copyWith({bool? isLoading, bool? isProcessing, String? error, String? currentStep, List<Map<String,dynamic>>? savedAddresses, Map<String,dynamic>? selectedAddress, Map<String,dynamic>? selectedShipping, Map<String,dynamic>? selectedPayment, Map<String,dynamic>? userInfo, Map<String,dynamic>? createdOrder})=> CheckoutState(isLoading: isLoading??this.isLoading, isProcessing: isProcessing??this.isProcessing, error: error, currentStep: currentStep??this.currentStep, savedAddresses: savedAddresses??this.savedAddresses, selectedAddress: selectedAddress??this.selectedAddress, selectedShipping: selectedShipping??this.selectedShipping, selectedPayment: selectedPayment??this.selectedPayment, userInfo: userInfo??this.userInfo, createdOrder: createdOrder??this.createdOrder);
+}
 
-  bool _isLoading = false;
-  bool _isProcessing = false;
-  String? _errorMessage;
-  String _currentStep = 'address';
-  
-  List<Map<String, dynamic>> _savedAddresses = [];
-  Map<String, dynamic>? _selectedAddress;
-  Map<String, dynamic>? _selectedShippingMethod;
-  Map<String, dynamic>? _selectedPaymentMethod;
-  Map<String, dynamic> _userInfo = {};
-  Map<String, dynamic>? _createdOrder;
+class CheckoutNotifier extends StateNotifier<CheckoutState> {
+  CheckoutNotifier(this.ref): super(const CheckoutState());
+  final Ref ref;
   String? _paymentIntentId;
   String? _paymentUrl;
 
-  // Getters
-  bool get isLoading => _isLoading;
-  bool get isProcessing => _isProcessing;
-  String? get errorMessage => _errorMessage;
-  String get currentStep => _currentStep;
-  List<Map<String, dynamic>> get savedAddresses => _savedAddresses;
-  Map<String, dynamic>? get selectedAddress => _selectedAddress;
-  Map<String, dynamic>? get selectedShippingMethod => _selectedShippingMethod;
-  Map<String, dynamic>? get selectedPaymentMethod => _selectedPaymentMethod;
-  Map<String, dynamic> get userInfo => _userInfo;
-  Map<String, dynamic>? get createdOrder => _createdOrder;
-
-  // ─── CHARGEMENT DES DONNÉES ───
   Future<void> loadCheckoutData() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) {
-      _errorMessage = "Utilisateur non connecté.";
-      notifyListeners();
-      return;
-    }
-
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      await Future.wait([
-        _loadSavedAddresses(userId),
-        _loadUserInfo(userId),
-      ]);
-      if (_selectedAddress == null && _savedAddresses.isNotEmpty) {
-        _selectedAddress = _savedAddresses.first;
+    final db = ref.read(supabaseClientProvider);
+    final userId = db.auth.currentUser?.id;
+    if(userId==null){ state = state.copyWith(error: 'Non connecté'); return; }
+    state = state.copyWith(isLoading: true, error: null);
+    try{
+      final results = await Future.wait([_loadAddresses(userId), _loadUserInfo(userId)]);
+      List<Map<String,dynamic>> addresses = results[0] as List<Map<String,dynamic>>;
+      Map<String,dynamic> userInfo = results[1] as Map<String,dynamic>;
+      Map<String,dynamic>? selAddr = state.selectedAddress;
+      if(selAddr==null && addresses.isNotEmpty) selAddr = addresses.first;
+      if(userInfo['default_address_id']!=null){
+        try{ selAddr = addresses.firstWhere((a)=> a['id'].toString()==userInfo['default_address_id'].toString()); }catch(_){}
       }
-      _currentStep = 'address';
-    } catch (e) {
-      debugPrint('❌ Erreur chargement checkout: $e');
-      _errorMessage = "Erreur de chargement des données. Veuillez réessayer.";
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+      state = state.copyWith(isLoading: false, savedAddresses: addresses, userInfo: userInfo, selectedAddress: selAddr, currentStep: 'address');
+    }catch(e){ debugPrint('checkout load $e'); state = state.copyWith(isLoading: false, error: 'Erreur chargement'); }
   }
 
-  Future<void> _loadUserInfo(String userId) async {
-    try {
-      final response = await _supabase
-          .from('users')
-          .select('id, full_name, email, phone, default_address_id')
-          .eq('id', userId)
-          .maybeSingle();
+  Future<List<Map<String,dynamic>>> _loadAddresses(String userId) async {
+    try{ final db = ref.read(supabaseClientProvider); final res = await db.from('addresses').select().eq('user_id', userId).order('is_default', ascending: false); return List<Map<String,dynamic>>.from(res); }catch(_){ return []; }
+  }
+  Future<Map<String,dynamic>> _loadUserInfo(String userId) async {
+    final db = ref.read(supabaseClientProvider);
+    try{
+      final r = await db.from('users').select('id, full_name, email, phone, default_address_id').eq('id', userId).maybeSingle();
+      if(r!=null) return r;
+    }catch(_){}
+    try{
+      final r = await db.from('users').select('id, name, email, phone, default_address_id').eq('id', userId).maybeSingle();
+      if(r!=null){ if(r['name']!=null && r['full_name']==null) r['full_name']=r['name']; return r; }
+    }catch(_){}
+    try{
+      final r = await db.from('users').select('id, email, phone, default_address_id').eq('id', userId).maybeSingle();
+      if(r!=null){ r['full_name']='Utilisateur'; return r; }
+    }catch(_){}
+    return {'id': userId, 'full_name': 'Utilisateur'};
+  }
 
-      if (response != null) {
-        _userInfo = response;
-      } else {
-        try {
-          final fallbackResponse = await _supabase
-              .from('users')
-              .select('id, name, email, phone, default_address_id')
-              .eq('id', userId)
-              .maybeSingle();
-          if (fallbackResponse != null) {
-            _userInfo = fallbackResponse;
-            if (_userInfo['name'] != null && _userInfo['full_name'] == null) {
-              _userInfo['full_name'] = _userInfo['name'];
-            }
-          }
-        } catch (_) {
-          final minimalResponse = await _supabase
-              .from('users')
-              .select('id, email, phone, default_address_id')
-              .eq('id', userId)
-              .maybeSingle();
-          if (minimalResponse != null) {
-            _userInfo = minimalResponse;
-            _userInfo['full_name'] = 'Utilisateur';
-          }
-        }
+  void selectAddress(Map<String,dynamic> address){ state = state.copyWith(selectedAddress: address, currentStep: 'shipping'); }
+  Future<void> addAddress(Map<String,dynamic> newAddress) async {
+    final db = ref.read(supabaseClientProvider);
+    final uid = db.auth.currentUser?.id;
+    if(uid==null) return;
+    state = state.copyWith(isLoading: true);
+    try{
+      final res = await db.from('addresses').insert({...newAddress, 'user_id': uid}).select().single();
+      state = state.copyWith(savedAddresses: [res,...state.savedAddresses], selectedAddress: res, isLoading: false);
+    }catch(_){ state = state.copyWith(isLoading: false); }
+  }
+  void selectShippingMethod(Map<String,dynamic> method){ state = state.copyWith(selectedShipping: method, currentStep: 'payment'); }
+  void selectPaymentMethod(Map<String,dynamic> method){ state = state.copyWith(selectedPayment: method, currentStep: 'confirmation'); }
+
+  Future<Map<String,dynamic>> processOrder({required double total, required List<Map<String,dynamic>> items}) async {
+    final db = ref.read(supabaseClientProvider);
+    final userId = db.auth.currentUser?.id;
+    if(userId==null) throw Exception('Non connecté');
+    if(state.selectedAddress==null) throw Exception('Adresse requise');
+    if(state.selectedShipping==null) throw Exception('Mode livraison requis');
+    if(state.selectedPayment==null) throw Exception('Paiement requis');
+    if(items.isEmpty) throw Exception('Panier vide');
+    state = state.copyWith(isProcessing: true);
+    Map<String,dynamic>? createdOrder;
+    try{
+      String? shopId;
+      if(items.isNotEmpty){
+        final first = items.first;
+        if(first['product'] is Map && (first['product'] as Map)['shop_id']!=null) shopId = (first['product'] as Map)['shop_id'].toString();
+        else if(first['shop_id']!=null) shopId = first['shop_id'].toString();
       }
-
-      if (_userInfo['default_address_id'] != null) {
-        _selectedAddress = _savedAddresses.firstWhere(
-          (a) => a['id'] == _userInfo['default_address_id'],
-          orElse: () => <String, dynamic>{},
-        );
-      }
-    } catch (e) {
-      debugPrint('⚠️ Erreur chargement user info: $e');
-      _userInfo = {
-        'id': userId,
-        'full_name': 'Utilisateur',
-        'email': '',
-        'phone': '',
-      };
-    }
-  }
-
-  Future<void> _loadSavedAddresses(String userId) async {
-    try {
-      final response = await _supabase
-          .from('addresses')
-          .select()
-          .eq('user_id', userId)
-          .order('is_default', ascending: false);
-      _savedAddresses = List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      debugPrint('⚠️ Erreur chargement adresses: $e');
-      _savedAddresses = [];
-    }
-  }
-
-  // ─── SÉLECTION D'ADRESSE ───
-  void selectAddress(Map<String, dynamic> address) {
-    _selectedAddress = address;
-    _currentStep = 'shipping';
-    notifyListeners();
-  }
-
-  // ─── AJOUT D'ADRESSE ───
-  Future<void> addAddress(Map<String, dynamic> newAddress) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-    _isLoading = true;
-    notifyListeners();
-    try {
-      final response = await _supabase
-          .from('addresses')
-          .insert({
-            ...newAddress,
-            'user_id': userId,
-            'created_at': DateTime.now().toIso8601String(),
-          })
-          .select()
-          .single();
-      _savedAddresses.insert(0, response);
-      _selectedAddress = response;
-      notifyListeners();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // ─── SÉLECTION DU MODE DE LIVRAISON ───
-  void selectShippingMethod(Map<String, dynamic> method) {
-    _selectedShippingMethod = method;
-    _currentStep = 'payment';
-    notifyListeners();
-  }
-
-  // ─── SÉLECTION DU MOYEN DE PAIEMENT ───
-  void selectPaymentMethod(Map<String, dynamic> method) {
-    _selectedPaymentMethod = method;
-    _currentStep = 'confirmation';
-    notifyListeners();
-  }
-
-  // ─── TRAITEMENT DE LA COMMANDE (Corrigé avec shop_id) ───
-  Future<Map<String, dynamic>> processOrder({
-    required CartProvider cartProvider,
-    required double total,
-    required List<Map<String, dynamic>> items,
-  }) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('Non connecté');
-    if (_selectedAddress == null) throw Exception('Adresse requise');
-    if (_selectedShippingMethod == null) throw Exception('Mode de livraison requis');
-    if (_selectedPaymentMethod == null) throw Exception('Moyen de paiement requis');
-    if (items.isEmpty) throw Exception('Le panier est vide');
-
-    _isProcessing = true;
-    notifyListeners();
-
-    try {
-      // 🌟 ÉTAPE CLÉ : Récupération dynamique du shop_id depuis les articles du panier
-      final String? shopId = items.first['product']?['shop_id'] ?? items.first['shop_id']?.toString();
-
-      // 1. Création de la commande mère avec shop_id connecté
       final orderData = {
         'user_id': userId,
-        'shop_id': shopId, // 👈 Lien direct avec la boutique du vendeur !
-        'address_id': _selectedAddress!['id'],
-        'shipping_method': _selectedShippingMethod!['id'],
-        'shipping_cost': _selectedShippingMethod!['price'] ?? 0.0,
+        'shop_id': shopId,
+        'address_id': state.selectedAddress!['id'],
+        'shipping_method': state.selectedShipping!['id'],
+        'shipping_cost': state.selectedShipping!['price']??0.0,
         'total': total,
         'status': 'pending',
         'payment_status': 'pending',
         'created_at': DateTime.now().toIso8601String(),
       };
-      
-      final orderResponse = await _supabase
-          .from('orders')
-          .insert(orderData)
-          .select()
-          .single();
-      _createdOrder = orderResponse;
-
-      // 2. Insertion des articles de la commande (Items)
-      for (var item in items) {
-        final productTitle = item['product_name'] ?? item['product']?['title'] ?? 'Produit inconnu';
-        
-        await _supabase.from('order_items').insert({
-          'order_id': _createdOrder!['id'],
-          'product_id': item['product_id'] ?? item['product']?['id'],
+      final orderRes = await db.from('orders').insert(orderData).select().single();
+      createdOrder = orderRes;
+      for(var item in items){
+        String prodTitle = 'Produit';
+        if(item['product_name']!=null) prodTitle = item['product_name'].toString();
+        else if(item['product'] is Map && (item['product'] as Map)['title']!=null) prodTitle = (item['product'] as Map)['title'].toString();
+        await db.from('order_items').insert({
+          'order_id': createdOrder['id'],
+          'product_id': item['product_id']?? (item['product'] is Map? (item['product'] as Map)['id'] : null),
           'quantity': item['quantity'],
-          'price': item['price'] ?? item['product']?['price'] ?? 0.0,
-          'product_name': productTitle,
-          'product_image': item['image_url'] ?? item['product']?['image_url'],
-          'title_snapshot': productTitle,
+          'price': item['price']?? (item['product'] is Map? (item['product'] as Map)['price'] : 0),
+          'product_name': prodTitle,
+          'product_image': item['image_url']?? (item['product'] is Map? (item['product'] as Map)['image_url'] : null),
+          'title_snapshot': prodTitle,
         });
       }
-
-      // 3. Processus de Paiement
-      final paymentResult = await _processPayment(total);
-
-      if (paymentResult['success'] == true) {
-        final isCash = _selectedPaymentMethod!['id'] == 'cash';
-        
-        await _supabase
-            .from('orders')
-            .update({
-              'payment_status': isCash ? 'pending_delivery' : 'paid',
-              'status': 'processing',
-              'paid_at': isCash ? null : DateTime.now().toIso8601String(),
-            })
-            .eq('id', _createdOrder!['id']);
-
-        // 4. Nettoyage du panier après succès
-        await cartProvider.clearCart();
-
-        // 5. Récupération de la commande à jour pour l'affichage final
-        final updatedOrder = await _supabase
-            .from('orders')
-            .select()
-            .eq('id', _createdOrder!['id'])
-            .single();
-        _createdOrder = updatedOrder;
-        
-        return _createdOrder!;
-      } else {
-        throw Exception(paymentResult['error'] ?? 'Paiement échoué');
-      }
-    } catch (e) {
-      debugPrint('❌ Checkout error: $e');
-      // Rollback en cas d'échec
-      if (_createdOrder != null) {
-        try {
-          await _supabase
-              .from('orders')
-              .delete()
-              .eq('id', _createdOrder!['id']);
-        } catch (_) {}
-        _createdOrder = null;
-      }
+      final payResult = await _processPayment(total, createdOrder['id'].toString());
+      if(payResult['success']==true){
+        bool isCash = state.selectedPayment!['id']=='cash';
+        await db.from('orders').update({'payment_status': isCash? 'pending_delivery' : 'paid', 'status': 'processing', 'paid_at': isCash? null : DateTime.now().toIso8601String()}).eq('id', createdOrder['id']);
+        await ref.read(cartProvider.notifier).clearCart();
+        final updated = await db.from('orders').select().eq('id', createdOrder['id']).single();
+        state = state.copyWith(createdOrder: updated, isProcessing: false);
+        return updated;
+      } else { throw Exception(payResult['error']??'Paiement échoué'); }
+    }catch(e){
+      debugPrint('checkout error $e');
+      if(createdOrder!=null){ try{ final db = ref.read(supabaseClientProvider); await db.from('orders').delete().eq('id', createdOrder['id']); }catch(_){} }
+      state = state.copyWith(isProcessing: false);
       rethrow;
-    } finally {
-      _isProcessing = false;
-      notifyListeners();
     }
   }
 
-  // ─── TRAITEMENT DU PAIEMENT ───
-  Future<Map<String, dynamic>> _processPayment(double amount) async {
-    final method = _selectedPaymentMethod!['id'];
-
-    switch (method) {
-      case 'cash':
-        return {'success': true, 'message': 'Paiement à la livraison enregistré.'};
-
+  Future<Map<String,dynamic>> _processPayment(double amount, String orderId) async {
+    final db = ref.read(supabaseClientProvider);
+    final method = state.selectedPayment!['id'];
+    switch(method){
+      case 'cash': return {'success': true};
       case 'card':
-        try {
-          final response = await _supabase.functions.invoke(
-            'create-payment-intent',
-            body: {
-              'amount': amount,
-              'currency': 'CDF',
-              'order_id': _createdOrder!['id'],
-            },
-          );
-          _paymentIntentId = response.data['payment_intent_id'];
+        try{
+          final res = await db.functions.invoke('create-payment-intent', body: {'amount': amount, 'currency': 'CDF', 'order_id': orderId});
+          _paymentIntentId = res.data['payment_intent_id'];
           return {'success': true, 'payment_intent_id': _paymentIntentId};
-        } catch (e) {
-          return {'success': false, 'error': 'Erreur serveur carte: ${e.toString()}'};
-        }
-
+        }catch(e){ return {'success': false, 'error': 'Erreur carte: $e'}; }
       case 'mobile_money':
-        try {
-          final response = await _supabase.functions.invoke(
-            'mobile-money-payment',
-            body: {
-              'amount': amount,
-              'phone': _userInfo['phone'] ?? '',
-              'order_id': _createdOrder!['id'],
-            },
-          );
-          _paymentUrl = response.data['payment_url'];
+        try{
+          final res = await db.functions.invoke('mobile-money-payment', body: {'amount': amount, 'phone': state.userInfo['phone']??'', 'order_id': orderId});
+          _paymentUrl = res.data['payment_url'];
           return {'success': true, 'payment_url': _paymentUrl};
-        } catch (e) {
-          return {'success': false, 'error': 'Erreur serveur Mobile Money: ${e.toString()}'};
-        }
-
+        }catch(e){ return {'success': false, 'error': 'Erreur Mobile Money: $e'}; }
       case 'thix_money':
-        try {
-          final result = await _supabase.rpc(
-            'deduct_wallet_balance',
-            params: {
-              'user_id': _supabase.auth.currentUser!.id,
-              'amount': amount,
-            },
-          );
-          if (result == true) {
-            return {'success': true};
-          } else {
-            return {'success': false, 'error': 'Solde THIX Money insuffisant.'};
-          }
-        } catch (e) {
-          return {'success': false, 'error': 'Erreur THIX Money: ${e.toString()}'};
-        }
-
-      default:
-        return {'success': false, 'error': 'Méthode de paiement non supportée.'};
+        try{
+          final result = await db.rpc('deduct_wallet_balance', params: {'user_id': db.auth.currentUser!.id, 'amount': amount});
+          if(result==true) return {'success': true};
+          return {'success': false, 'error': 'Solde insuffisant'};
+        }catch(e){ return {'success': false, 'error': 'Erreur THIX Money: $e'}; }
+      default: return {'success': false, 'error': 'Méthode non supportée'};
     }
   }
 
-  // ─── RÉINITIALISATION ───
-  void reset() {
-    _currentStep = 'address';
-    _selectedAddress = null;
-    _selectedShippingMethod = null;
-    _selectedPaymentMethod = null;
-    _createdOrder = null;
-    _paymentIntentId = null;
-    _paymentUrl = null;
-    _savedAddresses = [];
-    _userInfo = {};
-    _errorMessage = null;
-    notifyListeners();
-  }
-
-  void setState(VoidCallback fn) {
-    fn();
-    notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
+  void reset(){ state = const CheckoutState(); }
 }
+
+final checkoutProvider = StateNotifierProvider<CheckoutNotifier, CheckoutState>((ref)=> CheckoutNotifier(ref));
