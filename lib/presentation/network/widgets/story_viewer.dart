@@ -66,7 +66,7 @@ class _StoryViewerState extends State<StoryViewer> {
         ],
       ),
     );
-    if (confirm!= true) return;
+    if (confirm != true) return;
     try {
       final supabase = Supabase.instance.client;
       await supabase.from('stories').delete().eq('id', storyId);
@@ -108,22 +108,34 @@ class _StoryViewerState extends State<StoryViewer> {
           itemCount: widget.stories.length,
           itemBuilder: (context, index) {
             final s = widget.stories[index];
-            final safeUrl = s.imageUrl?? '';
-            final storyText = s.textContent?? '';
+            
+            // 🔴 CORRECTION ICI : On essaie mediaUrl en priorité, puis imageUrl
+            // Si ton modèle utilise une autre propriété, vérifie le nom exact dans network_story.dart
+            String safeUrl = '';
+            try { safeUrl = (s as dynamic).mediaUrl ?? (s as dynamic).imageUrl ?? ''; } catch (_) { }
+
+            final storyText = s.textContent ?? '';
             final isMyStory = s.userId == currentUserId;
+            
             return Stack(
               children: [
                 Positioned.fill(
                   child: safeUrl.isNotEmpty
-                   ? Image.network(safeUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, color: Colors.white54, size: 50)))
-                    : Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF1B3B7A), Color(0xFF0B1B3D)]))),
+                   // 🔴 CORRECTION ICI : Ajout du loadingBuilder pour voir que l'image charge
+                   ? Image.network(
+                       safeUrl, 
+                       fit: BoxFit.cover,
+                       loadingBuilder: (_, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator(color: Colors.white)),
+                       errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, color: Colors.white54, size: 50))
+                     )
+                   : Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF1B3B7A), Color(0xFF0B1B3D)]))),
                 ),
                 if (storyText.isNotEmpty)
                   Center(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 24), child: Text(storyText, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600)))),
                 Positioned(
                   top: 0, left: 0, right: 0,
                   child: SafeArea(child: Padding(padding: const EdgeInsets.all(6), child: Row(children: List.generate(widget.stories.length, (i) {
-                    return Expanded(child: Container(margin: const EdgeInsets.symmetric(horizontal: 2), height: 3, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)), child: Align(alignment: Alignment.centerLeft, child: FractionallySizedBox(widthFactor: i == _currentIndex? _progress : (i < _currentIndex? 1.0 : 0.0), child: Container(color: Colors.white)))));
+                    return Expanded(child: Container(margin: const EdgeInsets.symmetric(horizontal: 2), height: 3, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)), child: Align(alignment: Alignment.centerLeft, child: FractionallySizedBox(widthFactor: i == _currentIndex ? _progress : (i < _currentIndex ? 1.0 : 0.0), child: Container(color: Colors.white)))));
                   })))),
                 ),
                 Positioned(
