@@ -1,214 +1,137 @@
-import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'market_providers.dart';
 
-class ShopProvider extends ChangeNotifier {
-  final SupabaseClient _supabase = Supabase.instance.client;
+// ================= MY SHOPS =================
+class MyShopsNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
+  @override Future<List<Map<String, dynamic>>> build() async => _load();
 
-  List<Map<String, dynamic>> _myShops = [];
-  List<Map<String, dynamic>> _followedShops = [];
-  Map<String, dynamic>? _currentShop;
-  bool _isLoading = false;
-  bool _isLoadingFollowed = false;
+  Future<List<Map<String, dynamic>>> _load() async {
+    final db = ref.read(supabaseClientProvider);
+    final uid = db.auth.currentUser?.id;
+    if (uid == null) return [];
+    final res = await db.from('shops').select().eq('owner_id', uid).order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(res);
+  }
 
-  // Getters
-  List<Map<String, dynamic>> get myShops => _myShops;
-  List<Map<String, dynamic>> get followedShops => _followedShops;
-  Map<String, dynamic>? get currentShop => _currentShop;
-  bool get isLoading => _isLoading;
-  bool get isLoadingFollowed => _isLoadingFollowed;
-
-  // ✅ Utiles pour MarketHomePage
-  bool get hasShop => _myShops.isNotEmpty;
-  String? get myShopId => _myShops.isNotEmpty ? _myShops.first['id'] : null;
-
-  // ============================================================
-  // CHARGEMENT DES BOUTIQUES
-  // ============================================================
-
-  Future<void> loadMyShops() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-
-    _setLoading(true);
+  Future<void> create(Map<String, dynamic> data) async {
+    final db = ref.read(supabaseClientProvider);
+    final uid = db.auth.currentUser?.id;
+    if (uid == null) return;
+    final cur = state.valueOrNull ?? [];
     try {
-      final response = await _supabase
-          .from('shops')
-          .select()
-          .eq('owner_id', userId)
-          .order('created_at', ascending: false);
-      _myShops = List<Map<String, dynamic>>.from(response);
+      final res = await db.from('shops').insert({...data, 'owner_id': uid, 'status': 'pending'}).select().single();
+      state = AsyncData([res, ...cur]);
     } catch (e) {
-      debugPrint('Error loading my shops: $e');
-    } finally {
-      _setLoading(false);
+      debugPrint('createShop $e');
+      rethrow;
     }
   }
 
-  Future<void> loadFollowedShops() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-
-    _setLoadingFollowed(true);
+  Future<void> update(String shopId, Map<String, dynamic> updates) async {
+    final db = ref.read(supabaseClientProvider);
+    final cur = state.valueOrNull ?? [];
     try {
-      final response = await _supabase
-          .from('shop_followers')
-          .select('shop:shops(*)')
-          .eq('user_id', userId);
-      _followedShops = response.map((e) => Map<String, dynamic>.from(e['shop'])).toList();
+      final res = await db.from('shops').update({...updates, 'updated_at': DateTime.now().toIso8601String()}).eq('id', shopId).select().single();
+      state = AsyncData(cur.map((s) => s['id'] == shopId ? res : s).toList());
+      // aussi mettre à jour le detail si ouvert
+      ref.read(currentShopProvider.notifier).patchIfSameShop(res);
     } catch (e) {
-      debugPrint('Error loading followed shops: $e');
-    } finally {
-      _setLoadingFollowed(false);
+      debugPrint('updateShop $e');
+      rethrow;
     }
   }
 
-  // ============================================================
-  // DÉTAIL D'UNE BOUTIQUE (avec produits et statut de suivi)
-  // ============================================================
+  bool get hasShop => (state.valueOrNull?.isNotEmpty ?? false);
+  String? get myShopId => state.valueOrNull?.isNotEmpty == true ? state.valueOrNull!.first['id'] as String? : null;
 
-  Future<void> loadShopDetails(String shopId) async {
-    _setLoading(true);
+  Future<void> refresh() async => ref.invalidateSelf();
+}
+
+final myShopsProvider = AsyncNotifierProvider<MyShopsNotifier, List<Map<String, dynamic>>>(MyShopsNotifier.new);
+final hasShopProvider = Provider<bool>((ref) => ref.watch(myShopsProvider).valueOrNull?.isNotEmpty ?? false);
+final myShopIdProvider = Provider<String?>((ref) {
+  final list = ref.watch(myShopsProvider).valueOrNull;
+  if (list == null || list.isEmpty) return null;
+  return list.first['id'] as String?;
+});
+
+// ================= FOLLOWED SHOPS =================
+class FollowedShopsNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
+  @override Future<List<Map<String, dynamic>>> build() async {
+    final db = ref.read(supabaseClientProvider);
+    final uid = db.auth.currentUser?.id;
+    if (uid == null) return [];
+    final res = await db.from('shop_followers').select('shop:shops(*)').eq('user_id', uid);
+    return res.map((e) => Map<String, dynamic>.from(e['shop'] as Map)).toList();
+  }
+
+  Future<void> refresh() async => ref.invalidateSelf();
+}
+
+final followedShopsProvider = AsyncNotifierProvider<FollowedShopsNotifier, List<Map<String, dynamic>>>(FollowedShopsNotifier.new);
+
+// ================= CURRENT SHOP DETAIL =================
+class CurrentShopNotifier extends AsyncNotifier<Map<String, dynamic>?> {
+  String? _currentId;
+  @override Future<Map<String, dynamic>?> build() async => null;
+
+  Future<void> load(String shopId) async {
+    _currentId = shopId;
+    state = const AsyncLoading();
     try {
-      final userId = _supabase.auth.currentUser?.id;
+      final db = ref.read(supabaseClientProvider);
+      final uid = db.auth.currentUser?.id;
 
-      // 1. Récupérer la boutique et ses produits
-      final response = await _supabase
-          .from('shops')
-          .select('''
-            *,
-            products:products(*)
-          ''')
-          .eq('id', shopId)
-          .single();
+      final shop = await db.from('shops').select('*, products:products(*)').eq('id', shopId).single();
 
-      // 2. Vérifier si l'utilisateur suit cette boutique
       bool isFollowed = false;
-      if (userId != null) {
-        final followCheck = await _supabase
-            .from('shop_followers')
-            .select('id')
-            .match({'user_id': userId, 'shop_id': shopId})
-            .maybeSingle();
-        isFollowed = followCheck != null;
+      if (uid != null) {
+        final check = await db.from('shop_followers').select('id').match({'user_id': uid, 'shop_id': shopId}).maybeSingle();
+        isFollowed = check != null;
       }
-      response['is_followed'] = isFollowed;
-
-      _currentShop = response;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error loading shop details: $e');
-    } finally {
-      _setLoading(false);
+      shop['is_followed'] = isFollowed;
+      state = AsyncData(shop);
+    } catch (e, st) {
+      debugPrint('loadShopDetails $e');
+      state = AsyncValue.error(e, st);
     }
   }
 
-  // ============================================================
-  // SUIVRE / NE PLUS SUIVRE
-  // ============================================================
+  void patchIfSameShop(Map<String, dynamic> updated) {
+    final cur = state.valueOrNull;
+    if (cur != null && cur['id'] == updated['id']) {
+      state = AsyncData({...cur, ...updated});
+    }
+  }
 
-  Future<void> toggleFollowShop(String shopId) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
+  Future<void> toggleFollow(String shopId) async {
+    final db = ref.read(supabaseClientProvider);
+    final uid = db.auth.currentUser?.id;
+    if (uid == null) return;
+    final cur = state.valueOrNull;
+    final wasFollowed = cur?['is_followed'] == true;
+
+    // optimistic
+    if (cur != null && cur['id'] == shopId) {
+      state = AsyncData({...cur, 'is_followed': !wasFollowed});
+    }
 
     try {
-      final existing = await _supabase
-          .from('shop_followers')
-          .select()
-          .match({'user_id': userId, 'shop_id': shopId})
-          .maybeSingle();
-
+      final existing = await db.from('shop_followers').select().match({'user_id': uid, 'shop_id': shopId}).maybeSingle();
       if (existing != null) {
-        // Désabonner
-        await _supabase
-            .from('shop_followers')
-            .delete()
-            .match({'user_id': userId, 'shop_id': shopId});
-        await _supabase.rpc('decrement_shop_followers', params: {'shop_id': shopId});
-        // Mettre à jour le statut dans _currentShop
-        if (_currentShop != null && _currentShop!['id'] == shopId) {
-          _currentShop!['is_followed'] = false;
-          notifyListeners();
-        }
+        await db.from('shop_followers').delete().match({'user_id': uid, 'shop_id': shopId});
+        try { await db.rpc('decrement_shop_followers', params: {'shop_id': shopId}); } catch (_) {}
       } else {
-        // S'abonner
-        await _supabase
-            .from('shop_followers')
-            .insert({
-              'user_id': userId,
-              'shop_id': shopId,
-              'created_at': DateTime.now().toIso8601String(),
-            });
-        await _supabase.rpc('increment_shop_followers', params: {'shop_id': shopId});
-        if (_currentShop != null && _currentShop!['id'] == shopId) {
-          _currentShop!['is_followed'] = true;
-          notifyListeners();
-        }
+        await db.from('shop_followers').insert({'user_id': uid, 'shop_id': shopId});
+        try { await db.rpc('increment_shop_followers', params: {'shop_id': shopId}); } catch (_) {}
       }
-      await loadFollowedShops();
+      ref.invalidate(followedShopsProvider);
     } catch (e) {
-      debugPrint('Error toggling follow: $e');
+      debugPrint('toggleFollow $e');
+      if (cur != null) state = AsyncData(cur);
     }
-  }
-
-  // ============================================================
-  // CRÉER / METTRE À JOUR UNE BOUTIQUE
-  // ============================================================
-
-  Future<void> createShop(Map<String, dynamic> shopData) async {
-    _setLoading(true);
-    try {
-      final response = await _supabase
-          .from('shops')
-          .insert({
-            ...shopData,
-            'owner_id': _supabase.auth.currentUser!.id,
-            'created_at': DateTime.now().toIso8601String(),
-            'status': 'pending',
-          })
-          .select()
-          .single();
-      _myShops.insert(0, response);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error creating shop: $e');
-      rethrow;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<void> updateShop(String shopId, Map<String, dynamic> updates) async {
-    _setLoading(true);
-    try {
-      final response = await _supabase
-          .from('shops')
-          .update({...updates, 'updated_at': DateTime.now().toIso8601String()})
-          .eq('id', shopId)
-          .select()
-          .single();
-      final index = _myShops.indexWhere((s) => s['id'] == shopId);
-      if (index != -1) _myShops[index] = response;
-      if (_currentShop?['id'] == shopId) _currentShop = response;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error updating shop: $e');
-      rethrow;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // ============================================================
-  // UTILITAIRES
-  // ============================================================
-
-  void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
-  }
-
-  void _setLoadingFollowed(bool loading) {
-    _isLoadingFollowed = loading;
-    notifyListeners();
   }
 }
+
+final currentShopProvider = AsyncNotifierProvider<CurrentShopNotifier, Map<String, dynamic>?>(CurrentShopNotifier.new);
