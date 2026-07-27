@@ -6,11 +6,16 @@ final feedProvider = AsyncNotifierProvider<Feed, List<NetworkPost>>(Feed.new);
 
 class Feed extends AsyncNotifier<List<NetworkPost>> {
   String _currentType = 'recent';
+  bool _hasMore = true;
+  bool get hasMore => _hasMore;
 
   @override
   Future<List<NetworkPost>> build() async {
+    _hasMore = true;
     final service = ref.read(networkServiceProvider);
-    return await service.getFeedPosts(feedType: 'recent', limit: 20, offset: 0);
+    final posts = await service.getFeedPosts(feedType: 'recent', limit: 20, offset: 0);
+    _hasMore = posts.length >= 20;
+    return posts;
   }
 
   Future<void> loadFeed({String? feedType, bool force = false}) async {
@@ -18,7 +23,9 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final service = ref.read(networkServiceProvider);
-      return await service.getFeedPosts(feedType: _currentType, limit: 30, offset: 0);
+      final posts = await service.getFeedPosts(feedType: _currentType, limit: 30, offset: 0);
+      _hasMore = posts.length >= 30;
+      return posts;
     });
   }
 
@@ -28,20 +35,18 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
   }
 
   Future<void> loadMore() async {
+    if (!_hasMore) return;
     final current = state.valueOrNull?? [];
     final service = ref.read(networkServiceProvider);
     final more = await service.getFeedPosts(feedType: _currentType, limit: 20, offset: current.length);
+    _hasMore = more.length >= 20;
     state = AsyncData([...current,...more]);
   }
 
   Future<void> deletePost(String postId) async {
     final current = state.valueOrNull?? [];
     state = AsyncData(current.where((p) => p.id!= postId).toList());
-    try {
-      await ref.read(networkServiceProvider).deletePost(postId);
-    } catch (_) {
-      state = AsyncData(current);
-    }
+    try { await ref.read(networkServiceProvider).deletePost(postId); } catch (_) { state = AsyncData(current); }
   }
 
   Future<void> toggleLike(String postId) async {
@@ -53,19 +58,12 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
     final count = (old as dynamic).likesCount?? 0;
     try {
       final updated = (old as dynamic).copyWith(isLiked:!wasLiked, likesCount: wasLiked? count - 1 : count + 1) as NetworkPost;
-      final list = [...current];
-      list[idx] = updated;
+      final list = [...current]; list[idx] = updated;
       state = AsyncData(list);
     } catch (_) {}
     try {
       final s = ref.read(networkServiceProvider);
-      if (wasLiked) {
-        await s.unlikePost(postId);
-      } else {
-        await s.likePost(postId);
-      }
-    } catch (_) {
-      state = AsyncData(current);
-    }
+      wasLiked? await s.unlikePost(postId) : await s.likePost(postId);
+    } catch (_) { state = AsyncData(current); }
   }
 }
