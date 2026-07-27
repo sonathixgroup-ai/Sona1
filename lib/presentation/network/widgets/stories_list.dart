@@ -1,332 +1,69 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/services/network_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thix_id/models/network_story.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import 'features/network/presentation/providers/stories_provider.dart';
 
-class StoriesList extends StatefulWidget {
+class StoriesList extends ConsumerWidget {
   final Function(NetworkStory)? onStoryTap;
   final VoidCallback? onCreateStory;
+  const StoriesList({super.key, this.onStoryTap, this.onCreateStory});
 
-  const StoriesList({
-    super.key,
-    this.onStoryTap,
-    this.onCreateStory,
-  });
-
-  @override
-  State<StoriesList> createState() => _StoriesListState();
-}
-
-class _StoriesListState extends State<StoriesList> {
-  late NetworkService _networkService;
-  List<NetworkStory> _stories = [];
-  bool _loading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _networkService = NetworkService(Supabase.instance.client);
-    _loadStories();
-  }
-
-  Future<void> _loadStories() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final stories = await _networkService.getActiveStories();
-      setState(() {
-        _stories = stories;
-        _loading = false;
-      });
-    } catch (e) {
-      debugPrint('❌ Erreur chargement stories: $e');
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
-    }
-  }
-
-  String _getTimeRemaining(DateTime expiresAt) {
-    final now = DateTime.now();
-    if (expiresAt.isBefore(now)) return 'expirée';
-    final remaining = expiresAt.difference(now);
-    if (remaining.inHours > 0) return '${remaining.inHours}h';
-    if (remaining.inMinutes > 0) return '${remaining.inMinutes}min';
-    return 'bientôt';
-  }
-
-  String _formatRelativeTime(DateTime createdAt) {
-    return timeago.format(createdAt, locale: 'fr');
+  String _remaining(DateTime exp){
+    final d = exp.difference(DateTime.now());
+    if(d.isNegative) return 'expirée';
+    if(d.inHours>0) return '${d.inHours}h';
+    return '${d.inMinutes}min';
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primaryColor = theme.primaryColor;
+  Widget build(BuildContext context, WidgetRef ref){
+    final async = ref.watch(activeStoriesProvider);
 
-    if (_loading) {
-      return const SizedBox(
-        height: 72,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
-
-    if (_error != null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Erreur: $_error',
-                style: const TextStyle(fontSize: 12, color: Colors.red),
-              ),
-            ),
-            TextButton(
-              onPressed: _loadStories,
-              child: const Text('Réessayer', style: TextStyle(fontSize: 12)),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_stories.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Stories',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: theme.textTheme.bodyLarge?.color,
-                ),
-              ),
-              TextButton(
-                onPressed: _loadStories,
-                child: const Text('Tout voir', style: TextStyle(fontSize: 12)),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
+    return async.when(
+      loading: () => const SizedBox(height: 72, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+      error: (e,_ ) => Padding(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Row(children: [Icon(Icons.error_outline, color: Colors.red, size: 18), SizedBox(width: 8), Expanded(child: Text('Erreur: $e', style: TextStyle(fontSize: 12, color: Colors.red))), TextButton(onPressed: ()=> ref.invalidate(activeStoriesProvider), child: Text('Réessayer'))])),
+      data: (stories){
+        return SizedBox(
           height: 100,
-          child: ListView.builder(
+          child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _stories.length + 1, // +1 pour "Ajouter une story"
-            itemBuilder: (context, index) {
-              // Premier élément = bouton "Ajouter une story" (si l'utilisateur est connecté)
-              if (index == 0 && _stories.isNotEmpty) {
-                return _buildAddStoryButton(context);
-              }
-              final storyIndex = index - 1;
-              if (storyIndex < 0 || storyIndex >= _stories.length) {
-                return const SizedBox.shrink();
-              }
-              final story = _stories[storyIndex];
-              return _buildStoryItem(context, story);
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            separatorBuilder: (_,__)=> SizedBox(width: 12),
+            itemCount: stories.length + 1, // toujours +1 pour le bouton add
+            itemBuilder: (context, index){
+              if(index==0) return _addButton(context);
+              final s = stories[index-1];
+              return _item(context, s);
             },
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAddStoryButton(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onCreateStory ?? () {},
-      child: Padding(
-        padding: const EdgeInsets.only(right: 12),
-        child: Column(
-          children: [
-            Stack(
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.grey.shade300, width: 2),
-                    color: Colors.white,
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.add, size: 28, color: Colors.blue),
-                  ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: const BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.live_tv, size: 12, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Ma Story',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStoryItem(BuildContext context, NetworkStory story) {
-    final isViewed = story.isViewed ?? false;
-    final isCurrentUser = story.isCurrentUser ?? false;
-    final hasAvatar = story.userAvatar != null && story.userAvatar!.isNotEmpty;
-    final timeRemaining = _getTimeRemaining(story.expiresAt);
-    final isExpired = story.expiresAt.isBefore(DateTime.now());
-
-    return GestureDetector(
-      onTap: () {
-        if (isExpired) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cette story a expiré'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-          return;
-        }
-        widget.onStoryTap?.call(story);
+        );
       },
-      child: Padding(
-        padding: const EdgeInsets.only(right: 12),
-        child: Column(
-          children: [
-            Stack(
-              children: [
-                // Avatar avec bordure
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: isViewed
-                        ? null
-                        : const LinearGradient(
-                            colors: [Colors.blue, Colors.purple],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                    border: isViewed
-                        ? Border.all(color: Colors.grey.shade300, width: 2)
-                        : null,
-                  ),
-                  child: CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Colors.grey.shade200,
-                    backgroundImage: hasAvatar
-                        ? CachedNetworkImageProvider(story.userAvatar!)
-                        : null,
-                    child: !hasAvatar
-                        ? Text(
-                            story.userName.isNotEmpty
-                                ? story.userName[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey,
-                            ),
-                          )
-                        : null,
-                  ),
-                ),
-                // Badge "Live" si actif
-                if (!isViewed && !isCurrentUser && !isExpired)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'LIVE',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                // Indicateur "Vu"
-                if (isViewed && !isCurrentUser)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: const BoxDecoration(
-                        color: Colors.grey,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check_circle,
-                        size: 14,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              story.userName,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (!isCurrentUser)
-              Text(
-                isExpired ? 'expirée' : timeRemaining,
-                style: TextStyle(
-                  fontSize: 8,
-                  color: isExpired ? Colors.red : Colors.grey.shade500,
-                ),
-              ),
-          ],
+    );
+  }
+
+  Widget _addButton(BuildContext context){
+    return GestureDetector(onTap: onCreateStory, child: Column(children: [
+      Container(width: 60, height: 60, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade300, width: 2), color: Colors.white), child: Icon(Icons.add, size: 28, color: Color(0xFF2B5CFF))),
+      SizedBox(height: 4),
+      Text('Ma Story', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
+    ]));
+  }
+
+  Widget _item(BuildContext context, NetworkStory s){
+    final isViewed = s.isViewed?? false;
+    final hasAvatar = s.userAvatar!=null && s.userAvatar!.isNotEmpty;
+    return GestureDetector(
+      onTap: ()=> onStoryTap?.call(s),
+      child: Column(children: [
+        Container(
+          width: 60, height: 60,
+          decoration: BoxDecoration(shape: BoxShape.circle, gradient: isViewed? null : LinearGradient(colors: [Color(0xFF2B5CFF), Colors.purple]), border: isViewed? Border.all(color: Colors.grey.shade300, width: 2): null),
+          child: Padding(padding: EdgeInsets.all(2), child: CircleAvatar(radius: 28, backgroundColor: Colors.grey.shade200, child: ClipOval(child: hasAvatar? Image.network(s.userAvatar!, width: 56, height: 56, fit: BoxFit.cover, errorBuilder: (_,__,___)=> Text(s.userName.isNotEmpty? s.userName[0].toUpperCase():'?')) : Text(s.userName.isNotEmpty? s.userName[0].toUpperCase():'?')))),
         ),
-      ),
+        SizedBox(height: 4),
+        SizedBox(width: 60, child: Text(s.userName, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center)),
+        Text(_remaining(s.expiresAt), style: TextStyle(fontSize: 8, color: Colors.grey.shade500)),
+      ]),
     );
   }
 }
