@@ -34,8 +34,9 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
     final idx = current.indexWhere((p) => p.id == postId);
     if (idx == -1) return;
     final oldPost = current[idx];
-    final wasLiked = (oldPost as dynamic).isLiked as bool??? false;
-    final oldCount = (oldPost as dynamic).likesCount as int??? 0;
+
+    final wasLiked = ((oldPost as dynamic).isLiked as bool?)?? false;
+    final oldCount = ((oldPost as dynamic).likesCount as int?)?? 0;
 
     try {
       final updated = (oldPost as dynamic).copyWith(
