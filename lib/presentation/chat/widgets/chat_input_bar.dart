@@ -12,8 +12,6 @@ class ChatInputBar extends StatefulWidget {
   final VoidCallback onEphemeralToggle;
   final bool isEphemeral;
   final ValueChanged<String>? onTyping;
-  
-  // 👇 AJOUTS POUR LES NOTES INTERNES & STICKERS
   final VoidCallback? onInternalNoteToggle;
   final VoidCallback? onStickerTap;
   final bool isInternalNote;
@@ -78,33 +76,35 @@ class _ChatInputBarState extends State<ChatInputBar> {
         border: Border(top: BorderSide(color: widget.isInternalNote ? const Color(0xFFFED7AA) : Colors.grey.shade200, width: 1)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),
         ],
       ),
       child: SafeArea(
+        top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // BANDE DES BOUTONS DÉFILANTE
+            // BANDE DES BOUTONS 100% CLIQUABLE
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Row(
                 children: [
                   _buildActionButton(
                     icon: Icons.attach_file_rounded,
-                    label: 'Pièce jointe',
+                    label: 'Fichier',
                     onTap: widget.onAttach,
                   ),
-                  if (widget.onStickerTap != null)
-                    _buildActionButton(
-                      icon: Icons.emoji_emotions_outlined,
-                      label: 'Sticker',
-                      onTap: widget.onStickerTap!,
-                    ),
+                  const SizedBox(width: 4),
+                  _buildActionButton(
+                    icon: Icons.emoji_emotions_outlined,
+                    label: 'Sticker',
+                    onTap: widget.onStickerTap ?? () {},
+                  ),
+                  const SizedBox(width: 4),
                   _buildActionButton(
                     icon: widget.isEphemeral ? Icons.timer_rounded : Icons.timer_outlined,
                     label: 'Éphémère',
@@ -112,17 +112,20 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     isActive: widget.isEphemeral,
                     activeColor: gold,
                   ),
+                  const SizedBox(width: 4),
                   _buildActionButton(
                     icon: Icons.lock_outline_rounded,
                     label: 'Protégé',
                     onTap: widget.onSecureMessage,
                   ),
+                  const SizedBox(width: 4),
                   _buildActionButton(
                     icon: Icons.mic_none_rounded,
                     label: 'Audio',
                     onTap: widget.onAudio,
                   ),
-                  if (widget.onInternalNoteToggle != null)
+                  if (widget.onInternalNoteToggle != null) ...[
+                    const SizedBox(width: 4),
                     _buildActionButton(
                       icon: Icons.speaker_notes,
                       label: 'Note',
@@ -130,56 +133,52 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       isActive: widget.isInternalNote,
                       activeColor: Colors.orange,
                     ),
-                  const SizedBox(width: 8),
-                  if (_hasText)
+                  ],
+                  if (_hasText) ...[
+                    const SizedBox(width: 8),
                     Text(
                       '${widget.controller.text.length}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey.shade400,
-                      ),
+                      style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
                     ),
+                  ],
                 ],
               ),
             ),
 
             // ZONE DE SAISIE
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
               child: Row(
                 children: [
                   Expanded(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(
-                        minHeight: 36,
+                        minHeight: 40,
                         maxHeight: 120,
                       ),
-                      child: Scrollbar(
-                        thumbVisibility: true,
-                        child: TextField(
-                          controller: widget.controller,
-                          focusNode: widget.focusNode,
-                          onChanged: widget.onTyping,
-                          maxLines: null,
-                          minLines: 1,
-                          keyboardType: TextInputType.multiline,
-                          textInputAction: TextInputAction.newline,
-                          decoration: InputDecoration(
-                            hintText: hintText,
-                            hintStyle: TextStyle(
-                              color: Colors.grey.shade400,
-                              fontSize: 14,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide.none,
-                            ),
-                            filled: true,
-                            fillColor: widget.isInternalNote ? Colors.orange.shade100 : Colors.grey.shade100,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
+                      child: TextField(
+                        controller: widget.controller,
+                        focusNode: widget.focusNode,
+                        onChanged: widget.onTyping,
+                        maxLines: null,
+                        minLines: 1,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        decoration: InputDecoration(
+                          hintText: hintText,
+                          hintStyle: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 14,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: widget.isInternalNote ? Colors.orange.shade100 : Colors.grey.shade100,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
                           ),
                         ),
                       ),
@@ -187,32 +186,33 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   ),
                   const SizedBox(width: 8),
                   // Bouton Envoi
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: (_hasText && !widget.isSending) 
-                          ? (widget.isInternalNote ? Colors.orange : navyDeep) 
-                          : Colors.grey.shade300,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: widget.isSending
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
+                  GestureDetector(
+                    onTap: (widget.isSending || !_hasText) ? null : widget.onSend,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: (_hasText && !widget.isSending) 
+                            ? (widget.isInternalNote ? Colors.orange : navyDeep) 
+                            : Colors.grey.shade300,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: widget.isSending
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.send_rounded,
                                 color: Colors.white,
+                                size: 20,
                               ),
-                            )
-                          : const Icon(
-                              Icons.send_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                      onPressed: (widget.isSending || !_hasText) ? null : widget.onSend,
-                      padding: EdgeInsets.zero,
+                      ),
                     ),
                   ),
                 ],
@@ -231,30 +231,32 @@ class _ChatInputBarState extends State<ChatInputBar> {
     bool isActive = false,
     Color? activeColor,
   }) {
-    final color = isActive ? (activeColor ?? gold) : Colors.grey.shade500;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: color,
-            ),
-            const SizedBox(width: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                color: color,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+    final color = isActive ? (activeColor ?? gold) : Colors.grey.shade600;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: isActive 
+              ? BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)) 
+              : null,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: color,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
