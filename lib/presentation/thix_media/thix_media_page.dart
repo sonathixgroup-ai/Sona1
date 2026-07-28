@@ -3,37 +3,32 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // <-- Ajout de l'import Supabase
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'video_player_page.dart';
 import '../../models/media_content.dart';
 import 'providers/thix_media_provider.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
 
-// Nouvelles couleurs exactes du design
 const Color kBg = Color(0xFF050507);
 const Color kSurface = Color(0xFF121214);
 const Color kSurfaceLight = Color(0xFF1E1E28);
-const Color kRed = Color(0xFFFF1A1A); // Le nouveau rouge vif
+const Color kRed = Color(0xFFFF1A1A);
 const Color kRedDark = Color(0xFFCC0843);
 const Color kTextWhite = Color(0xFFFFFFFF);
 const Color kTextGrey = Color(0xFF9CA3AF);
-const Color kBorderLight = Color(0x14FFFFFF); // white/8
+const Color kBorderLight = Color(0x14FFFFFF);
 const Color kGreen = Color(0xFF3EFF88);
 
-// 🔴 NOUVEAU : Provider pour vérifier si l'utilisateur est admin
 final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   final uid = Supabase.instance.client.auth.currentUser?.id;
   if (uid == null) return false;
-  
   try {
-    // Vérification du rôle dans la table profiles
     final res = await Supabase.instance.client
         .from('profiles')
         .select('role')
         .eq('id', uid)
         .maybeSingle();
-        
     return res != null && (res['role'] == 'admin' || res['role'] == 'superadmin');
   } catch (_) {
     return false;
@@ -60,7 +55,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   @override
   void initState() {
     super.initState();
-    // Le design original prend toute la largeur pour le Hero
     _bannerController = PageController(viewportFraction: 1.0);
   }
 
@@ -100,7 +94,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => VideoPlayerPage(title: item.title, videoUrl: item.videoUrl)));
   }
 
-  // Outil web-safe pour les images
   Widget _buildImage(String url, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
     return Image.network(
       url, width: width, height: height, fit: fit,
@@ -143,8 +136,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (bannerItems.isNotEmpty) _heroBanner(bannerItems),
-                          
-                          // Grille de contenu (avec dégradé derrière pour la transition)
                           Transform.translate(
                             offset: const Offset(0, -40),
                             child: Container(
@@ -166,7 +157,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                                     aspectRatio: 16 / 9,
                                     height: 180,
                                     width: 320,
-                                    itemBuilder: (item) => _continueWatchingCard(item),
+                                    itemBuilder: (item, [index]) => _continueWatchingCard(item),
                                   ),
                                   const SizedBox(height: 40),
                                   _buildRow(
@@ -176,7 +167,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                                     aspectRatio: 2 / 3,
                                     height: 240,
                                     width: 160,
-                                    itemBuilder: (item) => _originalCard(item),
+                                    itemBuilder: (item, [index]) => _originalCard(item),
                                   ),
                                   const SizedBox(height: 40),
                                   _buildRow(
@@ -186,7 +177,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                                     aspectRatio: 16 / 9,
                                     height: 160,
                                     width: 300,
-                                    itemBuilder: (item, index) => _top10Card(item, index),
+                                    itemBuilder: (item, [index]) => _top10Card(item, index ?? 0),
                                   ),
                                   const SizedBox(height: 40),
                                   _buildRow(
@@ -196,7 +187,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                                     aspectRatio: 9 / 16,
                                     height: 260,
                                     width: 150,
-                                    itemBuilder: (item) => _shortsCard(item),
+                                    itemBuilder: (item, [index]) => _shortsCard(item),
                                   ),
                                   const SizedBox(height: 120),
                                 ],
@@ -209,8 +200,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   ],
                 ),
               ),
-              
-              // Header et filtres collés en haut
               Positioned(
                 top: 0, left: 0, right: 0,
                 child: Column(
@@ -220,8 +209,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   ],
                 ),
               ),
-              
-              // Bottom Nav
               Positioned(
                 bottom: 0, left: 0, right: 0,
                 child: _bottomNav(),
@@ -233,9 +220,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
-  // --- HEADER EXACT ---
   Widget _header() {
-    // 🔴 NOUVEAU : On écoute le provider pour savoir si l'utilisateur est admin
     final isAdminAsync = ref.watch(isMediaAdminProvider);
     final isAdmin = isAdminAsync.valueOrNull ?? false;
 
@@ -251,7 +236,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
           ),
           child: Row(
             children: [
-              // Logo
               Container(
                 width: 32, height: 32,
                 decoration: BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(9), boxShadow: [BoxShadow(color: kRed.withOpacity(0.4), blurRadius: 24)]),
@@ -259,10 +243,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               ),
               const SizedBox(width: 10),
               const Text('THIX', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -1)),
-              
               const Spacer(),
-              
-              // Search Bar
               Expanded(
                 flex: 2,
                 child: Container(
@@ -286,13 +267,10 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   ),
                 ),
               ),
-              
               const Spacer(),
-              
-              // 🔴 NOUVEAU : BOUTON ADMIN (Visible uniquement si isAdmin == true)
               if (isAdmin) ...[
                 InkWell(
-                  onTap: () => context.push('/admin/media'), // Modifie cette route si ton routeur est différent
+                  onTap: () => context.push('/admin/media'),
                   borderRadius: BorderRadius.circular(18),
                   child: Container(
                     width: 36, height: 36,
@@ -306,8 +284,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                 ),
                 const SizedBox(width: 12),
               ],
-              
-              // Right Actions
               Container(
                 width: 36, height: 36,
                 decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white10),
@@ -326,7 +302,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
-  // --- FILTRES ---
   Widget _filtersRow(String selectedCategory) {
     return ClipRRect(
       child: BackdropFilter(
@@ -374,10 +349,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
-  // --- HERO BANNER EXACT ---
   Widget _heroBanner(List<MediaContent> bannerItems) {
     return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.82, // 82vh
+      height: MediaQuery.of(context).size.height * 0.82,
       child: PageView.builder(
         controller: _bannerController,
         onPageChanged: (i) => setState(() => _currentBannerIndex = i),
@@ -388,18 +362,13 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
             fit: StackFit.expand,
             children: [
               _buildImage(item.coverUrl),
-              
-              // Dégradés
               Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [kBg, kBg.withOpacity(0.7), kBg.withOpacity(0.1), Colors.transparent]))),
               Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [kBg, kBg.withOpacity(0.6), Colors.transparent]))),
-              
-              // Contenu
               Positioned(
                 bottom: 80, left: 24, right: 24,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Badge N°1
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)),
@@ -413,12 +382,8 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    
-                    // Titre
                     Text(item.title.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 56, fontWeight: FontWeight.w900, height: 0.9, letterSpacing: -2)),
                     const SizedBox(height: 20),
-                    
-                    // Tags
                     Row(
                       children: [
                         const Text("98% Match", style: TextStyle(color: kGreen, fontSize: 13, fontWeight: FontWeight.w600)),
@@ -429,12 +394,8 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
-                    // Description
                     const Text("Dans un futur où la mémoire se monnaye, une archiviste découvre une faille qui pourrait effacer l'histoire humaine...", style: TextStyle(color: Colors.white70, fontSize: 14.5, height: 1.5), maxLines: 3, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 28),
-                    
-                    // Boutons
                     Row(
                       children: [
                         ElevatedButton.icon(
@@ -462,9 +423,8 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
-  // --- REUSABLE ROW BUILDER ---
-  Widget _buildRow({required String title, required String subtitle, required AutoDisposeProvider provider, required double aspectRatio, required double height, required double width, required Widget Function(dynamic item, [int index]) itemBuilder}) {
-    final list = ref.watch(provider) as List<dynamic>;
+  Widget _buildRow({required String title, required String subtitle, required ProviderListenable<List<MediaContent>> provider, required double aspectRatio, required double height, required double width, required Widget Function(MediaContent item, [int? index]) itemBuilder}) {
+    final list = ref.watch(provider);
     if (list.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -500,7 +460,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
-  // --- CARDS ---
   Widget _continueWatchingCard(MediaContent item) {
     return GestureDetector(
       onTap: () => _navigateToVideo(item),
@@ -552,12 +511,10 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Le gros numéro derrière
           Positioned(
             left: -20, bottom: -10,
             child: Text((index + 1).toString().padLeft(2, '0'), style: TextStyle(fontSize: 100, fontWeight: FontWeight.w900, color: Colors.transparent, shadows: [Shadow(color: Colors.white.withOpacity(0.2), blurRadius: 2, offset: const Offset(0, 0))])),
           ),
-          // L'image
           Positioned(
             left: 40, top: 0, bottom: 0, right: 0,
             child: ClipRRect(
@@ -595,7 +552,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
-  // --- BOTTOM NAV ---
   Widget _bottomNav() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 30),
