@@ -135,9 +135,22 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
 
   Future<void> _handleRequestAccount(BuildContext context) async {
     final auth = context.read<AuthController>();
-    final res = await showModalBottomSheet<_AccountRequestChoice>(context: context, backgroundColor: Colors.transparent, isScrollControlled: true, builder: (_) => const AccountRequestSheet());
-    switch (res) { case _AccountRequestChoice.personal: if (auth.isAuthenticated) { await auth.signOut(); } if (context.mounted) { context.push(AppRoutes.personalReg); } return; case _AccountRequestChoice.enterprise: if (auth.isAuthenticated) { await auth.signOut(); } if (context.mounted) { context.push(AppRoutes.enterpriseReg); } return; case null: return; }
+    final res = await showModalBottomSheet<_AccountRequestChoice>(
+      context: context, 
+      backgroundColor: Colors.transparent, 
+      isScrollControlled: true, 
+      builder: (_) => const AccountRequestSheet()
+    );
+    switch (res) { 
+      case _AccountRequestChoice.personal: 
+        if (auth.isAuthenticated) { await auth.signOut(); } 
+        if (context.mounted) { context.push(AppRoutes.personalReg); } 
+        return; 
+      case null: 
+        return; 
+    }
   }
+
   void _handleServiceTap(String serviceKey) {
     switch (serviceKey) {
       case 'thixMedia': context.push(AppRoutes.thixMedia); break;
@@ -319,6 +332,85 @@ class _CarouselDotsState extends State<_CarouselDots> { int _page = 0; @override
 class _HeadlineBanner extends StatelessWidget { final String label; final String title; final IconData icon; final Color accent; final String? imageUrl; final double height; final VoidCallback onTap; const _HeadlineBanner({required this.label, required this.title, required this.icon, required this.accent, required this.height, this.imageUrl, required this.onTap}); @override Widget build(BuildContext context) { final hasImage = (imageUrl ?? '').trim().isNotEmpty; return GestureDetector(onTap: onTap, child: ClipRRect(borderRadius: BorderRadius.circular(AppRadius.mainCard), child: Container(height: height, decoration: BoxDecoration(color: accent.withValues(alpha: 0.10), boxShadow: AppShadows.main), child: Stack(fit: StackFit.expand, children: [if (hasImage) Image.network(imageUrl!.trim(), fit: BoxFit.cover, loadingBuilder: (context, child, progress) { if (progress == null) return child; return Container(color: accent.withValues(alpha: 0.10), child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: accent)))); }, errorBuilder: (_, __, ___) => Container(color: accent.withValues(alpha: 0.14), alignment: Alignment.center, child: Icon(icon, color: accent, size: 40))) else Container(color: accent.withValues(alpha: 0.14), alignment: Alignment.center, child: Icon(icon, color: accent, size: 40)), Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withValues(alpha: 0.0), Colors.black.withValues(alpha: hasImage ? 0.55 : 0.25)], stops: const [0.35, 1.0])))), Positioned(left: AppSpacing.l, right: AppSpacing.l, bottom: AppSpacing.m, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(8)), child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800))), const SizedBox(height: 6), Text(title, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, height: 1.15), maxLines: 2, overflow: TextOverflow.ellipsis)])), Positioned(right: AppSpacing.m, top: AppSpacing.m, child: Container(width: 30, height: 30, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.85), shape: BoxShape.circle), child: const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.darkText)))])))); } }
 class _PersonalisedSection extends StatelessWidget { @override Widget build(BuildContext context) { const items = [_MiniRoundAction(icon: Icons.account_balance_wallet_rounded, label: 'Top Up'), _MiniRoundAction(icon: Icons.shopping_cart_rounded, label: 'Buy'), _MiniRoundAction(icon: Icons.shield_rounded, label: 'Secure'), _MiniRoundAction(icon: Icons.local_atm_rounded, label: 'Cash out')]; return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Personnalisé pour vous', style: TextStyle(color: AppColors.darkText, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.2)), const SizedBox(height: AppSpacing.m), Row(children: [for (final item in items) Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: item))])]); } }
 class _MiniRoundAction extends StatelessWidget { final IconData icon; final String label; const _MiniRoundAction({required this.icon, required this.label}); @override Widget build(BuildContext context) { return GestureDetector(onTap: () {}, child: Column(children: [Container(width: 48, height: 48, decoration: BoxDecoration(color: AppColors.white, shape: BoxShape.circle, border: Border.all(color: AppColors.cardBorder, width: 0.5), boxShadow: AppShadows.secondary), child: Icon(icon, size: 20, color: AppColors.darkText)), const SizedBox(height: 8), Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w700), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)])); } }
+
 enum _AccountRequestChoice { personal }
-class AccountRequestSheet extends StatelessWidget { const AccountRequestSheet({super.key}); @override Widget build(BuildContext context) { return Container(decoration: const BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))), child: Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: Column(mainAxisSize: MainAxisSize.min, children: [Container(width: 35, height: 4, decoration: BoxDecoration(color: AppColors.cardBorder, borderRadius: BorderRadius.circular(2))), const SizedBox(height: AppSpacing.l), const Text('Créer un compte', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.darkText)), const SizedBox(height: AppSpacing.xl), _OptionButton(icon: Icons.person_outline, title: 'Compte Personnel', subtitle: 'Pour un profil individuel', onTap: () { Navigator.pop(context, _AccountRequestChoice.personal); }), const SizedBox(height: AppSpacing.m)]))); } }
-class _OptionButton extends StatelessWidget { final IconData icon; final String title; final String subtitle; final VoidCallback onTap; const _OptionButton({required this.icon, required this.title, required this.subtitle, required this.onTap}); @override Widget build(BuildContext context) { return GestureDetector(onTap: onTap, child: Container(padding: const EdgeInsets.all(AppSpacing.m), decoration: BoxDecoration(border: Border.all(color: AppColors.cardBorder), borderRadius: BorderRadius.circular(14), color: AppColors.lightGrayBg), child: Row(children: [Container(width: 38, height: 38, decoration: BoxDecoration(color: AppColors.darkText.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: AppColors.darkText, size: 20)), const SizedBox(width: AppSpacing.m), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.darkText)), Text(subtitle, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary))])), const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.textSecondary)]))); } }
+
+class AccountRequestSheet extends StatelessWidget { 
+  const AccountRequestSheet({super.key}); 
+  @override 
+  Widget build(BuildContext context) { 
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.white, 
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))
+      ), 
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl), 
+        child: Column(
+          mainAxisSize: MainAxisSize.min, 
+          children: [
+            Container(width: 35, height: 4, decoration: BoxDecoration(color: AppColors.cardBorder, borderRadius: BorderRadius.circular(2))), 
+            const SizedBox(height: AppSpacing.l), 
+            const Text('Créer un compte', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.darkText)), 
+            const SizedBox(height: AppSpacing.xl), 
+            _OptionButton(
+              icon: Icons.person_outline, 
+              title: 'Compte Personnel', 
+              subtitle: 'Pour un profil individuel', 
+              onTap: () { 
+                Navigator.pop(context, _AccountRequestChoice.personal); 
+              }
+            ), 
+            const SizedBox(height: AppSpacing.m)
+          ]
+        )
+      )
+    ); 
+  } 
+}
+
+class _OptionButton extends StatelessWidget { 
+  final IconData icon; 
+  final String title; 
+  final String subtitle; 
+  final VoidCallback onTap; 
+  const _OptionButton({required this.icon, required this.title, required this.subtitle, required this.onTap}); 
+  @override 
+  Widget build(BuildContext context) { 
+    return GestureDetector(
+      onTap: onTap, 
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.m), 
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.cardBorder), 
+          borderRadius: BorderRadius.circular(14), 
+          color: AppColors.lightGrayBg
+        ), 
+        child: Row(
+          children: [
+            Container(
+              width: 38, 
+              height: 38, 
+              decoration: BoxDecoration(
+                color: AppColors.darkText.withValues(alpha: 0.06), 
+                borderRadius: BorderRadius.circular(10)
+              ), 
+              child: Icon(icon, color: AppColors.darkText, size: 20)
+            ), 
+            const SizedBox(width: AppSpacing.m), 
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, 
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.darkText)), 
+                  Text(subtitle, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary))
+                ]
+              )
+            ), 
+            const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.textSecondary)
+          ]
+        )
+      )
+    ); 
+  } 
+}
