@@ -181,45 +181,67 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
         final likesCount = ref.watch(postItemProvider.select((p) => p.likesCount));
         final isOwner = widget.currentProfileId == post.userId;
 
-        return AnimatedContainer(duration: const Duration(milliseconds: 200), transform: Matrix4.identity()..scale(_isPressed? 0.98 : 1.0), child: Container(margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 7), decoration: BoxDecoration(color: _PostColors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: _PostColors.border), boxShadow: [BoxShadow(color: _PostColors.shadow, blurRadius: _isPressed? 6 : 16, offset: Offset(0, _isPressed? 2 : 8))]), child: ClipRRect(borderRadius: BorderRadius.circular(22), child: InkWell(onTapDown: (_) => setState(() => _isPressed = true), onTapUp: (_) => setState(() => _isPressed = false), onTapCancel: () => setState(() => _isPressed = false), onTap: widget.onTap?? () => _openPostDetails(post.id), child: Padding(padding: const EdgeInsets.all(_cardHorizontalPadding), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            GestureDetector(
-                onTap: () => context.push('/network/profile/${post.userId}'), 
-                child: Container(
-                    width: 42, height: 42, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [_PostColors.primaryDeep, _PostColors.primary])), 
-                    child: CircleAvatar(radius: 19, backgroundColor: _PostColors.softBlue, backgroundImage: post.authorAvatar!= null && post.authorAvatar!.isNotEmpty? NetworkImage(post.authorAvatar!) : null, child: post.authorAvatar == null || post.authorAvatar!.isEmpty? const Icon(Icons.person_rounded, size: 18, color: _PostColors.primaryDeep) : null))),
-            const SizedBox(width: 10),
-            Expanded(child: GestureDetector(onTap: () => context.push('/network/profile/${post.userId}'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: _PostColors.textDark), maxLines: 1, overflow: TextOverflow.ellipsis), if (post.authorTitle!= null && post.authorTitle!.isNotEmpty) Text(post.authorTitle!, style: const TextStyle(fontSize: 10.5, color: _PostColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis), Row(children: [Text(_getTimeAgo(post.createdAt), style: const TextStyle(fontSize: 10, color: _PostColors.textSecondary)), const SizedBox(width: 4), const Icon(Icons.public_rounded, size: 11, color: _PostColors.textSecondary)])]))),
-            PopupMenuButton<String>(icon: const Icon(Icons.more_vert_rounded, size: 18, color: _PostColors.textSecondary), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), onSelected: (v) async {
-              switch(v){
-                case 'edit': _editPost(post, ref); break;
-                case 'pin': await ref.read(networkServiceProvider).pinPost(post.id); widget.onPin?.call(); break;
-                case 'delete': final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(title: const Text('Supprimer?'), actions: [TextButton(onPressed: ()=>Navigator.pop(context,false), child: const Text('Annuler')), TextButton(onPressed: ()=>Navigator.pop(context,true), child: const Text('Supprimer'))])); if(ok==true){ await ref.read(networkServiceProvider).deletePost(post.id); widget.onDelete?.call(); widget.onRefresh?.call(); } break;
-                case 'save': await ref.read(postItemProvider.notifier).toggleSave(); widget.onSave?.call(); break;
-                case 'repost': _repost(post, ref); break;
-                case 'hide': await ref.read(networkServiceProvider).hidePost(post.id); widget.onRefresh?.call(); break;
-                case 'report': _reportPost(post, ref); break;
-                case 'share': widget.onShare?.call(); break;
-              }
-            }, itemBuilder: (_) => [if(isOwner)...[const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_rounded, size: 18, color: _PostColors.primary), SizedBox(width: 8), Text('Modifier')])), const PopupMenuItem(value: 'pin', child: Row(children: [Icon(Icons.push_pin_rounded, size: 18, color: _PostColors.gold), SizedBox(width: 8), Text('Épingler')])), const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_rounded, size: 18, color: _PostColors.red), SizedBox(width: 8), Text('Supprimer', style: TextStyle(color: _PostColors.red))]))], const PopupMenuItem(value: 'save', child: Row(children: [Icon(Icons.bookmark_border_rounded, size: 18, color: _PostColors.primaryDeep), SizedBox(width: 8), Text('Sauvegarder')])), const PopupMenuItem(value: 'repost', child: Row(children: [Icon(Icons.repeat_rounded, size: 18), SizedBox(width: 8), Text('Reposter')])), const PopupMenuItem(value: 'hide', child: Row(children: [Icon(Icons.visibility_off_rounded, size: 18), SizedBox(width: 8), Text('Masquer')])), const PopupMenuItem(value: 'report', child: Row(children: [Icon(Icons.flag_rounded, size: 18, color: Colors.orange), SizedBox(width: 8), Text('Signaler')])), const PopupMenuItem(value: 'share', child: Row(children: [Icon(Icons.share_rounded, size: 18), SizedBox(width: 8), Text('Partager')]))]),
-          ]),
-          const SizedBox(height: 12),
-          if (post.content.isNotEmpty) Column(crossAxisAlignment: CrossAxisAlignment.start, children: [RichText(text: TextSpan(children: _isExpanded? (_cachedFullSpans?? []) : (_cachedTruncatedSpans?? []))), if (_isTruncatable) GestureDetector(onTap: () => setState(() => _isExpanded =!_isExpanded), child: Padding(padding: const EdgeInsets.only(top: 3), child: Text(_isExpanded? 'Voir moins' : 'Voir plus', style: const TextStyle(color: _PostColors.primary, fontSize: 12.5, fontWeight: FontWeight.w700))))]),
-          _buildFactCheckBanner(post.isMisinformation, post.factCheckMessage),
-          if (post.postType == 'poll')...[_buildImageGrid(post.imageUrls, post.id), const SizedBox(height: 8), _buildPollWidget(post, ref)]
-          else if (post.postType == 'challenge')...[_buildImageGrid(post.imageUrls, post.id), const SizedBox(height: 8), _buildChallengeWidget(post)]
-          else if (post.imageUrls.isNotEmpty)...[const SizedBox(height: 8), _buildImageGrid(post.imageUrls, post.id)],
-          const SizedBox(height: 12),
-          Row(children: [
-            InkWell(onTap: () async { setState(()=>_isLikedAnimating=true); await ref.read(postItemProvider.notifier).toggleLike(); Future.delayed(const Duration(milliseconds: 300), (){ if(mounted) setState(()=>_isLikedAnimating=false); }); widget.onLike?.call(); }, borderRadius: BorderRadius.circular(20), child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(children: [AnimatedScale(scale: _isLikedAnimating?1.3:1.0, duration: const Duration(milliseconds: 200), child: Icon(isLiked?Icons.favorite_rounded:Icons.favorite_border_rounded, color: isLiked?_PostColors.red:_PostColors.textSecondary, size: 19)), const SizedBox(width: 5), Text(_formatCount(likesCount), style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600))]))),
-            const SizedBox(width: 18),
-            InkWell(onTap: widget.onComment??()=>_openPostDetails(post.id), borderRadius: BorderRadius.circular(20), child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(children: [const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: _PostColors.textSecondary), const SizedBox(width: 5), Text(_formatCount(post.commentsCount), style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600))]))),
-            const SizedBox(width: 18),
-            InkWell(onTap: ()=>_repost(post, ref), borderRadius: BorderRadius.circular(20), child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(children: [Icon(Icons.repeat_rounded, size: 18, color: post.isReposted?_PostColors.green:_PostColors.textSecondary), const SizedBox(width: 5), Text(_formatCount(post.repostsCount), style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600))]))),
-            const SizedBox(width: 18),
-            InkWell(onTap: widget.onShare, borderRadius: BorderRadius.circular(20), child: const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Row(children: [Icon(Icons.share_rounded, size: 18, color: _PostColors.textSecondary), SizedBox(width: 5), Text('Partager', style: TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600))]))),
-          ]),
-        ]))))));
+        // ---- Carte "flush" façon LinkedIn : pas de marge, pas de coins arrondis,
+        // pas d'ombre flottante. Uniquement une fine ligne de séparation en bas.
+        // L'intérieur (avatar dégradé, couleurs, boutons pilule) reste propre à THIX.
+        return Container(
+          width: double.infinity,
+          color: _isPressed ? _PostColors.background.withOpacity(0.5) : _PostColors.white,
+          child: Column(
+            children: [
+              InkWell(
+                onTapDown: (_) => setState(() => _isPressed = true),
+                onTapUp: (_) => setState(() => _isPressed = false),
+                onTapCancel: () => setState(() => _isPressed = false),
+                onTap: widget.onTap ?? () => _openPostDetails(post.id),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(_cardHorizontalPadding, 14, _cardHorizontalPadding, 10),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      GestureDetector(
+                          onTap: () => context.push('/network/profile/${post.userId}'),
+                          child: Container(
+                              width: 42, height: 42, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [_PostColors.primaryDeep, _PostColors.primary])),
+                              child: CircleAvatar(radius: 19, backgroundColor: _PostColors.softBlue, backgroundImage: post.authorAvatar!= null && post.authorAvatar!.isNotEmpty? NetworkImage(post.authorAvatar!) : null, child: post.authorAvatar == null || post.authorAvatar!.isEmpty? const Icon(Icons.person_rounded, size: 18, color: _PostColors.primaryDeep) : null))),
+                      const SizedBox(width: 10),
+                      Expanded(child: GestureDetector(onTap: () => context.push('/network/profile/${post.userId}'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: _PostColors.textDark), maxLines: 1, overflow: TextOverflow.ellipsis), if (post.authorTitle!= null && post.authorTitle!.isNotEmpty) Text(post.authorTitle!, style: const TextStyle(fontSize: 10.5, color: _PostColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis), Row(children: [Text(_getTimeAgo(post.createdAt), style: const TextStyle(fontSize: 10, color: _PostColors.textSecondary)), const SizedBox(width: 4), const Icon(Icons.public_rounded, size: 11, color: _PostColors.textSecondary)])]))),
+                      PopupMenuButton<String>(icon: const Icon(Icons.more_vert_rounded, size: 18, color: _PostColors.textSecondary), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), onSelected: (v) async {
+                        switch(v){
+                          case 'edit': _editPost(post, ref); break;
+                          case 'pin': await ref.read(networkServiceProvider).pinPost(post.id); widget.onPin?.call(); break;
+                          case 'delete': final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(title: const Text('Supprimer?'), actions: [TextButton(onPressed: ()=>Navigator.pop(context,false), child: const Text('Annuler')), TextButton(onPressed: ()=>Navigator.pop(context,true), child: const Text('Supprimer'))])); if(ok==true){ await ref.read(networkServiceProvider).deletePost(post.id); widget.onDelete?.call(); widget.onRefresh?.call(); } break;
+                          case 'save': await ref.read(postItemProvider.notifier).toggleSave(); widget.onSave?.call(); break;
+                          case 'repost': _repost(post, ref); break;
+                          case 'hide': await ref.read(networkServiceProvider).hidePost(post.id); widget.onRefresh?.call(); break;
+                          case 'report': _reportPost(post, ref); break;
+                          case 'share': widget.onShare?.call(); break;
+                        }
+                      }, itemBuilder: (_) => [if(isOwner)...[const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_rounded, size: 18, color: _PostColors.primary), SizedBox(width: 8), Text('Modifier')])), const PopupMenuItem(value: 'pin', child: Row(children: [Icon(Icons.push_pin_rounded, size: 18, color: _PostColors.gold), SizedBox(width: 8), Text('Épingler')])), const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_rounded, size: 18, color: _PostColors.red), SizedBox(width: 8), Text('Supprimer', style: TextStyle(color: _PostColors.red))]))], const PopupMenuItem(value: 'save', child: Row(children: [Icon(Icons.bookmark_border_rounded, size: 18, color: _PostColors.primaryDeep), SizedBox(width: 8), Text('Sauvegarder')])), const PopupMenuItem(value: 'repost', child: Row(children: [Icon(Icons.repeat_rounded, size: 18), SizedBox(width: 8), Text('Reposter')])), const PopupMenuItem(value: 'hide', child: Row(children: [Icon(Icons.visibility_off_rounded, size: 18), SizedBox(width: 8), Text('Masquer')])), const PopupMenuItem(value: 'report', child: Row(children: [Icon(Icons.flag_rounded, size: 18, color: Colors.orange), SizedBox(width: 8), Text('Signaler')])), const PopupMenuItem(value: 'share', child: Row(children: [Icon(Icons.share_rounded, size: 18), SizedBox(width: 8), Text('Partager')]))]),
+                    ]),
+                    const SizedBox(height: 12),
+                    if (post.content.isNotEmpty) Column(crossAxisAlignment: CrossAxisAlignment.start, children: [RichText(text: TextSpan(children: _isExpanded? (_cachedFullSpans?? []) : (_cachedTruncatedSpans?? []))), if (_isTruncatable) GestureDetector(onTap: () => setState(() => _isExpanded =!_isExpanded), child: Padding(padding: const EdgeInsets.only(top: 3), child: Text(_isExpanded? 'Voir moins' : 'Voir plus', style: const TextStyle(color: _PostColors.primary, fontSize: 12.5, fontWeight: FontWeight.w700))))]),
+                    _buildFactCheckBanner(post.isMisinformation, post.factCheckMessage),
+                    if (post.postType == 'poll')...[_buildImageGrid(post.imageUrls, post.id), const SizedBox(height: 8), _buildPollWidget(post, ref)]
+                    else if (post.postType == 'challenge')...[_buildImageGrid(post.imageUrls, post.id), const SizedBox(height: 8), _buildChallengeWidget(post)]
+                    else if (post.imageUrls.isNotEmpty)...[const SizedBox(height: 8), _buildImageGrid(post.imageUrls, post.id)],
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      InkWell(onTap: () async { setState(()=>_isLikedAnimating=true); await ref.read(postItemProvider.notifier).toggleLike(); Future.delayed(const Duration(milliseconds: 300), (){ if(mounted) setState(()=>_isLikedAnimating=false); }); widget.onLike?.call(); }, borderRadius: BorderRadius.circular(20), child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(children: [AnimatedScale(scale: _isLikedAnimating?1.3:1.0, duration: const Duration(milliseconds: 200), child: Icon(isLiked?Icons.favorite_rounded:Icons.favorite_border_rounded, color: isLiked?_PostColors.red:_PostColors.textSecondary, size: 19)), const SizedBox(width: 5), Text(_formatCount(likesCount), style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600))]))),
+                      const SizedBox(width: 18),
+                      InkWell(onTap: widget.onComment??()=>_openPostDetails(post.id), borderRadius: BorderRadius.circular(20), child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(children: [const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: _PostColors.textSecondary), const SizedBox(width: 5), Text(_formatCount(post.commentsCount), style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600))]))),
+                      const SizedBox(width: 18),
+                      InkWell(onTap: ()=>_repost(post, ref), borderRadius: BorderRadius.circular(20), child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(children: [Icon(Icons.repeat_rounded, size: 18, color: post.isReposted?_PostColors.green:_PostColors.textSecondary), const SizedBox(width: 5), Text(_formatCount(post.repostsCount), style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600))]))),
+                      const SizedBox(width: 18),
+                      InkWell(onTap: widget.onShare, borderRadius: BorderRadius.circular(20), child: const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Row(children: [Icon(Icons.share_rounded, size: 18, color: _PostColors.textSecondary), SizedBox(width: 5), Text('Partager', style: TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600))]))),
+                    ]),
+                  ]),
+                ),
+              ),
+              // Fine ligne de séparation entre chaque post — remplace la marge/ombre
+              Container(height: 8, width: double.infinity, color: _PostColors.background),
+            ],
+          ),
+        );
       }),
     );
   }
