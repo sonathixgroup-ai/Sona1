@@ -1,17 +1,28 @@
-// lib/presentation/thix_event/admin/admin_dashboard.dart
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/admin_constants.dart';
 import 'core/admin_guards.dart';
 import 'providers/admin_event_provider.dart';
 
-class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({super.key});
-  @override State<AdminDashboard> createState() => _AdminDashboardState();
+class _ThixColors {
+  static const bg = Color(0xFF050508);
+  static const surface = Color(0xFF0C0C12);
+  static const surfaceAlt = Color(0xFF111118);
+  static const cardBorder = Color(0x14FFFFFF);
+  static const primary = Color(0xFFFF0A54);
+  static const textSecondary = Color(0x99FFFFFF);
+  static const textMuted = Color(0x66FFFFFF);
 }
 
-class _AdminDashboardState extends State<AdminDashboard> {
+class AdminDashboard extends ConsumerStatefulWidget {
+  const AdminDashboard({super.key});
+  @override
+  ConsumerState<AdminDashboard> createState() => _AdminDashboardState();
+}
+
+class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   AdminRole _role = AdminRole.superAdmin;
 
   @override
@@ -22,71 +33,87 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Future<void> _init() async {
     _role = await AdminGuard.getCurrentRole();
-    if (mounted) setState((){});
-    // On ne charge PAS tous les events, seulement les compteurs via RPC
-    context.read<AdminEventProvider>().loadDashboardStats();
+    if (mounted) setState(() {});
+    Future.microtask(() => ref.read(adminEventProvider.notifier).loadDashboardStats());
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AdminEventProvider>();
-    
+    final state = ref.watch(adminEventProvider);
+    final notifier = ref.read(adminEventProvider.notifier);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FAFF),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0A1F44),
-        title: Row(children: [
-          const Icon(Icons.shield, color: Color(0xFFE3B23C)),
-          const SizedBox(width: 8),
-          const Text('THIX ADMIN • SCALABLE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
-          const SizedBox(width: 8),
-          if (AdminConstants.isDevOpenAccess) 
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), 
-              decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(6)), 
-              child: const Text('DEV OPEN', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900))
-            )
-        ]),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: ()=> provider.loadDashboardStats()),
-        ],
+      backgroundColor: _ThixColors.bg,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(56),
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: AppBar(
+              backgroundColor: _ThixColors.bg.withOpacity(0.85),
+              elevation: 0,
+              title: Row(children: [
+                Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: _ThixColors.primary.withOpacity(0.15), shape: BoxShape.circle), child: const Icon(Icons.shield_rounded, size: 16, color: _ThixColors.primary)),
+                const SizedBox(width: 10),
+                const Text('THIX ADMIN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.2)),
+                const SizedBox(width: 8),
+                if (AdminConstants.isDevOpenAccess)
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.15), borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.orange.withOpacity(0.3))), child: const Text('DEV OPEN', style: TextStyle(color: Colors.orange, fontSize: 8, fontWeight: FontWeight.w900))),
+              ]),
+              actions: [
+                IconButton(icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 18), onPressed: () => notifier.loadDashboardStats()),
+                const SizedBox(width: 4),
+              ],
+            ),
+          ),
+        ),
       ),
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
         slivers: [
-          SliverToBoxAdapter(child: _buildStatsGrid(provider)),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(child: _buildActionGrid()),
-          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          SliverToBoxAdapter(child: _buildStatsGrid(state)),
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('ACTIONS', style: TextStyle(color: _ThixColors.textMuted.withOpacity(0.8), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.5)))),
+          const SliverToBoxAdapter(child: SizedBox(height: 10)),
+          SliverToBoxAdapter(child: _buildActionGrid(_role)),
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
     );
   }
 
-  Widget _buildStatsGrid(AdminEventProvider p) {
-    // Stats légères depuis RPC, pas de chargement de millions de rows
+  Widget _buildStatsGrid(AdminEventState s) {
+    if (s.statsLoading && s.stats.totalEvents == 0) {
+      return const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator(color: _ThixColors.primary, strokeWidth: 2)));
+    }
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       child: Wrap(spacing: 12, runSpacing: 12, children: [
-        _StatCard(label: 'Events Total', value: '${p.stats.totalEvents}', icon: Icons.event),
-        _StatCard(label: 'Bookings', value: '${p.stats.totalBookings}', icon: Icons.confirmation_number),
-        _StatCard(label: 'Revenu', value: '${p.stats.totalRevenue} FC', icon: Icons.attach_money),
-        _StatCard(label: 'File d\'attente', value: '${p.stats.waitingQueue}', icon: Icons.queue),
+        _StatCard(label: 'Events', value: '${s.stats.totalEvents}', icon: Icons.event_rounded),
+        _StatCard(label: 'Bookings', value: '${s.stats.totalBookings}', icon: Icons.confirmation_number_rounded),
+        _StatCard(label: 'Revenu', value: '${s.stats.totalRevenue}', icon: Icons.payments_rounded),
+        _StatCard(label: 'File', value: '${s.stats.waitingQueue}', icon: Icons.hourglass_top_rounded),
       ]),
     );
   }
 
-  Widget _buildActionGrid() {
+  Widget _buildActionGrid(AdminRole role) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: GridView.count(
-        shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.25,
         children: [
-          _ActionCard('Événements', 'Liste paginée 20 par 20', Icons.list_alt, '/thix-event/admin/events', _role),
-          _ActionCard('Créer Event', 'Upload + validation', Icons.add_circle, '/thix-event/admin/events/create', _role),
-          _ActionCard('Sièges', 'Génération par batch 200', Icons.event_seat, '/thix-event/admin/seats', _role),
-          _ActionCard('Réservations', '50 par page + filtres', Icons.receipt_long, '/thix-event/admin/bookings', _role),
-          _ActionCard('Anti-Fraude', 'BookingLimits', Icons.security, '/thix-event/admin/limits', _role),
-          _ActionCard('Analytics', 'RPC Supabase', Icons.analytics, '/thix-event/admin/analytics', _role),
+          _ActionCard('Evenements', '20 / page', Icons.list_alt_rounded, '/thix-event/admin/events', role),
+          _ActionCard('Creer', 'Upload + validation', Icons.add_circle_rounded, '/thix-event/admin/events/create', role),
+          _ActionCard('Sieges', 'Batch 200', Icons.event_seat_rounded, '/thix-event/admin/seats', role),
+          _ActionCard('Reservations', '50 / page + filtres', Icons.receipt_long_rounded, '/thix-event/admin/bookings', role),
+          _ActionCard('Anti-Fraude', 'Limits', Icons.security_rounded, '/thix-event/admin/limits', role),
+          _ActionCard('Analytics', 'RPC', Icons.analytics_rounded, '/thix-event/admin/analytics', role),
         ],
       ),
     );
@@ -94,18 +121,49 @@ class _AdminDashboardState extends State<AdminDashboard> {
 }
 
 class _StatCard extends StatelessWidget {
-  final String label, value; final IconData icon;
+  final String label, value;
+  final IconData icon;
   const _StatCard({required this.label, required this.value, required this.icon});
-  @override Widget build(BuildContext context) {
-    return Container(width: (MediaQuery.of(context).size.width-36)/2, padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE7EEFC))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(icon, size: 20, color: const Color(0xFF123B7A)), const SizedBox(height: 8), Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0A1F44))), Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF7386A8)))]));
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: (MediaQuery.of(context).size.width - 44) / 2,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: _ThixColors.cardBorder)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _ThixColors.surfaceAlt, shape: BoxShape.circle, border: Border.all(color: _ThixColors.cardBorder)), child: Icon(icon, size: 16, color: Colors.white)),
+        const SizedBox(height: 12),
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+      ]),
+    );
   }
 }
 
 class _ActionCard extends StatelessWidget {
-  final String title, subtitle, route; final IconData icon; final AdminRole role;
+  final String title, subtitle, route;
+  final IconData icon;
+  final AdminRole role;
   const _ActionCard(this.title, this.subtitle, this.icon, this.route, this.role);
-  @override Widget build(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     final canWrite = AdminGuard.canWrite(role);
-    return InkWell(onTap: ()=> context.push(route), child: Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE7EEFC))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(padding: const EdgeInsets.all(10), decoration: const BoxDecoration(color: Color(0xFFEFF5FF), shape: BoxShape.circle), child: Icon(icon, color: const Color(0xFF2D6CDF))), const Spacer(), Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)), Text(subtitle, style: const TextStyle(fontSize: 10, color: Color(0xFF7386A8))), if(!canWrite && title=='Créer Event') const Text('Lecture seule', style: TextStyle(fontSize: 9, color: Colors.red)) ])));
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => context.push(route),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: _ThixColors.cardBorder)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), shape: BoxShape.circle), child: Icon(icon, size: 18, color: Colors.white)),
+          const Spacer(),
+          Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+          const SizedBox(height: 2),
+          Text(subtitle, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 10)),
+          if (!canWrite && title == 'Creer') const Padding(padding: EdgeInsets.only(top: 4), child: Text('Lecture seule', style: TextStyle(color: Colors.red, fontSize: 9))),
+        ]),
+      ),
+    );
   }
 }
