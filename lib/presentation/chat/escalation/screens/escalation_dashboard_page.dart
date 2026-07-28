@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/escalation_provider.dart';
 import '../models/escalation_level.dart';
@@ -14,14 +14,37 @@ class _C {
   static const textMuted = Color(0xFF64748B);
 }
 
-class EscalationDashboardPage extends StatelessWidget {
+class EscalationDashboardPage extends ConsumerStatefulWidget {
   final String agentId;
   final EscalationLevel agentLevel;
   const EscalationDashboardPage({Key? key, required this.agentId, required this.agentLevel}) : super(key: key);
+  @override ConsumerState<EscalationDashboardPage> createState() => _EscalationDashboardPageState();
+}
+
+class _EscalationDashboardPageState extends ConsumerState<EscalationDashboardPage> {
+  final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(escalationProvider.notifier).loadPending(widget.agentId, widget.agentLevel, refresh: true);
+      // Optionnel: ref.read(escalationProvider.notifier).loadHistory(widget.agentId); si tu stockes l'historique global
+    });
+    _scroll.addListener(() {
+      if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 200) {
+        ref.read(escalationProvider.notifier).loadPending(widget.agentId, widget.agentLevel, refresh: false);
+      }
+    });
+  }
+
+  @override
+  void dispose() { _scroll.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<EscalationProvider>();
+    final state = ref.watch(escalationProvider);
+
     return Scaffold(
       backgroundColor: _C.bg,
       appBar: AppBar(
@@ -34,8 +57,8 @@ class EscalationDashboardPage extends StatelessWidget {
       ),
       body: RefreshIndicator(
         color: _C.primary,
-        onRefresh: () => provider.loadPendingEscalations(agentId, agentLevel),
-        child: provider.isLoading
+        onRefresh: () => ref.read(escalationProvider.notifier).loadPending(widget.agentId, widget.agentLevel, refresh: true),
+        child: state.isLoading && state.pending.isEmpty
           ? const Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 2))
             : Column(children: [
                 Container(
@@ -43,20 +66,25 @@ class EscalationDashboardPage extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                   decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 2))]),
                   child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                    _statItem('En attente', provider.pendingEscalations.length.toString(), _C.primary),
+                    _statItem('En attente', state.pending.length.toString(), _C.primary),
                     Container(width: 1, height: 36, color: _C.border),
-                    _statItem('Acceptées', provider.history.where((e) => e.status.index == 1).length.toString(), const Color(0xFF16A34A)),
+                    _statItem('Acceptées', state.history.where((e) => e.status.index == 1).length.toString(), const Color(0xFF16A34A)),
                     Container(width: 1, height: 36, color: _C.border),
-                    _statItem('Résolues', provider.history.where((e) => e.status.index == 4).length.toString(), _C.textMain),
+                    _statItem('Résolues', state.history.where((e) => e.status.index == 4).length.toString(), _C.textMain),
                   ]),
                 ),
+                if (state.error != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('Erreur: ${state.error}', style: const TextStyle(color: Colors.red, fontSize: 11))),
                 Expanded(
-                  child: provider.pendingEscalations.isEmpty
+                  child: state.pending.isEmpty
                     ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.inbox_outlined, size: 42, color: _C.border), SizedBox(height: 8), Text('Aucune escalade en attente', style: TextStyle(color: _C.textMuted, fontSize: 13))]))
                       : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-                          itemCount: provider.pendingEscalations.length,
-                          itemBuilder: (context, index) => _card(provider.pendingEscalations[index], context),
+                          controller: _scroll,
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+                          itemCount: state.pending.length + (state.isLoadingMore? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == state.pending.length) return const Padding(padding: EdgeInsets.all(16), child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary))));
+                            return _card(state.pending[index], context);
+                          },
                         ),
                 ),
               ]),
