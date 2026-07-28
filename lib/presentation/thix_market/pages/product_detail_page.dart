@@ -152,7 +152,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ajouté au panier !'), backgroundColor: _MarketColors.successGreen));
       }
-      // Met à jour l'état global du panier via Riverpod
       ref.invalidate(cartProvider);
     } catch(e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _MarketColors.red));
@@ -205,7 +204,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       error: (e, _) => Scaffold(appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop())), body: Center(child: Text('Erreur $e'))),
       data: (product) {
         
-        // ── Extraction sécurisée des données ──
         final imagesRaw = product['images'] as List?;
         List<String> images = [];
         if (imagesRaw != null && imagesRaw.isNotEmpty) {
@@ -228,7 +226,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         List reviews = product['reviews'] is List ? product['reviews'] as List : [];
         bool isFav = favAsync.valueOrNull ?? false;
 
-        // Variables pour les infos techniques
         final shippingCost = product['shipping_cost'] as num?;
         final warrantyMonths = product['warranty_months'] as int?;
 
@@ -349,7 +346,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                         style: const TextStyle(fontSize: 14, decoration: TextDecoration.lineThrough, color: _MarketColors.mutedText, fontWeight: FontWeight.w700)
                                       )
                                     ),
-                                  // RESTAURATION DU BADGE DE RÉDUCTION EN %
                                   if (hasDiscount)
                                     Padding(
                                       padding: const EdgeInsets.only(left: 10, bottom: 4),
@@ -486,7 +482,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           )
                         ),
 
-                        // --- DESCRIPTION ET INFOS TECHNIQUES (Restaurées) ---
+                        // --- DESCRIPTION ET INFOS TECHNIQUES ---
                         _card(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start, 
@@ -543,7 +539,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                             )
                           ),
 
-                        // --- PRODUITS SIMILAIRES ---
+                        // --- RESTAURATION DE LA SECTION PRODUITS SIMILAIRES ---
                         Consumer(
                           builder: (context, ref, _) {
                             final cat = product['category']?.toString() ?? '';
@@ -613,7 +609,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
               top: false, 
               child: Row(
                 children: [
-                  // Bouton Chat
                   Container(
                     decoration: BoxDecoration(
                       color: _MarketColors.lightBg, 
@@ -628,7 +623,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   ),
                   const SizedBox(width: 12),
                   
-                  // Bouton Panier
                   Expanded(
                     flex: 1,
                     child: OutlinedButton(
@@ -646,7 +640,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   ),
                   const SizedBox(width: 12),
                   
-                  // Bouton Acheter (Dégradé Rouge)
                   Expanded(
                     flex: 2, 
                     child: Container(
