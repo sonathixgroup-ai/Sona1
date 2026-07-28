@@ -1,3 +1,4 @@
+// lib/presentation/chat/escalation/screens/handle_escalation_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,10 +27,10 @@ class HandleEscalationPage extends ConsumerStatefulWidget {
   final String agentId;
 
   const HandleEscalationPage({
-    Key? key, 
+    super.key, 
     required this.escalationId, 
     required this.agentId
-  }) : super(key: key);
+  });
 
   @override 
   ConsumerState<HandleEscalationPage> createState() => _HandleEscalationPageState();
@@ -42,12 +43,12 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
   @override
   void initState() {
     super.initState();
-    // Le Future.microtask permet d'éviter les soucis de build lors du chargement initial avec Riverpod
     Future.microtask(() => _loadData());
   }
 
   Future<void> _loadData() async {
-    await ref.read(escalationProvider.notifier).loadPendingEscalations(widget.agentId, EscalationLevel.senior);
+    // CORRECTION : Appel de loadPending au lieu de loadPendingEscalations
+    await ref.read(escalationProvider.notifier).loadPending(widget.agentId, EscalationLevel.senior);
   }
 
   @override
@@ -58,13 +59,13 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Utilisation de Riverpod pour écouter l'état
     final escState = ref.watch(escalationProvider);
     final escNotifier = ref.read(escalationProvider.notifier);
 
     EscalationStep? escalation;
     try {
-      escalation = escState.pendingEscalations.firstWhere((e) => e.id == widget.escalationId);
+      // CORRECTION : pending au lieu de pendingEscalations
+      escalation = escState.pending.firstWhere((e) => e.id == widget.escalationId);
     } catch (_) {
       escalation = null;
     }
@@ -95,7 +96,6 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start, 
                 children: [
-                  // En-tête des badges (Niveau, Priorité, Statut)
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -117,7 +117,6 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
                   
                   const SizedBox(height: 24),
                   
-                  // Informations de l'escalade
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -144,7 +143,6 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
                   
                   const SizedBox(height: 32),
                   
-                  // Section des actions selon le statut "pending"
                   if (escalation.status == EscalationStatus.pending) ...[
                     const Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _C.textMain)),
                     const SizedBox(height: 16),
@@ -183,7 +181,6 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
                       ]
                     ),
                     
-                    // Zone de saisie pour refuser
                     if (_showRejectReason) ...[
                       const SizedBox(height: 16),
                       TextField(
@@ -218,7 +215,6 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
                     ],
                   ],
                   
-                  // Section des actions selon le statut "accepted"
                   if (escalation.status == EscalationStatus.accepted) ...[
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -260,7 +256,6 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
                     ),
                   ],
                   
-                  // Affichage pour le statut "resolved"
                   if (escalation.status == EscalationStatus.resolved)
                     Container(
                       padding: const EdgeInsets.all(16), 
@@ -278,7 +273,6 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
                       )
                     ),
                     
-                  // Affichage pour le statut "rejected"
                   if (escalation.status == EscalationStatus.rejected)
                     Container(
                       padding: const EdgeInsets.all(16), 
@@ -298,7 +292,6 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
                     
                   const SizedBox(height: 24),
                   
-                  // Affichage des erreurs éventuelles
                   if (escState.error != null) 
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -316,8 +309,6 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
             ),
     );
   }
-
-  // ─── MÉTHODES UTILITAIRES ET ACTIONS ───
 
   Widget _infoRow(String label, String value) {
     return Padding(
@@ -344,10 +335,9 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
   }
 
   void _accept(EscalationNotifier notifier) async {
-    final success = await notifier.acceptEscalation(widget.escalationId, widget.agentId);
-    
+    // CORRECTION : accept() au lieu de acceptEscalation()
+    final success = await notifier.accept(widget.escalationId, widget.agentId);
     if (!mounted) return;
-    
     if (success != null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Escalade acceptée avec succès'), backgroundColor: Color(0xFF16A34A)));
     } else {
@@ -361,11 +351,9 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez indiquer un motif de refus'), backgroundColor: _C.red));
       return;
     }
-    
-    final success = await notifier.rejectEscalation(widget.escalationId, _rejectReasonController.text);
-    
+    // CORRECTION : reject() au lieu de rejectEscalation()
+    final success = await notifier.reject(widget.escalationId, _rejectReasonController.text);
     if (!mounted) return;
-    
     if (success != null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Escalade refusée'), backgroundColor: _C.textMain));
       context.pop();
@@ -376,10 +364,9 @@ class _HandleEscalationPageState extends ConsumerState<HandleEscalationPage> {
   }
 
   void _resolve(EscalationNotifier notifier) async {
-    final success = await notifier.resolveEscalation(widget.escalationId);
-    
+    // CORRECTION : resolve() au lieu de resolveEscalation()
+    final success = await notifier.resolve(widget.escalationId);
     if (!mounted) return;
-    
     if (success != null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Escalade marquée comme résolue'), backgroundColor: Color(0xFF16A34A)));
       context.pop();
