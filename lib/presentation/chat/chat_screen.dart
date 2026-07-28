@@ -262,7 +262,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final svc = ref.read(chatServiceProvider);
     final otherId = widget.conversation.participantIds.firstWhere((id) => id != svc.currentUserId, orElse: () => '');
     
-    // Appel sécurisé via Riverpod moderne
     ref.read(callProvider.notifier).start(channel: widget.conversationId, calleeId: otherId, callType: type);
     
     Navigator.push(
@@ -319,10 +318,127 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     }
   }
 
-  void _showEphemeralTimerDialog() {}
-  void _showPasswordProtectDialog() {}
-  void _showAttachmentMenu() {}
-  Future<void> _pickFile({FileType type = FileType.any}) async {}
+  // ----------------------------------------------------------------------
+  // FONCTIONNALITÉS DES BOUTONS DE LA BARRE (Désormais remplies)
+  // ----------------------------------------------------------------------
+
+  void _showEphemeralTimerDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [Icon(Icons.timer_rounded, color: _C.orange), SizedBox(width: 8), Text('Message éphémère')]),
+        content: const Text('Choisissez la durée avant auto-destruction de vos messages :'),
+        actions: [
+          TextButton(
+            onPressed: () { 
+              setState(() { _isEphemeral = false; _ephemeralDuration = null; }); 
+              Navigator.pop(ctx); 
+            }, 
+            child: const Text('Désactiver', style: TextStyle(color: _C.textMuted))
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _C.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            onPressed: () { 
+              setState(() { _isEphemeral = true; _ephemeralDuration = 30; }); 
+              Navigator.pop(ctx); 
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mode éphémère activé (30s)'), backgroundColor: _C.orange)); 
+            }, 
+            child: const Text('30 secondes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPasswordProtectDialog() {
+    final passCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [Icon(Icons.lock_rounded, color: _C.primary), SizedBox(width: 8), Text('Protéger le message')]),
+        content: TextField(
+          controller: passCtrl,
+          obscureText: true,
+          decoration: InputDecoration(
+            labelText: 'Mot de passe de chiffrement', 
+            hintText: '••••••••', 
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx), 
+            child: const Text('Annuler', style: TextStyle(color: _C.textMuted))
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _C.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            onPressed: () {
+              if (passCtrl.text.isNotEmpty) {
+                if (_inputController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Écrivez d\'abord un message !'), backgroundColor: _C.red));
+                  return;
+                }
+                final encrypted = EncryptionService.encryptMessage(_inputController.text, passCtrl.text);
+                _inputController.text = encrypted;
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Message chiffré prêt à être envoyé !'), backgroundColor: _C.green));
+              }
+            }, 
+            child: const Text('Chiffrer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAttachmentMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _C.primaryLight, shape: BoxShape.circle), child: const Icon(Icons.image_rounded, color: _C.primary)),
+                title: const Text('Envoyer une image', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.image); },
+              ),
+              ListTile(
+                leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFFFFF7ED), shape: BoxShape.circle), child: const Icon(Icons.insert_drive_file_rounded, color: _C.orange)),
+                title: const Text('Envoyer un fichier / document', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.any); },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickFile({FileType type = FileType.any}) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(type: type);
+      if (result != null && result.files.isNotEmpty) {
+        final fileName = result.files.first.name;
+        _inputController.text = '[Fichier joint: $fileName]';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fichier sélectionné : $fileName'), backgroundColor: _C.primary));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur de sélection : $e'), backgroundColor: _C.red));
+    }
+  }
+
+  void _handleAudio() {
+    // Placeholder : Déclenche l'action ou ouvre l'enregistreur
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('La fonction d\'enregistrement audio sera bientôt disponible.'), backgroundColor: _C.textMuted));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -497,10 +613,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 focusNode: _inputFocus, 
                 onSend: _sendMessage, 
                 isSending: false, 
-                onAttach: _showAttachmentMenu, 
-                onAudio: () {}, 
-                onSecureMessage: _showPasswordProtectDialog, 
-                onEphemeralToggle: _showEphemeralTimerDialog, 
+                onAttach: _showAttachmentMenu, // L'action est maintenant branchée
+                onAudio: _handleAudio,         // L'action est maintenant branchée
+                onSecureMessage: _showPasswordProtectDialog, // L'action est branchée
+                onEphemeralToggle: _showEphemeralTimerDialog, // L'action est branchée
                 isEphemeral: _isEphemeral, 
                 onTyping: (t) { 
                   if (t.isNotEmpty && !_isTyping) { 
