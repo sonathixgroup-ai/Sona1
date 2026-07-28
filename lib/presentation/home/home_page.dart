@@ -55,10 +55,6 @@ class AppColors {
   static const Color domainMoney = Color(0xFF059669);
   static const Color domainGov = Color(0xFF334155);
   static const Color domainReservation = Color(0xFF0D9488);
-  static const Color bottomNavBlue = Color(0xFF0B3B8F);
-  static const Color bottomNavInactive = Color(0x99FFFFFF);
-  static const Color bottomNavActive = goldBadge;
-  static const Color bottomNavCenterIcon = Color(0xFF111827);
 }
 class AppSpacing {
   static const double xs = 4; static const double s = 8; static const double m = 12; static const double l = 16; static const double xl = 20; static const double xxl = 24; static const double xxxl = 28; static const double huge = 32;
@@ -83,7 +79,6 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
   bool _searching = false;
   late AnimationController _animationController;
   final PageController _headlinesController = PageController();
-  final _notifications = NotificationService();
   final _counters = NotificationCountersService();
   final _profileService = ProfileService();
   static final RegExp _uidLikeRegex = RegExp(r'^[A-Za-z0-9_-]{20,}$');
@@ -109,11 +104,23 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
     } catch (e) { if (!mounted) return; await FullScreenMessage.showError(context, title: 'Erreur', message: "Impossible d'effectuer la vérification."); } finally { if (mounted) { setState(() => _searching = false); } }
   }
 
+  // CORRECTION DIRECTE : Navigation sécurisée vers le tableau de bord
   void _onProfileTap() {
     final auth = context.read<AuthController>();
     HapticFeedback.mediumImpact();
-    if (!auth.isAuthenticated) { context.push(AppRoutes.login); return; }
-    try { context.go(AppRoutes.userDashboard); } catch (_) { context.go('/user-dashboard'); }
+    if (!auth.isAuthenticated) { 
+      context.push(AppRoutes.login); 
+      return; 
+    }
+    try { 
+      context.go(AppRoutes.userDashboard); 
+    } catch (_) { 
+      try {
+        context.go('/user-dashboard');
+      } catch (_) {
+        context.push(AppRoutes.userDashboard);
+      }
+    }
   }
   
   Future<void> _openThixAi() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push('/thix_ia'); return; } context.push(AppRoutes.login); }
@@ -135,20 +142,8 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
 
   Future<void> _handleRequestAccount(BuildContext context) async {
     final auth = context.read<AuthController>();
-    final res = await showModalBottomSheet<_AccountRequestChoice>(
-      context: context, 
-      backgroundColor: Colors.transparent, 
-      isScrollControlled: true, 
-      builder: (_) => const AccountRequestSheet()
-    );
-    switch (res) { 
-      case _AccountRequestChoice.personal: 
-        if (auth.isAuthenticated) { await auth.signOut(); } 
-        if (context.mounted) { context.push(AppRoutes.personalReg); } 
-        return; 
-      case null: 
-        return; 
-    }
+    final res = await showModalBottomSheet<_AccountRequestChoice>(context: context, backgroundColor: Colors.transparent, isScrollControlled: true, builder: (_) => const AccountRequestSheet());
+    switch (res) { case _AccountRequestChoice.personal: if (auth.isAuthenticated) { await auth.signOut(); } if (context.mounted) { context.push(AppRoutes.personalReg); } return; case null: return; }
   }
 
   void _handleServiceTap(String serviceKey) {
@@ -176,6 +171,7 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
     final displayName = (auth.currentUser?.displayName.trim().isNotEmpty ?? false) ? auth.currentUser!.displayName.trim() : (auth.currentUser?.email.trim().isNotEmpty ?? false) ? auth.currentUser!.email.trim() : 'Bonjour';
     final photoUrl = auth.currentUser?.photoUrl;
     final badgeCountsStream = auth.currentUser == null ? Stream.value(SectionBadgeCounts.zero) : _counters.streamCounts(auth.currentUser!.id);
+    
     return Scaffold(
       backgroundColor: AppColors.lightGrayBg,
       body: Stack(children: [
@@ -201,6 +197,7 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
     );
   }
 }
+
 class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double safeTop; final String displayName; final String? photoUrl; final bool isAuthenticated; final VoidCallback onProfileTap; final VoidCallback onAccountRequest;
   _PinnedHeaderDelegate({required this.safeTop, required this.displayName, required this.photoUrl, required this.isAuthenticated, required this.onProfileTap, required this.onAccountRequest});
@@ -223,17 +220,40 @@ class _PremiumHeader extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(AppSpacing.xl, safeTop + 10, AppSpacing.xl, 10),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        GestureDetector(
-          onTap: onProfileTap,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-            const _RotatingGreeting(),
-            Row(children: [Text(displayName, style: const TextStyle(color: AppColors.darkText, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: -0.3))])
-          ]),
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onProfileTap,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+              const _RotatingGreeting(),
+              Row(children: [Flexible(child: Text(displayName, style: const TextStyle(color: AppColors.darkText, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: -0.3), overflow: TextOverflow.ellipsis))])
+            ]),
+          ),
         ),
         Row(children: [
           Material(color: Colors.white, shape: const CircleBorder(), child: InkWell(customBorder: const CircleBorder(), onTap: () { HapticFeedback.lightImpact(); showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const LanguageSheet()); }, child: Container(width: 38, height: 38, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: AppColors.cardBorder), boxShadow: AppShadows.secondary), child: Stack(alignment: Alignment.center, children: [const Icon(Icons.language_rounded, size: 20, color: AppColors.premiumAccent), Positioned(right: 2, bottom: 2, child: Container(padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1), decoration: BoxDecoration(color: AppColors.premiumAccent, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white, width: 1)), child: Text(localeCode.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900))))])))),
           const SizedBox(width: 10),
-          GestureDetector(onTap: () { HapticFeedback.mediumImpact(); onProfileTap(); }, child: Container(width: 40, height: 40, padding: const EdgeInsets.all(2), decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: isAuthenticated ? AppColors.primaryBlue : Colors.white, width: 2), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 3))]), child: ClipOval(child: trimmedPhoto.isNotEmpty ? Image.network(trimmedPhoto, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: AppColors.lightGrayBg, child: const Icon(Icons.person_rounded))) : Image.asset('assets/images/African_businessman_in_suit_grayscale_1775573970767.jpg', fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: AppColors.lightGrayBg, child: const Icon(Icons.person_rounded)))))),
+          GestureDetector(
+            onTap: onProfileTap, 
+            child: Container(
+              width: 40, height: 40, 
+              padding: const EdgeInsets.all(2), 
+              decoration: BoxDecoration(
+                shape: BoxShape.circle, 
+                color: Colors.white, 
+                border: Border.all(color: AppColors.primaryBlue, width: 2), 
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 3))]
+              ), 
+              child: ClipOval(
+                child: trimmedPhoto.isNotEmpty 
+                  ? Image.network(trimmedPhoto, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: AppColors.lightGrayBg, child: const Icon(Icons.person_rounded))) 
+                  : Container(
+                      color: AppColors.primaryBlue.withValues(alpha: 0.1), 
+                      child: const Icon(Icons.person_rounded, color: AppColors.primaryBlue)
+                    )
+              )
+            ),
+          ),
         ])
       ]),
     );
