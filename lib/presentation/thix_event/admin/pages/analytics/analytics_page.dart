@@ -1,300 +1,159 @@
-// lib/presentation/thix_event/admin/pages/analytics/analytics_page.dart
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
-import '../../widgets/admin_app_bar.dart';
-import '../../widgets/admin_stat_card.dart';
-
-class AnalyticsPage extends StatefulWidget {
-  const AnalyticsPage({super.key});
-
-  @override
-  State<AnalyticsPage> createState() => _AnalyticsPageState();
+class _ThixColors {
+  static const bg = Color(0xFF050508);
+  static const surface = Color(0xFF0C0C12);
+  static const surfaceAlt = Color(0xFF111118);
+  static const cardBorder = Color(0x14FFFFFF);
+  static const primary = Color(0xFFFF0A54);
+  static const textSecondary = Color(0x99FFFFFF);
+  static const textMuted = Color(0x66FFFFFF);
 }
 
-class _AnalyticsPageState extends State<AnalyticsPage> {
-  bool _isLoading = true;
-  String? _errorMessage;
+final analyticsProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final sb = Supabase.instance.client;
+  final stats = await sb.rpc('get_dashboard_stats');
+  final chart = await sb.rpc('get_revenue_chart_data', params: {'days': 7});
+  return {'stats': stats, 'chart': chart};
+});
 
-  // Variables pour les KPIs
-  double _fillRate = 0.0;
-  double _avgCart = 0.0;
-  double _noShowRate = 0.0;
-  double _avgRevenuePerEvent = 0.0;
+class AnalyticsPage extends ConsumerWidget {
+  const AnalyticsPage({super.key});
 
-  // Variables pour le graphique
-  List<FlSpot> _revenueSpots = [];
-  List<String> _dateLabels = [];
-  double _maxRevenueY = 0.0;
+  String _fmt(double a) {
+    if (a >= 1000000) return '${(a / 1000000).toStringAsFixed(1)}M';
+    if (a >= 1000) return '${(a / 1000).toStringAsFixed(1)}k FC';
+    return '${a.toStringAsFixed(0)} FC';
+  }
 
   @override
-  void initState() {
-    super.initState();
-    _fetchAnalytics();
-  }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(analyticsProvider);
 
-  Future<void> _fetchAnalytics() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    return Scaffold(
+      backgroundColor: _ThixColors.bg,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(56),
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: AppBar(
+              backgroundColor: _ThixColors.bg.withOpacity(0.85),
+              elevation: 0,
+              leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 18), onPressed: () => Navigator.of(context).pop()),
+              title: const Text('Analytics • Performance', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800)),
+              actions: [IconButton(icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 18), onPressed: () => ref.invalidate(analyticsProvider))],
+            ),
+          ),
+        ),
+      ),
+      body: async.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: _ThixColors.primary, strokeWidth: 2)),
+        error: (e, _) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.error_outline_rounded, color: Colors.red, size: 40), const SizedBox(height: 12), Text(e.toString(), style: const TextStyle(color: _ThixColors.textMuted, fontSize: 11)), const SizedBox(height: 12), ElevatedButton(onPressed: () => ref.invalidate(analyticsProvider), style: ElevatedButton.styleFrom(backgroundColor: _ThixColors.surface), child: const Text('Reessayer'))])),
+        data: (data) {
+          final stats = data['stats'] as Map<String, dynamic>?;
+          final chart = data['chart'] as List? ?? [];
 
-    try {
-      final supabase = Supabase.instance.client;
+          final fillRate = (stats?['fill_rate'] ?? 0.0).toDouble();
+          final avgCart = (stats?['avg_cart'] ?? 0.0).toDouble();
+          final noShow = (stats?['no_show_rate'] ?? 0.0).toDouble();
+          final revPerEvent = (stats?['revenue_per_event'] ?? 0.0).toDouble();
 
-      // 1️⃣ Appel RPC pour les statistiques globales (KPIs)
-      final statsResponse = await supabase.rpc('get_dashboard_stats');
-      
-      // 2️⃣ Appel RPC pour les données du graphique (7 derniers jours)
-      final chartResponse = await supabase.rpc('get_revenue_chart_data', params: {'days': 7});
-
-      if (mounted) {
-        setState(() {
-          // Parsing des KPIs
-          if (statsResponse != null) {
-            _fillRate = (statsResponse['fill_rate'] ?? 0.0).toDouble();
-            _avgCart = (statsResponse['avg_cart'] ?? 0.0).toDouble();
-            _noShowRate = (statsResponse['no_show_rate'] ?? 0.0).toDouble();
-            _avgRevenuePerEvent = (statsResponse['revenue_per_event'] ?? 0.0).toDouble();
+          List<FlSpot> spots = [];
+          List<String> labels = [];
+          double maxY = 0;
+          for (int i = 0; i < chart.length; i++) {
+            final item = chart[i] as Map;
+            final d = DateTime.parse(item['date_day'].toString());
+            final rev = (item['daily_revenue'] ?? 0).toDouble();
+            if (rev > maxY) maxY = rev;
+            labels.add(DateFormat('dd MMM', 'fr').format(d));
+            spots.add(FlSpot(i.toDouble(), rev));
           }
+          maxY = maxY > 0 ? maxY * 1.3 : 100;
 
-          // Parsing des données du graphique
-          if (chartResponse != null && chartResponse is List) {
-            _revenueSpots.clear();
-            _dateLabels.clear();
-            double maxY = 0.0;
-
-            for (int i = 0; i < chartResponse.length; i++) {
-              final item = chartResponse[i];
-              final dateStr = item['date_day'].toString();
-              final revenue = (item['daily_revenue'] ?? 0.0).toDouble();
-
-              if (revenue > maxY) maxY = revenue;
-
-              // Formatage de la date (ex: "12 Mar")
-              final DateTime parsedDate = DateTime.parse(dateStr);
-              _dateLabels.add(DateFormat('dd MMM', 'fr').format(parsedDate));
-              _revenueSpots.add(FlSpot(i.toDouble(), revenue));
-            }
-            
-            // On donne un peu de marge au dessus du graphique
-            _maxRevenueY = maxY > 0 ? maxY * 1.2 : 100.0; 
-          }
-          
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isLoading = false;
-        });
-      }
-    }
+          return RefreshIndicator(
+            color: Colors.white,
+            backgroundColor: _ThixColors.surface,
+            onRefresh: () async => ref.invalidate(analyticsProvider),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              padding: const EdgeInsets.all(16),
+              children: [
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.5,
+                  children: [
+                    _StatCard(label: 'Remplissage', value: '${fillRate.toStringAsFixed(1)}%', icon: Icons.pie_chart_rounded),
+                    _StatCard(label: 'Panier moyen', value: _fmt(avgCart), icon: Icons.shopping_cart_rounded),
+                    _StatCard(label: 'No-show', value: '${noShow.toStringAsFixed(1)}%', icon: Icons.person_off_rounded),
+                    _StatCard(label: 'Revenu / Event', value: _fmt(revPerEvent), icon: Icons.trending_up_rounded),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: _ThixColors.cardBorder)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Row(children: [Icon(Icons.bar_chart_rounded, color: Colors.white, size: 16), SizedBox(width: 8), Text('Revenus 7j', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800))]),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      height: 220,
+                      child: spots.isEmpty
+                          ? const Center(child: Text('Aucune donnee', style: TextStyle(color: _ThixColors.textMuted, fontSize: 11)))
+                          : LineChart(LineChartData(
+                              gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: maxY / 4, getDrawingHorizontalLine: (_) => FlLine(color: _ThixColors.cardBorder, strokeWidth: 1)),
+                              titlesData: FlTitlesData(
+                                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 28, interval: 1, getTitlesWidget: (v, _) { final i = v.toInt(); if (i >= 0 && i < labels.length) return Padding(padding: const EdgeInsets.only(top: 8), child: Text(labels[i], style: const TextStyle(color: _ThixColors.textMuted, fontSize: 9))); return const SizedBox(); })),
+                                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 42, interval: maxY / 4, getTitlesWidget: (v, _) { if (v == 0) return const SizedBox(); return Text(_fmt(v), style: const TextStyle(color: _ThixColors.textMuted, fontSize: 8)); })),
+                              ),
+                              borderData: FlBorderData(show: false),
+                              minX: 0,
+                              maxX: (labels.length - 1).toDouble().clamp(0, 100),
+                              minY: 0,
+                              maxY: maxY,
+                              lineBarsData: [LineChartBarData(spots: spots, isCurved: true, color: _ThixColors.primary, barWidth: 2.5, isStrokeCapRound: true, dotData: const FlDotData(show: false), belowBarData: BarAreaData(show: true, color: _ThixColors.primary.withOpacity(0.12)))],
+                              lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(getTooltipColor: (_) => _ThixColors.surfaceAlt, getTooltipItems: (ts) => ts.map((t) => LineTooltipItem('${labels[t.x.toInt()]}\n', const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700), children: [TextSpan(text: _fmt(t.y), style: const TextStyle(color: _ThixColors.primary, fontWeight: FontWeight.w900))])).toList())),
+                            )),
+                    ),
+                  ]),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
+}
 
-  String _formatCurrency(double amount) {
-    if (amount >= 1000000) {
-      return '${(amount / 1000000).toStringAsFixed(1)}M FC';
-    } else if (amount >= 1000) {
-      return '${(amount / 1000).toStringAsFixed(1)}k FC';
-    }
-    return '${amount.toStringAsFixed(0)} FC';
-  }
-
+class _StatCard extends StatelessWidget {
+  final String label, value;
+  final IconData icon;
+  const _StatCard({required this.label, required this.value, required this.icon});
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7FAFF),
-      appBar: const AdminAppBar(title: 'Analytics • Performance'),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0A1F44)))
-          : _errorMessage != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
-                      const SizedBox(height: 16),
-                      Text('Erreur de chargement des données', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0A1F44))),
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _fetchAnalytics,
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0A1F44)),
-                        child: const Text('Réessayer', style: TextStyle(color: Colors.white)),
-                      )
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  color: const Color(0xFF0A1F44),
-                  onRefresh: _fetchAnalytics,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      // 🟢 KPIs DYNAMIQUES
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 1.5,
-                        children: [
-                          AdminStatCard(
-                            label: 'Taux remplissage',
-                            value: '${_fillRate.toStringAsFixed(1)}%',
-                            icon: Icons.pie_chart_rounded,
-                          ),
-                          AdminStatCard(
-                            label: 'Panier moyen',
-                            value: _formatCurrency(_avgCart),
-                            icon: Icons.shopping_cart_rounded,
-                          ),
-                          AdminStatCard(
-                            label: 'No-show (Absences)',
-                            value: '${_noShowRate.toStringAsFixed(1)}%',
-                            icon: Icons.person_off_rounded,
-                          ),
-                          AdminStatCard(
-                            label: 'Revenu / Événement',
-                            value: _formatCurrency(_avgRevenuePerEvent),
-                            icon: Icons.trending_up_rounded,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // 🟢 GRAPHIQUE DES REVENUS (FL_CHART)
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE7EEFC)),
-                          boxShadow: [
-                            BoxShadow(color: const Color(0xFF0A1F44).withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.bar_chart_rounded, color: Color(0xFF0A1F44), size: 18),
-                                SizedBox(width: 8),
-                                Text('Revenus des 7 derniers jours', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0A1F44))),
-                              ],
-                            ),
-                            const SizedBox(height: 32),
-                            
-                            SizedBox(
-                              height: 220,
-                              child: _revenueSpots.isEmpty
-                                  ? const Center(child: Text('Aucune donnée pour cette période.', style: TextStyle(color: Color(0xFF7386A8), fontSize: 12)))
-                                  : LineChart(
-                                      LineChartData(
-                                        gridData: FlGridData(
-                                          show: true,
-                                          drawVerticalLine: false,
-                                          horizontalInterval: _maxRevenueY > 0 ? _maxRevenueY / 4 : 1,
-                                          getDrawingHorizontalLine: (value) => FlLine(color: const Color(0xFFE7EEFC), strokeWidth: 1),
-                                        ),
-                                        titlesData: FlTitlesData(
-                                          show: true,
-                                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                          bottomTitles: AxisTitles(
-                                            sideTitles: SideTitles(
-                                              showTitles: true,
-                                              reservedSize: 30,
-                                              interval: 1,
-                                              getTitlesWidget: (value, meta) {
-                                                final index = value.toInt();
-                                                if (index >= 0 && index < _dateLabels.length) {
-                                                  return Padding(
-                                                    padding: const EdgeInsets.only(top: 10.0),
-                                                    child: Text(
-                                                      _dateLabels[index],
-                                                      style: const TextStyle(color: Color(0xFF7386A8), fontSize: 10, fontWeight: FontWeight.w600),
-                                                    ),
-                                                  );
-                                                }
-                                                return const Text('');
-                                              },
-                                            ),
-                                          ),
-                                          leftTitles: AxisTitles(
-                                            sideTitles: SideTitles(
-                                              showTitles: true,
-                                              interval: _maxRevenueY > 0 ? _maxRevenueY / 4 : 1,
-                                              reservedSize: 40,
-                                              getTitlesWidget: (value, meta) {
-                                                if (value == 0) return const SizedBox.shrink();
-                                                return Text(
-                                                  _formatCurrency(value),
-                                                  style: const TextStyle(color: Color(0xFF7386A8), fontSize: 9, fontWeight: FontWeight.w600),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        borderData: FlBorderData(show: false),
-                                        minX: 0,
-                                        maxX: (_dateLabels.length - 1).toDouble(),
-                                        minY: 0,
-                                        maxY: _maxRevenueY,
-                                        lineBarsData: [
-                                          LineChartBarData(
-                                            spots: _revenueSpots,
-                                            isCurved: true,
-                                            color: const Color(0xFF6B3CE2), // THIX Primary
-                                            barWidth: 3,
-                                            isStrokeCapRound: true,
-                                            dotData: const FlDotData(show: true),
-                                            belowBarData: BarAreaData(
-                                              show: true,
-                                              color: const Color(0xFF6B3CE2).withOpacity(0.1),
-                                            ),
-                                          ),
-                                        ],
-                                        lineTouchData: LineTouchData(
-                                          touchTooltipData: LineTouchTooltipData(
-                                            getTooltipColor: (touchedSpot) => const Color(0xFF0A1F44),
-                                            getTooltipItems: (touchedSpots) {
-                                              return touchedSpots.map((LineBarSpot touchedSpot) {
-                                                return LineTooltipItem(
-                                                  '${_dateLabels[touchedSpot.x.toInt()]}\n',
-                                                  const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                                  children: [
-                                                    TextSpan(
-                                                      text: '${touchedSpot.y.toStringAsFixed(0)} FC',
-                                                      style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.w900),
-                                                    ),
-                                                  ],
-                                                );
-                                              }).toList();
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: _ThixColors.cardBorder)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, size: 16, color: Colors.white),
+        const Spacer(),
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+      ]),
     );
   }
 }
