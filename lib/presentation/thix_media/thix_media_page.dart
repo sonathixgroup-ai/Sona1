@@ -50,7 +50,8 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   
-  final List<String> _filters = ["Pour vous", "Tendances", "NOVA Originals", "Live", "Courts", "Musique", "Gaming", "Formation"];
+  // Remplacement de "Pour vous" par "Accueil"
+  final List<String> _filters = ["Accueil", "Tendances", "NOVA Originals", "Live", "Courts", "Musique", "Gaming", "Formation"];
 
   @override
   void initState() {
@@ -269,9 +270,11 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               ),
               const Spacer(),
               if (isAdmin) ...[
-                InkWell(
-                  onTap: () => context.push('/admin/media'),
-                  borderRadius: BorderRadius.circular(18),
+                // Bouton Admin cliquable via onTap
+                GestureDetector(
+                  onTap: () {
+                    context.push('/admin/media');
+                  },
                   child: Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
@@ -390,11 +393,18 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                         const SizedBox(width: 12),
                         Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white10)), child: const Text("4K DOLBY", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))),
                         const SizedBox(width: 12),
-                        Text("${item.year ?? 2026} • Thriller sci-fi", style: const TextStyle(color: Colors.white54, fontSize: 13)),
+                        // Affichage dynamique de l'année et du type réels de la vidéo
+                        Text("${item.year ?? 2026} • ${item.type}", style: const TextStyle(color: Colors.white54, fontSize: 13)),
                       ],
                     ),
                     const SizedBox(height: 20),
-                    const Text("Dans un futur où la mémoire se monnaye, une archiviste découvre une faille qui pourrait effacer l'histoire humaine...", style: TextStyle(color: Colors.white70, fontSize: 14.5, height: 1.5), maxLines: 3, overflow: TextOverflow.ellipsis),
+                    // Affichage dynamique de la vraie description de la vidéo Supabase
+                    Text(
+                      item.description.isNotEmpty ? item.description : "Aucune description disponible pour ce contenu.",
+                      style: const TextStyle(color: Colors.white70, fontSize: 14.5, height: 1.5),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 28),
                     Row(
                       children: [
@@ -552,18 +562,19 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
+  // --- NAVBAR RÉDUITE ---
   Widget _bottomNav() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 30),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16), // Marge basse réduite
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(24),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
           child: Container(
-            height: 64,
+            height: 52, // Hauteur réduite à 52 au lieu de 64
             decoration: BoxDecoration(
-              color: const Color(0xFF12121A).withOpacity(0.8),
-              borderRadius: BorderRadius.circular(30),
+              color: const Color(0xFF12121A).withOpacity(0.85),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(color: Colors.white.withOpacity(0.08)),
             ),
             child: Row(
@@ -586,16 +597,17 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       onTap: () {
         if (idx == 0) {
           _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeOutCubic);
-          ref.read(selectedCategoryProvider.notifier).state = 'Pour vous';
+          ref.read(selectedCategoryProvider.notifier).state = 'Accueil';
         }
         if (idx == 3) context.go(AppRoutes.userDashboard);
       },
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: selected ? Colors.white : Colors.white38, size: 24),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: selected ? FontWeight.bold : FontWeight.w500, color: selected ? Colors.white : Colors.white38)),
+          Icon(icon, color: selected ? Colors.white : Colors.white38, size: 20), // Icône réduite à 20
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 9, fontWeight: selected ? FontWeight.bold : FontWeight.w500, color: selected ? Colors.white : Colors.white38)), // Texte réduit à 9
         ],
       ),
     );
