@@ -1,7 +1,7 @@
+// lib/presentation/chat/chat_screen.dart
 import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -34,19 +34,19 @@ import 'package:thix_id/models/chat/call_status.dart';
 import 'package:thix_id/presentation/chat/call/call_page.dart';
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 
-// HOMEPAGE DARK DESIGN MEMORISÉ
+// ─── NOUVEAU DESIGN CLAIR "GRANDEUR ENTREPRISE" ───
 class _C {
-  static const bg = Color(0xFF050508);
-  static const surface = Color(0xFF0C0C12);
-  static const surfaceAlt = Color(0xFF111118);
-  static const cardBorder = Color(0x14FFFFFF);
-  static const violet = Color(0xFF7C5CFF);
-  static const violetDark = Color(0xFF6B4EFF);
-  static const white = Colors.white;
-  static const textMuted = Color(0x66FFFFFF);
-  static const textSecondary = Color(0x99FFFFFF);
-  static const red = Color(0xFFFF0A54);
-  static const green = Color(0xFF10B981);
+  static const bg = Color(0xFFF0F2F5); // Fond de chat style WhatsApp/Telegram
+  static const surface = Colors.white; // Fond des barres et menus
+  static const surfaceAlt = Color(0xFFF8FAFC);
+  static const border = Color(0xFFE2E8F0);
+  static const primary = Color(0xFF0A66C2); // Bleu Trust
+  static const primaryLight = Color(0xFFEFF6FF);
+  static const textMain = Color(0xFF0F172A);
+  static const textMuted = Color(0xFF64748B);
+  static const red = Color(0xFFEF4444);
+  static const green = Color(0xFF22C55E);
+  static const orange = Color(0xFFF59E0B);
 }
 
 // Provider scalable messages paginé
@@ -61,13 +61,16 @@ class ChatMsgNotifier extends StateNotifier<List<ChatMessage>> {
   static const pageSize = 30;
   bool hasMore = true;
   bool loadingMore = false;
+  
   ChatMsgNotifier(this.svc, this.convId) : super([]);
+  
   Future<void> loadInitial() async {
     page = 0;
     final msgs = await svc.getMessages(convId, limit: pageSize, offset: 0);
     hasMore = msgs.length >= pageSize;
     state = msgs;
   }
+  
   Future<void> loadMore() async {
     if (loadingMore || !hasMore) return;
     loadingMore = true;
@@ -84,8 +87,11 @@ class ChatMsgNotifier extends StateNotifier<List<ChatMessage>> {
 class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
   final ChatConversation conversation;
+  
   const ChatScreen({super.key, required this.conversationId, required this.conversation});
-  @override ConsumerState<ChatScreen> createState() => _ChatScreenState();
+  
+  @override 
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObserver {
@@ -124,7 +130,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   StreamSubscription<List<ChatMessage>>? _messageSubscription;
 
-  @override void initState() {
+  @override 
+  void initState() {
     super.initState();
     final client = Supabase.instance.client;
     _chatService = ChatService(client);
@@ -133,6 +140,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     _groupService = GroupService(client);
     _connectionService = ConnectionService();
     WidgetsBinding.instance.addObserver(this);
+    
     _loadUserRole();
     _loadMessages();
     _getParticipantInfo();
@@ -146,172 +154,801 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   Future<void> _loadUserRole() async {
     final user = _chatService.currentUser;
-    if(user!=null){ _isAgent = user.role=='agent'||user.role=='admin'||user.role=='support'; if(mounted) setState((){}); }
-  }
-
-  @override void dispose(){ WidgetsBinding.instance.removeObserver(this); _scrollController.dispose(); _inputController.dispose(); _inputFocus.dispose(); _typingTimer?.cancel(); _messageSubscription?.cancel(); _typingChannel?.unsubscribe(); _audioService.dispose(); super.dispose(); }
-
-  Future<void> _loadMessages({bool loadMore=false}) async {
-    if(loadMore){ if(_isLoadingMore||!_hasMoreMessages) return; setState(()=>_isLoadingMore=true); } else { setState(()=>_isLoading=true); _page=0; }
-    try{
-      final msgs = await _chatService.getMessages(widget.conversationId, limit:_pageSize, offset:_page*_pageSize);
-      if(!mounted) return;
-      setState((){ if(loadMore){ _messages=[...msgs.reversed,..._messages]; _hasMoreMessages=msgs.length>=_pageSize; } else { _messages=msgs; _hasMoreMessages=msgs.length>=_pageSize; } _isLoading=false; _isLoadingMore=false; });
-      if(!loadMore) _scrollToBottom();
-    }catch(_){ if(mounted) setState(()=>_isLoading=_isLoadingMore=false); }
-  }
-
-  Future<void> _loadGroupMembersIfGroup() async { if(!widget.conversation.isGroup) return; try{ final m=await _chatService.getGroupMembers(widget.conversationId); if(mounted) setState(()=>_groupMembers=m); }catch(e){ debugPrint('members $e'); } }
-  void _setupScrollListener(){ _scrollController.addListener((){ if(_scrollController.position.pixels >= _scrollController.position.maxScrollExtent-200){ if(_hasMoreMessages&&!_isLoadingMore){ _page++; _loadMessages(loadMore:true); } } }); }
-  Future<void> _markAsRead() async => await _chatService.markAsRead(widget.conversationId);
-  void _scrollToBottom(){ if(_scrollController.hasClients) _scrollController.animateTo(0, duration: const Duration(milliseconds:300), curve: Curves.easeOut); }
-
-  void _subscribeToPresence(){
-    if(widget.conversation.isGroup) return;
-    final otherId = widget.conversation.participantIds.firstWhere((id)=>id!=_chatService.currentUserId, orElse:()=>'');
-    if(otherId.isNotEmpty){
-      _chatService.subscribeToPresence([otherId]).listen((list){ if(mounted&&list.isNotEmpty) setState(()=>_otherParticipant=list.first); });
+    if (user != null) { 
+      _isAgent = user.role == 'agent' || user.role == 'admin' || user.role == 'support'; 
+      if (mounted) setState(() {}); 
     }
   }
-  Future<void> _getParticipantInfo() async { if(widget.conversation.isGroup) return; final otherId=widget.conversation.participantIds.firstWhere((id)=>id!=_chatService.currentUserId, orElse:()=>''); if(otherId.isNotEmpty){ final p=await _chatService.getUserPresence(otherId); if(mounted) setState(()=>_otherParticipant=p); } }
 
-  void _subscribeToRealtimeMessages(){
-    _messageSubscription=_chatService.subscribeToMessages(widget.conversationId).listen((updated){
-      if(!mounted) return;
-      setState((){ for(var msg in updated){ final idx=_messages.indexWhere((m)=>m.id==msg.id); if(idx!=-1){ if(msg.isDeleted) _messages.removeAt(idx); else _messages[idx]=msg; } else if(!msg.isDeleted){ _messages.add(msg); } } });
-      _scrollToBottom(); _markAsRead();
+  @override 
+  void dispose() { 
+    WidgetsBinding.instance.removeObserver(this); 
+    _scrollController.dispose(); 
+    _inputController.dispose(); 
+    _inputFocus.dispose(); 
+    _typingTimer?.cancel(); 
+    _messageSubscription?.cancel(); 
+    _typingChannel?.unsubscribe(); 
+    _audioService.dispose(); 
+    super.dispose(); 
+  }
+
+  Future<void> _loadMessages({bool loadMore = false}) async {
+    if (loadMore) { 
+      if (_isLoadingMore || !_hasMoreMessages) return; 
+      setState(() => _isLoadingMore = true); 
+    } else { 
+      setState(() => _isLoading = true); 
+      _page = 0; 
+    }
+    
+    try {
+      final msgs = await _chatService.getMessages(widget.conversationId, limit: _pageSize, offset: _page * _pageSize);
+      if (!mounted) return;
+      
+      setState(() { 
+        if (loadMore) { 
+          _messages = [...msgs.reversed, ..._messages]; 
+          _hasMoreMessages = msgs.length >= _pageSize; 
+        } else { 
+          _messages = msgs; 
+          _hasMoreMessages = msgs.length >= _pageSize; 
+        } 
+        _isLoading = false; 
+        _isLoadingMore = false; 
+      });
+      
+      if (!loadMore) _scrollToBottom();
+    } catch (_) { 
+      if (mounted) setState(() => _isLoading = _isLoadingMore = false); 
+    }
+  }
+
+  Future<void> _loadGroupMembersIfGroup() async { 
+    if (!widget.conversation.isGroup) return; 
+    try { 
+      final m = await _chatService.getGroupMembers(widget.conversationId); 
+      if (mounted) setState(() => _groupMembers = m); 
+    } catch (e) { 
+      debugPrint('members $e'); 
+    } 
+  }
+
+  void _setupScrollListener() { 
+    _scrollController.addListener(() { 
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) { 
+        if (_hasMoreMessages && !_isLoadingMore) { 
+          _page++; 
+          _loadMessages(loadMore: true); 
+        } 
+      } 
+    }); 
+  }
+
+  Future<void> _markAsRead() async => await _chatService.markAsRead(widget.conversationId);
+  
+  void _scrollToBottom() { 
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut); 
+    }
+  }
+
+  void _subscribeToPresence() {
+    if (widget.conversation.isGroup) return;
+    final otherId = widget.conversation.participantIds.firstWhere((id) => id != _chatService.currentUserId, orElse: () => '');
+    if (otherId.isNotEmpty) {
+      _chatService.subscribeToPresence([otherId]).listen((list) { 
+        if (mounted && list.isNotEmpty) setState(() => _otherParticipant = list.first); 
+      });
+    }
+  }
+
+  Future<void> _getParticipantInfo() async { 
+    if (widget.conversation.isGroup) return; 
+    final otherId = widget.conversation.participantIds.firstWhere((id) => id != _chatService.currentUserId, orElse: () => ''); 
+    if (otherId.isNotEmpty) { 
+      final p = await _chatService.getUserPresence(otherId); 
+      if (mounted) setState(() => _otherParticipant = p); 
+    } 
+  }
+
+  void _subscribeToRealtimeMessages() {
+    _messageSubscription = _chatService.subscribeToMessages(widget.conversationId).listen((updated) {
+      if (!mounted) return;
+      setState(() { 
+        for (var msg in updated) { 
+          final idx = _messages.indexWhere((m) => m.id == msg.id); 
+          if (idx != -1) { 
+            if (msg.isDeleted) _messages.removeAt(idx); 
+            else _messages[idx] = msg; 
+          } else if (!msg.isDeleted) { 
+            _messages.add(msg); 
+          } 
+        } 
+      });
+      _scrollToBottom(); 
+      _markAsRead();
     });
   }
 
-  void _subscribeToTypingChannel(){
-    final cur=_chatService.currentUserId;
-    _typingChannel=Supabase.instance.client.channel('typing:${widget.conversationId}').onBroadcast(event:'typing', callback:(p){ final sid=p['senderId'] as String?; final typing=p['isTyping'] as bool? ?? false; if(sid!=null&&sid!=cur&&mounted) setState(()=>_otherUserTyping=typing); }).subscribe();
+  void _subscribeToTypingChannel() {
+    final cur = _chatService.currentUserId;
+    _typingChannel = Supabase.instance.client.channel('typing:${widget.conversationId}').onBroadcast(
+      event: 'typing', 
+      callback: (p) { 
+        final sid = p['senderId'] as String?; 
+        final typing = p['isTyping'] as bool? ?? false; 
+        if (sid != null && sid != cur && mounted) setState(() => _otherUserTyping = typing); 
+      }
+    ).subscribe();
   }
-  void _sendTypingStatus(bool t){ final cur=_chatService.currentUserId; if(cur==null||_typingChannel==null) return; _typingChannel!.sendBroadcastMessage(event:'typing', payload:{'senderId':cur,'isTyping':t}); }
 
-  void _startCall(CallType type){
-    final otherId=widget.conversation.participantIds.firstWhere((id)=>id!=_chatService.currentUserId, orElse:()=>'');
-    final provv=prov.Provider.of<CallProvider>(context, listen:false); provv.start(channel:widget.conversationId, calleeId:otherId, callType:type);
-    Navigator.push(context, MaterialPageRoute(builder:(_)=>CallPage(channel:widget.conversationId, name:widget.conversation.displayName, type:type, isCaller:true)));
+  void _sendTypingStatus(bool t) { 
+    final cur = _chatService.currentUserId; 
+    if (cur == null || _typingChannel == null) return; 
+    _typingChannel!.sendBroadcastMessage(event: 'typing', payload: {'senderId': cur, 'isTyping': t}); 
+  }
+
+  void _startCall(CallType type) {
+    final otherId = widget.conversation.participantIds.firstWhere((id) => id != _chatService.currentUserId, orElse: () => '');
+    final provv = prov.Provider.of<CallProvider>(context, listen: false); 
+    provv.start(channel: widget.conversationId, calleeId: otherId, callType: type);
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CallPage(channel: widget.conversationId, name: widget.conversation.displayName, type: type, isCaller: true)));
   }
 
   Future<void> _sendMessage() async {
-    final text=_inputController.text.trim(); if(text.isEmpty||_isSending) return;
-    if(!widget.conversation.isGroup && !_isInternalNoteMode){
-      final cur=_chatService.currentUserId;
-      if(cur!=null){ final otherId=widget.conversation.participantIds.firstWhere((id)=>id!=cur, orElse:()=>''); if(otherId.isNotEmpty){ final ok=await _connectionService.checkConnection(cur, otherId); if(!ok){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Vous devez être connecté'), backgroundColor: Colors.orange)); return; } } }
+    final text = _inputController.text.trim(); 
+    if (text.isEmpty || _isSending) return;
+    
+    if (!widget.conversation.isGroup && !_isInternalNoteMode) {
+      final cur = _chatService.currentUserId;
+      if (cur != null) { 
+        final otherId = widget.conversation.participantIds.firstWhere((id) => id != cur, orElse: () => ''); 
+        if (otherId.isNotEmpty) { 
+          final ok = await _connectionService.checkConnection(cur, otherId); 
+          if (!ok) { 
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vous devez être connecté pour envoyer un message'), backgroundColor: _C.orange)); 
+            return; 
+          } 
+        } 
+      }
     }
-    _isTyping=false; _sendTypingStatus(false); setState(()=>_isSending=true);
-    try{
-      final msg=await _chatService.sendMessage(conversationId:widget.conversationId, content:text, replyToId:_replyToId.isEmpty?null:_replyToId, isEphemeral:_isEphemeral, ephemeralDuration:_isEphemeral?_ephemeralDuration:null);
-      if(mounted) setState((){ if(!_messages.any((m)=>m.id==msg.id)) _messages.add(msg); _inputController.clear(); _replyToId=''; _isSending=false; if(_isInternalNoteMode) _isInternalNoteMode=false; });
+    
+    _isTyping = false; 
+    _sendTypingStatus(false); 
+    setState(() => _isSending = true);
+    
+    try {
+      final msg = await _chatService.sendMessage(
+        conversationId: widget.conversationId, 
+        content: text, 
+        replyToId: _replyToId.isEmpty ? null : _replyToId, 
+        isEphemeral: _isEphemeral, 
+        ephemeralDuration: _isEphemeral ? _ephemeralDuration : null
+      );
+      
+      if (mounted) {
+        setState(() { 
+          if (!_messages.any((m) => m.id == msg.id)) _messages.add(msg); 
+          _inputController.clear(); 
+          _replyToId = ''; 
+          _isSending = false; 
+          if (_isInternalNoteMode) _isInternalNoteMode = false; 
+        });
+      }
       _scrollToBottom();
-    }catch(e){ if(mounted) setState(()=>_isSending=false); if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Erreur: $e'), backgroundColor:_C.red)); }
+    } catch (e) { 
+      if (mounted) setState(() => _isSending = false); 
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red)); 
+    }
   }
 
-  void _showEphemeralTimerDialog(){
-    final customCtrl=TextEditingController();
-    showModalBottomSheet(context:context, backgroundColor:Colors.transparent, isScrollControlled:true, builder:(ctx)=>Container(
-      padding:const EdgeInsets.fromLTRB(16,12,16,32),
-      decoration:const BoxDecoration(color:_C.surface, borderRadius:BorderRadius.vertical(top:Radius.circular(22)), border: Border(top: BorderSide(color: _C.cardBorder))),
-      child:Column(mainAxisSize:MainAxisSize.min, children:[
-        Container(width:40,height:4,decoration:BoxDecoration(color:Colors.white.withOpacity(0.12),borderRadius:BorderRadius.circular(4))),
-        const SizedBox(height:16),
-        Row(children:[Container(padding:const EdgeInsets.all(7),decoration:BoxDecoration(color:_C.violet,borderRadius:BorderRadius.circular(10)),child:const Icon(Icons.timer_rounded,size:16,color:Colors.white)), const SizedBox(width:10), const Text("Messages éphémères",style:TextStyle(fontWeight:FontWeight.w800,fontSize:14,color: Colors.white))]),
-        const SizedBox(height:16),
-        ListTile(leading:Icon(Icons.timer_off_rounded,color:!_isEphemeral?_C.violet:_C.textMuted), title:Text("Désactiver - Envoyer sans éphémère",style:TextStyle(fontSize:12,fontWeight:!_isEphemeral?FontWeight.w800:FontWeight.w500,color:!_isEphemeral?_C.violet:Colors.white)), trailing:!_isEphemeral?const Icon(Icons.check_circle_rounded,color:_C.violet):null, onTap:(){ setState((){_isEphemeral=false; _ephemeralDuration=null;}); Navigator.pop(ctx); }),
-        const Divider(color: _C.cardBorder),
-       ...[[10,'10 secondes'],[30,'30 secondes'],[60,'1 minute'],[300,'5 minutes'],[3600,'1 heure'],[86400,'24 heures']].map((e){
-          final sec=e[0] as int; final label=e[1] as String; final sel=_isEphemeral&&_ephemeralDuration==sec;
-          return ListTile(leading:Icon(Icons.timer_rounded,color:sel?_C.violet:Colors.white), title:Text(label,style:TextStyle(fontSize:12,fontWeight:sel?FontWeight.w800:FontWeight.w500,color:sel?_C.violet:Colors.white)), trailing:sel?const Icon(Icons.check_circle_rounded,color:_C.violet):null, onTap:(){ setState((){_isEphemeral=true; _ephemeralDuration=sec;}); Navigator.pop(ctx); });
-        }),
-        const Divider(color: _C.cardBorder), const SizedBox(height:8),
-        Row(children:[Expanded(child:TextField(controller:customCtrl, keyboardType:TextInputType.number, inputFormatters:[FilteringTextInputFormatter.digitsOnly], style: const TextStyle(color: Colors.white, fontSize:12), decoration:InputDecoration(hintText:'Temps perso en sec', hintStyle: const TextStyle(color:_C.textMuted, fontSize:11), filled:true, fillColor:_C.bg, border:OutlineInputBorder(borderRadius:BorderRadius.circular(12), borderSide:const BorderSide(color:_C.cardBorder))))), const SizedBox(width:8), ElevatedButton(style:ElevatedButton.styleFrom(backgroundColor:Colors.white, foregroundColor:Colors.black), onPressed:(){ final v=int.tryParse(customCtrl.text); if(v!=null&&v>0){ setState((){_isEphemeral=true; _ephemeralDuration=v;}); Navigator.pop(ctx); } }, child:const Text('OK'))]),
-      ]),
-    ));
-  }
-
-  void _showPasswordProtectDialog(){
-    final msgCtrl=TextEditingController(); final passCtrl=TextEditingController();
-    showDialog(context:context, builder:(ctx)=>AlertDialog(backgroundColor:_C.surface, shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16), side: const BorderSide(color:_C.cardBorder)), title:const Row(children:[Icon(Icons.lock_rounded,color:_C.violet),SizedBox(width:8),Text('Message Protégé',style:TextStyle(color:Colors.white,fontWeight:FontWeight.bold,fontSize:13))]), content:Column(mainAxisSize:MainAxisSize.min, children:[TextField(controller:msgCtrl,maxLines:5,style:const TextStyle(color:Colors.white,fontSize:12),decoration:InputDecoration(hintText:'Message secret...',hintStyle:const TextStyle(color:_C.textMuted),filled:true,fillColor:_C.bg,border:OutlineInputBorder(borderRadius:BorderRadius.circular(12),borderSide:const BorderSide(color:_C.cardBorder)))), const SizedBox(height:12), TextField(controller:passCtrl,obscureText:true,style:const TextStyle(color:Colors.white,fontSize:12),decoration:InputDecoration(hintText:'Mot de passe',hintStyle:const TextStyle(color:_C.textMuted),prefixIcon:const Icon(Icons.key_rounded,color:_C.violet),filled:true,fillColor:_C.bg,border:OutlineInputBorder(borderRadius:BorderRadius.circular(12),borderSide:const BorderSide(color:_C.cardBorder))))]), actions:[TextButton(onPressed:()=>Navigator.pop(ctx), child:const Text('Annuler',style:TextStyle(color:_C.textMuted))), ElevatedButton(style:ElevatedButton.styleFrom(backgroundColor:Colors.white,foregroundColor:Colors.black), onPressed:() async { if(msgCtrl.text.isNotEmpty&&passCtrl.text.isNotEmpty){ final enc=EncryptionService.encryptMessage(msgCtrl.text, passCtrl.text); await _chatService.sendMessage(conversationId:widget.conversationId, content:enc, replyToId:_replyToId.isEmpty?null:_replyToId, isEphemeral:_isEphemeral, ephemeralDuration:_ephemeralDuration); if(mounted) Navigator.pop(ctx); } }, child:const Text('Envoyer'))]));
-  }
-
-  void _startAudioRecording() async { final st=await Permission.microphone.request(); if(st.isGranted){ showModalBottomSheet(context:context, isScrollControlled:true, backgroundColor:Colors.transparent, builder:(ctx)=>Container(decoration:const BoxDecoration(color:_C.surface,borderRadius:BorderRadius.vertical(top:Radius.circular(22))), padding:const EdgeInsets.all(20), child:AudioRecorderWidget(audioService:_audioService, onRecordingComplete:(p,d){ Navigator.pop(ctx); _sendAudio(p,d); }, onRecordingCanceled:()=>Navigator.pop(ctx), maxDuration:120))); } else if(st.isPermanentlyDenied){ openAppSettings(); } }
-  Future<void> _sendAudio(String path,int dur) async { try{ final bytes=await File(path).readAsBytes(); final msg=await _chatService.sendAudioMessage(conversationId:widget.conversationId, audioData:Uint8List.fromList(bytes), duration:dur, isEphemeral:_isEphemeral, ephemeralDuration:_ephemeralDuration, replyToId:_replyToId.isEmpty?null:_replyToId); if(mounted) setState((){_messages.add(msg); _replyToId='';}); _scrollToBottom(); }catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Erreur audio: $e'),backgroundColor:_C.red)); } }
-
-  void _showAttachmentMenu(){
-    showModalBottomSheet(context:context, backgroundColor:Colors.transparent, shape:const RoundedRectangleBorder(borderRadius:BorderRadius.vertical(top:Radius.circular(22))), builder:(ctx)=>Container(decoration: const BoxDecoration(color:_C.surface, borderRadius:BorderRadius.vertical(top:Radius.circular(22)), border: Border(top: BorderSide(color:_C.cardBorder))), child:SafeArea(child:Column(mainAxisSize:MainAxisSize.min, children:[
-      const SizedBox(height:12), Container(width:40,height:4,decoration:BoxDecoration(color:Colors.white.withOpacity(0.12),borderRadius:BorderRadius.circular(4))),
-      const Padding(padding:EdgeInsets.all(16), child:Row(children:[Icon(Icons.attach_file_rounded,color:_C.violet),SizedBox(width:10),Text('Envoyer',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w800,fontSize:13))])),
-      ListTile(leading:Container(padding:const EdgeInsets.all(8),decoration:BoxDecoration(color:_C.violet.withOpacity(0.14),borderRadius:BorderRadius.circular(10)),child:const Icon(Icons.image_rounded,color:_C.violet)), title:const Text('Photo',style:TextStyle(color:Colors.white,fontSize:12)), onTap:(){ Navigator.pop(ctx); _pickFile(type:FileType.image); }),
-      ListTile(leading:Container(padding:const EdgeInsets.all(8),decoration:BoxDecoration(color:Colors.white.withOpacity(0.08),borderRadius:BorderRadius.circular(10)),child:const Icon(Icons.videocam_rounded,color:Colors.white)), title:const Text('Vidéo',style:TextStyle(color:Colors.white,fontSize:12)), onTap:(){ Navigator.pop(ctx); _pickFile(type:FileType.video); }),
-      ListTile(leading:Container(padding:const EdgeInsets.all(8),decoration:BoxDecoration(color:Colors.white.withOpacity(0.08),borderRadius:BorderRadius.circular(10)),child:const Icon(Icons.insert_drive_file_rounded,color:Colors.white)), title:const Text('Document',style:TextStyle(color:Colors.white,fontSize:12)), onTap:(){ Navigator.pop(ctx); _pickFile(type:FileType.any); }),
-      const SizedBox(height:12),
-    ]))));
-  }
-
-  Future<void> _pickFile({FileType type=FileType.any}) async {
-    try{
-      final result=await FilePicker.platform.pickFiles(allowMultiple:false, type:type, withData:true);
-      if(result==null||result.files.isEmpty) return;
-      final f=result.files.first; final bytes=f.bytes ?? (f.path!=null? await File(f.path!).readAsBytes() : null); if(bytes==null) return;
-      final ext=f.extension??'jpg'; final size=f.size;
-      final url=await _chatService.uploadFileWithUniqueName('chat-media','messages/${widget.conversationId}', Uint8List.fromList(bytes), ext);
-      if(url!=null){ final msg=await _chatService.sendMessage(conversationId:widget.conversationId, content: f.name, mediaUrl:url, mediaType: _getMediaType(ext), mediaName:f.name, mediaSize:size, isEphemeral:_isEphemeral, ephemeralDuration:_ephemeralDuration); if(mounted) setState(()=>_messages.add(msg)); _scrollToBottom(); }
-    }catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Erreur fichier: $e'),backgroundColor:_C.red)); }
-  }
-  String _getMediaType(String ext){ const img={'jpg','jpeg','png','gif','webp'}; const vid={'mp4','mov','avi','mkv'}; const aud={'mp3','wav','m4a'}; final e=ext.toLowerCase(); if(img.contains(e)) return 'image'; if(vid.contains(e)) return 'video'; if(aud.contains(e)) return 'audio'; return 'file'; }
-
-  void _escalateConversation(){ context.pushNamed('chatEscalate', pathParameters:{'conversationId':widget.conversationId}, queryParameters:{'agentId':_chatService.currentUserId??'','agentName':_chatService.currentUser?.userMetadata?['full_name']??'Agent'}); }
-  void _viewEscalationHistory(){ context.pushNamed('chatEscalationHistory', pathParameters:{'conversationId':widget.conversationId}); }
-  void _toggleInternalNoteMode(){ setState(()=>_isInternalNoteMode=!_isInternalNoteMode); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(_isInternalNoteMode?'Mode note interne ON':'Mode note interne OFF'), backgroundColor:_isInternalNoteMode?Colors.orange:_C.textMuted)); }
-
-  void _onTypingChanged(String t){ if(t.isNotEmpty&&!_isTyping){ _isTyping=true; _sendTypingStatus(true); } else if(t.isEmpty&&_isTyping){ _isTyping=false; _sendTypingStatus(false); } _typingTimer?.cancel(); _typingTimer=Timer(const Duration(seconds:2),(){ if(_isTyping){ _isTyping=false; _sendTypingStatus(false); } }); }
-
-  @override Widget build(BuildContext context){
-    return Scaffold(
-      backgroundColor:_C.bg,
-      appBar:PreferredSize(
-        preferredSize: const Size.fromHeight(56),
-        child: ClipRRect(child: BackdropFilter(filter: ImageFilter.blur(sigmaX:20,sigmaY:20), child: AppBar(
-          backgroundColor:_C.bg.withOpacity(0.85), elevation:0, titleSpacing:0,
-          leading:IconButton(icon:const Icon(Icons.arrow_back_rounded,color:Colors.white,size:18), onPressed:()=>Navigator.pop(context)),
-          title:Row(children:[
-            CircleAvatar(radius:18,backgroundColor:_C.surfaceAlt, child:widget.conversation.isGroup?const Icon(Icons.groups_rounded,color:Colors.white,size:16): ClipOval(child:CachedNetworkImage(imageUrl:widget.conversation.displayAvatar??'https://i.pravatar.cc/150?img=11',width:36,height:36,fit:BoxFit.cover))),
-            const SizedBox(width:10),
-            Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[Text(widget.conversation.displayName,style:const TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:Colors.white),maxLines:1,overflow:TextOverflow.ellipsis), if(!widget.conversation.isGroup&&_otherParticipant!=null) Row(children:[Container(width:6,height:6,decoration:BoxDecoration(shape:BoxShape.circle,color:_otherParticipant!.status=='online'?_C.green:Colors.white24)), const SizedBox(width:5), Text(_otherParticipant!.status=='online'?'En ligne':'Vu ${_formatLastSeen(_otherParticipant!.lastSeenAt??DateTime.now())}',style:const TextStyle(fontSize:10,color:_C.textMuted))])])),
-          ]),
-          actions:[
-            IconButton(icon:const Icon(Icons.videocam_rounded,color:Colors.white,size:18), onPressed:()=>_startCall(CallType.video)),
-            IconButton(icon:const Icon(Icons.call_rounded,color:Colors.white,size:18), onPressed:()=>_startCall(CallType.audio)),
-            PopupMenuButton<String>(icon:const Icon(Icons.more_vert_rounded,color:Colors.white,size:18), color:_C.surface, onSelected:(v){ if(v=='escalate') _escalateConversation(); else if(v=='history') _viewEscalationHistory(); else if(v=='group') GoRouter.of(context).go('/group/${widget.conversationId}'); }, itemBuilder:(c)=>[const PopupMenuItem(value:'escalate',child:Row(children:[Icon(Icons.arrow_upward,color:Colors.orange,size:16),SizedBox(width:8),Text('Escalader',style:TextStyle(color:Colors.white,fontSize:12))])), const PopupMenuItem(value:'history',child:Row(children:[Icon(Icons.history,color:_C.violet,size:16),SizedBox(width:8),Text('Historique',style:TextStyle(color:Colors.white,fontSize:12))])), if(widget.conversation.isGroup) const PopupMenuItem(value:'group',child:Row(children:[Icon(Icons.info_outline,color:Colors.white,size:16),SizedBox(width:8),Text('Infos groupe',style:TextStyle(color:Colors.white,fontSize:12))]))]),
-            const SizedBox(width:4),
-          ],
-        ))),
-      ),
-      body:SafeArea(bottom:false, child:Column(children:[
-        Expanded(child:Container(width:double.infinity,decoration:const BoxDecoration(color:_C.bg), child:ClipRRect(child:Column(children:[
-          if(widget.conversation.isGroup) GroupInfoPanel(conversation:widget.conversation,members:_groupMembers,onViewAllMembers:()=>GoRouter.of(context).go('/group/${widget.conversationId}'),onEditGroup:(){},onLeaveGroup:(){},onDeleteGroup:(){}),
-          if(_isConversationEscalated) Container(padding:const EdgeInsets.all(8),color:Colors.orange.withOpacity(0.12),child:const Row(children:[Icon(Icons.warning_amber_rounded,color:Colors.orange,size:14),SizedBox(width:8),Expanded(child:Text('Conversation escaladée',style:TextStyle(color:Colors.orange,fontSize:11)))])),
-          Expanded(child:_isLoading?const Center(child:CircularProgressIndicator(color:_C.violet,strokeWidth:2)):Stack(children:[ListView.builder(
-            controller:_scrollController,
-            reverse:true,
-            addAutomaticKeepAlives:false,
-            addRepaintBoundaries:true,
-            padding:const EdgeInsets.symmetric(horizontal:12,vertical:12),
-            itemCount:_messages.length+(_isLoadingMore?1:0),
-            itemBuilder:(ctx,i){
-              if(i==_messages.length&&_isLoadingMore) return const Padding(padding:EdgeInsets.all(8),child:Center(child:CircularProgressIndicator(strokeWidth:2,color:_C.violet)));
-              final msg=_messages[_messages.length-1-i];
-              final isOwn=msg.senderId==_chatService.currentUserId;
-              return ChatMessageBubble(message:msg,isOwn:isOwn,onReply:()=>setState(()=>_replyToId=msg.id),onDelete:() async { setState(()=>_messages.removeWhere((m)=>m.id==msg.id)); if(isOwn) try{await _chatService.deleteMessage(msg.id);}catch(_){} },onReaction:(r)=>_chatService.toggleReaction(msg.id,r),replyToMessage:msg.replyToId!=null?_messages.where((m)=>m.id==msg.replyToId).firstOrNull:null,isEphemeralActive:msg.isEphemeral,isInternalNote:msg.isInternalNote,isAgentView:_isAgent);
-            }), if(_otherUserTyping) Positioned(bottom:8,left:16,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:_C.surface,borderRadius:BorderRadius.circular(20),border:Border.all(color:_C.cardBorder)),child:const Text("En train d'écrire...",style:TextStyle(fontSize:10,color:_C.violet,fontStyle:FontStyle.italic))))])),
-          if(_replyToId.isNotEmpty) Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:8),decoration:const BoxDecoration(color:_C.surface,border:Border(top:BorderSide(color:_C.cardBorder))),child:Row(children:[Container(width:3,height:32,decoration:BoxDecoration(color:_C.violet,borderRadius:BorderRadius.circular(4))),const SizedBox(width:10),Expanded(child:Text(_messages.firstWhere((m)=>m.id==_replyToId,orElse:()=>_messages.first).content,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontSize:11))),IconButton(icon:const Icon(Icons.close_rounded,size:14,color:Colors.white),onPressed:()=>setState(()=>_replyToId=''))])),
-          Container(color:_C.surface, child: ChatInputBar(controller:_inputController,focusNode:_inputFocus,onSend:_sendMessage,isSending:_isSending,onAttach:_showAttachmentMenu,onAudio:_startAudioRecording,onSecureMessage:_showPasswordProtectDialog,onEphemeralToggle:_showEphemeralTimerDialog,isEphemeral:_isEphemeral,onTyping:_onTypingChanged,onInternalNoteToggle:_isAgent? _toggleInternalNoteMode : null,isInternalNote:_isInternalNoteMode)),
-        ])))),
-      ])),
+  void _showEphemeralTimerDialog() {
+    final customCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context, 
+      backgroundColor: Colors.transparent, 
+      isScrollControlled: true, 
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        decoration: const BoxDecoration(
+          color: _C.surface, 
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22)), 
+          boxShadow: [BoxShadow(color: Color(0x1A000000), blurRadius: 20, offset: Offset(0, -5))]
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min, 
+          children: [
+            Container(width: 40, height: 5, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(4))),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: _C.primaryLight, borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.timer_rounded, size: 20, color: _C.primary)
+                ), 
+                const SizedBox(width: 12), 
+                const Text("Messages éphémères", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: _C.textMain))
+              ]
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.timer_off_rounded, color: !_isEphemeral ? _C.primary : _C.textMuted), 
+              title: Text("Désactiver - Envoyer sans éphémère", style: TextStyle(fontSize: 15, fontWeight: !_isEphemeral ? FontWeight.bold : FontWeight.w500, color: !_isEphemeral ? _C.primary : _C.textMain)), 
+              trailing: !_isEphemeral ? const Icon(Icons.check_circle_rounded, color: _C.primary) : null, 
+              onTap: () { 
+                setState(() { _isEphemeral = false; _ephemeralDuration = null; }); 
+                Navigator.pop(ctx); 
+              }
+            ),
+            const Divider(color: _C.border),
+            ...[[10, '10 secondes'], [30, '30 secondes'], [60, '1 minute'], [300, '5 minutes'], [3600, '1 heure'], [86400, '24 heures']].map((e) {
+              final sec = e[0] as int; 
+              final label = e[1] as String; 
+              final sel = _isEphemeral && _ephemeralDuration == sec;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.timer_rounded, color: sel ? _C.primary : _C.textMuted), 
+                title: Text(label, style: TextStyle(fontSize: 15, fontWeight: sel ? FontWeight.bold : FontWeight.w500, color: sel ? _C.primary : _C.textMain)), 
+                trailing: sel ? const Icon(Icons.check_circle_rounded, color: _C.primary) : null, 
+                onTap: () { 
+                  setState(() { _isEphemeral = true; _ephemeralDuration = sec; }); 
+                  Navigator.pop(ctx); 
+                }
+              );
+            }),
+            const Divider(color: _C.border), 
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: customCtrl, 
+                    keyboardType: TextInputType.number, 
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly], 
+                    style: const TextStyle(color: _C.textMain, fontSize: 14), 
+                    decoration: InputDecoration(
+                      hintText: 'Personnalisé (sec)', 
+                      hintStyle: const TextStyle(color: _C.textMuted, fontSize: 14), 
+                      filled: true, 
+                      fillColor: _C.surfaceAlt, 
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.border)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.border)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.primary))
+                    )
+                  )
+                ), 
+                const SizedBox(width: 12), 
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _C.primary, 
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                  ), 
+                  onPressed: () { 
+                    final v = int.tryParse(customCtrl.text); 
+                    if (v != null && v > 0) { 
+                      setState(() { _isEphemeral = true; _ephemeralDuration = v; }); 
+                      Navigator.pop(ctx); 
+                    } 
+                  }, 
+                  child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold))
+                )
+              ]
+            ),
+          ]
+        ),
+      )
     );
   }
 
-  String _formatLastSeen(DateTime d){ final diff=DateTime.now().difference(d); if(diff.inDays==0) return 'à ${DateFormat('HH:mm').format(d)}'; if(diff.inDays==1) return 'hier à ${DateFormat('HH:mm').format(d)}'; return 'le ${DateFormat('dd/MM/yyyy').format(d)}'; }
+  void _showPasswordProtectDialog() {
+    final msgCtrl = TextEditingController(); 
+    final passCtrl = TextEditingController();
+    
+    showDialog(
+      context: context, 
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _C.surface, 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: _C.border)), 
+        title: Row(
+          children: const [
+            Icon(Icons.lock_rounded, color: _C.primary),
+            SizedBox(width: 10),
+            Text('Message Protégé', style: TextStyle(color: _C.textMain, fontWeight: FontWeight.bold, fontSize: 18))
+          ]
+        ), 
+        content: Column(
+          mainAxisSize: MainAxisSize.min, 
+          children: [
+            TextField(
+              controller: msgCtrl,
+              maxLines: 4,
+              style: const TextStyle(color: _C.textMain, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Écrivez votre message secret...',
+                hintStyle: const TextStyle(color: _C.textMuted),
+                filled: true,
+                fillColor: _C.surfaceAlt,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.border)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.border))
+              )
+            ), 
+            const SizedBox(height: 16), 
+            TextField(
+              controller: passCtrl,
+              obscureText: true,
+              style: const TextStyle(color: _C.textMain, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Mot de passe requis pour lire',
+                hintStyle: const TextStyle(color: _C.textMuted),
+                prefixIcon: const Icon(Icons.key_rounded, color: _C.primary),
+                filled: true,
+                fillColor: _C.surfaceAlt,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.border)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.border))
+              )
+            )
+          ]
+        ), 
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx), 
+            child: const Text('Annuler', style: TextStyle(color: _C.textMuted, fontWeight: FontWeight.bold))
+          ), 
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _C.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+            ), 
+            onPressed: () async { 
+              if (msgCtrl.text.isNotEmpty && passCtrl.text.isNotEmpty) { 
+                final enc = EncryptionService.encryptMessage(msgCtrl.text, passCtrl.text); 
+                await _chatService.sendMessage(
+                  conversationId: widget.conversationId, 
+                  content: enc, 
+                  replyToId: _replyToId.isEmpty ? null : _replyToId, 
+                  isEphemeral: _isEphemeral, 
+                  ephemeralDuration: _ephemeralDuration
+                ); 
+                if (mounted) Navigator.pop(ctx); 
+              } 
+            }, 
+            child: const Text('Envoyer crypté', style: TextStyle(fontWeight: FontWeight.bold))
+          )
+        ]
+      )
+    );
+  }
+
+  void _startAudioRecording() async { 
+    final st = await Permission.microphone.request(); 
+    if (st.isGranted) { 
+      showModalBottomSheet(
+        context: context, 
+        isScrollControlled: true, 
+        backgroundColor: Colors.transparent, 
+        builder: (ctx) => Container(
+          decoration: const BoxDecoration(
+            color: _C.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(22))
+          ), 
+          padding: const EdgeInsets.all(24), 
+          child: AudioRecorderWidget(
+            audioService: _audioService, 
+            onRecordingComplete: (p, d) { Navigator.pop(ctx); _sendAudio(p, d); }, 
+            onRecordingCanceled: () => Navigator.pop(ctx), 
+            maxDuration: 120
+          )
+        )
+      ); 
+    } else if (st.isPermanentlyDenied) { 
+      openAppSettings(); 
+    } 
+  }
+
+  Future<void> _sendAudio(String path, int dur) async { 
+    try { 
+      final bytes = await File(path).readAsBytes(); 
+      final msg = await _chatService.sendAudioMessage(
+        conversationId: widget.conversationId, 
+        audioData: Uint8List.fromList(bytes), 
+        duration: dur, 
+        isEphemeral: _isEphemeral, 
+        ephemeralDuration: _ephemeralDuration, 
+        replyToId: _replyToId.isEmpty ? null : _replyToId
+      ); 
+      if (mounted) {
+        setState(() { _messages.add(msg); _replyToId = ''; }); 
+      }
+      _scrollToBottom(); 
+    } catch (e) { 
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur audio: $e'), backgroundColor: _C.red)); 
+    } 
+  }
+
+  void _showAttachmentMenu() {
+    showModalBottomSheet(
+      context: context, 
+      backgroundColor: Colors.transparent, 
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: _C.surface, 
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [BoxShadow(color: Color(0x1A000000), blurRadius: 20, offset: Offset(0, -5))]
+        ), 
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min, 
+            children: [
+              const SizedBox(height: 12), 
+              Container(width: 40, height: 5, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(4))),
+              const Padding(
+                padding: EdgeInsets.all(20), 
+                child: Row(
+                  children: [
+                    Icon(Icons.attach_file_rounded, color: _C.primary, size: 24),
+                    SizedBox(width: 12),
+                    Text('Envoyer une pièce jointe', style: TextStyle(color: _C.textMain, fontWeight: FontWeight.bold, fontSize: 18))
+                  ]
+                )
+              ),
+              _attachmentOption(Icons.image_rounded, 'Photo / Galerie', () => _pickFile(type: FileType.image)),
+              _attachmentOption(Icons.videocam_rounded, 'Vidéo', () => _pickFile(type: FileType.video)),
+              _attachmentOption(Icons.insert_drive_file_rounded, 'Document / Fichier', () => _pickFile(type: FileType.any)),
+              const SizedBox(height: 20),
+            ]
+          )
+        )
+      )
+    );
+  }
+
+  Widget _attachmentOption(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: _C.primaryLight, borderRadius: BorderRadius.circular(12)),
+        child: Icon(icon, color: _C.primary, size: 24)
+      ), 
+      title: Text(title, style: const TextStyle(color: _C.textMain, fontSize: 16, fontWeight: FontWeight.w500)), 
+      onTap: () { Navigator.pop(context); onTap(); }
+    );
+  }
+
+  Future<void> _pickFile({FileType type = FileType.any}) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(allowMultiple: false, type: type, withData: true);
+      if (result == null || result.files.isEmpty) return;
+      
+      final f = result.files.first; 
+      final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null); 
+      if (bytes == null) return;
+      
+      final ext = f.extension ?? 'file'; 
+      final size = f.size;
+      final url = await _chatService.uploadFileWithUniqueName('chat-media', 'messages/${widget.conversationId}', Uint8List.fromList(bytes), ext);
+      
+      if (url != null) { 
+        final msg = await _chatService.sendMessage(
+          conversationId: widget.conversationId, 
+          content: f.name, 
+          mediaUrl: url, 
+          mediaType: _getMediaType(ext), 
+          mediaName: f.name, 
+          mediaSize: size, 
+          isEphemeral: _isEphemeral, 
+          ephemeralDuration: _ephemeralDuration
+        ); 
+        if (mounted) setState(() => _messages.add(msg)); 
+        _scrollToBottom(); 
+      }
+    } catch (e) { 
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur fichier: $e'), backgroundColor: _C.red)); 
+    }
+  }
+
+  String _getMediaType(String ext) { 
+    const img = {'jpg', 'jpeg', 'png', 'gif', 'webp'}; 
+    const vid = {'mp4', 'mov', 'avi', 'mkv'}; 
+    const aud = {'mp3', 'wav', 'm4a'}; 
+    final e = ext.toLowerCase(); 
+    if (img.contains(e)) return 'image'; 
+    if (vid.contains(e)) return 'video'; 
+    if (aud.contains(e)) return 'audio'; 
+    return 'file'; 
+  }
+
+  void _escalateConversation() { 
+    context.pushNamed('chatEscalate', pathParameters: {'conversationId': widget.conversationId}, queryParameters: {'agentId': _chatService.currentUserId ?? '', 'agentName': _chatService.currentUser?.userMetadata?['full_name'] ?? 'Agent'}); 
+  }
+  
+  void _viewEscalationHistory() { 
+    context.pushNamed('chatEscalationHistory', pathParameters: {'conversationId': widget.conversationId}); 
+  }
+  
+  void _toggleInternalNoteMode() { 
+    setState(() => _isInternalNoteMode = !_isInternalNoteMode); 
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(_isInternalNoteMode ? 'Mode note interne ACTIVÉ' : 'Mode note interne DÉSACTIVÉ', style: const TextStyle(fontWeight: FontWeight.bold)), 
+      backgroundColor: _isInternalNoteMode ? _C.orange : _C.textMuted
+    )); 
+  }
+
+  void _onTypingChanged(String t) { 
+    if (t.isNotEmpty && !_isTyping) { 
+      _isTyping = true; 
+      _sendTypingStatus(true); 
+    } else if (t.isEmpty && _isTyping) { 
+      _isTyping = false; 
+      _sendTypingStatus(false); 
+    } 
+    _typingTimer?.cancel(); 
+    _typingTimer = Timer(const Duration(seconds: 2), () { 
+      if (_isTyping) { 
+        _isTyping = false; 
+        _sendTypingStatus(false); 
+      } 
+    }); 
+  }
+
+  @override 
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _C.bg,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 1,
+        shadowColor: Colors.black12,
+        titleSpacing: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain, size: 24),
+          onPressed: () => Navigator.pop(context),
+          splashRadius: 24,
+        ),
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: _C.surfaceAlt, 
+              child: widget.conversation.isGroup
+                ? const Icon(Icons.groups_rounded, color: _C.textMuted, size: 24)
+                : ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: widget.conversation.displayAvatar ?? 'https://i.pravatar.cc/150?img=11',
+                      width: 40, 
+                      height: 40, 
+                      fit: BoxFit.cover
+                    )
+                  )
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, 
+                children: [
+                  Text(
+                    widget.conversation.displayName,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _C.textMain),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis
+                  ), 
+                  if (!widget.conversation.isGroup && _otherParticipant != null) 
+                    Row(
+                      children: [
+                        Container(
+                          width: 8, 
+                          height: 8, 
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _otherParticipant!.status == 'online' ? _C.green : _C.textMuted.withOpacity(0.5)
+                          )
+                        ), 
+                        const SizedBox(width: 6), 
+                        Text(
+                          _otherParticipant!.status == 'online' ? 'En ligne' : 'Vu ${_formatLastSeen(_otherParticipant!.lastSeenAt ?? DateTime.now())}',
+                          style: const TextStyle(fontSize: 12, color: _C.textMuted, fontWeight: FontWeight.w500)
+                        )
+                      ]
+                    )
+                ]
+              )
+            ),
+          ]
+        ),
+        actions: [
+          IconButton(icon: const Icon(Icons.videocam_outlined, color: _C.primary, size: 26), onPressed: () => _startCall(CallType.video), splashRadius: 24),
+          IconButton(icon: const Icon(Icons.call_outlined, color: _C.primary, size: 24), onPressed: () => _startCall(CallType.audio), splashRadius: 24),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded, color: _C.textMain, size: 24), 
+            color: Colors.white, 
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onSelected: (v) { 
+              if (v == 'escalate') _escalateConversation(); 
+              else if (v == 'history') _viewEscalationHistory(); 
+              else if (v == 'group') GoRouter.of(context).go('/group/${widget.conversationId}'); 
+            }, 
+            itemBuilder: (c) => [
+              const PopupMenuItem(
+                value: 'escalate',
+                child: Row(children: [Icon(Icons.arrow_upward, color: _C.orange, size: 20), SizedBox(width: 10), Text('Escalader le cas', style: TextStyle(color: _C.textMain, fontSize: 14))])
+              ), 
+              const PopupMenuItem(
+                value: 'history',
+                child: Row(children: [Icon(Icons.history, color: _C.primary, size: 20), SizedBox(width: 10), Text('Historique', style: TextStyle(color: _C.textMain, fontSize: 14))])
+              ), 
+              if (widget.conversation.isGroup) 
+                const PopupMenuItem(
+                  value: 'group',
+                  child: Row(children: [Icon(Icons.info_outline, color: _C.textMain, size: 20), SizedBox(width: 10), Text('Infos du groupe', style: TextStyle(color: _C.textMain, fontSize: 14))])
+                )
+            ]
+          ),
+          const SizedBox(width: 4),
+        ]
+      ),
+      body: SafeArea(
+        bottom: false, 
+        child: Column(
+          children: [
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(color: _C.bg), 
+                child: ClipRRect(
+                  child: Column(
+                    children: [
+                      if (widget.conversation.isGroup) 
+                        GroupInfoPanel(
+                          conversation: widget.conversation,
+                          members: _groupMembers,
+                          onViewAllMembers: () => GoRouter.of(context).go('/group/${widget.conversationId}'),
+                          onEditGroup: () {},
+                          onLeaveGroup: () {},
+                          onDeleteGroup: () {}
+                        ),
+                      if (_isConversationEscalated) 
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          color: const Color(0xFFFFF7ED),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.warning_amber_rounded, color: _C.orange, size: 20),
+                              SizedBox(width: 12),
+                              Expanded(child: Text('Cette conversation a été escaladée.', style: TextStyle(color: _C.orange, fontSize: 14, fontWeight: FontWeight.bold)))
+                            ]
+                          )
+                        ),
+                      Expanded(
+                        child: _isLoading 
+                          ? const Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 3))
+                          : Stack(
+                              children: [
+                                ListView.builder(
+                                  controller: _scrollController,
+                                  reverse: true,
+                                  addAutomaticKeepAlives: false,
+                                  addRepaintBoundaries: true,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                  itemCount: _messages.length + (_isLoadingMore ? 1 : 0),
+                                  itemBuilder: (ctx, i) {
+                                    if (i == _messages.length && _isLoadingMore) {
+                                      return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(strokeWidth: 3, color: _C.primary)));
+                                    }
+                                    final msg = _messages[_messages.length - 1 - i];
+                                    final isOwn = msg.senderId == _chatService.currentUserId;
+                                    
+                                    return ChatMessageBubble(
+                                      message: msg,
+                                      isOwn: isOwn,
+                                      onReply: () => setState(() => _replyToId = msg.id),
+                                      onDelete: () async { 
+                                        setState(() => _messages.removeWhere((m) => m.id == msg.id)); 
+                                        if (isOwn) {
+                                          try { await _chatService.deleteMessage(msg.id); } catch (_) {}
+                                        }
+                                      },
+                                      onReaction: (r) => _chatService.toggleReaction(msg.id, r),
+                                      replyToMessage: msg.replyToId != null ? _messages.where((m) => m.id == msg.replyToId).firstOrNull : null,
+                                      isEphemeralActive: msg.isEphemeral,
+                                      isInternalNote: msg.isInternalNote,
+                                      isAgentView: _isAgent
+                                    );
+                                  }
+                                ), 
+                                if (_otherUserTyping) 
+                                  Positioned(
+                                    bottom: 12,
+                                    left: 16,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(20),
+                                        boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 10, offset: Offset(0, 4))]
+                                      ),
+                                      child: const Text("En train d'écrire...", style: TextStyle(fontSize: 12, color: _C.primary, fontStyle: FontStyle.italic, fontWeight: FontWeight.bold))
+                                    )
+                                  )
+                              ]
+                            )
+                      ),
+                      
+                      // Barre de réponse active
+                      if (_replyToId.isNotEmpty) 
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            border: Border(top: BorderSide(color: _C.border))
+                          ),
+                          child: Row(
+                            children: [
+                              Container(width: 4, height: 40, decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(4))),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Répondre à', style: TextStyle(color: _C.primary, fontSize: 12, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _messages.firstWhere((m) => m.id == _replyToId, orElse: () => _messages.first).content,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(color: _C.textMuted, fontSize: 14)
+                                    ),
+                                  ]
+                                )
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded, size: 20, color: _C.textMuted),
+                                onPressed: () => setState(() => _replyToId = ''),
+                                splashRadius: 20,
+                              )
+                            ]
+                          )
+                        ),
+                        
+                      // Barre d'entrée (Message input)
+                      Container(
+                        color: Colors.white, 
+                        padding: const EdgeInsets.only(top: 8),
+                        child: ChatInputBar(
+                          controller: _inputController,
+                          focusNode: _inputFocus,
+                          onSend: _sendMessage,
+                          isSending: _isSending,
+                          onAttach: _showAttachmentMenu,
+                          onAudio: _startAudioRecording,
+                          onSecureMessage: _showPasswordProtectDialog,
+                          onEphemeralToggle: _showEphemeralTimerDialog,
+                          isEphemeral: _isEphemeral,
+                          onTyping: _onTypingChanged,
+                          onInternalNoteToggle: _isAgent ? _toggleInternalNoteMode : null,
+                          isInternalNote: _isInternalNoteMode
+                        )
+                      ),
+                    ]
+                  )
+                )
+              )
+            ),
+          ]
+        )
+      ),
+    );
+  }
+
+  String _formatLastSeen(DateTime d) { 
+    final diff = DateTime.now().difference(d); 
+    if (diff.inDays == 0) return 'à ${DateFormat('HH:mm').format(d)}'; 
+    if (diff.inDays == 1) return 'hier à ${DateFormat('HH:mm').format(d)}'; 
+    return 'le ${DateFormat('dd/MM/yyyy').format(d)}'; 
+  }
 }
