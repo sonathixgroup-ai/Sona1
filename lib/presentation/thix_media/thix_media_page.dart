@@ -50,7 +50,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   
-  // Remplacement de "Pour vous" par "Accueil"
   final List<String> _filters = ["Accueil", "Tendances", "NOVA Originals", "Live", "Courts", "Musique", "Gaming", "Formation"];
 
   @override
@@ -270,11 +269,8 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               ),
               const Spacer(),
               if (isAdmin) ...[
-                // Bouton Admin cliquable via onTap
                 GestureDetector(
-                  onTap: () {
-                    context.push('/admin/media');
-                  },
+                  onTap: () => context.push('/admin/media'),
                   child: Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
@@ -393,14 +389,15 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                         const SizedBox(width: 12),
                         Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white10)), child: const Text("4K DOLBY", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))),
                         const SizedBox(width: 12),
-                        // Affichage dynamique de l'année et du type réels de la vidéo
-                        Text("${item.year ?? 2026} • ${item.type}", style: const TextStyle(color: Colors.white54, fontSize: 13)),
+                        Text("${item.year ?? '2026'} • ${item.type}", style: const TextStyle(color: Colors.white54, fontSize: 13)),
                       ],
                     ),
                     const SizedBox(height: 20),
-                    // Affichage dynamique de la vraie description de la vidéo Supabase
+                    // Utilisation sécurisée du subtitle (sous-titre du modèle MediaContent)
                     Text(
-                      item.description.isNotEmpty ? item.description : "Aucune description disponible pour ce contenu.",
+                      (item.subtitle != null && item.subtitle!.isNotEmpty) 
+                          ? item.subtitle! 
+                          : "Découvrez ce contenu exclusif disponible dès maintenant sur THIX MEDIA.",
                       style: const TextStyle(color: Colors.white70, fontSize: 14.5, height: 1.5),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
@@ -562,16 +559,15 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
-  // --- NAVBAR RÉDUITE ---
   Widget _bottomNav() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16), // Marge basse réduite
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
           child: Container(
-            height: 52, // Hauteur réduite à 52 au lieu de 64
+            height: 52,
             decoration: BoxDecoration(
               color: const Color(0xFF12121A).withOpacity(0.85),
               borderRadius: BorderRadius.circular(24),
@@ -605,9 +601,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: selected ? Colors.white : Colors.white38, size: 20), // Icône réduite à 20
+          Icon(icon, color: selected ? Colors.white : Colors.white38, size: 20),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 9, fontWeight: selected ? FontWeight.bold : FontWeight.w500, color: selected ? Colors.white : Colors.white38)), // Texte réduit à 9
+          Text(label, style: TextStyle(fontSize: 9, fontWeight: selected ? FontWeight.bold : FontWeight.w500, color: selected ? Colors.white : Colors.white38)),
         ],
       ),
     );
