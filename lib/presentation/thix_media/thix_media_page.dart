@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // <-- Ajout de l'import Supabase
 
 import 'video_player_page.dart';
 import '../../models/media_content.dart';
@@ -19,6 +20,25 @@ const Color kTextWhite = Color(0xFFFFFFFF);
 const Color kTextGrey = Color(0xFF9CA3AF);
 const Color kBorderLight = Color(0x14FFFFFF); // white/8
 const Color kGreen = Color(0xFF3EFF88);
+
+// 🔴 NOUVEAU : Provider pour vérifier si l'utilisateur est admin
+final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
+  final uid = Supabase.instance.client.auth.currentUser?.id;
+  if (uid == null) return false;
+  
+  try {
+    // Vérification du rôle dans la table profiles
+    final res = await Supabase.instance.client
+        .from('profiles')
+        .select('role')
+        .eq('id', uid)
+        .maybeSingle();
+        
+    return res != null && (res['role'] == 'admin' || res['role'] == 'superadmin');
+  } catch (_) {
+    return false;
+  }
+});
 
 class ThixMediaPage extends ConsumerStatefulWidget {
   const ThixMediaPage({super.key});
@@ -215,6 +235,10 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
 
   // --- HEADER EXACT ---
   Widget _header() {
+    // 🔴 NOUVEAU : On écoute le provider pour savoir si l'utilisateur est admin
+    final isAdminAsync = ref.watch(isMediaAdminProvider);
+    final isAdmin = isAdminAsync.valueOrNull ?? false;
+
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
@@ -264,6 +288,24 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               ),
               
               const Spacer(),
+              
+              // 🔴 NOUVEAU : BOUTON ADMIN (Visible uniquement si isAdmin == true)
+              if (isAdmin) ...[
+                InkWell(
+                  onTap: () => context.push('/admin/media'), // Modifie cette route si ton routeur est différent
+                  borderRadius: BorderRadius.circular(18),
+                  child: Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle, 
+                      color: kRed.withOpacity(0.15),
+                      border: Border.all(color: kRed.withOpacity(0.3)),
+                    ),
+                    child: const Icon(Icons.admin_panel_settings_rounded, color: kRed, size: 18),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               
               // Right Actions
               Container(
