@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart'; // Import ajouté pour CallProvider
 
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
@@ -176,7 +177,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   Future<void> _loadGroupMembers() async {
     if (!widget.conversation.isGroup) return;
     try {
-      final members = await ref.read(groupServiceProvider).getGroupMembers(widget.conversationId);
+      final members = await ref.read(chatServiceProvider).getGroupMembers(widget.conversationId);
       if (mounted) {
         setState(() {
           _groupMembers = members;
@@ -258,8 +259,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   void _startCall(CallType type) {
     final svc = ref.read(chatServiceProvider);
     final otherId = widget.conversation.participantIds.firstWhere((id) => id != svc.currentUserId, orElse: () => '');
-    ref.read(callProvider.notifier).start(channel: widget.conversationId, calleeId: otherId, callType: type);
-    Navigator.push(context, MaterialPageRoute(builder: (_) => CallPage(channel: widget.conversationId, name: widget.conversation.displayName, type: type, isCaller: true)));
+    
+    // Utilisation de Provider.of avec l'import de provider
+    final callProv = Provider.of<CallProvider>(context, listen: false);
+    callProv.start(channel: widget.conversationId, calleeId: otherId, callType: type);
+    
+    Navigator.push(
+      context, 
+      MaterialPageRoute(builder: (_) => CallPage(channel: widget.conversationId, name: widget.conversation.displayName, type: type, isCaller: true))
+    );
   }
 
   Future<void> _sendMessage() async {
@@ -311,19 +319,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _showEphemeralTimerDialog() { 
-    // Implémentation générique à rajouter si besoin 
+    // Implémentation de ton bottomSheet
   }
   
   void _showPasswordProtectDialog() { 
-    // Implémentation générique à rajouter si besoin 
+    // Implémentation de ta boîte de dialogue
   }
   
   void _showAttachmentMenu() { 
-    // Implémentation générique à rajouter si besoin 
+    // Implémentation de ta boîte de dialogue
   }
   
   Future<void> _pickFile({FileType type = FileType.any}) async { 
-    // Utiliser ref.read(chatServiceProvider)
+    // Implémentation de ton sélecteur de fichiers
   }
 
   @override
