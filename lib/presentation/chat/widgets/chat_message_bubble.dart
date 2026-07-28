@@ -1,3 +1,4 @@
+// lib/presentation/chat/widgets/chat_message_bubble.dart - COMPLET & INTERACTIF
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -19,6 +20,7 @@ class _C {
   static const textMain = Color(0xFF0F172A);
   static const textMuted = Color(0xFF64748B);
   static const red = Color(0xFFEF4444);
+  static const gold = Color(0xFFE3B23C);
 }
 
 class ChatMessageBubble extends ConsumerStatefulWidget {
@@ -101,7 +103,10 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     '🎲','🧩','🎨','🎤','🎧','🎵','🎶','🎹','🥁','🎸',
   ];
 
-  bool get _isEncrypted => EncryptionService.isEncrypted(widget.message.content);
+  bool get _isEncrypted {
+    final c = widget.message.content;
+    return c.startsWith('🔒') || (c.length > 50 && c.contains('+') && c.contains('/')) || EncryptionService.isEncrypted(c);
+  }
 
   Future<void> _decrypt() async {
     final c = TextEditingController();
@@ -110,7 +115,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
       builder: (ctx) => AlertDialog(
         backgroundColor: _C.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(children: [Icon(Icons.lock_rounded, color: _C.primary, size: 18), SizedBox(width: 8), Text('Message chiffré', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _C.textMain))]),
+        title: const Row(children: [Icon(Icons.lock_rounded, color: _C.gold, size: 18), SizedBox(width: 8), Text('Message chiffré', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _C.textMain))]),
         content: TextField(
           controller: c,
           obscureText: true,
@@ -130,7 +135,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
         ],
       ),
     );
-    if (pass!= null && pass.isNotEmpty) {
+    if (pass != null && pass.isNotEmpty) {
       try {
         final d = EncryptionService.decryptMessage(widget.message.content, pass);
         setState(() { _decrypted = d; _isDecrypted = true; });
@@ -141,72 +146,72 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
   }
 
   String get _display {
-    if (_isEncrypted &&!_isDecrypted) return '🔒 Message chiffré (tap pour déchiffrer)';
-    if (_isDecrypted) return _decrypted?? widget.message.content;
+    if (_isEncrypted && !_isDecrypted) return '🔒 Message chiffré (tap pour déchiffrer)';
+    if (_isDecrypted) return _decrypted ?? widget.message.content;
     return widget.message.content;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isInternalNote &&!widget.isAgentView) return const SizedBox.shrink();
+    if (widget.isInternalNote && !widget.isAgentView) return const SizedBox.shrink();
     final isOwn = widget.isOwn;
     final msg = widget.message;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
-        crossAxisAlignment: isOwn? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (!isOwn &&!widget.isInternalNote)
+          if (!isOwn && !widget.isInternalNote)
             Padding(
               padding: const EdgeInsets.only(left: 20, bottom: 4),
               child: Row(children: [
                 CircleAvatar(
                   radius: 14,
                   backgroundColor: _C.searchBg,
-                  backgroundImage: msg.senderAvatar!= null? CachedNetworkImageProvider(msg.senderAvatar!) : null,
-                  child: msg.senderAvatar== null? Text(msg.senderName.isNotEmpty? msg.senderName[0].toUpperCase() : '?', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _C.textMuted)) : null,
+                  backgroundImage: msg.senderAvatar != null ? CachedNetworkImageProvider(msg.senderAvatar!) : null,
+                  child: msg.senderAvatar == null ? Text(msg.senderName.isNotEmpty ? msg.senderName[0].toUpperCase() : '?', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _C.textMuted)) : null,
                 ),
                 const SizedBox(width: 8),
                 Text(msg.senderName, style: const TextStyle(fontSize: 11, color: _C.textMuted, fontWeight: FontWeight.w600)),
               ]),
             ),
-          if (widget.replyToMessage!= null &&!widget.isInternalNote)
+          if (widget.replyToMessage != null && !widget.isInternalNote)
             Padding(
-              padding: EdgeInsets.only(bottom: 4, left: isOwn? 60 : 20, right: isOwn? 20 : 60),
+              padding: EdgeInsets.only(bottom: 4, left: isOwn ? 60 : 20, right: isOwn ? 20 : 60),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: isOwn? _C.primaryLight : _C.searchBg, borderRadius: BorderRadius.circular(8), border: Border(left: BorderSide(color: isOwn? _C.primary : _C.border, width: 3))),
+                decoration: BoxDecoration(color: isOwn ? _C.primaryLight : _C.searchBg, borderRadius: BorderRadius.circular(8), border: Border(left: BorderSide(color: isOwn ? _C.primary : _C.border, width: 3))),
                 child: Text(widget.replyToMessage!.content, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: _C.textMuted)),
               ),
             ),
           Row(
-            mainAxisAlignment: isOwn? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
             children: [
               GestureDetector(
-                onTap: () { if (_isEncrypted &&!_isDecrypted) _decrypt(); },
-                onLongPress: () => setState(() => _showReact =!_showReact),
+                onTap: () { if (_isEncrypted && !_isDecrypted) _decrypt(); },
+                onLongPress: () => setState(() => _showReact = !_showReact),
                 child: MouseRegion(
                   onEnter: (_) => setState(() => _hover = true),
                   onExit: (_) => setState(() => _hover = false),
                   child: Container(
-                    padding: msg.mediaType== 'image'? const EdgeInsets.all(3) : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: msg.mediaType == 'image' ? const EdgeInsets.all(3) : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
                     decoration: BoxDecoration(
-                      color: widget.isInternalNote? const Color(0xFFFFF7ED) : (isOwn? _C.primary : _C.bg),
-                      borderRadius: BorderRadius.only(topLeft: const Radius.circular(18), topRight: const Radius.circular(18), bottomLeft: Radius.circular(isOwn? 18 : 4), bottomRight: Radius.circular(isOwn? 4 : 18)),
-                      border: Border.all(color: widget.isInternalNote? const Color(0xFFFDBA74) : (isOwn? _C.primary : _C.border)),
+                      color: widget.isInternalNote ? const Color(0xFFFFF7ED) : (isOwn ? _C.primary : _C.bg),
+                      borderRadius: BorderRadius.only(topLeft: const Radius.circular(18), topRight: const Radius.circular(18), bottomLeft: Radius.circular(isOwn ? 18 : 4), bottomRight: Radius.circular(isOwn ? 4 : 18)),
+                      border: Border.all(color: widget.isInternalNote ? const Color(0xFFFDBA74) : (_isEncrypted && !_isDecrypted ? _C.gold : (isOwn ? _C.primary : _C.border)), width: _isEncrypted && !_isDecrypted ? 1.5 : 1),
                       boxShadow: [if (!isOwn) BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
                     ),
                     child: Column(
-                      crossAxisAlignment: isOwn? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                      crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                       children: [
                         if (_isEncrypted || widget.isEphemeralActive || widget.isInternalNote) _badges(),
-                        if (msg.sentiment!= null) Padding(padding: const EdgeInsets.only(bottom: 5), child: SentimentIndicator(result: msg.sentiment!, size: 12, showLabel: false)),
-                        if (msg.isCodeSnippet && msg.codeContent!= null) ChatCodeSnippet(code: msg.codeContent!, language: msg.codeLanguage?? 'text')
-                        else if (msg.mediaType== 'audio' && msg.mediaUrl!= null) AudioPlayerWidget(audioUrl: msg.mediaUrl!, totalDuration: msg.ephemeralDuration, primaryColor: isOwn? Colors.white : _C.primary, accentColor: isOwn? Colors.white70 : _C.textMuted)
-                        else if (msg.mediaUrl!= null) _media()
-                        else if (_display.isNotEmpty) Text(_display, style: TextStyle(color: isOwn? Colors.white : _C.textMain, fontSize: 14, height: 1.35, fontWeight: isOwn? FontWeight.w500 : FontWeight.w400)),
+                        if (msg.sentiment != null) Padding(padding: const EdgeInsets.only(bottom: 5), child: SentimentIndicator(result: msg.sentiment!, size: 12, showLabel: false)),
+                        if (msg.isCodeSnippet && msg.codeContent != null) ChatCodeSnippet(code: msg.codeContent!, language: msg.codeLanguage ?? 'text')
+                        else if (msg.mediaType == 'audio' && msg.mediaUrl != null) AudioPlayerWidget(audioUrl: msg.mediaUrl!, totalDuration: msg.ephemeralDuration, primaryColor: isOwn ? Colors.white : _C.primary, accentColor: isOwn ? Colors.white70 : _C.textMuted)
+                        else if (msg.mediaUrl != null) _media()
+                        else if (_display.isNotEmpty) Text(_display, style: TextStyle(color: widget.isInternalNote ? Colors.black87 : (isOwn ? Colors.white : _C.textMain), fontSize: 14, height: 1.35, fontWeight: isOwn ? FontWeight.w500 : FontWeight.w400)),
                         if (msg.reactions.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 6),
@@ -227,14 +232,14 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
             ],
           ),
           Padding(
-            padding: EdgeInsets.only(top: 4, left: isOwn? 0 : 20, right: isOwn? 20 : 0),
+            padding: EdgeInsets.only(top: 4, left: isOwn ? 0 : 20, right: isOwn ? 20 : 0),
             child: Row(
-              mainAxisAlignment: isOwn? MainAxisAlignment.end : MainAxisAlignment.start,
+              mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
               children: [
-                if (widget.isEphemeralActive) ChatEphemeralTimer(duration: widget.message.ephemeralDuration?? 60, onExpired: () => widget.onDelete?.call()),
+                if (widget.isEphemeralActive) ChatEphemeralTimer(duration: widget.message.ephemeralDuration ?? 60, onExpired: () => widget.onDelete?.call()),
                 if (widget.isEphemeralActive) const SizedBox(width: 6),
                 Text(DateFormat('HH:mm').format(msg.createdAt), style: const TextStyle(fontSize: 10, color: _C.textMuted, fontWeight: FontWeight.w500)),
-                if (isOwn)...[const SizedBox(width: 4), Icon(msg.isRead? Icons.done_all_rounded : Icons.check_rounded, size: 12, color: msg.isRead? _C.primary : _C.textMuted)],
+                if (isOwn)...[const SizedBox(width: 4), Icon(msg.isRead ? Icons.done_all_rounded : Icons.check_rounded, size: 12, color: msg.isRead ? _C.primary : _C.textMuted)],
               ],
             ),
           ),
@@ -251,7 +256,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                     Container(width: 1, height: 18, color: _C.border, margin: const EdgeInsets.symmetric(horizontal: 6)),
                     _iconBtn(Icons.emoji_emotions_outlined, 'Stickers', _showStickerPicker),
                     _iconBtn(Icons.flag_outlined, 'Drapeaux', _showFlagPicker),
-                    _iconBtn(Icons.sticky_note_2_outlined, 'Sticker', _showStickerPicker), // NOUVEAU BOUTON STICKER
+                    _iconBtn(Icons.sticky_note_2_outlined, 'Sticker', _showStickerPicker),
                     _iconBtn(Icons.reply_rounded, 'Répondre', () => widget.onReply?.call()),
                     if (isOwn) _iconBtn(Icons.delete_outline_rounded, 'Supprimer', () => widget.onDelete?.call()),
                   ],
@@ -278,7 +283,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     padding: const EdgeInsets.only(bottom: 6),
     child: Wrap(spacing: 4, children: [
       if (widget.isInternalNote) _badge(Icons.note_alt_outlined, 'Interne', const Color(0xFFEA580C)),
-      if (_isEncrypted) _badge(_isDecrypted? Icons.lock_open_rounded : Icons.lock_rounded, _isDecrypted? 'Déchiffré' : 'Chiffré', _C.primary),
+      if (_isEncrypted) _badge(_isDecrypted ? Icons.lock_open_rounded : Icons.lock_rounded, _isDecrypted ? 'Déchiffré' : 'Chiffré', _C.gold),
       if (widget.isEphemeralActive) _badge(Icons.timer_outlined, 'Éphémère', const Color(0xFFD97706)),
     ]),
   );
@@ -290,7 +295,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
   );
 
   void _showStickerPicker() {
-    int visible = 60; // pagination
+    int visible = 60;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -381,9 +386,9 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
 
   Widget _media() {
     final url = widget.message.mediaUrl;
-    if (url== null || url.isEmpty) return Text(widget.message.content, style: TextStyle(color: widget.isOwn? Colors.white : _C.textMain, fontSize: 13));
-    final type = widget.message.mediaType?? 'file';
-    if (type== 'image') {
+    if (url == null || url.isEmpty) return Text(widget.message.content, style: TextStyle(color: widget.isOwn ? Colors.white : _C.textMain, fontSize: 13));
+    final type = widget.message.mediaType ?? 'file';
+    if (type == 'image') {
       return GestureDetector(
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FullScreenImagePage(imageUrl: url, tag: widget.message.id))),
         child: Hero(
@@ -397,11 +402,11 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     }
     return Container(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: widget.isOwn? Colors.white.withOpacity(0.15) : _C.searchBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: widget.isOwn? Colors.white24 : _C.border)),
+      decoration: BoxDecoration(color: widget.isOwn ? Colors.white.withOpacity(0.15) : _C.searchBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: widget.isOwn ? Colors.white24 : _C.border)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(type== 'video'? Icons.videocam_rounded : Icons.insert_drive_file_rounded, size: 16, color: widget.isOwn? Colors.white : _C.primary),
+        Icon(type == 'video' ? Icons.videocam_rounded : Icons.insert_drive_file_rounded, size: 16, color: widget.isOwn ? Colors.white : _C.primary),
         const SizedBox(width: 6),
-        Flexible(child: Text(widget.message.content.isNotEmpty? widget.message.content : type, style: TextStyle(color: widget.isOwn? Colors.white : _C.textMain, fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+        Flexible(child: Text(widget.message.content.isNotEmpty ? widget.message.content : type, style: TextStyle(color: widget.isOwn ? Colors.white : _C.textMain, fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
       ]),
     );
   }
