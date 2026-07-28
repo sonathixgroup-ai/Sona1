@@ -1,4 +1,3 @@
-// lib/presentation/thix_event/admin/providers/admin_state.dart
 enum AdminStatus { initial, loading, loadingMore, success, empty, error }
 
 class AdminPaginatedState<T> {
@@ -23,16 +22,21 @@ class AdminPaginatedState<T> {
     bool? hasMore,
     int? currentPage,
   }) {
-    return AdminPaginatedState(
-      items: items?? this.items,
-      status: status?? this.status,
-      error: error?? this.error,
-      hasMore: hasMore?? this.hasMore,
-      currentPage: currentPage?? this.currentPage,
+    return AdminPaginatedState<T>(
+      items: items ?? this.items,
+      status: status ?? this.status,
+      error: error,
+      hasMore: hasMore ?? this.hasMore,
+      currentPage: currentPage ?? this.currentPage,
     );
   }
 
+  bool get isInitial => status == AdminStatus.initial;
   bool get isLoading => status == AdminStatus.loading;
   bool get isLoadingMore => status == AdminStatus.loadingMore;
-  bool get isEmpty => items.isEmpty && status == AdminStatus.success;
+  bool get isSuccess => status == AdminStatus.success;
+  bool get isEmptyState => status == AdminStatus.empty;
+  bool get isError => status == AdminStatus.error;
+  bool get isEmpty => items.isEmpty && (status == AdminStatus.success || status == AdminStatus.empty);
+  bool get canLoadMore => hasMore && !isLoading && !isLoadingMore;
 }
