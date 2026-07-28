@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/chat/user_status.dart';
 
 class _C {
@@ -7,7 +6,6 @@ class _C {
   static const searchBg = Color(0xFFF8FAFC);
   static const border = Color(0xFFE2E8F0);
   static const textMuted = Color(0xFF64748B);
-  static const textMain = Color(0xFF0F172A);
 }
 
 class ChatAvatarStatus extends StatelessWidget {
@@ -39,16 +37,9 @@ class ChatAvatarStatus extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: _C.bg, width: 2),
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2))],
-              image: imageUrl != null
-                  ? DecorationImage(
-                      image: CachedNetworkImageProvider(imageUrl!, maxWidth: (radius * 2 * 2).toInt()),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
+              image: imageUrl != null ? DecorationImage(image: NetworkImage(imageUrl!), fit: BoxFit.cover) : null,
             ),
-            child: imageUrl == null
-                ? Center(child: Icon(Icons.person_rounded, size: radius * 0.9, color: _C.textMuted))
-                : null,
+            child: imageUrl == null ? Center(child: Icon(Icons.person_rounded, size: radius * 0.9, color: _C.textMuted)) : null,
           ),
           Positioned(
             bottom: -1,
