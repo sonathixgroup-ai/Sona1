@@ -1,7 +1,8 @@
+// lib/presentation/thix_market/pages/order_detail_page.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 
 // ============================================================
@@ -19,93 +20,74 @@ class _MarketColors {
   static const Color creamBg = Color(0xFFFCEFDA);
 }
 
-class OrderDetailPage extends StatefulWidget {
-  final String orderId;
+// ============================================================
+// PROVIDER RIVERPOD (Chargement de la commande)
+// ============================================================
+final orderDetailProvider = FutureProvider.family<Map<String, dynamic>, String>((ref, orderId) async {
+  final supabase = Supabase.instance.client;
 
-  const OrderDetailPage({super.key, required this.orderId});
+  // 1. Charger la commande principale
+  final orderResponse = await supabase
+      .from('orders')
+      .select()
+      .eq('id', orderId)
+      .single();
 
-  @override
-  State<OrderDetailPage> createState() => _OrderDetailPageState();
-}
+  final orderData = Map<String, dynamic>.from(orderResponse);
 
-class _OrderDetailPageState extends State<OrderDetailPage> {
-  Map<String, dynamic>? _order;
-  bool _isLoading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadOrderDetails();
+  // 2. Charger les articles (items) de cette commande
+  try {
+    final itemsResponse = await supabase
+        .from('order_items')
+        .select()
+        .eq('order_id', orderId);
+    orderData['items'] = itemsResponse;
+  } catch (e) {
+    debugPrint('Erreur chargement items: $e');
+    orderData['items'] = [];
   }
 
-  // ✅ CORRECTION : Méthode de chargement robuste (sans jointure SQL stricte)
-  Future<void> _loadOrderDetails() async {
-    setState(() => _isLoading = true);
+  // 3. Charger l'adresse si un address_id est présent
+  if (orderData['address_id'] != null) {
     try {
-      final supabase = Supabase.instance.client;
-
-      // 1. Charger la commande principale uniquement
-      final orderResponse = await supabase
-          .from('orders')
+      final addressResponse = await supabase
+          .from('addresses')
           .select()
-          .eq('id', widget.orderId)
-          .single();
-
-      final orderData = Map<String, dynamic>.from(orderResponse);
-
-      // 2. Charger les articles (items) de cette commande
-      try {
-        final itemsResponse = await supabase
-            .from('order_items')
-            .select()
-            .eq('order_id', widget.orderId);
-        orderData['items'] = itemsResponse;
-      } catch (e) {
-        debugPrint('Erreur chargement items: $e');
-        orderData['items'] = [];
-      }
-
-      // 3. Charger l'adresse si un address_id est présent
-      if (orderData['address_id'] != null) {
-        try {
-          final addressResponse = await supabase
-              .from('addresses')
-              .select()
-              .eq('id', orderData['address_id'])
-              .maybeSingle();
-          orderData['address'] = addressResponse;
-        } catch (e) {
-          debugPrint('Erreur chargement adresse: $e');
-        }
-      }
-
-      // 4. Charger la boutique si un shop_id est présent
-      if (orderData['shop_id'] != null) {
-        try {
-          final shopResponse = await supabase
-              .from('shops')
-              .select('name, logo_url')
-              .eq('id', orderData['shop_id'])
-              .maybeSingle();
-          orderData['shop'] = shopResponse;
-        } catch (e) {
-          debugPrint('Erreur chargement boutique: $e');
-        }
-      }
-
-      setState(() {
-        _order = orderData;
-        _isLoading = false;
-      });
+          .eq('id', orderData['address_id'])
+          .maybeSingle();
+      orderData['address'] = addressResponse;
     } catch (e) {
-      debugPrint('🚨 Erreur Fatale OrderDetail: $e');
-      setState(() {
-        _error = 'Impossible de charger les détails de la commande';
-        _isLoading = false;
-      });
+      debugPrint('Erreur chargement adresse: $e');
     }
   }
+
+  // 4. Charger la boutique si un shop_id est présent
+  if (orderData['shop_id'] != null) {
+    try {
+      final shopResponse = await supabase
+          .from('shops')
+          .select('name, logo_url')
+          .eq('id', orderData['shop_id'])
+          .maybeSingle();
+      orderData['shop'] = shopResponse;
+    } catch (e) {
+      debugPrint('Erreur chargement boutique: $e');
+    }
+  }
+
+  return orderData;
+});
+
+// ============================================================
+// PAGE DETAIL COMMANDE
+// ============================================================
+class OrderDetailPage extends ConsumerWidget {
+  final String orderId;
+
+  const OrderDetailPage({
+    super.key, 
+    required this.orderId
+  });
 
   String _formatDate(String? dateStr) {
     if (dateStr == null) return '—';
@@ -119,40 +101,31 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   Color _statusColor(String status) {
     switch (status) {
-      case 'pending':
-        return _MarketColors.gold;
-      case 'processing':
-        return Colors.blue;
-      case 'shipped':
-        return Colors.purple;
-      case 'delivered':
-        return _MarketColors.successGreen;
-      case 'cancelled':
-        return _MarketColors.red;
-      default:
-        return _MarketColors.mutedText;
+      case 'pending': return _MarketColors.gold;
+      case 'processing': return Colors.blue;
+      case 'shipped': return Colors.purple;
+      case 'delivered': return _MarketColors.successGreen;
+      case 'cancelled': return _MarketColors.red;
+      default: return _MarketColors.mutedText;
     }
   }
 
   String _statusLabel(String status) {
     switch (status) {
-      case 'pending':
-        return 'En attente';
-      case 'processing':
-        return 'En préparation';
-      case 'shipped':
-        return 'Expédiée';
-      case 'delivered':
-        return 'Livrée';
-      case 'cancelled':
-        return 'Annulée';
-      default:
-        return status;
+      case 'pending': return 'En attente';
+      case 'processing': return 'En préparation';
+      case 'shipped': return 'Expédiée';
+      case 'delivered': return 'Livrée';
+      case 'cancelled': return 'Annulée';
+      default: return status;
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Écoute de l'état de la commande
+    final orderAsync = ref.watch(orderDetailProvider(orderId));
+
     return Scaffold(
       backgroundColor: _MarketColors.lightBg,
       appBar: AppBar(
@@ -176,17 +149,15 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           child: Container(color: _MarketColors.cardBorder, height: 1),
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: _MarketColors.red))
-          : _error != null
-              ? _buildErrorState()
-              : _order == null
-                  ? const Center(child: Text('Commande introuvable'))
-                  : _buildContent(),
+      body: orderAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: _MarketColors.red)),
+        error: (error, stack) => _buildErrorState(context, ref, error.toString()),
+        data: (order) => _buildContent(context, ref, order),
+      ),
     );
   }
 
-  Widget _buildErrorState() {
+  Widget _buildErrorState(BuildContext context, WidgetRef ref, String error) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -200,17 +171,21 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             child: const Icon(Icons.error_outline_rounded, size: 64, color: _MarketColors.gold),
           ),
           const SizedBox(height: 24),
-          Text(
-            _error!,
-            style: const TextStyle(
-              color: _MarketColors.darkText,
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'Impossible de charger les détails : $error',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _MarketColors.darkText,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
             ),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: _loadOrderDetails,
+            onPressed: () => ref.invalidate(orderDetailProvider(orderId)),
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             label: const Text('Réessayer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
@@ -225,8 +200,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
   }
 
-  Widget _buildContent() {
-    final order = _order!;
+  Widget _buildContent(BuildContext context, WidgetRef ref, Map<String, dynamic> order) {
     final items = List<Map<String, dynamic>>.from(order['items'] ?? []);
     final address = order['address'] as Map?;
     final shop = order['shop'] as Map?;
@@ -312,16 +286,18 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: _MarketColors.lightBg,
                       shape: BoxShape.circle,
-                      image: shop['logo_url'] != null
-                          ? DecorationImage(image: CachedNetworkImageProvider(shop['logo_url']), fit: BoxFit.cover)
-                          : null,
                     ),
-                    child: shop['logo_url'] == null
-                        ? const Icon(Icons.storefront_rounded, size: 20, color: _MarketColors.mutedText)
-                        : null,
+                    clipBehavior: Clip.hardEdge,
+                    child: shop['logo_url'] != null
+                        ? Image.network(
+                            shop['logo_url'],
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.storefront_rounded, size: 20, color: _MarketColors.mutedText),
+                          )
+                        : const Icon(Icons.storefront_rounded, size: 20, color: _MarketColors.mutedText),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -361,7 +337,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: _MarketColors.darkText),
                 ),
                 const SizedBox(height: 16),
+                
                 ...items.map((item) => _buildItemTile(item, currency)),
+                
                 const Divider(height: 32, color: _MarketColors.cardBorder),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -455,7 +433,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             Column(
               children: [
                 OutlinedButton.icon(
-                  onPressed: () => _showCancelConfirmDialog(),
+                  onPressed: () => _showCancelConfirmDialog(context, ref),
                   icon: const Icon(Icons.cancel_outlined, color: _MarketColors.red, size: 18),
                   label: const Text('Annuler la commande', style: TextStyle(color: _MarketColors.red, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
@@ -501,12 +479,15 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               width: 56,
               height: 56,
               color: _MarketColors.lightBg,
-              child: imageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
+              child: imageUrl != null && imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => const Center(child: CircularProgressIndicator(strokeWidth: 2, color: _MarketColors.red)),
-                      errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: _MarketColors.mutedText),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(child: CircularProgressIndicator(strokeWidth: 2, color: _MarketColors.red));
+                      },
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported_outlined, color: _MarketColors.mutedText),
                     )
                   : const Icon(Icons.image_outlined, color: _MarketColors.mutedText),
             ),
@@ -544,10 +525,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
   }
 
-  void _showCancelConfirmDialog() {
+  void _showCancelConfirmDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Annuler la commande', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
         content: const Text(
@@ -556,28 +538,33 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Non, garder', style: TextStyle(color: _MarketColors.mutedText, fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(ctx); // Ferme la dialog
+              
               try {
                 await Supabase.instance.client
                     .from('orders')
                     .update({'status': 'cancelled'})
-                    .eq('id', widget.orderId);
-                if (mounted) {
+                    .eq('id', orderId);
+                    
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Commande annulée avec succès'),
                       backgroundColor: _MarketColors.successGreen,
                     ),
                   );
-                  _loadOrderDetails();
                 }
+                
+                // Rafraîchir les données via Riverpod
+                ref.invalidate(orderDetailProvider(orderId));
+                
               } catch (_) {
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Erreur lors de l’annulation'),
