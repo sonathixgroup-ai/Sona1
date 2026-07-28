@@ -244,35 +244,6 @@ import 'presentation/admin/admin_articles_list_page.dart' as thix_admin_list;
 import 'presentation/admin/admin_article_form_page.dart' as thix_admin_form;
 import 'package:thix_id/presentation/thix_ia/thix_ia_screen.dart';
 
-class NoTransitionPage<T> extends Page<T> {
-  final Widget child;
-  const NoTransitionPage({required this.child, super.key});
-  @override
-  Route<T> createRoute(BuildContext context) => PageRouteBuilder<T>(
-        settings: this,
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-        pageBuilder: (c, a, s) => child,
-        transitionsBuilder: (c, a, s, ch) => ch,
-      );
-}
-
-class AppRouter {
-  static GoRouter create(AuthController auth, {Listenable? extraRefreshListenable}) {
-    final refresh = extraRefreshListenable ?? auth;
-    return GoRouter(
-      initialLocation: AppRoutes.home,
-      refreshListenable: refresh,
-      errorBuilder: (context, state) => Scaffold(
-        backgroundColor: const Color(0xFF0B3D91),
-        body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('THIX ID CENTRAL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)),
-          const SizedBox(height: 8),
-          Text('Route non trouvée: ${state.matchedLocation}', style: const TextStyle(color: Colors.white70)),
-          const SizedBox(height: 16),
-          ElevatedButton(onPressed: () => context.go(AppRoutes.home), child: const Text('Accueil')),
-        ])),
-      ),
       redirect: (context, state) {
         try {
           final loc = state.matchedLocation;
@@ -285,14 +256,13 @@ class AppRouter {
               loc.startsWith('/thix-reservation/delivery') || isAuthPage;
 
           final logged = auth.isAuthenticated;
-          final accountType = auth.currentUser?.accountType;
 
+          // 1. Si non connecté et que la page n'est pas publique -> Redirection vers le Login
           if (!logged && !isPublic) return AppRoutes.login;
-          if (logged && isAuthPage) return accountType == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard;
-          if (logged) {
-            if (loc == AppRoutes.userDashboard && accountType == AccountType.enterprise) return AppRoutes.enterpriseDashboard;
-            if (loc == AppRoutes.enterpriseDashboard && accountType == AccountType.personal) return AppRoutes.userDashboard;
-          }
+
+          // 2. Si connecté et qu'on essaie d'aller sur une page d'auth -> Redirection vers le Dashboard Personnel unique
+          if (logged && isAuthPage) return AppRoutes.userDashboard;
+
           return null;
         } catch (e) {
           debugPrint('GoRouter redirect error: $e');
