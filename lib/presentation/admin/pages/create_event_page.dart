@@ -1,22 +1,22 @@
 // lib/presentation/admin/pages/create_event_page.dart
-import 'dart:typed_data'; // REMPLACE dart:io
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:provider/provider.dart';
 
 import '../../../providers/event_provider.dart';
 import '../../../models/event_model.dart';
 
-class CreateEventPage extends StatefulWidget {
+class CreateEventPage extends ConsumerStatefulWidget {
   final Event? event;
 
   const CreateEventPage({super.key, this.event});
 
   @override
-  State<CreateEventPage> createState() => _CreateEventPageState();
+  ConsumerState<CreateEventPage> createState() => _CreateEventPageState();
 }
 
-class _CreateEventPageState extends State<CreateEventPage> {
+class _CreateEventPageState extends ConsumerState<CreateEventPage> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -33,7 +33,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
   bool _isFeatured = false;
   String? _imageUrl;
   
-  // FIX: Utilisation de Uint8List et String pour stocker l'image en RAM (Compatible Web)
   Uint8List? _imageBytes;
   String? _imageFileName;
   
@@ -90,7 +89,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
-        withData: true, // FIX: Obligatoire sur le Web pour récupérer les bytes
+        withData: true,
       );
       
       if (result != null && result.files.isNotEmpty) {
@@ -129,8 +128,9 @@ class _CreateEventPageState extends State<CreateEventPage> {
   Future<String?> _uploadImage() async {
     if (_imageBytes == null || _imageFileName == null) return _imageUrl;
     
-    final provider = context.read<EventProvider>();
-    return await provider.uploadImage(_imageBytes!, _imageFileName!);
+    // Utilisation de bookingProvider pour accéder à la méthode uploadImage définie dans event_provider.dart
+    final bookingSvc = ref.read(bookingProvider);
+    return await bookingSvc.uploadImage(_imageBytes!, _imageFileName!);
   }
 
   Future<void> _saveEvent() async {
@@ -146,10 +146,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
         _startTime.hour, _startTime.minute,
       );
       
-      final provider = context.read<EventProvider>();
+      final service = ref.read(eventServiceProvider);
       
       if (widget.event != null) {
-        await provider.updateEvent(widget.event!.id, {
+        await service.updateEvent(widget.event!.id, {
           'title': _titleController.text.trim(),
           'description': _descriptionController.text.trim(),
           'category': _selectedCategory,
@@ -165,7 +165,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
         });
         _showSuccess('Événement modifié avec succès');
       } else {
-        await provider.createEvent(
+        await service.createEvent(
           title: _titleController.text.trim(),
           description: _descriptionController.text.trim(),
           category: _selectedCategory,
@@ -401,7 +401,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey[300]!),
             ),
-            // FIX: Utilisation de Image.memory pour le Web
             child: _imageBytes != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(12),
