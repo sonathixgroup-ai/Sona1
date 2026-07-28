@@ -94,10 +94,10 @@ final patientProfileProvider = FutureProvider<PatientProfile>((ref) async {
     final res = await db.from('profiles').select('full_name, avatar_url').eq('id', user.id).maybeSingle();
     final name = (res?['full_name'] as String?)?.trim();
     final avatar = res?['avatar_url'] as String?;
-    if (name!= null && name.isNotEmpty) return PatientProfile(name: name, avatarUrl: avatar);
+    if (name != null && name.isNotEmpty) return PatientProfile(name: name, avatarUrl: avatar);
   } catch (_) {}
   final metaName = user.userMetadata?['full_name'] as String?;
-  return PatientProfile(name: (metaName!= null && metaName.isNotEmpty)? metaName : 'Patient');
+  return PatientProfile(name: (metaName != null && metaName.isNotEmpty) ? metaName : 'Patient');
 });
 
 class ServiceItem {
@@ -164,7 +164,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
       _heroCtrl.animateToPage(_heroIndex, duration: const Duration(milliseconds: 600), curve: Curves.fastOutSlowIn);
     });
     _pulseTimer = Timer.periodic(const Duration(milliseconds: 3200), (_) {
-      if (mounted) setState(() => _aiPulse =!_aiPulse);
+      if (mounted) setState(() => _aiPulse = !_aiPulse);
     });
   }
 
@@ -247,7 +247,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   }
 
   Widget _header(AsyncValue<PatientProfile> profileAsync) {
-    final name = profileAsync.valueOrNull?.name?? '...';
+    final name = profileAsync.valueOrNull?.name ?? '...';
     final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
@@ -264,8 +264,8 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                   boxShadow: [BoxShadow(color: _C.emerald.withOpacity(0.25), blurRadius: 12, offset: const Offset(0, 4))],
                 ),
                 child: ClipOval(
-                  child: (avatarUrl!= null && avatarUrl.isNotEmpty)
-                     ? Image.network(avatarUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _C.white, child: const Icon(Icons.person_rounded, color: _C.navy, size: 22)))
+                  child: (avatarUrl != null && avatarUrl.isNotEmpty)
+                      ? Image.network(avatarUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _C.white, child: const Icon(Icons.person_rounded, color: _C.navy, size: 22)))
                       : Container(color: _C.white, child: const Icon(Icons.person_rounded, color: _C.navy, size: 22)),
                 ),
               ),
@@ -375,7 +375,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.borderStrong)),
-              child: Row(children: const [
+              child: const Row(children: [
                 Icon(Icons.chat_bubble_outline_rounded, size: 18, color: _C.textFaint),
                 SizedBox(width: 12),
                 Expanded(child: Text('Discuter avec l\'IA... Poser une question santé', style: TextStyle(fontSize: 13, color: _C.textFaint, fontWeight: FontWeight.w500))),
@@ -441,7 +441,12 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
               child: Container(
                 height: 90,
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), color: _C.white, border: Border.all(color: const Color(0xFFFECACA)), width: 1.2, ), boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 14, offset: Offset(0, 6))]),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20), 
+                  color: _C.white, 
+                  border: Border.all(color: const Color(0xFFFECACA), width: 1.2), 
+                  boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 14, offset: Offset(0, 6))]
+                ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   Row(children: [Container(height: 24, width: 24, decoration: const BoxDecoration(color: Color(0xFFFEF2F2), shape: BoxShape.circle), child: const Icon(Icons.warning_amber_rounded, size: 14, color: _C.red)), const SizedBox(width: 6), const Text('URGENCE', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: _C.red, letterSpacing: 0.6))]),
                   const Text('SAMU • Hôpitaux proches', style: TextStyle(color: _C.navy, fontSize: 12.5, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
@@ -455,7 +460,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   }
 
   Widget _todayTimeline(AsyncValue<DashboardStats> statsAsync) {
-    final rdvs = statsAsync.valueOrNull?.rdvs?? 0;
+    final rdvs = statsAsync.valueOrNull?.rdvs ?? 0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
@@ -464,7 +469,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             const Text('À venir', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.3)),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(20)), child: Text(rdvs > 0? '$rdvs RDV' : 'Aucun', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _C.textFaint))),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(20)), child: Text(rdvs > 0 ? '$rdvs RDV' : 'Aucun', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _C.textFaint))),
           ]),
           const SizedBox(height: 14),
           if (rdvs > 0)
@@ -477,7 +482,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                 child: Row(children: [
                   Container(height: 36, width: 36, decoration: BoxDecoration(color: _C.sky.withOpacity(0.15), shape: BoxShape.circle), child: const Icon(Icons.event_available_rounded, size: 18, color: _C.sky)),
                   const SizedBox(width: 12),
-                  Expanded(child: Text(rdvs == 1? '1 rendez-vous à venir' : '$rdvs rendez-vous à venir', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: _C.navy))),
+                  Expanded(child: Text(rdvs == 1 ? '1 rendez-vous à venir' : '$rdvs rendez-vous à venir', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: _C.navy))),
                   const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: _C.textFaint),
                 ]),
               ),
@@ -624,7 +629,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
     return GestureDetector(
       onTap: () => _go(const AssistantIAPage()),
       child: AnimatedScale(
-        scale: _aiPulse? 1.08 : 1.0,
+        scale: _aiPulse ? 1.08 : 1.0,
         duration: const Duration(milliseconds: 900),
         curve: Curves.easeInOutCubic,
         child: Container(
@@ -645,11 +650,11 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Container(
             padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: active? _C.navy.withOpacity(0.08) : Colors.transparent, borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, size: 21, color: active? _C.navy : _C.textFaint),
+            decoration: BoxDecoration(color: active ? _C.navy.withOpacity(0.08) : Colors.transparent, borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 21, color: active ? _C.navy : _C.textFaint),
           ),
           const SizedBox(height: 3),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: active? FontWeight.w800 : FontWeight.w600, color: active? _C.navy : _C.textFaint, letterSpacing: 0.1)),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? _C.navy : _C.textFaint, letterSpacing: 0.1)),
         ]),
       ),
     );
