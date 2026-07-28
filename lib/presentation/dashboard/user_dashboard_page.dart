@@ -1,3 +1,5 @@
+// lib/presentation/dashboard/user_dashboard_page.dart
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -49,22 +51,18 @@ class UserDashboardCtrl extends ChangeNotifier {
   });
 
   Future<void> init(AppUser authUser) async {
-    // Analytics (Non bloquant)
     unawaited(userService.logSecurityEvent(uid: authUser.id, type: 'dashboard_open', label: 'Ouverture dashboard').catchError((_) {}));
     unawaited(profileService.ensureProfileExists(user: authUser).catchError((_) {}));
 
-    // Vérification du Cache
     if (!DashboardCache().isStale && DashboardCache().lastProfile != null) {
       profile = DashboardCache().lastProfile;
       _mergeAndCompute(authUser);
       loading = false;
       notifyListeners();
-      // Rafraîchissement silencieux en arrière-plan
       unawaited(refreshSilently(authUser));
       return;
     }
 
-    // Chargement initial depuis Supabase (Pas de stream = Scalable)
     loading = true;
     error = null;
     notifyListeners();
@@ -104,7 +102,6 @@ class UserDashboardCtrl extends ChangeNotifier {
   void _mergeAndCompute(AppUser authUser) {
     if (profile == null) return;
     
-    // Fusion une seule fois pour toute l'interface
     mergedUser = authUser.copyWith(
       displayName: profile!.displayName,
       photoUrl: profile!.photoUrl,
@@ -165,12 +162,9 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final me = context.read<AuthController>().currentUser;
+      // LOGIQUE ENTREPRISE SUPPRIMÉE : Accès direct au dashboard personnel
       if (me != null) {
-        if (me.accountType == AccountType.enterprise) {
-          context.go(AppRoutes.enterpriseDashboard);
-        } else {
-          _ctrl.init(me);
-        }
+        _ctrl.init(me);
       }
     });
   }
@@ -185,8 +179,9 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   @override
   Widget build(BuildContext context) {
     final me = context.watch<AuthController>().currentUser;
-    if (me == null || me.accountType == AccountType.enterprise) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    // VÉRIFICATION SÉCURISÉE : Plus de blocage lié à l'entreprise
+    if (me == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF0D2CC1))));
     }
 
     return ChangeNotifierProvider.value(
@@ -222,7 +217,6 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                 child: Stack(
                   children: [
                     const DashboardBackground(),
-                    // Utilisation de RefreshIndicator pour la scalabilité (Pull-to-refresh)
                     RefreshIndicator(
                       color: const Color(0xFF0D2CC1),
                       onRefresh: () => ctrl.refreshSilently(me),
@@ -237,10 +231,8 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                               await context.read<AuthController>().signOut(); 
                               if (context.mounted) context.go(AppRoutes.home); 
                             },
-                            // Lien direct vers ton nouveau Sheet d'édition
                             onEditProfile: () async {
                               await ProfileEditorSheet.show(context, profile: profile, profileService: _profileService, authUser: me);
-                              // On met à jour le dashboard à la fermeture du sheet
                               if (context.mounted) ctrl.refreshSilently(me);
                             },
                             onDownloadCv: () => DefaultTabController.of(context).animateTo(4),
@@ -280,7 +272,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
               "Scanner ID", 
               style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w900)
             ),
-            backgroundColor: const Color(0xFF0D2CC1), // Bleu principal
+            backgroundColor: const Color(0xFF0D2CC1),
             elevation: 4,
           ),
         ),
@@ -289,12 +281,6 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   }
 }
 
-// =============================================================================
-// WIDGET OPTIMISATION (CONSERVATION D'ÉTAT)
-// =============================================================================
-
-/// Garde les onglets en mémoire lors du scroll. 
-/// Critique pour ne pas refaire les calculs UI à chaque changement d'onglet.
 class KeepAliveWrapper extends StatefulWidget { 
   final Widget child; 
   const KeepAliveWrapper({super.key, required this.child}); 
