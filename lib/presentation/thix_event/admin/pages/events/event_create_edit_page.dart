@@ -173,8 +173,9 @@ class _EventCreateEditPageState extends ConsumerState<EventCreateEditPage> {
     );
   }
 
+  // CORRECTION : Les parenthèses ont été équilibrées correctement à la fin de cette méthode (1 en moins)
   Widget _imgPicker(String label, Uint8List? bytes, String? url, VoidCallback tap) {
-    return InkWell(onTap: tap, borderRadius: BorderRadius.circular(14), child: Container(height: 110, decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: _ThixColors.cardBorder)), child: bytes != null? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(bytes, fit: BoxFit.cover)) : url != null? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.network(url, fit: BoxFit.cover)) : Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.add_a_photo_rounded, color: Colors.white, size: 18), const SizedBox(height: 6), Text(label, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 10, fontWeight: FontWeight.w700))]))));
+    return InkWell(onTap: tap, borderRadius: BorderRadius.circular(14), child: Container(height: 110, decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: _ThixColors.cardBorder)), child: bytes != null? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(bytes, fit: BoxFit.cover)) : url != null? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.network(url, fit: BoxFit.cover)) : Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.add_a_photo_rounded, color: Colors.white, size: 18), const SizedBox(height: 6), Text(label, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 10, fontWeight: FontWeight.w700))])));
   }
 
   Widget _field(TextEditingController c, String label, {int maxLines = 1, TextInputType? keyboard, String? Function(String?)? validator}) {
@@ -182,5 +183,6 @@ class _EventCreateEditPageState extends ConsumerState<EventCreateEditPage> {
   }
 
   InputDecoration _deco(String label) => InputDecoration(labelText: label, labelStyle: const TextStyle(color: _ThixColors.textMuted, fontSize: 11), filled: true, fillColor: _ThixColors.surface, contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: _ThixColors.cardBorder)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: _ThixColors.cardBorder)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.white24, width: 1.2)));
+  
   InputDecoration _decoDialog(String label) => InputDecoration(labelText: label, labelStyle: const TextStyle(color: _ThixColors.textMuted, fontSize: 11), filled: true, fillColor: _ThixColors.surfaceAlt, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _ThixColors.cardBorder)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _ThixColors.cardBorder)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white24)));
 }
