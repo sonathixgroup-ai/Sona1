@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // N'oublie pas cet import
 import '../../providers/event_provider.dart';
 import '../../models/event_model.dart';
 
@@ -19,6 +20,22 @@ class _ThixColors {
   static const textSecondary = Color(0x99FFFFFF);
   static const textMuted = Color(0x66FFFFFF);
 }
+
+// PROVIDER POUR VÉRIFIER LE RÔLE ADMIN
+final isEventAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
+  final uid = Supabase.instance.client.auth.currentUser?.id;
+  if (uid == null) return false;
+  try {
+    final res = await Supabase.instance.client
+        .from('profiles')
+        .select('role')
+        .eq('id', uid)
+        .maybeSingle();
+    return res != null && (res['role'] == 'admin' || res['role'] == 'superadmin');
+  } catch (_) {
+    return false;
+  }
+});
 
 class ThixEventHome extends ConsumerStatefulWidget {
   const ThixEventHome({super.key});
@@ -54,8 +71,10 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
       final count = ref.read(featuredEventsProvider).valueOrNull?.length ?? 0;
       if (count <= 1) return;
       _heroPage = (_heroPage + 1) % count;
-      setState(() {});
-      _heroController.animateToPage(_heroPage, duration: const Duration(milliseconds: 700), curve: Curves.easeOutCubic);
+      if (mounted) {
+        setState(() {});
+        _heroController.animateToPage(_heroPage, duration: const Duration(milliseconds: 700), curve: Curves.easeOutCubic);
+      }
     });
   }
 
@@ -97,6 +116,13 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
     final eventsState = ref.watch(eventListProvider);
     final recommended = ref.watch(recommendedEventsProvider);
     final upcoming = ref.watch(upcomingEventsProvider);
+
+    // ÉCOUTEUR POUR RELANCER LE HERO BOURCLE QUAND LES DONNÉES SONT LÀ
+    ref.listen<AsyncValue<List<Event>>>(featuredEventsProvider, (prev, next) {
+      if (next.valueOrNull != null && next.valueOrNull!.length > 1) {
+        _startHero();
+      }
+    });
 
     return Scaffold(
       backgroundColor: _ThixColors.bg,
@@ -182,63 +208,69 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
   }
 
   // ---------------- AppBar (réduite) ----------------
-  PreferredSizeWidget _appBar() => PreferredSize(
-        preferredSize: const Size.fromHeight(52),
-        child: ClipRRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: AppBar(
-              backgroundColor: _ThixColors.bg.withOpacity(0.85),
-              elevation: 0,
-              systemOverlayStyle: SystemUiOverlayStyle.light,
-              titleSpacing: 16,
-              toolbarHeight: 52,
-              title: Row(
-                children: [
-                  Container(
-                    height: 30,
-                    width: 30,
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(9)),
-                    child: const Icon(Icons.confirmation_num_rounded, color: Colors.black, size: 15),
-                  ),
-                  const SizedBox(width: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: const [
-                      Text('THIX', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5)),
-                      SizedBox(width: 3),
-                      Text('TICKETS', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300, color: _ThixColors.textSecondary)),
-                    ],
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    icon: const Icon(Icons.search_rounded, color: Colors.white, size: 20),
-                    onPressed: () => context.push('/thix-event/search'),
-                  ),
-                  const SizedBox(width: 6),
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 20),
-                        onPressed: () {},
+  PreferredSizeWidget _appBar() {
+    final isAdmin = ref.watch(isEventAdminProvider).valueOrNull ?? false;
+
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(52),
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: AppBar(
+            backgroundColor: _ThixColors.bg.withOpacity(0.85),
+            elevation: 0,
+            systemOverlayStyle: SystemUiOverlayStyle.light,
+            titleSpacing: 16,
+            toolbarHeight: 52,
+            title: Row(
+              children: [
+                Container(
+                  height: 30,
+                  width: 30,
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(9)),
+                  child: const Icon(Icons.confirmation_num_rounded, color: Colors.black, size: 15),
+                ),
+                const SizedBox(width: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: const [
+                    Text('THIX', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5)),
+                    SizedBox(width: 3),
+                    Text('TICKETS', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300, color: _ThixColors.textSecondary)),
+                  ],
+                ),
+                const Spacer(),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.search_rounded, color: Colors.white, size: 20),
+                  onPressed: () => context.push('/thix-event/search'),
+                ),
+                const SizedBox(width: 6),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 20),
+                      onPressed: () {},
+                    ),
+                    Positioned(
+                      right: 2,
+                      top: 2,
+                      child: Container(
+                        height: 7,
+                        width: 7,
+                        decoration: const BoxDecoration(color: _ThixColors.primary, shape: BoxShape.circle),
                       ),
-                      Positioned(
-                        right: 2,
-                        top: 2,
-                        child: Container(
-                          height: 7,
-                          width: 7,
-                          decoration: const BoxDecoration(color: _ThixColors.primary, shape: BoxShape.circle),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
+                ),
+                
+                // BOUTON ADMIN CONDITIONNEL ICI
+                if (isAdmin) ...[
                   const SizedBox(width: 10),
                   InkWell(
                     onTap: () => context.push('/thix-event/admin'),
@@ -256,11 +288,13 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
 
   // ---------------- Hero ----------------
   Widget _hero(List<Event> list) {
@@ -272,7 +306,9 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
           PageView.builder(
             controller: _heroController,
             itemCount: list.length,
-            onPageChanged: (i) => setState(() => _heroPage = i),
+            onPageChanged: (i) {
+              setState(() => _heroPage = i);
+            },
             itemBuilder: (_, idx) {
               final e = list[idx];
               return Container(
@@ -664,7 +700,10 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
             children: [
               _navItem(icon: Icons.home_rounded, label: 'Accueil', selected: true, onTap: () {}),
               _navItem(icon: Icons.explore_outlined, label: 'Explorer', onTap: () => context.push('/thix-event/search')),
-              _navItem(icon: Icons.confirmation_num_outlined, label: 'Billets', onTap: () {}),
+              
+              // REDIRECTION BILLETS AJOUTÉE ICI :
+              _navItem(icon: Icons.confirmation_num_outlined, label: 'Billets', onTap: () => context.push('/thix-event/my-tickets')),
+              
               _navItem(icon: Icons.favorite_border_rounded, label: 'Favoris', onTap: () => context.push('/thix-event/favorites')),
               _navItem(icon: Icons.person_outline_rounded, label: 'Profil', onTap: () => context.push('/profile')),
             ],
