@@ -47,15 +47,15 @@ class _C {
   static const orange = Color(0xFFF59E0B);
 }
 
-// ── Providers Riverpod ──
+// ── Providers Riverpod & CallProvider global ──
 final chatServiceProvider = Provider((ref) => ChatService(Supabase.instance.client));
 final presenceServiceProvider = Provider((ref) => PresenceService(Supabase.instance.client));
 final audioServiceProvider = Provider((ref) => AudioService(Supabase.instance.client));
 final groupServiceProvider = Provider((ref) => GroupService(Supabase.instance.client));
 final connectionServiceProvider = Provider((ref) => ConnectionService());
 
-// ── BASCULE TOTALE EN RIVERPOD MODERNE POUR LES APPELS ──
-// (Si CallNotifier est un StateNotifier / Notifier, adapter selon son implémentation d'origine, ici on utilise ref.read(callProvider.notifier))
+// Déclaration explicite du callProvider pour corriger l'erreur de getter introuvable
+final callProvider = ChangeNotifierProvider<CallProvider>((ref) => CallProvider());
 
 final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
   return ChatMsgNotifier(ref.read(chatServiceProvider), conversationId);
@@ -262,7 +262,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final svc = ref.read(chatServiceProvider);
     final otherId = widget.conversation.participantIds.firstWhere((id) => id != svc.currentUserId, orElse: () => '');
     
-    // ── BASCULE TOTALE EN RIVERPOD (ref.read au lieu de Provider.of) ──
+    // Appel sécurisé via Riverpod moderne
     ref.read(callProvider.notifier).start(channel: widget.conversationId, calleeId: otherId, callType: type);
     
     Navigator.push(
