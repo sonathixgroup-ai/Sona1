@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/pages/market_home_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -49,6 +50,14 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
 
   String _shopName(Map<String,dynamic> p) => (p['shop_name']?? p['shops']?['name']?? 'Boutique THIX').toString();
   String _location(Map<String,dynamic> p) => (p['city']?? p['location']?? 'RDC').toString();
+  
+  // Récupération dynamique de la devise selon le produit/vendeur
+  String _currencySymbol(Map<String, dynamic> p) {
+    final cur = (p['currency'] ?? 'CDF').toString().toUpperCase();
+    if (cur == 'USD' || cur == '\$') return '\$';
+    return 'FC';
+  }
+
   String _greetingName(){
     final user = Supabase.instance.client.auth.currentUser;
     final full = user?.userMetadata?['full_name']?? user?.userMetadata?['name'];
@@ -57,8 +66,26 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
     if(email!=null && email.contains('@')) return email.split('@').first;
     return 'Client';
   }
+  
   double _price(dynamic v){ if(v is num) return v.toDouble(); return double.tryParse(v?.toString()??'')??0; }
-  Widget _img(String? url){ if(url==null||url.isEmpty) return Container(color: MarketColors.lightBg, child: const Icon(Icons.image_outlined, color: MarketColors.mutedText)); return Image.network(url, fit: BoxFit.cover, cacheWidth: 500, errorBuilder: (_,__,___)=> Container(color: MarketColors.lightBg, child: const Icon(Icons.image_not_supported_outlined))); }
+  
+  // Gestion robuste de l'affichage des photos
+  Widget _img(String? url){ 
+    if(url==null||url.isEmpty) {
+      return Container(
+        color: MarketColors.lightBg, 
+        child: const Icon(Icons.image_outlined, color: MarketColors.mutedText)
+      ); 
+    } 
+    return Image.network(
+      url, 
+      fit: BoxFit.cover, 
+      errorBuilder: (_,__,___)=> Container(
+        color: MarketColors.lightBg, 
+        child: const Icon(Icons.image_not_supported_outlined, color: MarketColors.mutedText)
+      )
+    ); 
+  }
 
   void _showComing(String f){ ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$f : Bientôt disponible!'), backgroundColor: MarketColors.gold)); }
 
@@ -281,18 +308,20 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
 
   Widget _buildProductHorizontalCard(Map<String,dynamic> p){
     final price = _price(p['price']);
+    final currencySymbol = _currencySymbol(p);
+    
     return GestureDetector(
       onTap: ()=> context.push('/market/product/${p['id']}'),
       child: Container(
         width: 155,
         decoration: BoxDecoration(color: MarketColors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFD81E2C).withValues(alpha:0.25))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(flex:5, child: Stack(fit: StackFit.expand, children: [ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), child: _img(p['image_url'])), Positioned(top:8,left:8, child: Container(padding: const EdgeInsets.symmetric(horizontal:8,vertical:4), decoration: BoxDecoration(color: MarketColors.red, borderRadius: BorderRadius.circular(8)), child: Text('-${p['discount_percent']??0}%', style: const TextStyle(color: Colors.white, fontSize:10, fontWeight: FontWeight.w900)))), Positioned(top:4,right:4, child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: WishlistButton(productId: p['id'].toString(), size:20)))])),
+          Expanded(flex:5, child: Stack(fit: StackFit.expand, children: [ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), child: _img(p['image_url'] ?? p['images']?[0])), Positioned(top:8,left:8, child: Container(padding: const EdgeInsets.symmetric(horizontal:8,vertical:4), decoration: BoxDecoration(color: MarketColors.red, borderRadius: BorderRadius.circular(8)), child: Text('-${p['discount_percent']??0}%', style: const TextStyle(color: Colors.white, fontSize:10, fontWeight: FontWeight.w900)))), Positioned(top:4,right:4, child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: WishlistButton(productId: p['id'].toString(), size:20)))])),
           Expanded(flex:5, child: Padding(padding: const EdgeInsets.all(10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(p['title']??'', maxLines:2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize:12, fontWeight: FontWeight.w700, height:1.2)),
             const Spacer(),
             Row(children: [const Icon(Icons.storefront_rounded, size:11, color: MarketColors.mutedText), const SizedBox(width:3), Expanded(child: Text(_shopName(p), maxLines:1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize:9.5, color: MarketColors.mutedText)))]),
-            Text('${price.toInt()} FC', style: const TextStyle(fontWeight: FontWeight.w900, fontSize:15, color: MarketColors.red)),
+            Text('${price.toInt()} $currencySymbol', style: const TextStyle(fontWeight: FontWeight.w900, fontSize:15, color: MarketColors.red)),
           ]))),
         ]),
       ),
@@ -317,13 +346,20 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
     final price = _price(p['discount_price']??p['price']);
     final orig = _price(p['price']);
     final hasDisc = p['discount_price']!=null && price<orig;
+    final currencySymbol = _currencySymbol(p);
+    
+    // Gestion propre de l'image (si image_url est vide, on essaie le tableau images)
+    final imageUrl = (p['image_url'] != null && p['image_url'].toString().isNotEmpty) 
+        ? p['image_url'].toString() 
+        : ((p['images'] is List && (p['images'] as List).isNotEmpty) ? p['images'][0].toString() : null);
+
     return GestureDetector(
       onTap: ()=> context.push('/market/product/${p['id']}'),
       child: Container(
         decoration: BoxDecoration(color: MarketColors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: MarketColors.cardBorder)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(flex:5, child: Stack(fit: StackFit.expand, children: [
-            ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(18)), child: _img(p['image_url'])),
+            ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(18)), child: _img(imageUrl)),
             if(hasDisc) Positioned(top:8,left:8, child: Container(padding: const EdgeInsets.symmetric(horizontal:6,vertical:4), decoration: BoxDecoration(color: MarketColors.red, borderRadius: BorderRadius.circular(8)), child: Text('-${((1-price/orig)*100).round()}%', style: const TextStyle(color: Colors.white, fontSize:10, fontWeight: FontWeight.w900)))),
             Positioned(top:6,right:6, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: WishlistButton(productId: p['id'].toString(), size:20))),
           ])),
@@ -338,7 +374,7 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
                 Row(children: [const Icon(Icons.location_on_outlined, size:11, color: MarketColors.mutedText), const SizedBox(width:3), Expanded(child: Text(_location(p), maxLines:1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize:9.5, color: MarketColors.mutedText)))]),
                 const Spacer(),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if(hasDisc) Text('${orig.toInt()} FC', style: const TextStyle(decoration: TextDecoration.lineThrough, fontSize:10, color: MarketColors.mutedText)), Text('${price.toInt()} FC', style: const TextStyle(fontWeight: FontWeight.w900, fontSize:14, color: MarketColors.red))]),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if(hasDisc) Text('${orig.toInt()} $currencySymbol', style: const TextStyle(decoration: TextDecoration.lineThrough, fontSize:10, color: MarketColors.mutedText)), Text('${price.toInt()} $currencySymbol', style: const TextStyle(fontWeight: FontWeight.w900, fontSize:14, color: MarketColors.red))]),
                   Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: MarketColors.creamBg, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.add_shopping_cart_rounded, size:16, color: MarketColors.red)),
                 ]),
               ]),
