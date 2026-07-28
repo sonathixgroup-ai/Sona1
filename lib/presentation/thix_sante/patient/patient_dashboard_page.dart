@@ -46,6 +46,7 @@ class _C {
   static const amber = Color(0xFFF59E0B);
   static const border = Color(0xFFE2E8F0);
   static const fabBg = Color(0xFF06B6D4);
+  static const primary = Color(0xFF3B82F6); // Ajout de la couleur manquante
 }
 
 // ---------------- Données réelles ----------------
