@@ -56,8 +56,17 @@ class EventCard extends StatelessWidget {
             AspectRatio(
               aspectRatio: 1.25,
               child: event.imageUrl != null && event.imageUrl!.isNotEmpty
-                 ? Image.network(event.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _ThixColors.surfaceAlt))
-                  : Container(decoration: BoxDecoration(gradient: LinearGradient(colors: [accent.withOpacity(0.8), accent]))), child: const Icon(Icons.event_rounded, color: Colors.white54)),
+                  ? Image.network(
+                      event.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(color: _ThixColors.surfaceAlt),
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [accent.withOpacity(0.8), accent]),
+                      ),
+                      child: const Icon(Icons.event_rounded, color: Colors.white54),
+                    ),
             ),
             Positioned(
               top: 10, left: 10,
@@ -133,7 +142,7 @@ class EventCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: event.imageUrl != null && event.imageUrl!.isNotEmpty
-                 ? Image.network(event.imageUrl!, width: 64, height: 64, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 64, height: 64, color: _ThixColors.surfaceAlt))
+                  ? Image.network(event.imageUrl!, width: 64, height: 64, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 64, height: 64, color: _ThixColors.surfaceAlt))
                   : Container(width: 64, height: 64, decoration: BoxDecoration(color: accent.withOpacity(0.2)), child: Icon(Icons.event_rounded, color: accent)),
             ),
             if (onFavoriteTap != null)
