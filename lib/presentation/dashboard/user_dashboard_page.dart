@@ -49,22 +49,19 @@ class UserDashboardCtrl extends ChangeNotifier {
   });
 
   Future<void> init(AppUser authUser) async {
-    // Analytics (Non bloquant)
+    debugPrint('>>> UserDashboardCtrl.init appelé pour ${authUser.id}');
     unawaited(userService.logSecurityEvent(uid: authUser.id, type: 'dashboard_open', label: 'Ouverture dashboard').catchError((_) {}));
     unawaited(profileService.ensureProfileExists(user: authUser).catchError((_) {}));
 
-    // Vérification du Cache
     if (!DashboardCache().isStale && DashboardCache().lastProfile != null) {
       profile = DashboardCache().lastProfile;
       _mergeAndCompute(authUser);
       loading = false;
       notifyListeners();
-      // Rafraîchissement silencieux en arrière-plan
       unawaited(refreshSilently(authUser));
       return;
     }
 
-    // Chargement initial depuis Supabase (Pas de stream = Scalable)
     loading = true;
     error = null;
     notifyListeners();
@@ -77,9 +74,10 @@ class UserDashboardCtrl extends ChangeNotifier {
       DashboardCache().lastFetch = DateTime.now();
 
       _mergeAndCompute(authUser);
+      debugPrint('>>> UserDashboardCtrl.init succès, profile chargé');
     } catch (e) {
       error = 'Impossible de charger les données du profil.';
-      debugPrint('UserDashboardCtrl init error: $e');
+      debugPrint('>>> UserDashboardCtrl init ERROR: $e');
     } finally {
       loading = false;
       notifyListeners();
@@ -104,7 +102,6 @@ class UserDashboardCtrl extends ChangeNotifier {
   void _mergeAndCompute(AppUser authUser) {
     if (profile == null) return;
 
-    // Fusion une seule fois pour toute l'interface
     mergedUser = authUser.copyWith(
       displayName: profile!.displayName,
       photoUrl: profile!.photoUrl,
@@ -149,16 +146,12 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   late final UserDashboardCtrl _ctrl;
 
   final _docFilter = ValueNotifier<String>('Tous');
-
-  // CORRECTIF : on ne déclenche l'init qu'une seule fois, mais on la
-  // retente à chaque rebuild tant qu'elle n'a pas réussi (currentUser
-  // peut être null au tout premier frame si AuthController n'a pas
-  // encore fini de résoudre la session).
   bool _initTriggered = false;
 
   @override
   void initState() {
     super.initState();
+    debugPrint('>>> UserDashboardPage.initState');
     _profileService = ProfileService();
     _userService = UserService(Supabase.instance.client);
     _docsService = DocumentService();
@@ -175,7 +168,8 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   void _tryInit() {
     if (_initTriggered || !mounted) return;
     final me = context.read<AuthController>().currentUser;
-    if (me == null) return; // sera retenté au prochain build via didChangeDependencies/build
+    debugPrint('>>> _tryInit: currentUser=${me?.id}');
+    if (me == null) return;
     if (me.accountType == AccountType.enterprise) {
       _initTriggered = true;
       context.go(AppRoutes.enterpriseDashboard);
@@ -195,10 +189,8 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   @override
   Widget build(BuildContext context) {
     final me = context.watch<AuthController>().currentUser;
+    debugPrint('>>> UserDashboardPage.build: currentUser=${me?.id} initTriggered=$_initTriggered');
 
-    // Tant que currentUser n'est pas encore disponible OU que l'init
-    // n'a pas encore été déclenchée, on retente à chaque rebuild
-    // (déclenché par les notifyListeners() de AuthController).
     if (me == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -248,7 +240,6 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                 child: Stack(
                   children: [
                     const DashboardBackground(),
-                    // Utilisation de RefreshIndicator pour la scalabilité (Pull-to-refresh)
                     RefreshIndicator(
                       color: const Color(0xFF0D2CC1),
                       onRefresh: () => ctrl.refreshSilently(me),
@@ -263,10 +254,8 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                               await context.read<AuthController>().signOut();
                               if (context.mounted) context.go(AppRoutes.home);
                             },
-                            // Lien direct vers ton nouveau Sheet d'édition
                             onEditProfile: () async {
                               await ProfileEditorSheet.show(context, profile: profile, profileService: _profileService, authUser: me);
-                              // On met à jour le dashboard à la fermeture du sheet
                               if (context.mounted) ctrl.refreshSilently(me);
                             },
                             onDownloadCv: () => DefaultTabController.of(context).animateTo(4),
@@ -306,7 +295,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
               "Scanner ID",
               style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w900)
             ),
-            backgroundColor: const Color(0xFF0D2CC1), // Bleu principal
+            backgroundColor: const Color(0xFF0D2CC1),
             elevation: 4,
           ),
         ),
@@ -319,8 +308,6 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
 // WIDGET OPTIMISATION (CONSERVATION D'ÉTAT)
 // =============================================================================
 
-/// Garde les onglets en mémoire lors du scroll.
-/// Critique pour ne pas refaire les calculs UI à chaque changement d'onglet.
 class KeepAliveWrapper extends StatefulWidget {
   final Widget child;
   const KeepAliveWrapper({super.key, required this.child});
