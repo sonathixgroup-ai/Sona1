@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/chat/chat_conversation.dart';
-import '../providers/chat_list_provider.dart';
+import 'providers/chat_list_provider.dart';
 import 'chat_screen.dart';
 import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
