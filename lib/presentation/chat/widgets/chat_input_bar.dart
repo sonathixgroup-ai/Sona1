@@ -1,17 +1,7 @@
+// lib/presentation/chat/widgets/chat_input_bar.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class _C {
-  static const bg = Colors.white;
-  static const searchBg = Color(0xFFF8FAFC);
-  static const border = Color(0xFFE2E8F0);
-  static const primary = Color(0xFF1D4ED8);
-  static const primaryLight = Color(0xFFEFF6FF);
-  static const textMain = Color(0xFF0F172A);
-  static const textMuted = Color(0xFF64748B);
-}
-
-class ChatInputBar extends ConsumerStatefulWidget {
+class ChatInputBar extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onSend;
@@ -22,6 +12,8 @@ class ChatInputBar extends ConsumerStatefulWidget {
   final VoidCallback onEphemeralToggle;
   final bool isEphemeral;
   final ValueChanged<String>? onTyping;
+  
+  // 👇 AJOUTS POUR LES NOTES INTERNES & STICKERS
   final VoidCallback? onInternalNoteToggle;
   final VoidCallback? onStickerTap;
   final bool isInternalNote;
@@ -44,17 +36,20 @@ class ChatInputBar extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ChatInputBar> createState() => _ChatInputBarState();
+  State<ChatInputBar> createState() => _ChatInputBarState();
 }
 
-class _ChatInputBarState extends ConsumerState<ChatInputBar> {
+class _ChatInputBarState extends State<ChatInputBar> {
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color gold = Color(0xFFE3B23C);
+
   bool _hasText = false;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onTextChanged);
-    _hasText = widget.controller.text.trim().isNotEmpty;
+    _hasText = widget.controller.text.isNotEmpty;
   }
 
   @override
@@ -64,91 +59,160 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar> {
   }
 
   void _onTextChanged() {
-    final has = widget.controller.text.trim().isNotEmpty;
-    if (_hasText != has) setState(() => _hasText = has);
+    final hasText = widget.controller.text.isNotEmpty;
+    if (_hasText != hasText) {
+      setState(() {
+        _hasText = hasText;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isNote = widget.isInternalNote;
+    final bgColor = widget.isInternalNote ? Colors.orange.shade50 : Colors.white;
+    final hintText = widget.isInternalNote ? 'Écrire une note interne...' : 'Écrire un message...';
 
     return Container(
       decoration: BoxDecoration(
-        color: isNote ? const Color(0xFFFFF7ED) : _C.bg,
-        border: Border(top: BorderSide(color: isNote ? const Color(0xFFFED7AA) : _C.border)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, -4))],
+        color: bgColor,
+        border: Border(top: BorderSide(color: widget.isInternalNote ? const Color(0xFFFED7AA) : Colors.grey.shade200, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: SafeArea(
-        top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // BANDE DES BOUTONS DÉFILANTE
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
                 children: [
-                  _btn(icon: Icons.attach_file_rounded, label: 'Fichier', onTap: widget.onAttach),
-                  _btn(icon: Icons.emoji_emotions_outlined, label: 'Sticker', onTap: widget.onStickerTap ?? () {}, isActive: widget.onStickerTap != null ? false : false),
-                  _btn(icon: widget.isEphemeral ? Icons.timer_rounded : Icons.timer_outlined, label: 'Éphémère', onTap: widget.onEphemeralToggle, isActive: widget.isEphemeral),
-                  _btn(icon: Icons.lock_outline_rounded, label: 'Protégé', onTap: widget.onSecureMessage),
-                  _btn(icon: Icons.mic_none_rounded, label: 'Audio', onTap: widget.onAudio),
+                  _buildActionButton(
+                    icon: Icons.attach_file_rounded,
+                    label: 'Pièce jointe',
+                    onTap: widget.onAttach,
+                  ),
+                  if (widget.onStickerTap != null)
+                    _buildActionButton(
+                      icon: Icons.emoji_emotions_outlined,
+                      label: 'Sticker',
+                      onTap: widget.onStickerTap!,
+                    ),
+                  _buildActionButton(
+                    icon: widget.isEphemeral ? Icons.timer_rounded : Icons.timer_outlined,
+                    label: 'Éphémère',
+                    onTap: widget.onEphemeralToggle,
+                    isActive: widget.isEphemeral,
+                    activeColor: gold,
+                  ),
+                  _buildActionButton(
+                    icon: Icons.lock_outline_rounded,
+                    label: 'Protégé',
+                    onTap: widget.onSecureMessage,
+                  ),
+                  _buildActionButton(
+                    icon: Icons.mic_none_rounded,
+                    label: 'Audio',
+                    onTap: widget.onAudio,
+                  ),
                   if (widget.onInternalNoteToggle != null)
-                    _btn(icon: Icons.speaker_notes_outlined, label: 'Note', onTap: widget.onInternalNoteToggle!, isActive: isNote, activeColor: const Color(0xFFEA580C)),
+                    _buildActionButton(
+                      icon: Icons.speaker_notes,
+                      label: 'Note',
+                      onTap: widget.onInternalNoteToggle!,
+                      isActive: widget.isInternalNote,
+                      activeColor: Colors.orange,
+                    ),
+                  const SizedBox(width: 8),
                   if (_hasText)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: Text('${widget.controller.text.length}', style: const TextStyle(fontSize: 10, color: _C.textMuted, fontWeight: FontWeight.w500)),
+                    Text(
+                      '${widget.controller.text.length}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade400,
+                      ),
                     ),
                 ],
               ),
             ),
+
+            // ZONE DE SAISIE
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 42, maxHeight: 110),
-                      child: TextField(
-                        controller: widget.controller,
-                        focusNode: widget.focusNode,
-                        onChanged: widget.onTyping,
-                        maxLines: null,
-                        minLines: 1,
-                        style: const TextStyle(color: _C.textMain, fontSize: 14, fontWeight: FontWeight.w500),
-                        keyboardType: TextInputType.multiline,
-                        textInputAction: TextInputAction.newline,
-                        decoration: InputDecoration(
-                          hintText: isNote ? 'Note interne...' : 'Écrire un message...',
-                          hintStyle: const TextStyle(color: _C.textMuted, fontSize: 13),
-                          filled: true,
-                          fillColor: isNote ? Colors.white : _C.searchBg,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: _C.border)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: _C.border)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: isNote ? const Color(0xFFFDBA74) : _C.primary, width: 1.2)),
+                      constraints: const BoxConstraints(
+                        minHeight: 36,
+                        maxHeight: 120,
+                      ),
+                      child: Scrollbar(
+                        thumbVisibility: true,
+                        child: TextField(
+                          controller: widget.controller,
+                          focusNode: widget.focusNode,
+                          onChanged: widget.onTyping,
+                          maxLines: null,
+                          minLines: 1,
+                          keyboardType: TextInputType.multiline,
+                          textInputAction: TextInputAction.newline,
+                          decoration: InputDecoration(
+                            hintText: hintText,
+                            hintStyle: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 14,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: widget.isInternalNote ? Colors.orange.shade100 : Colors.grey.shade100,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: (widget.isSending || !_hasText) ? null : widget.onSend,
-                    child: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: (_hasText && !widget.isSending) ? (isNote ? const Color(0xFFEA580C) : _C.primary) : _C.searchBg,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: (_hasText && !widget.isSending) ? Colors.transparent : _C.border),
-                      ),
-                      child: Center(
-                        child: widget.isSending
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : Icon(Icons.send_rounded, size: 18, color: _hasText ? Colors.white : _C.textMuted),
-                      ),
+                  // Bouton Envoi
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: (_hasText && !widget.isSending) 
+                          ? (widget.isInternalNote ? Colors.orange : navyDeep) 
+                          : Colors.grey.shade300,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: widget.isSending
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.send_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                      onPressed: (widget.isSending || !_hasText) ? null : widget.onSend,
+                      padding: EdgeInsets.zero,
                     ),
                   ),
                 ],
@@ -160,20 +224,38 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar> {
     );
   }
 
-  Widget _btn({required IconData icon, required String label, required VoidCallback onTap, bool isActive = false, Color? activeColor}) {
-    final c = isActive ? (activeColor ?? _C.primary) : _C.textMuted;
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool isActive = false,
+    Color? activeColor,
+  }) {
+    final color = isActive ? (activeColor ?? gold) : Colors.grey.shade500;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        margin: const EdgeInsets.only(right: 2),
-        decoration: isActive ? BoxDecoration(color: (activeColor ?? _C.primary).withOpacity(0.1), borderRadius: BorderRadius.circular(8)) : null,
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 16, color: c),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500, color: c)),
-        ]),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: color,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
