@@ -1,276 +1,106 @@
-// lib/presentation/thix_event/event_search_page.dart
+import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../providers/event_provider.dart';
 import '../../models/event_model.dart';
-import 'widgets/event_card.dart';
 
 class _ThixColors {
-  static const Color primary = Color(0xFF6B3CE2);
-  static const Color darkText = Color(0xFF1E1B4B);
-  static const Color mutedText = Color(0xFF8B8BA7);
-  static const Color lightBg = Color(0xFFF8F9FA);
+  static const bg = Color(0xFF050508);
+  static const surface = Color(0xFF0C0C12);
+  static const surfaceAlt = Color(0xFF111118);
+  static const cardBorder = Color(0x14FFFFFF);
+  static const cardBorderStrong = Color(0x26FFFFFF);
+  static const primary = Color(0xFFFF0A54);
+  static const textSecondary = Color(0x99FFFFFF);
+  static const textMuted = Color(0x66FFFFFF);
 }
 
-class EventSearchPage extends StatefulWidget {
+class EventSearchPage extends ConsumerStatefulWidget {
   const EventSearchPage({super.key});
-
   @override
-  State<EventSearchPage> createState() => _EventSearchPageState();
+  ConsumerState<EventSearchPage> createState() => _EventSearchPageState();
 }
 
-class _EventSearchPageState extends State<EventSearchPage> {
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _focusNode = FocusNode();
+class _EventSearchPageState extends ConsumerState<EventSearchPage> {
+  final _controller = TextEditingController();
+  final _focus = FocusNode();
   List<Event> _results = [];
-  bool _isSearching = false;
-  String _selectedFilter = 'all';
-  String _selectedCity = 'all';
+  bool _searching = false;
+  String _filter = 'all';
+  String _city = 'all';
+  Timer? _debounce;
 
-  final List<String> _cities = ['all', 'Kinshasa', 'Lubumbashi', 'Goma', 'Bukavu', 'Kisangani'];
-
-  @override
-  void initState() {
-    super.initState();
-    _focusNode.requestFocus();
-  }
+  final _cities = const ['all', 'Kinshasa', 'Lubumbashi', 'Goma', 'Bukavu', 'Kisangani'];
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
+  void initState() { super.initState(); WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus()); _controller.addListener(() { setState(() {}); }); }
 
-  Future<void> _performSearch(String query) async {
-    if (query.isEmpty) {
-      setState(() {
-        _results = [];
-        _isSearching = false;
-      });
-      return;
-    }
+  @override
+  void dispose() { _controller.dispose(); _focus.dispose(); _debounce?.cancel(); super.dispose(); }
 
-    setState(() => _isSearching = true);
-    final provider = context.read<EventProvider>();
-    var results = await provider.searchEvents(query);
-    
-    if (_selectedCity != 'all') {
-      results = results.where((e) => e.city == _selectedCity).toList();
-    }
-    
-    setState(() {
-      _results = results;
-      _isSearching = false;
+  Future<void> _search(String q) async {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
+      if (q.trim().isEmpty) { if (mounted) setState(() { _results = []; _searching = false; }); return; }
+      setState(() => _searching = true);
+      var res = await ref.read(eventServiceProvider).searchEvents(q.trim());
+      if (_city!= 'all') res = res.where((e) => e.city == _city).toList();
+      if (_filter == 'free') res = res.where((e) => e.isFree).toList();
+      if (mounted) setState(() { _results = res; _searching = false; });
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _ThixColors.lightBg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: _ThixColors.darkText),
-          onPressed: () => Navigator.pop(context),
-        ),
-        titleSpacing: 0,
-        title: Padding(
-          padding: const EdgeInsets.only(right: 16.0),
-          child: Container(
-            height: 44,
-            decoration: BoxDecoration(
-              color: _ThixColors.lightBg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: TextField(
-              controller: _searchController,
-              focusNode: _focusNode,
-              onChanged: _performSearch,
-              cursorColor: _ThixColors.primary,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _ThixColors.darkText),
-              decoration: InputDecoration(
-                hintText: 'Rechercher un événement, lieu...',
-                hintStyle: const TextStyle(fontSize: 13, color: _ThixColors.mutedText, fontWeight: FontWeight.w400),
-                prefixIcon: const Icon(Icons.search_rounded, size: 20, color: _ThixColors.mutedText),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, size: 18, color: _ThixColors.mutedText),
-                        onPressed: () {
-                          _searchController.clear();
-                          _performSearch('');
-                        },
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              ),
+      backgroundColor: _ThixColors.bg,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(64),
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: AppBar(
+              backgroundColor: _ThixColors.bg.withOpacity(0.85),
+              elevation: 0,
+              leading: Padding(padding: const EdgeInsets.all(8), child: InkWell(onTap: () => context.pop(), child: Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), shape: BoxShape.circle, border: Border.all(color: _ThixColors.cardBorder)), child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 18)))),
+              titleSpacing: 0,
+              title: Padding(padding: const EdgeInsets.only(right: 16), child: Container(height: 44, decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: _ThixColors.cardBorder)), child: TextField(controller: _controller, focusNode: _focus, onChanged: _search, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500), decoration: InputDecoration(hintText: 'Rechercher événement, artiste...', hintStyle: const TextStyle(color: _ThixColors.textMuted, fontSize: 12), prefixIcon: const Icon(Icons.search_rounded, size: 18, color: _ThixColors.textMuted), suffixIcon: _controller.text.isNotEmpty? IconButton(icon: const Icon(Icons.clear_rounded, size: 16, color: _ThixColors.textMuted), onPressed: () { _controller.clear(); _search(''); }) : null, border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 12)))),
             ),
           ),
         ),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_searchController.text.isNotEmpty)
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        _buildModernChip('Tous', 'all', _selectedFilter, (val) => setState(() { _selectedFilter = val; _performSearch(_searchController.text); })),
-                        const SizedBox(width: 8),
-                        _buildModernChip('Aujourd\'hui', 'today', _selectedFilter, (val) => setState(() { _selectedFilter = val; _performSearch(_searchController.text); })),
-                        const SizedBox(width: 8),
-                        _buildModernChip('Cette semaine', 'week', _selectedFilter, (val) => setState(() { _selectedFilter = val; _performSearch(_searchController.text); })),
-                        const SizedBox(width: 8),
-                        _buildModernChip('Gratuits', 'free', _selectedFilter, (val) => setState(() { _selectedFilter = val; _performSearch(_searchController.text); })),
-                      ],
-                    ),
-                  ),
-                  if (_cities.length > 1) ...[
-                    const SizedBox(height: 12),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: _cities.map((city) {
-                          final displayName = city == 'all' ? 'Toutes villes' : city;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: _buildModernChip(displayName, city, _selectedCity, (val) => setState(() { _selectedCity = val; _performSearch(_searchController.text); }), isCity: true),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ]
-                ],
-              ),
-            ),
-          Expanded(
-            child: _isSearching
-                ? const Center(child: CircularProgressIndicator(color: _ThixColors.primary))
-                : _results.isEmpty && _searchController.text.isNotEmpty
-                    ? _buildEmptyState()
-                    : _results.isEmpty
-                        ? _buildInitialState()
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _results.length,
-                            itemBuilder: (context, index) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: EventCard(
-                                event: _results[index],
-                                isCompact: true,
-                                onTap: () => context.push('/thix-event/event/${_results[index].id}'),
-                              ),
-                            ),
-                          ),
-          ),
-        ],
-      ),
+      body: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (_controller.text.isNotEmpty) Container(padding: const EdgeInsets.symmetric(vertical: 10), decoration: const BoxDecoration(color: _ThixColors.bg, border: Border(bottom: BorderSide(color: _ThixColors.cardBorder))), child: Column(children: [
+          SingleChildScrollView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [
+            _chip('Tous', 'all', _filter, (v) => setState(() { _filter = v; _search(_controller.text); })),
+            const SizedBox(width: 8), _chip('Aujourd\'hui', 'today', _filter, (v) => setState(() { _filter = v; })),
+            const SizedBox(width: 8), _chip('Cette semaine', 'week', _filter, (v) => setState(() { _filter = v; })),
+            const SizedBox(width: 8), _chip('Gratuits', 'free', _filter, (v) => setState(() { _filter = v; _search(_controller.text); })),
+          ])),
+          const SizedBox(height: 10),
+          SingleChildScrollView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: _cities.map((c) => Padding(padding: const EdgeInsets.only(right: 8), child: _chip(c== 'all'? 'Toutes villes' : c, c, _city, (v) => setState(() { _city = v; _search(_controller.text); }), isCity: true))).toList())),
+        ])),
+        Expanded(child: _searching? const Center(child: CircularProgressIndicator(color: _ThixColors.primary)) : _results.isEmpty && _controller.text.isNotEmpty? _emptyResult() : _results.isEmpty? _initial() : ListView.builder(padding: const EdgeInsets.all(16), itemCount: _results.length, itemBuilder: (_, i) => Padding(padding: const EdgeInsets.only(bottom: 12), child: _card(_results[i])))),
+      ]),
     );
   }
 
-  // 🟢 Design des "Chips" (Boutons de filtre) harmonisé
-  Widget _buildModernChip(String label, String value, String groupValue, Function(String) onSelected, {bool isCity = false}) {
-    final isSelected = groupValue == value;
-    return GestureDetector(
-      onTap: () => onSelected(value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? _ThixColors.primary.withOpacity(0.1) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? _ThixColors.primary : Colors.grey.shade300,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isCity && isSelected) ...[
-              const Icon(Icons.location_on_rounded, size: 14, color: _ThixColors.primary),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? _ThixColors.primary : _ThixColors.mutedText,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  Widget _chip(String label, String value, String group, Function(String) onTap, {bool isCity = false}) {
+    final sel = group == value;
+    return GestureDetector(onTap: () => onTap(value), child: AnimatedContainer(duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7), decoration: BoxDecoration(color: sel? _ThixColors.primary.withOpacity(0.15) : _ThixColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: sel? _ThixColors.primary : _ThixColors.cardBorder, width: sel? 1.2 : 1)), child: Row(mainAxisSize: MainAxisSize.min, children: [if (isCity && sel) const Padding(padding: EdgeInsets.only(right: 4), child: Icon(Icons.location_on_rounded, size: 12, color: _ThixColors.primary)), Text(label, style: TextStyle(fontSize: 11, fontWeight: sel? FontWeight.w800 : FontWeight.w600, color: sel? _ThixColors.primary : _ThixColors.textSecondary))])) );
   }
 
-  // 🟢 "Empty State" professionnel pour Aucun Résultat
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: _ThixColors.primary.withOpacity(0.05), shape: BoxShape.circle),
-            child: const Icon(Icons.search_off_rounded, size: 50, color: _ThixColors.primary),
-          ),
-          const SizedBox(height: 20),
-          Text('Aucun résultat', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ThixColors.darkText)),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              'Nous n\'avons trouvé aucun événement correspondant à "${_searchController.text}".',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: _ThixColors.mutedText, height: 1.5),
-            ),
-          ),
-        ],
-      ),
-    );
+  Widget _card(Event e) {
+    return GestureDetector(onTap: () => context.push('/thix-event/event/${e.id}'), child: Container(decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: _ThixColors.cardBorder)), padding: const EdgeInsets.all(10), child: Row(children: [
+      ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(e.imageUrl?? '', width: 64, height: 64, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 64, height: 64, color: _ThixColors.surfaceAlt))),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text('${e.formattedDate} • ${e.location}', maxLines: 1, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 11)), const SizedBox(height: 6), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(10), border: Border.all(color: _ThixColors.cardBorder)), child: Text(e.formattedPrice, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)))])),
+      Container(height: 32, width: 32, decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), shape: BoxShape.circle, border: Border.all(color: _ThixColors.cardBorder)), child: const Icon(Icons.arrow_outward_rounded, size: 14, color: Colors.white)),
+    ])));
   }
 
-  // 🟢 "Empty State" professionnel pour l'état Initial
-  Widget _buildInitialState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: _ThixColors.primary.withOpacity(0.05), shape: BoxShape.circle),
-            child: const Icon(Icons.travel_explore_rounded, size: 50, color: _ThixColors.primary),
-          ),
-          const SizedBox(height: 20),
-          const Text('Trouvez votre prochaine sortie', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ThixColors.darkText)),
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              'Tapez un mot-clé, le nom d\'un artiste ou d\'un lieu pour lancer la recherche.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: _ThixColors.mutedText, height: 1.5),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _emptyResult() => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: _ThixColors.surface, shape: BoxShape.circle, border: Border.all(color: _ThixColors.cardBorder)), child: const Icon(Icons.search_off_rounded, size: 32, color: _ThixColors.textMuted)), const SizedBox(height: 14), Text('Aucun résultat pour "${_controller.text}"', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)), const SizedBox(height: 6), const Text('Essayez un autre mot-clé', style: TextStyle(color: _ThixColors.textMuted, fontSize: 12))]));
+  Widget _initial() => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: _ThixColors.surface, shape: BoxShape.circle, border: Border.all(color: _ThixColors.cardBorder)), child: const Icon(Icons.travel_explore_rounded, size: 32, color: _ThixColors.textMuted)), const SizedBox(height: 14), const Text('Trouvez votre prochaine sortie', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)), const SizedBox(height: 6), const Padding(padding: EdgeInsets.symmetric(horizontal: 40), child: Text('Artiste, lieu, catégorie...', textAlign: TextAlign.center, style: TextStyle(color: _ThixColors.textMuted, fontSize: 12)))]));
 }
