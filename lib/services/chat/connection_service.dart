@@ -1,5 +1,5 @@
 // ============================================================
-// lib/services/chat/connection_service.dart (corrigé)
+// lib/services/chat/connection_service.dart
 // ============================================================
 
 import 'package:flutter/material.dart';
@@ -101,20 +101,26 @@ class ConnectionService extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // ─── CHARGEMENT ─────────────────────────────────────────────
+  // ─── CHARGEMENT & PAGINATION ────────────────────────────────
 
-  Future<void> loadData(String userId) async {
+  Future<void> loadData(String userId, {int limit = 20, int offset = 0}) async {
     _setLoading(true);
     _error = null;
 
     try {
       final sent = await _getSentRequests(userId);
       final received = await _getPendingRequests(userId);
-      final active = await _getActiveConnections(userId);
+      final active = await _getActiveConnections(userId, limit: limit, offset: offset);
 
       _sentRequests = sent;
       _receivedRequests = received;
-      _connections = active;
+      
+      if (offset == 0) {
+        _connections = active;
+      } else {
+        _connections.addAll(active);
+      }
+      
       _setLoading(false);
     } catch (e) {
       _error = e.toString();
@@ -122,7 +128,20 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // ─── REQUÊTES PRIVÉES (sans OR complexe) ──────────────────
+  Future<List<Map<String, dynamic>>> loadMoreConnections(String userId, {required int offset, required int limit}) async {
+    try {
+      final moreActive = await _getActiveConnections(userId, limit: limit, offset: offset);
+      _connections.addAll(moreActive);
+      notifyListeners();
+      return moreActive;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return [];
+    }
+  }
+
+  // ─── REQUÊTES PRIVÉES ───────────────────────────────────────
 
   Future<List<ConnectionRequest>> _getPendingRequests(String userId) async {
     final response = await _supabase
@@ -144,7 +163,7 @@ class ConnectionService extends ChangeNotifier {
     return response.map((json) => ConnectionRequest.fromJson(json)).toList();
   }
 
-  Future<List<Map<String, dynamic>>> _getActiveConnections(String userId) async {
+  Future<List<Map<String, dynamic>>> _getActiveConnections(String userId, {int limit = 20, int offset = 0}) async {
     final response = await _supabase
         .from('connections')
         .select('''
@@ -154,14 +173,15 @@ class ConnectionService extends ChangeNotifier {
           user1:profiles!connections_user1_id_fkey(id, display_name, username, avatar_url),
           user2:profiles!connections_user2_id_fkey(id, display_name, username, avatar_url)
         ''')
-        .or('user1_id.eq.$userId,user2_id.eq.$userId');
+        .or('user1_id.eq.$userId,user2_id.eq.$userId')
+        .range(offset, offset + limit - 1); // Pagination Supabase
 
-    final List<Map<String, dynamic>> connections = [];
+    final List<Map<String, dynamic>> connectionsList = [];
     for (var row in response) {
       final isUser1 = row['user1_id'] == userId;
       final other = isUser1 ? row['user2'] : row['user1'];
       if (other != null) {
-        connections.add({
+        connectionsList.add({
           'id': row['id'],
           'user_id': other['id'],
           'display_name': other['display_name'] ?? 'Inconnu',
@@ -170,7 +190,7 @@ class ConnectionService extends ChangeNotifier {
         });
       }
     }
-    return connections;
+    return connectionsList;
   }
 
   void _setLoading(bool loading) {
@@ -180,7 +200,6 @@ class ConnectionService extends ChangeNotifier {
 
   // ─── MÉTHODES PUBLIQUES ────────────────────────────────────
 
-  // ✅ sendRequest (sans OR complexe, vérification en deux requêtes)
   Future<bool> sendRequest({
     required String senderId,
     required String receiverId,
@@ -192,7 +211,6 @@ class ConnectionService extends ChangeNotifier {
       return false;
     }
     try {
-      // 1. Vérifier si une demande existe déjà (dans les deux sens)
       final existing1 = await _supabase
           .from('connection_requests')
           .select()
@@ -210,7 +228,6 @@ class ConnectionService extends ChangeNotifier {
       final existing = existing1 ?? existing2;
 
       if (existing != null) {
-        // 2. Réactiver la demande existante
         await _supabase
             .from('connection_requests')
             .update({
@@ -223,7 +240,6 @@ class ConnectionService extends ChangeNotifier {
         return true;
       }
 
-      // 3. Créer une nouvelle demande
       final data = {
         'sender_id': senderId,
         'receiver_id': receiverId,
@@ -245,7 +261,6 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // ✅ acceptRequest (inchangé, avec tri des IDs)
   Future<bool> acceptRequest(String requestId, String userId) async {
     try {
       final request = await _supabase
@@ -279,7 +294,6 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // ✅ rejectRequest
   Future<bool> rejectRequest(String requestId, String userId) async {
     try {
       await _supabase
@@ -298,7 +312,6 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // ✅ cancelRequest
   Future<bool> cancelRequest(String requestId, String userId) async {
     try {
       await _supabase
@@ -314,7 +327,6 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // ✅ checkConnection (sans OR complexe)
   Future<bool> checkConnection(String userId1, String userId2) async {
     if (userId1 == userId2) return false;
     try {
@@ -341,11 +353,9 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // ✅ getStatusBetween (sans OR complexe)
   Future<String> getStatusBetween(String userId1, String userId2) async {
     if (userId1 == userId2) return 'self';
     try {
-      // 1. Vérifier une connexion (dans les deux sens)
       final conn1 = await _supabase
           .from('connections')
           .select('id')
@@ -362,7 +372,6 @@ class ConnectionService extends ChangeNotifier {
           .maybeSingle();
       if (conn2 != null) return 'connected';
 
-      // 2. Vérifier une demande en attente
       final pending1 = await _supabase
           .from('connection_requests')
           .select('status')
@@ -381,7 +390,6 @@ class ConnectionService extends ChangeNotifier {
           .maybeSingle();
       if (pending2 != null) return 'pending';
 
-      // 3. Vérifier une demande rejetée
       final rejected1 = await _supabase
           .from('connection_requests')
           .select('status')
