@@ -64,14 +64,19 @@ class _AdminEventsDashboardState extends ConsumerState<AdminEventsDashboard> wit
 
   Future<void> _loadEvents() async {
     setState(() => _isLoading = true);
-    final eventNotifier = ref.read(eventProvider.notifier);
-    await eventNotifier.fetchEvents();
-    if (mounted) {
-      setState(() {
-        _events = ref.read(eventProvider);
-        _applyFilters();
-        _isLoading = false;
-      });
+    // Utilisation du service via eventServiceProvider configuré dans ton fichier Riverpod
+    final service = ref.read(eventServiceProvider);
+    try {
+      final fetchedEvents = await service.getEvents(page: 0, limit: 100);
+      if (mounted) {
+        setState(() {
+          _events = fetchedEvents;
+          _applyFilters();
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -111,7 +116,8 @@ class _AdminEventsDashboardState extends ConsumerState<AdminEventsDashboard> wit
     );
 
     if (confirmed == true) {
-      await ref.read(eventProvider.notifier).deleteEvent(event.id);
+      final service = ref.read(eventServiceProvider);
+      await service.deleteEvent(event.id);
       await _loadEvents();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -122,7 +128,8 @@ class _AdminEventsDashboardState extends ConsumerState<AdminEventsDashboard> wit
   }
 
   Future<void> _toggleFeature(Event event) async {
-    await ref.read(eventProvider.notifier).updateEvent(event.id, {'is_featured': !event.isFeatured});
+    final service = ref.read(eventServiceProvider);
+    await service.updateEvent(event.id, {'is_featured': !event.isFeatured});
     await _loadEvents();
   }
 
