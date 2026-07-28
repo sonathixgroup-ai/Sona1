@@ -1,4 +1,4 @@
-// lib/app_router.dart - FIX ECRAN GRIS & BUILD VERT - RIVERPOD READY
+// lib/app_router.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -11,7 +11,6 @@ import 'package:thix_id/supabase/supabase_config.dart';
 
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/services/user_service.dart';
-
 
 import 'presentation/home/home_page.dart';
 import 'package:thix_id/presentation/auth/login_page.dart';
@@ -170,7 +169,6 @@ import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
 import 'package:thix_id/presentation/thix_media/video_player_page.dart';
 import 'package:thix_id/presentation/thix_media/admin/thix_media_admin_page.dart';
 import 'package:thix_id/presentation/thix_reservation/thix_reservation_home_page.dart';
-import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
 import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'package:thix_id/presentation/chat/chat_list_page.dart';
@@ -244,6 +242,35 @@ import 'presentation/admin/admin_articles_list_page.dart' as thix_admin_list;
 import 'presentation/admin/admin_article_form_page.dart' as thix_admin_form;
 import 'package:thix_id/presentation/thix_ia/thix_ia_screen.dart';
 
+class NoTransitionPage<T> extends Page<T> {
+  final Widget child;
+  const NoTransitionPage({required this.child, super.key});
+  @override
+  Route<T> createRoute(BuildContext context) => PageRouteBuilder<T>(
+        settings: this,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        pageBuilder: (c, a, s) => child,
+        transitionsBuilder: (c, a, s, ch) => ch,
+      );
+}
+
+class AppRouter {
+  static GoRouter create(AuthController auth, {Listenable? extraRefreshListenable}) {
+    final refresh = extraRefreshListenable ?? auth;
+    return GoRouter(
+      initialLocation: AppRoutes.home,
+      refreshListenable: refresh,
+      errorBuilder: (context, state) => Scaffold(
+        backgroundColor: const Color(0xFF0B3D91),
+        body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('THIX ID CENTRAL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)),
+          const SizedBox(height: 8),
+          Text('Route non trouvée: ${state.matchedLocation}', style: const TextStyle(color: Colors.white70)),
+          const SizedBox(height: 16),
+          ElevatedButton(onPressed: () => context.go(AppRoutes.home), child: const Text('Accueil')),
+        ])),
+      ),
       redirect: (context, state) {
         try {
           final loc = state.matchedLocation;
@@ -257,10 +284,7 @@ import 'package:thix_id/presentation/thix_ia/thix_ia_screen.dart';
 
           final logged = auth.isAuthenticated;
 
-          // 1. Si non connecté et que la page n'est pas publique -> Redirection vers le Login
           if (!logged && !isPublic) return AppRoutes.login;
-
-          // 2. Si connecté et qu'on essaie d'aller sur une page d'auth -> Redirection vers le Dashboard Personnel unique
           if (logged && isAuthPage) return AppRoutes.userDashboard;
 
           return null;
@@ -285,12 +309,11 @@ import 'package:thix_id/presentation/thix_ia/thix_ia_screen.dart';
         }),
         GoRoute(path: AppRoutes.publicProfile, name: 'publicProfile', pageBuilder: (_, state) => NoTransitionPage(child: public_profile.PublicProfilePage(initialThixId: state.uri.queryParameters['thixId']))),
         GoRoute(path: AppRoutes.userDashboard, name: 'userDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: UserDashboardPage())),
-        GoRoute(path: AppRoutes.enterpriseDashboard, name: 'enterpriseDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: EnterpriseDashboardPage())),
         GoRoute(
-  path: AppRoutes.network,
-  name: 'network',
-  pageBuilder: (_, __) => const NoTransitionPage(child: NetworkProHome()),
-),
+          path: AppRoutes.network,
+          name: 'network',
+          pageBuilder: (_, __) => const NoTransitionPage(child: NetworkProHome()),
+        ),
         GoRoute(path: AppRoutes.networkSearch, name: 'networkSearch', pageBuilder: (_, __) => const NoTransitionPage(child: SearchNetworkPage())),
         GoRoute(path: AppRoutes.networkNotifications, name: 'networkNotifications', pageBuilder: (_, __) => const NoTransitionPage(child: NotificationsPage())),
         GoRoute(path: AppRoutes.networkMessages, name: 'networkMessages', pageBuilder: (_, __) => const NoTransitionPage(child: ConversationsList())),
@@ -313,15 +336,6 @@ import 'package:thix_id/presentation/thix_ia/thix_ia_screen.dart';
         GoRoute(path: '/network/hashtag/:tag', name: 'networkHashtag', pageBuilder: (_, state) => NoTransitionPage(child: HashtagPage(tag: state.pathParameters['tag']!))),
         GoRoute(path: '${AppRoutes.networkPostBasePath}/:postId', name: 'networkPostDetail', pageBuilder: (_, state) => NoTransitionPage(child: PostDetailPage(postId: state.pathParameters['postId']!, currentProfileId: auth.currentUser?.id ?? ''))),
         GoRoute(path: '${AppRoutes.networkProfileBasePath}/:userId', name: 'networkProfile', pageBuilder: (_, state) => NoTransitionPage(child: ProfilePage(userId: state.pathParameters['userId']!))),
-        GoRoute(path: AppRoutes.enterprise, name: 'enterpriseEntry', redirect: (_, __) {
-          if (!auth.isAuthenticated) return AppRoutes.login;
-          return auth.currentUser?.accountType == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.enterpriseReg;
-        }),
-        GoRoute(path: '/entreprise/:slug', name: 'enterprisePortalAliasFr', redirect: (_, state) => '${AppRoutes.enterprisePortalBase(state.pathParameters['slug']!)}/dashboard/overview'),
-        GoRoute(path: '${AppRoutes.enterprisePortalBasePath}/:slug', name: 'enterprisePortal', pageBuilder: (_, state) => NoTransitionPage(child: EnterprisePortalPage(companySlug: state.pathParameters['slug']!)), routes: [
-          GoRoute(path: 'dashboard/:section', name: 'enterprisePortalDashboard', pageBuilder: (_, state) => NoTransitionPage(child: EnterpriseDashboardShellPage(companySlug: state.pathParameters['slug']!, section: state.pathParameters['section'] ?? 'overview'))),
-          GoRoute(path: 'dashboard', name: 'enterprisePortalDashboardRoot', redirect: (_, state) => '${AppRoutes.enterprisePortalBase(state.pathParameters['slug']!)}/dashboard/overview'),
-        ]),
         GoRoute(path: '/thix-urgent', name: 'thixUrgent', pageBuilder: (_, __) => NoTransitionPage(child: ThixUrgentProviders.wrap(const ThixUrgentScreen()))),
         GoRoute(path: '/thix-urgent/chambre-de-crise', name: 'chambreDeCrise', pageBuilder: (_, state) {
           final extra = state.extra as Map<String, dynamic>?;
@@ -454,7 +468,7 @@ import 'package:thix_id/presentation/thix_ia/thix_ia_screen.dart';
         GoRoute(path: AppRoutes.deliveryAdminDashboard, name: 'delivery-admin-dashboard', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..init(), child: const DeliveryAdminDashboardPage()))),
         GoRoute(path: AppRoutes.deliveryAdminRoutes, name: 'delivery-admin-routes', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadRoutes(force: true), child: const DeliveryAdminRoutesPage()))),
         GoRoute(path: AppRoutes.deliveryAdminShipments, name: 'delivery-admin-shipments', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadAllShipments(), child: const DeliveryAdminShipmentsPage()))),
-        GoRoute(path: AppRoutes.deliveryAdminScan, name: 'delivery-admin-scan', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryAdminScanPage())),
+        GoRoute(path: AppRoutes.deliveryAdminScan, name: 'delivery-admin-scan', pageBuilder: (_, __) => NoTransitionPage(child: app_provider.ChangeNotifierProvider(create: (_) => DeliveryAdminProvider(), child: const DeliveryAdminScanPage()))),
         GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (_, __) => const NoTransitionPage(child: MarketHomePage()), routes: [
           GoRoute(path: 'home', name: 'marketHome', pageBuilder: (_, __) => const NoTransitionPage(child: MarketHomePage())),
           GoRoute(path: 'search', name: 'marketSearch', pageBuilder: (_, __) => const NoTransitionPage(child: marketSearch.SearchPage())),
@@ -529,4 +543,3 @@ extension GoRouterBackHelpers on BuildContext {
     go(fallbackLocation);
   }
 }
-
