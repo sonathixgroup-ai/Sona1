@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
@@ -38,13 +39,15 @@ class _C {
   static const surface = Colors.white;
   static const surfaceAlt = Color(0xFFF8FAFC);
   static const border = Color(0xFFE2E8F0);
-  static const primary = Color(0xFF0A66C2);
+  static const primary = Color(0xFF1D4ED8); // Bleu
   static const primaryLight = Color(0xFFEFF6FF);
   static const textMain = Color(0xFF0F172A);
   static const textMuted = Color(0xFF64748B);
   static const red = Color(0xFFEF4444);
   static const green = Color(0xFF22C55E);
   static const orange = Color(0xFFF59E0B);
+  static const gold = Color(0xFFE3B23C);
+  static const ivory = Color(0xFFF3F5FA);
 }
 
 // ── Providers Riverpod & CallProvider global ──
@@ -54,7 +57,6 @@ final audioServiceProvider = Provider((ref) => AudioService(Supabase.instance.cl
 final groupServiceProvider = Provider((ref) => GroupService(Supabase.instance.client));
 final connectionServiceProvider = Provider((ref) => ConnectionService());
 
-// Déclaration explicite du callProvider pour corriger l'erreur de getter introuvable
 final callProvider = ChangeNotifierProvider<CallProvider>((ref) => CallProvider());
 
 final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
@@ -138,10 +140,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   UserStatus? _otherParticipant;
   List<GroupMember> _groupMembers = [];
   String _replyToId = '';
+  
+  // Variables d'état
   bool _isEphemeral = false;
   int? _ephemeralDuration;
   bool _isTyping = false;
   bool _otherUserTyping = false;
+  bool _isSending = false;
+  
   Timer? _typingTimer;
   RealtimeChannel? _typingChannel;
   bool _isAgent = false;
@@ -180,11 +186,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     if (!widget.conversation.isGroup) return;
     try {
       final members = await ref.read(chatServiceProvider).getGroupMembers(widget.conversationId);
-      if (mounted) {
-        setState(() {
-          _groupMembers = members;
-        });
-      }
+      if (mounted) setState(() => _groupMembers = members);
     } catch (e) {
       debugPrint('Error loading group members: $e');
     }
@@ -258,21 +260,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     _typingChannel!.sendBroadcastMessage(event: 'typing', payload: {'senderId': cur, 'isTyping': t});
   }
 
+  void _onTypingChanged(String t) { 
+    if (t.isNotEmpty && !_isTyping) { 
+      _isTyping = true; _sendTypingStatus(true); 
+    } else if (t.isEmpty && _isTyping) { 
+      _isTyping = false; _sendTypingStatus(false); 
+    } 
+    _typingTimer?.cancel(); 
+    _typingTimer = Timer(const Duration(seconds: 2), () { 
+      if (_isTyping) { _isTyping = false; _sendTypingStatus(false); } 
+    }); 
+  }
+
   void _startCall(CallType type) {
     final svc = ref.read(chatServiceProvider);
     final otherId = widget.conversation.participantIds.firstWhere((id) => id != svc.currentUserId, orElse: () => '');
-    
     ref.read(callProvider.notifier).start(channel: widget.conversationId, calleeId: otherId, callType: type);
-    
-    Navigator.push(
-      context, 
-      MaterialPageRoute(builder: (_) => CallPage(channel: widget.conversationId, name: widget.conversation.displayName, type: type, isCaller: true))
-    );
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CallPage(channel: widget.conversationId, name: widget.conversation.displayName, type: type, isCaller: true)));
   }
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isSending) return;
     final svc = ref.read(chatServiceProvider);
     
     if (!widget.conversation.isGroup && !_isInternalNoteMode) {
@@ -282,9 +291,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         if (otherId.isNotEmpty) {
           final ok = await ref.read(connectionServiceProvider).checkConnection(cur, otherId);
           if (!ok) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vous devez être connecté pour envoyer un message'), backgroundColor: _C.orange));
-            }
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vous devez être connecté'), backgroundColor: _C.orange));
             return;
           }
         }
@@ -293,6 +300,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     
     _isTyping = false; 
     _sendTypingStatus(false);
+    setState(() => _isSending = true);
     
     try {
       final msg = await svc.sendMessage(
@@ -300,7 +308,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         content: text, 
         replyToId: _replyToId.isEmpty ? null : _replyToId, 
         isEphemeral: _isEphemeral, 
-        ephemeralDuration: _isEphemeral ? _ephemeralDuration : null
+        ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
+        isInternalNote: _isInternalNoteMode,
       );
       
       ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
@@ -309,136 +318,272 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         setState(() { 
           _inputController.clear(); 
           _replyToId = ''; 
+          _isSending = false;
           if (_isInternalNoteMode) _isInternalNoteMode = false; 
         });
       }
       _scrollToBottom();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red));
+      if (mounted) {
+        setState(() => _isSending = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red));
+      }
     }
   }
 
-  // ----------------------------------------------------------------------
-  // FONCTIONNALITÉS DES BOUTONS DE LA BARRE (Désormais remplies)
-  // ----------------------------------------------------------------------
+  // =======================================================================
+  // UI DES FONCTIONNALITÉS (Ephémère, Protégé, Audio, Pièces jointes)
+  // EXACTEMENT COMME L'ANCIEN CODE (Screenshots), CONNECTÉ À RIVERPOD
+  // =======================================================================
 
   void _showEphemeralTimerDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(children: [Icon(Icons.timer_rounded, color: _C.orange), SizedBox(width: 8), Text('Message éphémère')]),
-        content: const Text('Choisissez la durée avant auto-destruction de vos messages :'),
-        actions: [
-          TextButton(
-            onPressed: () { 
-              setState(() { _isEphemeral = false; _ephemeralDuration = null; }); 
-              Navigator.pop(ctx); 
-            }, 
-            child: const Text('Désactiver', style: TextStyle(color: _C.textMuted))
+    final customCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context, 
+      backgroundColor: Colors.transparent, 
+      isScrollControlled: true, 
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+          child: Column(
+            mainAxisSize: MainAxisSize.min, 
+            children: [
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(4))),
+              const SizedBox(height: 16),
+              Row(children: [
+                Container(padding: const EdgeInsets.all(7), decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.timer_rounded, size: 16, color: Colors.white)), 
+                const SizedBox(width: 10), 
+                const Text("Messages éphémères", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))
+              ]),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Icon(Icons.timer_off_rounded, color: !_isEphemeral ? _C.primary : _C.textMuted), 
+                title: Text("Désactiver - Envoyer sans éphémère", style: TextStyle(fontWeight: !_isEphemeral ? FontWeight.w800 : FontWeight.w500, color: !_isEphemeral ? _C.primary : _C.textMain)), 
+                trailing: !_isEphemeral ? const Icon(Icons.check_circle_rounded, color: _C.primary) : null, 
+                onTap: () { setState(() { _isEphemeral = false; _ephemeralDuration = null; }); Navigator.pop(ctx); }
+              ),
+              const Divider(),
+              ...[[10, '10 secondes'], [30, '30 secondes'], [60, '1 minute'], [300, '5 minutes'], [3600, '1 heure'], [86400, '24 heures']].map((e) {
+                final sec = e[0] as int; final label = e[1] as String; final sel = _isEphemeral && _ephemeralDuration == sec;
+                return ListTile(
+                  leading: Icon(Icons.timer_rounded, color: sel ? _C.primary : _C.textMain), 
+                  title: Text(label, style: TextStyle(fontWeight: sel ? FontWeight.w800 : FontWeight.w500, color: sel ? _C.primary : _C.textMain)), 
+                  trailing: sel ? const Icon(Icons.check_circle_rounded, color: _C.primary) : null, 
+                  onTap: () { setState(() { _isEphemeral = true; _ephemeralDuration = sec; }); Navigator.pop(ctx); }
+                );
+              }),
+              const Divider(), const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: customCtrl, 
+                      keyboardType: TextInputType.number, 
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly], 
+                      decoration: InputDecoration(hintText: 'Temps perso en sec (ex: 120)', filled: true, fillColor: _C.ivory, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))
+                    )
+                  ), 
+                  const SizedBox(width: 8), 
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: _C.primary), 
+                    onPressed: () { 
+                      final v = int.tryParse(customCtrl.text); 
+                      if (v != null && v > 0) { setState(() { _isEphemeral = true; _ephemeralDuration = v; }); Navigator.pop(ctx); } 
+                    }, 
+                    child: const Text('OK', style: TextStyle(color: Colors.white))
+                  )
+                ]
+              ),
+            ]
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: _C.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            onPressed: () { 
-              setState(() { _isEphemeral = true; _ephemeralDuration = 30; }); 
-              Navigator.pop(ctx); 
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mode éphémère activé (30s)'), backgroundColor: _C.orange)); 
-            }, 
-            child: const Text('30 secondes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
-          ),
-        ],
-      ),
+        ),
+      )
     );
   }
 
   void _showPasswordProtectDialog() {
+    final msgCtrl = TextEditingController(); 
     final passCtrl = TextEditingController();
     showDialog(
-      context: context,
+      context: context, 
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(children: [Icon(Icons.lock_rounded, color: _C.primary), SizedBox(width: 8), Text('Protéger le message')]),
-        content: TextField(
-          controller: passCtrl,
-          obscureText: true,
-          decoration: InputDecoration(
-            labelText: 'Mot de passe de chiffrement', 
-            hintText: '••••••••', 
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))
-          ),
-        ),
+        backgroundColor: _C.surface, 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), 
+        title: const Row(children: [Icon(Icons.lock_rounded, color: _C.primary), SizedBox(width: 8), Text('Message Protégé', style: TextStyle(fontWeight: FontWeight.bold))]), 
+        content: Column(
+          mainAxisSize: MainAxisSize.min, 
+          children: [
+            TextField(
+              controller: msgCtrl, 
+              maxLines: 5, 
+              decoration: InputDecoration(hintText: 'Message secret...', filled: true, fillColor: _C.ivory, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))
+            ), 
+            const SizedBox(height: 12), 
+            TextField(
+              controller: passCtrl, 
+              obscureText: true, 
+              decoration: InputDecoration(hintText: 'Mot de passe', prefixIcon: const Icon(Icons.key_rounded, color: _C.primary), filled: true, fillColor: _C.ivory, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))
+            )
+          ]
+        ), 
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx), 
-            child: const Text('Annuler', style: TextStyle(color: _C.textMuted))
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')), 
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: _C.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            onPressed: () {
-              if (passCtrl.text.isNotEmpty) {
-                if (_inputController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Écrivez d\'abord un message !'), backgroundColor: _C.red));
-                  return;
+            style: ElevatedButton.styleFrom(backgroundColor: _C.primary), 
+            onPressed: () async { 
+              if (msgCtrl.text.isNotEmpty && passCtrl.text.isNotEmpty) { 
+                final enc = EncryptionService.encryptMessage(msgCtrl.text, passCtrl.text); 
+                Navigator.pop(ctx); // Fermer le dialog
+                try {
+                  final msg = await ref.read(chatServiceProvider).sendMessage(
+                    conversationId: widget.conversationId, 
+                    content: enc, 
+                    replyToId: _replyToId.isEmpty ? null : _replyToId, 
+                    isEphemeral: _isEphemeral, 
+                    ephemeralDuration: _ephemeralDuration
+                  ); 
+                  ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
+                  if (mounted) setState(() => _replyToId = '');
+                  _scrollToBottom();
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red));
                 }
-                final encrypted = EncryptionService.encryptMessage(_inputController.text, passCtrl.text);
-                _inputController.text = encrypted;
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Message chiffré prêt à être envoyé !'), backgroundColor: _C.green));
-              }
+              } 
             }, 
-            child: const Text('Chiffrer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
-          ),
-        ],
-      ),
+            child: const Text('Envoyer', style: TextStyle(color: Colors.white))
+          )
+        ]
+      )
     );
+  }
+
+  void _startAudioRecording() async { 
+    final st = await Permission.microphone.request(); 
+    if (st.isGranted) { 
+      showModalBottomSheet(
+        context: context, 
+        isScrollControlled: true, 
+        backgroundColor: Colors.transparent, 
+        builder: (ctx) => Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(22))), 
+          padding: const EdgeInsets.all(20), 
+          child: AudioRecorderWidget(
+            audioService: ref.read(audioServiceProvider), 
+            onRecordingComplete: (p, d) { Navigator.pop(ctx); _sendAudio(p, d); }, 
+            onRecordingCanceled: () => Navigator.pop(ctx), 
+            maxDuration: 120
+          )
+        )
+      ); 
+    } else if (st.isPermanentlyDenied) { 
+      openAppSettings(); 
+    } 
+  }
+
+  Future<void> _sendAudio(String path, int dur) async { 
+    try { 
+      final bytes = await File(path).readAsBytes(); 
+      final msg = await ref.read(chatServiceProvider).sendAudioMessage(
+        conversationId: widget.conversationId, 
+        audioData: Uint8List.fromList(bytes), 
+        duration: dur, 
+        isEphemeral: _isEphemeral, 
+        ephemeralDuration: _ephemeralDuration, 
+        replyToId: _replyToId.isEmpty ? null : _replyToId
+      ); 
+      ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
+      if (mounted) setState(() => _replyToId = ''); 
+      _scrollToBottom(); 
+    } catch (e) { 
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur audio: $e'), backgroundColor: _C.red)); 
+    } 
   }
 
   void _showAttachmentMenu() {
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      context: context, 
+      backgroundColor: _C.surface, 
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))), 
       builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _C.primaryLight, shape: BoxShape.circle), child: const Icon(Icons.image_rounded, color: _C.primary)),
-                title: const Text('Envoyer une image', style: TextStyle(fontWeight: FontWeight.w600)),
-                onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.image); },
-              ),
-              ListTile(
-                leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFFFFF7ED), shape: BoxShape.circle), child: const Icon(Icons.insert_drive_file_rounded, color: _C.orange)),
-                title: const Text('Envoyer un fichier / document', style: TextStyle(fontWeight: FontWeight.w600)),
-                onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.any); },
-              ),
-            ],
-          ),
-        ),
-      ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min, 
+          children: [
+            const SizedBox(height: 12), 
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(4))),
+            const Padding(padding: EdgeInsets.all(16), child: Row(children: [Icon(Icons.attach_file_rounded, color: _C.primary), SizedBox(width: 10), Text('Envoyer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))])),
+            ListTile(
+              leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _C.gold.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.image_rounded, color: _C.gold)), 
+              title: const Text('Photo'), 
+              onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.image); }
+            ),
+            ListTile(
+              leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _C.primary.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.videocam_rounded, color: _C.primary)), 
+              title: const Text('Vidéo'), 
+              onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.video); }
+            ),
+            ListTile(
+              leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _C.textMain.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.insert_drive_file_rounded, color: _C.textMain)), 
+              title: const Text('Document'), 
+              onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.any); }
+            ),
+            const SizedBox(height: 12),
+          ]
+        )
+      )
     );
   }
 
   Future<void> _pickFile({FileType type = FileType.any}) async {
     try {
-      final result = await FilePicker.platform.pickFiles(type: type);
-      if (result != null && result.files.isNotEmpty) {
-        final fileName = result.files.first.name;
-        _inputController.text = '[Fichier joint: $fileName]';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fichier sélectionné : $fileName'), backgroundColor: _C.primary));
+      final result = await FilePicker.platform.pickFiles(allowMultiple: false, type: type, withData: true);
+      if (result == null || result.files.isEmpty) return;
+      final f = result.files.first; 
+      final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null); 
+      if (bytes == null) return;
+      
+      final ext = f.extension ?? 'jpg'; 
+      final size = f.size;
+      final url = await ref.read(chatServiceProvider).uploadFileWithUniqueName('chat-media', 'messages/${widget.conversationId}', Uint8List.fromList(bytes), ext);
+      
+      if (url != null) { 
+        final msg = await ref.read(chatServiceProvider).sendMessage(
+          conversationId: widget.conversationId, 
+          content: f.name, 
+          mediaUrl: url, 
+          mediaType: _getMediaType(ext), 
+          mediaName: f.name, 
+          mediaSize: size, 
+          isEphemeral: _isEphemeral, 
+          ephemeralDuration: _ephemeralDuration
+        ); 
+        ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
+        _scrollToBottom(); 
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur de sélection : $e'), backgroundColor: _C.red));
+    } catch (e) { 
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur fichier: $e'), backgroundColor: _C.red)); 
     }
   }
-
-  void _handleAudio() {
-    // Placeholder : Déclenche l'action ou ouvre l'enregistreur
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('La fonction d\'enregistrement audio sera bientôt disponible.'), backgroundColor: _C.textMuted));
+  
+  String _getMediaType(String ext) { 
+    const img = {'jpg', 'jpeg', 'png', 'gif', 'webp'}; 
+    const vid = {'mp4', 'mov', 'avi', 'mkv'}; 
+    const aud = {'mp3', 'wav', 'm4a'}; 
+    final e = ext.toLowerCase(); 
+    if (img.contains(e)) return 'image'; 
+    if (vid.contains(e)) return 'video'; 
+    if (aud.contains(e)) return 'audio'; 
+    return 'file'; 
   }
+
+  void _escalateConversation() { context.pushNamed('chatEscalate', pathParameters: {'conversationId': widget.conversationId}, queryParameters: {'agentId': ref.read(chatServiceProvider).currentUserId ?? '', 'agentName': 'Agent'}); }
+  void _viewEscalationHistory() { context.pushNamed('chatEscalationHistory', pathParameters: {'conversationId': widget.conversationId}); }
+  void _toggleInternalNoteMode() { setState(() => _isInternalNoteMode = !_isInternalNoteMode); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isInternalNoteMode ? 'Mode note interne ON' : 'Mode note interne OFF'), backgroundColor: _isInternalNoteMode ? _C.orange : _C.textMuted)); }
+
+  // ----------------------------------------------------------------------
+  // BUILD
+  // ----------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -464,12 +609,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               child: widget.conversation.isGroup
                 ? const Icon(Icons.groups_rounded, color: _C.textMuted) 
                 : ClipOval(
-                    child: Image.network(
-                      widget.conversation.displayAvatar ?? 'https://i.pravatar.cc/150?img=11', 
+                    child: CachedNetworkImage(
+                      imageUrl: widget.conversation.displayAvatar ?? 'https://i.pravatar.cc/150?img=11', 
                       width: 40, 
                       height: 40, 
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: _C.textMuted),
+                      errorWidget: (context, error, stackTrace) => const Icon(Icons.person, color: _C.textMuted),
                     )
                   )
             ),
@@ -497,7 +642,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                         ), 
                         const SizedBox(width: 6), 
                         Text(
-                          _otherParticipant!.status == 'online' ? 'En ligne' : 'Vu ${_otherParticipant!.lastSeenAt}', 
+                          _otherParticipant!.status == 'online' ? 'En ligne' : 'Vu ${_formatLastSeen(_otherParticipant!.lastSeenAt ?? DateTime.now())}', 
                           style: const TextStyle(fontSize: 12, color: _C.textMuted)
                         )
                       ]
@@ -515,21 +660,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             color: Colors.white, 
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), 
             onSelected: (v) { 
-              if (v == 'escalate') {
-                context.pushNamed('chatEscalate', pathParameters: {'conversationId': widget.conversationId}, queryParameters: {'agentId': ref.read(chatServiceProvider).currentUserId ?? ''}); 
-              } else if (v == 'history') {
-                context.pushNamed('chatEscalationHistory', pathParameters: {'conversationId': widget.conversationId}); 
-              }
+              if (v == 'escalate') _escalateConversation(); 
+              else if (v == 'history') _viewEscalationHistory();
+              else if (v == 'group') GoRouter.of(context).go('/chat/group/${widget.conversationId}/info');
             }, 
-            itemBuilder: (c) => const [
-              PopupMenuItem(
-                value: 'escalate', 
-                child: Row(children: [Icon(Icons.arrow_upward, color: _C.orange, size: 20), SizedBox(width: 10), Text('Escalader')])
-              ), 
-              PopupMenuItem(
-                value: 'history', 
-                child: Row(children: [Icon(Icons.history, color: _C.primary, size: 20), SizedBox(width: 10), Text('Historique')])
-              )
+            itemBuilder: (c) => [
+              const PopupMenuItem(value: 'escalate', child: Row(children: [Icon(Icons.arrow_upward, color: _C.orange, size: 20), SizedBox(width: 10), Text('Escalader')])), 
+              const PopupMenuItem(value: 'history', child: Row(children: [Icon(Icons.history, color: _C.primary, size: 20), SizedBox(width: 10), Text('Historique')])),
+              if (widget.conversation.isGroup) const PopupMenuItem(value: 'group', child: Row(children: [Icon(Icons.info_outline, color: _C.textMuted, size: 20), SizedBox(width: 10), Text('Infos groupe')]))
             ]
           ),
         ],
@@ -538,53 +676,52 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         child: Column(
           children: [
             Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                reverse: true,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                itemCount: messages.length + (msgNotifier.loadingMore ? 1 : 0),
-                itemBuilder: (ctx, i) {
-                  if (i == messages.length) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16), 
-                      child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary))
-                    );
-                  }
-                  
-                  final msg = messages[messages.length - 1 - i];
-                  final isOwn = msg.senderId == ref.read(chatServiceProvider).currentUserId;
-                  
-                  return ChatMessageBubble(
-                    message: msg, 
-                    isOwn: isOwn, 
-                    onReply: () => setState(() => _replyToId = msg.id), 
-                    onDelete: () async { 
-                      ref.read(chatMessagesProvider(widget.conversationId).notifier).removeLocal(msg.id); 
-                      if (isOwn) { 
-                        try { 
-                          await ref.read(chatServiceProvider).deleteMessage(msg.id); 
-                        } catch (_) {} 
-                      } 
-                    }, 
-                    onReaction: (r) => ref.read(chatServiceProvider).toggleReaction(msg.id, r), 
-                    replyToMessage: msg.replyToId != null 
-                        ? messages.where((m) => m.id == msg.replyToId).firstOrNull 
-                        : null, 
-                    isEphemeralActive: msg.isEphemeral, 
-                    isInternalNote: msg.isInternalNote, 
-                    isAgentView: _isAgent
-                  );
-                },
+              child: Stack(
+                children: [
+                  ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    itemCount: messages.length + (msgNotifier.loadingMore ? 1 : 0),
+                    itemBuilder: (ctx, i) {
+                      if (i == messages.length) return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary)));
+                      
+                      final msg = messages[messages.length - 1 - i];
+                      final isOwn = msg.senderId == ref.read(chatServiceProvider).currentUserId;
+                      
+                      return ChatMessageBubble(
+                        message: msg, 
+                        isOwn: isOwn, 
+                        onReply: () => setState(() => _replyToId = msg.id), 
+                        onDelete: () async { 
+                          ref.read(chatMessagesProvider(widget.conversationId).notifier).removeLocal(msg.id); 
+                          if (isOwn) try { await ref.read(chatServiceProvider).deleteMessage(msg.id); } catch (_) {} 
+                        }, 
+                        onReaction: (r) => ref.read(chatServiceProvider).toggleReaction(msg.id, r), 
+                        replyToMessage: msg.replyToId != null ? messages.where((m) => m.id == msg.replyToId).firstOrNull : null, 
+                        isEphemeralActive: msg.isEphemeral, 
+                        isInternalNote: msg.isInternalNote, 
+                        isAgentView: _isAgent
+                      );
+                    },
+                  ),
+                  if (_otherUserTyping) 
+                    Positioned(
+                      bottom: 8, left: 16, 
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9), 
+                        decoration: BoxDecoration(color: _C.surfaceAlt, borderRadius: BorderRadius.circular(20), border: Border.all(color: _C.border)), 
+                        child: const Text("En train d'écrire...", style: TextStyle(fontSize: 12, color: _C.primary, fontStyle: FontStyle.italic))
+                      )
+                    ),
+                ]
               ),
             ),
             
             if (_replyToId.isNotEmpty) 
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
-                decoration: const BoxDecoration(
-                  color: Colors.white, 
-                  border: Border(top: BorderSide(color: _C.border))
-                ), 
+                decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: _C.border))), 
                 child: Row(
                   children: [
                     Container(width: 4, height: 40, decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(4))), 
@@ -592,50 +729,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                     Expanded(
                       child: Text(
                         messages.firstWhere((m) => m.id == _replyToId, orElse: () => messages.first).content, 
-                        maxLines: 1, 
-                        overflow: TextOverflow.ellipsis, 
-                        style: const TextStyle(color: _C.textMuted)
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _C.textMuted)
                       )
                     ), 
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 20, color: _C.textMuted), 
-                      onPressed: () => setState(() => _replyToId = '')
-                    )
+                    IconButton(icon: const Icon(Icons.close_rounded, size: 20, color: _C.textMuted), onPressed: () => setState(() => _replyToId = ''))
                   ]
                 )
               ),
               
-            Container(
-              color: Colors.white, 
-              padding: const EdgeInsets.only(top: 8), 
-              child: ChatInputBar(
-                controller: _inputController, 
-                focusNode: _inputFocus, 
-                onSend: _sendMessage, 
-                isSending: false, 
-                onAttach: _showAttachmentMenu, // L'action est maintenant branchée
-                onAudio: _handleAudio,         // L'action est maintenant branchée
-                onSecureMessage: _showPasswordProtectDialog, // L'action est branchée
-                onEphemeralToggle: _showEphemeralTimerDialog, // L'action est branchée
-                isEphemeral: _isEphemeral, 
-                onTyping: (t) { 
-                  if (t.isNotEmpty && !_isTyping) { 
-                    _isTyping = true; 
-                    _sendTypingStatus(true); 
-                  } else if (t.isEmpty && _isTyping) { 
-                    _isTyping = false; 
-                    _sendTypingStatus(false); 
-                  } 
-                }, 
-                onInternalNoteToggle: _isAgent 
-                    ? () => setState(() => _isInternalNoteMode = !_isInternalNoteMode) 
-                    : null, 
-                isInternalNote: _isInternalNoteMode
-              )
+            ChatInputBar(
+              controller: _inputController, 
+              focusNode: _inputFocus, 
+              onSend: _sendMessage, 
+              isSending: _isSending, 
+              onAttach: _showAttachmentMenu, 
+              onAudio: _startAudioRecording, 
+              onSecureMessage: _showPasswordProtectDialog, 
+              onEphemeralToggle: _showEphemeralTimerDialog, 
+              isEphemeral: _isEphemeral, 
+              onTyping: _onTypingChanged, 
+              onInternalNoteToggle: _isAgent ? _toggleInternalNoteMode : null, 
+              isInternalNote: _isInternalNoteMode
             ),
           ]
         ),
       ),
     );
+  }
+
+  String _formatLastSeen(DateTime d) { 
+    final diff = DateTime.now().difference(d); 
+    if (diff.inDays == 0) return 'à ${DateFormat('HH:mm').format(d)}'; 
+    if (diff.inDays == 1) return 'hier à ${DateFormat('HH:mm').format(d)}'; 
+    return 'le ${DateFormat('dd/MM/yyyy').format(d)}'; 
   }
 }
