@@ -569,7 +569,7 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
         ),
       );
 
-  // 🟢 CORRECTION DE LA CARTE: Affichage clair du titre, date et lieu
+  // 🟢 CORRECTION: Le texte et l'icône de la date et du lieu sont maintenant blancs
   Widget _card(Event event) => GestureDetector(
         onTap: () => context.push('/thix-event/event/${event.id}'),
         child: Container(
@@ -626,17 +626,17 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.calendar_today_rounded, size: 10, color: _ThixColors.textMuted),
+                              const Icon(Icons.calendar_today_rounded, size: 10, color: Colors.white),
                               const SizedBox(width: 4),
-                              Expanded(child: Text(event.shortDate, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600))),
+                              Expanded(child: Text(event.shortDate, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600))),
                             ],
                           ),
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              const Icon(Icons.location_on_rounded, size: 10, color: _ThixColors.textMuted),
+                              const Icon(Icons.location_on_rounded, size: 10, color: Colors.white),
                               const SizedBox(width: 4),
-                              Expanded(child: Text(event.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 10))),
+                              Expanded(child: Text(event.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600))),
                             ],
                           ),
                         ],
