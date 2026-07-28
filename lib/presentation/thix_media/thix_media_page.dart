@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'video_player_page.dart';
 import '../../models/media_content.dart';
 import 'providers/thix_media_provider.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
+import 'admin/thix_media_admin_page.dart'; 
 
 const Color kBg = Color(0xFF050507);
 const Color kSurface = Color(0xFF121214);
@@ -285,7 +285,13 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               const SizedBox(width: 8),
               if (isAdmin) ...[
                 GestureDetector(
-                  onTap: () => context.push('/admin/media'),
+                  // 👇 CORRECTION ICI : Redirection directe vers le nouveau fichier Admin
+                  onTap: () {
+                    Navigator.push(
+                      context, 
+                      MaterialPageRoute(builder: (context) => const ThixMediaAdminPage())
+                    );
+                  },
                   child: Container(
                     width: 28, height: 28,
                     decoration: BoxDecoration(
