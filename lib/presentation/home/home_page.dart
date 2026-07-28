@@ -108,19 +108,11 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
   void _onProfileTap() {
     final auth = context.read<AuthController>();
     HapticFeedback.mediumImpact();
-    if (!auth.isAuthenticated) { 
-      context.push(AppRoutes.login); 
-      return; 
+    if (!auth.isAuthenticated || auth.currentUser == null) {
+      context.push(AppRoutes.login);
+      return;
     }
-    try { 
-      context.go(AppRoutes.userDashboard); 
-    } catch (_) { 
-      try {
-        context.go('/user-dashboard');
-      } catch (_) {
-        context.push(AppRoutes.userDashboard);
-      }
-    }
+    context.go(AppRoutes.userDashboard);
   }
   
   Future<void> _openThixAi() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push('/thix_ia'); return; } context.push(AppRoutes.login); }
