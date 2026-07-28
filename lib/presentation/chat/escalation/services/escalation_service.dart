@@ -9,6 +9,12 @@ import '../models/escalation_rule.dart';
 class EscalationService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  // ─── MÉTHODE MANQUANTE AJOUTÉE ───
+  EscalationLevel getCurrentLevelForAgent(String agentId) {
+    // Par défaut, on peut retourner Senior. À adapter si tu as une colonne 'level' dans ta table profiles
+    return EscalationLevel.senior;
+  }
+
   // 🔍 Rechercher un utilisateur par son handle (username)
   Future<Map<String, dynamic>?> getUserByHandle(String username) async {
     try {
@@ -36,7 +42,6 @@ class EscalationService {
     String? fromAgentName,
   }) async {
     try {
-      // FIX: empêche les doublons que tu as sur tes screenshots
       final existingPending = await _supabase
           .from('escalation_steps')
           .select('id')
@@ -94,7 +99,7 @@ class EscalationService {
     }
   }
 
-  // ✅ CORRIGÉ : Accepter une escalade - AJOUTE LE PARTICIPANT
+  // Accepter une escalade
   Future<EscalationStep> acceptEscalation(String escalationId, String agentId) async {
     try {
       final response = await _supabase
@@ -110,7 +115,6 @@ class EscalationService {
 
       final step = EscalationStep.fromJson(response);
 
-      // 1. Met à jour la conversation
       await _supabase
           .from('conversations')
           .update({
@@ -120,8 +124,6 @@ class EscalationService {
           })
           .eq('id', step.conversationId);
 
-      // 2. CRITIQUE : Ajoute l'agent comme participant
-      // Sans ça, getConversations() ne le verra jamais et getConversation() avec !inner retournait null
       await _supabase.from('conversation_participants').upsert(
         {
           'conversation_id': step.conversationId,
@@ -189,65 +191,44 @@ class EscalationService {
     return step;
   }
 
-  // Obtenir l'historique des escalades pour une conversation
-  Future<List<EscalationStep>> getEscalationHistory(String conversationId) async {
+  // ─── PAGINATION AJOUTÉE ICI ───
+  Future<List<EscalationStep>> getEscalationHistory(String conversationId, {int limit = 20, int offset = 0}) async {
     final response = await _supabase
         .from('escalation_steps')
         .select()
         .eq('conversation_id', conversationId)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
 
     return (response as List).map((json) => EscalationStep.fromJson(json)).toList();
   }
 
-  // Obtenir les escalades en attente pour un agent (selon son niveau)
-  Future<List<EscalationStep>> getPendingEscalations(String agentId, EscalationLevel agentLevel) async {
+  // ─── PAGINATION AJOUTÉE ICI ───
+  Future<List<EscalationStep>> getPendingEscalations(String agentId, EscalationLevel agentLevel, {int limit = 20, int offset = 0}) async {
     final response = await _supabase
         .from('escalation_steps')
         .select()
         .eq('to_level', agentLevel.index)
         .eq('status', EscalationStatus.pending.index)
-        .order('created_at', ascending: true);
+        .order('created_at', ascending: true)
+        .range(offset, offset + limit - 1);
 
     return (response as List).map((json) => EscalationStep.fromJson(json)).toList();
   }
 
-  // Obtenir les escalades reçues directement par to_agent_id (utilisé par ta page)
-  Future<List<EscalationStep>> getReceivedEscalations(String agentId) async {
+  // ─── PAGINATION AJOUTÉE ICI ───
+  Future<List<EscalationStep>> getReceivedEscalations(String agentId, {int limit = 20, int offset = 0}) async {
     final response = await _supabase
         .from('escalation_steps')
         .select()
         .eq('to_agent_id', agentId)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
 
     return (response as List).map((json) => EscalationStep.fromJson(json)).toList();
   }
 
-  // Escalade automatique
-  Future<void> processAutoEscalations() async {
-    try {
-      final rulesResponse = await _supabase
-          .from('escalation_rules')
-          .select()
-          .eq('is_active', true);
-
-      final rules = (rulesResponse as List).map((json) => EscalationRule.fromJson(json)).toList();
-
-      final conversationsResponse = await _supabase
-          .from('conversations')
-          .select()
-          .eq('escalation_status', 'active');
-
-      for (final conv in conversationsResponse as List) {
-        final conversationId = conv['id'];
-        // ... logique d'analyse à implémenter
-      }
-    } catch (e) {
-      print('❌ Erreur dans processAutoEscalations : $e');
-    }
-  }
-
-  // Récupérer la conversation associée à une escalade (retourne null si inexistante)
+  // Récupérer la conversation associée à une escalade
   Future<Map<String, dynamic>?> getConversation(String conversationId) async {
     try {
       final response = await _supabase
