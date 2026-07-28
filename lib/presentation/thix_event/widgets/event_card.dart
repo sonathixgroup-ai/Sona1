@@ -1,3 +1,4 @@
+// lib/presentation/thix_event/widgets/event_card.dart
 import 'package:flutter/material.dart';
 import '../../../models/event_model.dart';
 
@@ -51,80 +52,88 @@ class EventCard extends StatelessWidget {
           border: Border.all(color: _ThixColors.cardBorder),
         ),
         clipBehavior: Clip.antiAlias,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Stack(children: [
-            AspectRatio(
-              aspectRatio: 1.25,
-              child: event.imageUrl != null && event.imageUrl!.isNotEmpty
-                  ? Image.network(
-                      event.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(color: _ThixColors.surfaceAlt),
-                    )
-                  : Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [accent.withOpacity(0.8), accent]),
-                      ),
-                      child: const Icon(Icons.event_rounded, color: Colors.white54),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, 
+          children: [
+            Stack(
+              children: [
+                AspectRatio(
+                  aspectRatio: 1.25,
+                  child: event.imageUrl != null && event.imageUrl!.isNotEmpty
+                      ? Image.network(
+                          event.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(color: _ThixColors.surfaceAlt),
+                        )
+                      : Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: [accent.withOpacity(0.8), accent]),
+                          ),
+                          child: const Icon(Icons.event_rounded, color: Colors.white54),
+                        ),
+                ),
+                Positioned(
+                  top: 10, left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: accent.withOpacity(0.9), borderRadius: BorderRadius.circular(8)),
+                    child: Text(_label(event.category), style: const TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w800)),
+                  ),
+                ),
+                Positioned(
+                  top: 10, right: 10,
+                  child: GestureDetector(
+                    onTap: onFavoriteTap,
+                    child: Container(
+                      width: 30, height: 30,
+                      decoration: BoxDecoration(color: Colors.black.withOpacity(0.45), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.12))),
+                      child: Icon(event.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded, size: 14, color: event.isLiked ? _ThixColors.primary : Colors.white),
                     ),
-            ),
-            Positioned(
-              top: 10, left: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: accent.withOpacity(0.9), borderRadius: BorderRadius.circular(8)),
-                child: Text(_label(event.category), style: const TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w800)),
-              ),
-            ),
-            Positioned(
-              top: 10, right: 10,
-              child: GestureDetector(
-                onTap: onFavoriteTap,
-                child: Container(
-                  width: 30, height: 30,
-                  decoration: BoxDecoration(color: Colors.black.withOpacity(0.45), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.12))),
-                  child: Icon(event.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded, size: 14, color: event.isLiked ? _ThixColors.primary : Colors.white),
+                  ),
                 ),
+                if (event.isFree)
+                  Positioned(
+                    bottom: 10, left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(6)),
+                      child: const Text('GRATUIT', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+                Positioned(
+                  bottom: 10, right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.black.withOpacity(0.45), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.12))),
+                    child: Text(event.formattedPrice, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                  ),
+                ),
+              ]
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, 
+                children: [
+                  Text(event.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800, height: 1.2)),
+                  const SizedBox(height: 6),
+                  Row(children: [const Icon(Icons.calendar_today_rounded, size: 10, color: _ThixColors.textMuted), const SizedBox(width: 4), Text(event.shortDate, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600))]),
+                  const SizedBox(height: 4),
+                  Row(children: [const Icon(Icons.location_on_rounded, size: 10, color: _ThixColors.textMuted), const SizedBox(width: 4), Expanded(child: Text(event.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 10)))]),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity, height: 36,
+                    child: ElevatedButton(
+                      onPressed: onTap,
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+                      child: const Text('Réserver', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+                ]
               ),
             ),
-            if (event.isFree)
-              Positioned(
-                bottom: 10, left: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(6)),
-                  child: const Text('GRATUIT', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800)),
-                ),
-              ),
-            Positioned(
-              bottom: 10, right: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: Colors.black.withOpacity(0.45), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.12))),
-                child: Text(event.formattedPrice, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
-              ),
-            ),
-          ]),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(event.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800, height: 1.2)),
-              const SizedBox(height: 6),
-              Row(children: [const Icon(Icons.calendar_today_rounded, size: 10, color: _ThixColors.textMuted), const SizedBox(width: 4), Text(event.shortDate, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600))]),
-              const SizedBox(height: 4),
-              Row(children: [const Icon(Icons.location_on_rounded, size: 10, color: _ThixColors.textMuted), const SizedBox(width: 4), Expanded(child: Text(event.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 10)))]),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity, height: 36,
-                child: ElevatedButton(
-                  onPressed: onTap,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
-                  child: const Text('Reserver', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-                ),
-              ),
-            ]),
-          ),
-        ]),
+          ]
+        ),
       ),
     );
   }
