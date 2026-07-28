@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/escalation_level.dart';
 import '../models/escalation_priority.dart';
@@ -18,15 +18,15 @@ class _C {
   static const red = Color(0xFFEF4444);
 }
 
-class EscalateConversationPage extends StatefulWidget {
+class EscalateConversationPage extends ConsumerStatefulWidget {
   final String conversationId;
   final String fromAgentId;
   final String? fromAgentName;
   const EscalateConversationPage({Key? key, required this.conversationId, required this.fromAgentId, this.fromAgentName}) : super(key: key);
-  @override State<EscalateConversationPage> createState() => _EscalateConversationPageState();
+  @override ConsumerState<EscalateConversationPage> createState() => _EscalateConversationPageState();
 }
 
-class _EscalateConversationPageState extends State<EscalateConversationPage> {
+class _EscalateConversationPageState extends ConsumerState<EscalateConversationPage> {
   final _formKey = GlobalKey<FormState>();
   EscalationLevel? _selectedLevel;
   EscalationPriority _selectedPriority = EscalationPriority.medium;
@@ -45,7 +45,7 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
   Future<void> _loadUsers() async {
     try {
       final res = await Supabase.instance.client.from('profiles').select('id, display_name, username, avatar_url').limit(50);
-      setState(() => _users = List<Map<String, dynamic>>.from(res));
+      if (mounted) setState(() => _users = List<Map<String, dynamic>>.from(res));
     } catch (e) { debugPrint('users load error $e'); }
   }
 
@@ -60,15 +60,13 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
     final clean = identifier.startsWith('@') ? identifier.substring(1) : identifier;
     setState(() { _isSearching = true; _searchError = null; _targetUserId = null; _foundUser = null; });
     try {
-      final user = await EscalationService().getUserByHandle(clean);
+      final user = await ref.read(escalationServiceProvider).getUserByHandle(clean);
       if (user != null && user['id'] != null) {
         final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
         if (uuidRegex.hasMatch(user['id'])) {
           setState(() { _targetUserId = user['id']; _foundUser = user; });
           if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Utilisateur trouvé : ${user['display_name'] ?? user['username']}'), backgroundColor: const Color(0xFF16A34A)));
-        } else {
-          setState(() => _searchError = 'ID invalide (non UUID)');
-        }
+        } else { setState(() => _searchError = 'ID invalide (non UUID)'); }
       } else { setState(() => _searchError = 'Aucun utilisateur trouvé @$clean'); }
     } catch (e) { setState(() => _searchError = 'Erreur : $e'); }
     finally { setState(() => _isSearching = false); }
@@ -132,7 +130,9 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<EscalationProvider>(context, listen: true);
+    final escState = ref.watch(escalationProvider);
+    final escNotifier = ref.read(escalationProvider.notifier);
+
     return Scaffold(
       backgroundColor: _C.bg,
       appBar: AppBar(
@@ -180,11 +180,11 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
             TextFormField(controller: _commentController, style: const TextStyle(fontSize: 13, color: _C.textMain), maxLines: 2, decoration: _dec('Ajoutez un commentaire')),
             const SizedBox(height: 24),
             Row(children: [
-              Expanded(child: ElevatedButton.icon(onPressed: provider.isLoading ? null : _submit, icon: provider.isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded, size: 16), label: const Text('Escalader', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), style: ElevatedButton.styleFrom(backgroundColor: _C.primary, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+              Expanded(child: ElevatedButton.icon(onPressed: escState.isLoading ? null : () => _submit(escNotifier), icon: escState.isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded, size: 16), label: const Text('Escalader', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), style: ElevatedButton.styleFrom(backgroundColor: _C.primary, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
               const SizedBox(width: 12),
               Expanded(child: OutlinedButton(onPressed: () => context.pop(), style: OutlinedButton.styleFrom(side: const BorderSide(color: _C.border), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Annuler', style: TextStyle(color: _C.textMuted, fontSize: 13, fontWeight: FontWeight.w600)))),
             ]),
-            if (provider.error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text('Erreur: ${provider.error}', style: const TextStyle(color: _C.red, fontSize: 11))),
+            if (escState.error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text('Erreur: ${escState.error}', style: const TextStyle(color: _C.red, fontSize: 11))),
             const SizedBox(height: 20),
           ]),
         ),
@@ -192,14 +192,30 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
     );
   }
 
-  void _submit() async {
+  Future<void> _submit(EscalationNotifier notifier) async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedLevel == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sélectionnez un niveau cible'))); return; }
     if (_targetUserId == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Destinataire invalide'))); return; }
     if (!RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$').hasMatch(_targetUserId!)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID invalide'), backgroundColor: _C.red)); return; }
-    final provider = Provider.of<EscalationProvider>(context, listen: false);
-    final success = await provider.createEscalation(conversationId: widget.conversationId, fromAgentId: widget.fromAgentId, targetAgentId: _targetUserId!, toLevel: _selectedLevel!, reason: _reasonController.text, priority: _selectedPriority, comment: _commentController.text.isNotEmpty ? _commentController.text : null, fromAgentName: widget.fromAgentName);
+
+    final success = await notifier.create(
+      conversationId: widget.conversationId,
+      fromAgentId: widget.fromAgentId,
+      targetAgentId: _targetUserId!,
+      toLevel: _selectedLevel!,
+      reason: _reasonController.text,
+      priority: _selectedPriority,
+      comment: _commentController.text.isNotEmpty ? _commentController.text : null,
+      fromAgentName: widget.fromAgentName,
+    );
+
     if (!mounted) return;
-    if (success != null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Escalade envoyée'), backgroundColor: Color(0xFF16A34A))); context.pop(true); } else { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: ${provider.error}'), backgroundColor: _C.red)); }
+    if (success != null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Escalade envoyée'), backgroundColor: Color(0xFF16A34A)));
+      context.pop(true);
+    } else {
+      final err = ref.read(escalationProvider).error;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $err'), backgroundColor: _C.red));
+    }
   }
 }
