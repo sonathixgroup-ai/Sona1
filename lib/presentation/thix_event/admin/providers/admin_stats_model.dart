@@ -1,4 +1,3 @@
-// lib/presentation/thix_event/admin/providers/admin_stats_model.dart
 class AdminStats {
   final int totalEvents;
   final int totalBookings;
@@ -18,14 +17,41 @@ class AdminStats {
 
   factory AdminStats.fromJson(Map<String, dynamic> json) {
     return AdminStats(
-      totalEvents: json['total_events'] ?? 0,
-      totalBookings: json['total_bookings'] ?? 0,
-      totalSeatsSold: json['total_seats_sold'] ?? 0,
-      waitingQueue: json['waiting_queue'] ?? 0,
-      totalRevenue: (json['total_revenue'] ?? 0).toDouble(),
-      todayBookings: json['today_bookings'] ?? 0,
+      totalEvents: (json['total_events'] as num?)?.toInt() ?? 0,
+      totalBookings: (json['total_bookings'] as num?)?.toInt() ?? 0,
+      totalSeatsSold: (json['total_seats_sold'] as num?)?.toInt() ?? 0,
+      waitingQueue: (json['waiting_queue'] as num?)?.toInt() ?? 0,
+      totalRevenue: (json['total_revenue'] as num?)?.toDouble() ?? 0.0,
+      todayBookings: (json['today_bookings'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  AdminStats copyWith({
+    int? totalEvents,
+    int? totalBookings,
+    int? totalSeatsSold,
+    int? waitingQueue,
+    double? totalRevenue,
+    int? todayBookings,
+  }) {
+    return AdminStats(
+      totalEvents: totalEvents ?? this.totalEvents,
+      totalBookings: totalBookings ?? this.totalBookings,
+      totalSeatsSold: totalSeatsSold ?? this.totalSeatsSold,
+      waitingQueue: waitingQueue ?? this.waitingQueue,
+      totalRevenue: totalRevenue ?? this.totalRevenue,
+      todayBookings: todayBookings ?? this.todayBookings,
     );
   }
 
   static AdminStats empty() => const AdminStats();
+
+  Map<String, dynamic> toJson() => {
+        'total_events': totalEvents,
+        'total_bookings': totalBookings,
+        'total_seats_sold': totalSeatsSold,
+        'waiting_queue': waitingQueue,
+        'total_revenue': totalRevenue,
+        'today_bookings': todayBookings,
+      };
 }
