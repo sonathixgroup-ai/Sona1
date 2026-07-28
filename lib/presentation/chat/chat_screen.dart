@@ -303,13 +303,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     setState(() => _isSending = true);
     
     try {
+      // CORRECTION : isInternalNote supprimé ici !
       final msg = await svc.sendMessage(
         conversationId: widget.conversationId, 
         content: text, 
         replyToId: _replyToId.isEmpty ? null : _replyToId, 
         isEphemeral: _isEphemeral, 
         ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
-        isInternalNote: _isInternalNoteMode,
       );
       
       ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
@@ -333,7 +333,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   // =======================================================================
   // UI DES FONCTIONNALITÉS (Ephémère, Protégé, Audio, Pièces jointes)
-  // EXACTEMENT COMME L'ANCIEN CODE (Screenshots), CONNECTÉ À RIVERPOD
   // =======================================================================
 
   void _showEphemeralTimerDialog() {
@@ -435,7 +434,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             onPressed: () async { 
               if (msgCtrl.text.isNotEmpty && passCtrl.text.isNotEmpty) { 
                 final enc = EncryptionService.encryptMessage(msgCtrl.text, passCtrl.text); 
-                Navigator.pop(ctx); // Fermer le dialog
+                Navigator.pop(ctx);
                 try {
                   final msg = await ref.read(chatServiceProvider).sendMessage(
                     conversationId: widget.conversationId, 
@@ -503,9 +502,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   void _showAttachmentMenu() {
     showModalBottomSheet(
-      context: context, 
-      backgroundColor: _C.surface, 
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))), 
+      context: context,
+      backgroundColor: _C.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min, 
