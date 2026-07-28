@@ -45,7 +45,7 @@ class _C {
   static const red = Color(0xFFEF4444);
   static const amber = Color(0xFFF59E0B);
   static const border = Color(0xFFE2E8F0);
-  static const fabBg = Color(0xFF06B6D4); // Cyan pour le bouton IA central
+  static const fabBg = Color(0xFF06B6D4);
 }
 
 // ---------------- Données réelles ----------------
@@ -99,12 +99,14 @@ final patientProfileProvider = FutureProvider<PatientProfile>((ref) async {
   return PatientProfile(name: (metaName != null && metaName.isNotEmpty) ? metaName : 'Patient');
 });
 
+// Modèle de service avec sous-titre
 class ServiceItem {
   final String title;
+  final String subtitle;
   final IconData icon;
   final Color color;
   final Widget page;
-  ServiceItem(this.title, this.icon, this.color, this.page);
+  ServiceItem(this.title, this.subtitle, this.icon, this.color, this.page);
 }
 
 class PatientDashboardPage extends ConsumerStatefulWidget {
@@ -114,30 +116,36 @@ class PatientDashboardPage extends ConsumerStatefulWidget {
 }
 
 class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
-  // Vos listes de services originales maintenues pour les sections défilantes
+  // Définition des services avec des sous-titres génériques (Pas de fausses données)
   late final List<ServiceItem> _dossierServices = [
-    ServiceItem('Ordonnances', Icons.receipt_long_rounded, _C.violet, const MesOrdonnancesPage()),
-    ServiceItem('Résultats', Icons.biotech_rounded, _C.sky, const ResultatsExamensPage()),
-    ServiceItem('Vaccination', Icons.vaccines_rounded, _C.emerald, const CarnetVaccinationPage()),
-    ServiceItem('Assurance', Icons.shield_rounded, _C.navy, const AssuranceSantePage()),
-    ServiceItem('Dossier Médical', Icons.folder_shared_rounded, _C.sky, const DossierMedicalPage()),
-    ServiceItem('Dossier Partagé', Icons.share_rounded, _C.emerald, const DossierPartagePage()),
-    ServiceItem('Certificat', Icons.verified_rounded, _C.amber, const CertificatMedicalPage()),
+    ServiceItem('Ordonnances', 'Vos prescriptions', Icons.receipt_long_rounded, _C.violet, const MesOrdonnancesPage()),
+    ServiceItem('Résultats', 'Analyses & labo', Icons.biotech_rounded, _C.sky, const ResultatsExamensPage()),
+    ServiceItem('Vaccination', 'Carnet à jour', Icons.vaccines_rounded, _C.emerald, const CarnetVaccinationPage()),
+    ServiceItem('Dossier Médical', 'Historique complet', Icons.folder_shared_rounded, _C.sky, const DossierMedicalPage()),
+    ServiceItem('Assurance', 'Couverture santé', Icons.shield_rounded, _C.navy, const AssuranceSantePage()),
+    ServiceItem('Partage', 'Accès médecins', Icons.share_rounded, _C.emerald, const DossierPartagePage()),
+  ];
+
+  late final List<ServiceItem> _careServices = [
+    ServiceItem('Médicaments', 'Trouver en pharmacie', Icons.medication_rounded, _C.violet, const TrouverMedicamentPage()),
+    ServiceItem('Second Avis', 'Avis d\'experts', Icons.people_alt_rounded, _C.sky, const SecondAvisPage()),
+    ServiceItem('Don de sang', 'Centres de collecte', Icons.bloodtype_rounded, _C.red, const DonSangPage()),
+    ServiceItem('Consulter', 'Prendre rendez-vous', Icons.medical_services_rounded, _C.sky, const ConsulterMedecinPage()),
+    ServiceItem('Épidémies', 'Alertes sanitaires', Icons.coronavirus_rounded, _C.red, const EpidemiesPage()),
   ];
 
   late final List<ServiceItem> _familyServices = [
-    ServiceItem('Famille', Icons.family_restroom_rounded, _C.violet, const DossierFamillePage()),
-    ServiceItem('Grossesse', Icons.pregnant_woman_rounded, const Color(0xFFEC4899), const SuiviGrossessePage()),
-    ServiceItem('Santé Enfants', Icons.child_care_rounded, _C.sky, const SanteEnfantsPage()),
-    ServiceItem('Rappels Vaccin', Icons.notifications_active_rounded, _C.amber, const RappelsVaccinPage()),
+    ServiceItem('Famille', 'Gérer les profils', Icons.family_restroom_rounded, _C.violet, const DossierFamillePage()),
+    ServiceItem('Grossesse', 'Suivi de maternité', Icons.pregnant_woman_rounded, const Color(0xFFEC4899), const SuiviGrossessePage()),
+    ServiceItem('Enfants', 'Suivi pédiatrique', Icons.child_care_rounded, _C.sky, const SanteEnfantsPage()),
+    ServiceItem('Rappels', 'Prochains vaccins', Icons.notifications_active_rounded, _C.amber, const RappelsVaccinPage()),
   ];
 
   late final List<ServiceItem> _wellbeingServices = [
-    ServiceItem('Nutrition', Icons.restaurant_rounded, _C.amber, const NutritionPage()),
-    ServiceItem('Activité', Icons.directions_run_rounded, _C.emerald, const ActivitePhysiquePage()),
-    ServiceItem('Santé Mentale', Icons.psychology_rounded, _C.violet, const BienEtreMentalPage()),
-    ServiceItem('Gestion Stress', Icons.self_improvement_rounded, _C.sky, const GestionStressPage()),
-    ServiceItem('Prédictions IA', Icons.query_stats_rounded, const Color(0xFF6366F1), const AnalysePredictivePage()),
+    ServiceItem('Nutrition', 'Suivi alimentaire', Icons.restaurant_rounded, _C.amber, const NutritionPage()),
+    ServiceItem('Activité', 'Exercices physiques', Icons.directions_run_rounded, _C.emerald, const ActivitePhysiquePage()),
+    ServiceItem('Santé Mentale', 'Soutien psychologique', Icons.psychology_rounded, _C.violet, const BienEtreMentalPage()),
+    ServiceItem('Gestion Stress', 'Relaxation', Icons.self_improvement_rounded, _C.sky, const GestionStressPage()),
   ];
 
   void _go(Widget page) {
@@ -147,16 +155,18 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(patientProfileProvider);
+    final stats = ref.watch(dashboardStatsProvider);
 
     return Scaffold(
       backgroundColor: _C.bg,
       body: Stack(
         children: [
-          // En-tête fixe
           Column(
             children: [
-              _buildFixedHeader(profile),
-              // Contenu défilant
+              // EN-TÊTE FIXE (Nom + Mon Suivi en cercles)
+              _buildFixedHeader(profile, stats),
+              
+              // CONTENU DÉFILANT
               Expanded(
                 child: RefreshIndicator(
                   color: _C.sky,
@@ -166,32 +176,29 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                     ref.invalidate(patientProfileProvider);
                   },
                   child: ListView(
-                    padding: const EdgeInsets.only(top: 0, bottom: 120), // Espace pour la bottom nav
+                    padding: const EdgeInsets.only(top: 16, bottom: 120),
                     physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     children: [
-                      // Scores détaillés (Activité, Coeur, Sommeil)
-                      _buildDetailedScores(),
-                      const SizedBox(height: 24),
-                      
-                      // Section "Trouver des soins" EXACTEMENT comme la capture
+                      // Section "Trouver des soins" principale
                       _buildSectionHeaderWithLocation('Trouver des soins', 'Dar es Salaam'),
                       const SizedBox(height: 16),
                       _buildPharmacyCard(),
                       const SizedBox(height: 12),
                       _buildHospitalCard(),
-                      const SizedBox(height: 12),
-                      _buildCareGridRow(),
                       
-                      // Conservation de vos autres services (Mon dossier, Famille, etc.)
                       const SizedBox(height: 32),
                       _buildSectionTitle('Mon dossier'),
                       _horizontalServiceRow(_dossierServices),
                       
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 32),
+                      _buildSectionTitle('Autres soins'),
+                      _horizontalServiceRow(_careServices),
+                      
+                      const SizedBox(height: 32),
                       _buildSectionTitle('Famille & Proches'),
                       _horizontalServiceRow(_familyServices),
                       
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 32),
                       _buildSectionTitle('Bien-être & Prévention'),
                       _horizontalServiceRow(_wellbeingServices),
                     ],
@@ -201,7 +208,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
             ],
           ),
           
-          // Bottom Navigation Bar flottante
+          // BOTTOM NAVIGATION FLOTTANTE
           _buildFloatingBottomNav(),
         ],
       ),
@@ -209,9 +216,9 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   }
 
   // =========================================================================
-  // 1. PARTIE HAUTE FIXE (HEADER)
+  // 1. PARTIE HAUTE FIXE (NOM + MON SUIVI)
   // =========================================================================
-  Widget _buildFixedHeader(AsyncValue<PatientProfile> profileAsync) {
+  Widget _buildFixedHeader(AsyncValue<PatientProfile> profileAsync, AsyncValue<DashboardStats> statsAsync) {
     final fullName = profileAsync.valueOrNull?.name ?? 'Alex';
     final firstName = fullName.split(' ').first;
     final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
@@ -219,110 +226,109 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
     return Container(
       decoration: const BoxDecoration(
         color: _C.white,
+        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
         boxShadow: [
-          BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 4))
+          BoxShadow(color: Color(0x0A000000), blurRadius: 15, offset: Offset(0, 5))
         ]
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
             children: [
-              // Avatar avec le cercle vert
-              Stack(
+              // Ligne 1 : Avatar, Nom, Boutons
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    height: 48, width: 48,
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: _C.emerald.withOpacity(0.5), width: 1.5),
-                    ),
-                    child: ClipOval(
-                      child: (avatarUrl != null && avatarUrl.isNotEmpty)
-                          ? Image.network(avatarUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _defaultAvatar())
-                          : _defaultAvatar(),
+                  Stack(
+                    children: [
+                      Container(
+                        height: 48, width: 48,
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: _C.emerald.withOpacity(0.5), width: 1.5),
+                        ),
+                        child: ClipOval(
+                          child: (avatarUrl != null && avatarUrl.isNotEmpty)
+                              ? Image.network(avatarUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _defaultAvatar())
+                              : _defaultAvatar(),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 2, right: 2,
+                        child: Container(
+                          height: 12, width: 12,
+                          decoration: BoxDecoration(color: _C.emerald, shape: BoxShape.circle, border: Border.all(color: _C.white, width: 2)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Bonjour $firstName', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.5)),
+                        const SizedBox(height: 2),
+                        const Row(
+                          children: [
+                            Icon(Icons.verified_rounded, size: 12, color: _C.sky),
+                            SizedBox(width: 4),
+                            Text('Dossier sécurisé', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _C.textMuted)),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  Positioned(
-                    bottom: 2, right: 2,
+                  InkWell(
+                    onTap: () => _go(const UrgencesProchesPage()),
+                    borderRadius: BorderRadius.circular(20),
                     child: Container(
-                      height: 12, width: 12,
-                      decoration: BoxDecoration(
-                        color: _C.emerald,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: _C.white, width: 2)
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(20)),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.bolt_rounded, size: 14, color: _C.red),
+                          SizedBox(width: 4),
+                          Text('SOS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: _C.red, letterSpacing: 0.5)),
+                        ],
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              
-              // Textes et mini-scores
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Bonjour $firstName', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.5)),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        const Text('SCORE SANTÉ', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: _C.textMuted, letterSpacing: 0.5)),
-                        const SizedBox(width: 6),
-                        _miniRing(_C.emerald, 0.8),
-                        const SizedBox(width: 2),
-                        _miniRing(_C.sky, 0.9),
-                        const SizedBox(width: 2),
-                        _miniRing(_C.violet, 0.7),
-                        const SizedBox(width: 6),
-                        const Text('92/100', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: _C.emerald)),
-                        const Text(' Excellent', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _C.emerald)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Bouton SOS
-              InkWell(
-                onTap: () => _go(const UrgencesProchesPage()),
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
+                  const SizedBox(width: 12),
+                  Stack(
                     children: [
-                      Icon(Icons.bolt_rounded, size: 14, color: _C.red),
-                      SizedBox(width: 4),
-                      Text('SOS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: _C.red, letterSpacing: 0.5)),
+                      Container(
+                        height: 38, width: 38,
+                        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _C.border)),
+                        child: const Icon(Icons.notifications_none_rounded, color: _C.navy, size: 20),
+                      ),
+                      Positioned(
+                        top: 0, right: 0,
+                        child: Container(height: 10, width: 10, decoration: BoxDecoration(color: _C.red, shape: BoxShape.circle, border: Border.all(color: _C.white, width: 2))),
+                      ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              
-              // Cloche de notification
-              Stack(
-                children: [
-                  Container(
-                    height: 38, width: 38,
-                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _C.border)),
-                    child: const Icon(Icons.notifications_none_rounded, color: _C.navy, size: 20),
-                  ),
-                  Positioned(
-                    top: 0, right: 0,
-                    child: Container(
-                      height: 10, width: 10,
-                      decoration: BoxDecoration(color: _C.red, shape: BoxShape.circle, border: Border.all(color: _C.white, width: 2)),
-                    ),
-                  ),
                 ],
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Ligne 2 : Mon Suivi (Les 4 cercles)
+              statsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator(color: _C.sky)),
+                error: (_, __) => const SizedBox(),
+                data: (d) => Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildStatCircle('Consults.', d.consultations, _C.primary),
+                    _buildStatCircle('Examens', d.examens, _C.emerald),
+                    _buildStatCircle('Traitements', d.medicaments, _C.violet),
+                    _buildStatCircle('RDV', d.rdvs, _C.amber),
+                  ],
+                ),
               ),
             ],
           ),
@@ -333,68 +339,32 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
 
   Widget _defaultAvatar() => Container(color: _C.bg, child: const Icon(Icons.person, color: _C.textMuted));
 
-  Widget _miniRing(Color color, double val) {
-    return SizedBox(
-      height: 10, width: 10,
-      child: CircularProgressIndicator(value: val, strokeWidth: 2.5, backgroundColor: color.withOpacity(0.2), valueColor: AlwaysStoppedAnimation(color)),
-    );
-  }
-
-  // =========================================================================
-  // 2. SCORES DÉTAILLÉS (SOUS LE HEADER)
-  // =========================================================================
-  Widget _buildDetailedScores() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-      decoration: const BoxDecoration(
-        color: _C.white,
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              _largeRing('ACTIVITÉ', 0.85, '85%', _C.emerald),
-              const SizedBox(width: 16),
-              _largeRing('CŒUR', 0.92, '92%', _C.sky),
-              const SizedBox(width: 16),
-              _largeRing('SOMMEIL', 0.78, '78%', _C.violet),
-            ],
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: const [
-              Text('92', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: _C.navy, height: 1.0)),
-              Text('EXCELLENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _C.emerald, letterSpacing: 0.5)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _largeRing(String label, double val, String textVal, Color color) {
+  // Les cercles de "Mon Suivi"
+  Widget _buildStatCircle(String label, int value, Color color) {
     return Column(
       children: [
-        SizedBox(
-          height: 54, width: 54,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              CircularProgressIndicator(value: val, strokeWidth: 5, backgroundColor: color.withOpacity(0.15), valueColor: AlwaysStoppedAnimation(color)),
-              Center(child: Text(textVal, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color))),
-            ],
+        Container(
+          height: 56, width: 56,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withOpacity(0.3), width: 3),
+            color: color.withOpacity(0.05),
+          ),
+          child: Center(
+            child: Text(
+              '$value',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color),
+            ),
           ),
         ),
         const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: _C.textMuted, letterSpacing: 0.5)),
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _C.textMuted, letterSpacing: 0.2)),
       ],
     );
   }
 
   // =========================================================================
-  // 3. SECTIONS "TROUVER DES SOINS" EXACTEMENT COMME LE MOCKUP
+  // 2. CARTES D'ACCUEIL (TROUVER DES SOINS)
   // =========================================================================
   Widget _buildSectionHeaderWithLocation(String title, String location) {
     return Padding(
@@ -420,11 +390,10 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: _C.border)),
+        decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: _C.border)),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icône
             Stack(
               children: [
                 Container(
@@ -442,7 +411,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                 children: [
                   Row(
                     children: [
-                      const Expanded(child: Text('Pharmacie des Arcades', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.2), overflow: TextOverflow.ellipsis)),
+                      const Expanded(child: Text('Pharmacies de garde', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.2), overflow: TextOverflow.ellipsis)),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(12)),
@@ -459,8 +428,8 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Text('Ouverte', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _C.emerald)),
-                      const Text(' • 0.4km • Livraison 20min', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _C.textMuted)),
+                      const Text('Ouvertes', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _C.emerald)),
+                      const Text(' • Localisez les plus proches', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _C.textMuted)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -475,19 +444,8 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                             child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                               Icon(Icons.near_me_rounded, color: _C.white, size: 14),
                               SizedBox(width: 6),
-                              Text('Itinéraire', style: TextStyle(color: _C.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                              Text('Rechercher', style: TextStyle(color: _C.white, fontSize: 13, fontWeight: FontWeight.w700)),
                             ]),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () {},
-                          child: Container(
-                            height: 36,
-                            decoration: BoxDecoration(color: _C.white, border: Border.all(color: _C.border), borderRadius: BorderRadius.circular(18)),
-                            child: const Center(child: Text('Appeler', style: TextStyle(color: _C.navy, fontSize: 13, fontWeight: FontWeight.w700))),
                           ),
                         ),
                       ),
@@ -507,7 +465,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: _C.border)),
+        decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: _C.border)),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -526,9 +484,9 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('CHU Muhimbili • Urgences', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.2)),
+                  const Text('Hôpitaux & Cliniques', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.2)),
                   const SizedBox(height: 4),
-                  const Text('Urgences • 1.2km • Attente ~24min', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _C.textMuted)),
+                  const Text('Réseau de soins • SAMU & Urgences', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _C.textMuted)),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -538,7 +496,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                           child: Container(
                             height: 36,
                             decoration: BoxDecoration(color: _C.white, border: Border.all(color: _C.border), borderRadius: BorderRadius.circular(18)),
-                            child: const Center(child: Text('Voir dispo', style: TextStyle(color: _C.navy, fontSize: 13, fontWeight: FontWeight.w700))),
+                            child: const Center(child: Text('Voir la liste', style: TextStyle(color: _C.navy, fontSize: 13, fontWeight: FontWeight.w700))),
                           ),
                         ),
                       ),
@@ -568,98 +526,8 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
     );
   }
 
-  Widget _buildCareGridRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          _gridItem(
-            'Médicaments', 'Stock & prix', Icons.medication_rounded, _C.violet,
-            () => _go(const TrouverMedicamentPage())
-          ),
-          const SizedBox(width: 10),
-          _gridItem(
-            'Second Avis', '48h • Experts', Icons.people_alt_rounded, _C.sky,
-            () => _go(const SecondAvisPage())
-          ),
-          const SizedBox(width: 10),
-          _gridItemWithProgress(
-            'Don de sang', 'Objectif 10L', Icons.water_drop_rounded, _C.amber,
-            '7L / 10L donnés', 0.7,
-            () => _go(const DonSangPage())
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _gridItem(String title, String sub, IconData icon, Color color, VoidCallback onTap) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          height: 140,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: _C.border)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                height: 40, width: 40,
-                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const Spacer(),
-              Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: _C.navy, height: 1.1)),
-              const SizedBox(height: 4),
-              Text(sub, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: _C.textMuted)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _gridItemWithProgress(String title, String sub, IconData icon, Color color, String progText, double progVal, VoidCallback onTap) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          height: 140,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: _C.border)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                height: 40, width: 40,
-                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(height: 10),
-              Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: _C.navy, height: 1.1)),
-              const SizedBox(height: 2),
-              Text(sub, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: _C.textMuted)),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(value: progVal, backgroundColor: _C.border, valueColor: AlwaysStoppedAnimation(color), minHeight: 4),
-              ),
-              const SizedBox(height: 4),
-              Text(progText, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: _C.textMuted)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   // =========================================================================
-  // 4. CONSERVATION DE VOS AUTRES FONCTIONNALITÉS EN GRILLE SCROLLABLE
+  // 3. CARTES VERTICALES DE SERVICES (COMME SUR LA CAPTURE)
   // =========================================================================
   Widget _buildSectionTitle(String title) {
     return Padding(
@@ -670,7 +538,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
 
   Widget _horizontalServiceRow(List<ServiceItem> items) {
     return SizedBox(
-      height: 100,
+      height: 160, // Plus haut pour donner l'aspect de carte verticale
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -680,21 +548,42 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
           final it = items[i];
           return InkWell(
             onTap: () => _go(it.page),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(24),
             child: Container(
-              width: 86,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-              decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: _C.border)),
+              width: 140, // Assez large pour que le texte respire
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _C.white, 
+                borderRadius: BorderRadius.circular(24), 
+                border: Border.all(color: _C.border)
+              ),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Icône en haut à gauche (Squircle)
                   Container(
-                    height: 42, width: 42,
-                    decoration: BoxDecoration(color: it.color.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
-                    child: Icon(it.icon, color: it.color, size: 20),
+                    height: 48, width: 48,
+                    decoration: BoxDecoration(
+                      color: it.color.withOpacity(0.1), 
+                      borderRadius: BorderRadius.circular(14)
+                    ),
+                    child: Icon(it.icon, color: it.color, size: 24),
                   ),
-                  const SizedBox(height: 8),
-                  Text(it.title, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _C.navy, height: 1.1)),
+                  const Spacer(),
+                  // Textes en bas
+                  Text(
+                    it.title, 
+                    maxLines: 1, 
+                    overflow: TextOverflow.ellipsis, 
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: _C.navy, height: 1.2)
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    it.subtitle, 
+                    maxLines: 1, 
+                    overflow: TextOverflow.ellipsis, 
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _C.textMuted)
+                  ),
                 ],
               ),
             ),
@@ -705,7 +594,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   }
 
   // =========================================================================
-  // 5. BOTTOM NAVIGATION BAR FLOTTANTE (AVEC BOUTON IA CENTRAL)
+  // 4. BOTTOM NAVIGATION BAR FLOTTANTE
   // =========================================================================
   Widget _buildFloatingBottomNav() {
     return Align(
@@ -713,12 +602,11 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
       child: Padding(
         padding: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
         child: SizedBox(
-          height: 80, // Hauteur totale incluant le bouton qui dépasse
+          height: 80, 
           child: Stack(
             alignment: Alignment.bottomCenter,
             clipBehavior: Clip.none,
             children: [
-              // La bulle blanche
               Container(
                 height: 64,
                 decoration: BoxDecoration(
@@ -731,14 +619,12 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                   children: [
                     _navItem(Icons.home_rounded, 'Accueil', true, () {}),
                     _navItem(Icons.folder_shared_rounded, 'Dossier', false, () => _go(const DossierMedicalPage())),
-                    const SizedBox(width: 60), // Espace pour le bouton central
+                    const SizedBox(width: 60), 
                     _navItem(Icons.search_rounded, 'Soins', false, () => _go(const TrouverHopitalPage())),
                     _navItem(Icons.people_alt_rounded, 'Famille', false, () => _go(const DossierFamillePage())),
                   ],
                 ),
               ),
-              
-              // Bouton FAB (IA) centré et dépassant en haut
               Positioned(
                 top: 0,
                 child: GestureDetector(
@@ -748,15 +634,13 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                     decoration: BoxDecoration(
                       color: _C.fabBg,
                       shape: BoxShape.circle,
-                      border: Border.all(color: _C.bg, width: 4), // Contour pour détacher de l'arrière-plan
+                      border: Border.all(color: _C.bg, width: 4),
                       boxShadow: [BoxShadow(color: _C.fabBg.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))]
                     ),
                     child: const Icon(Icons.auto_awesome_rounded, color: _C.white, size: 28),
                   ),
                 ),
               ),
-              
-              // Petit point indicateur sous le bouton central (comme sur le design)
               Positioned(
                 bottom: 8,
                 child: Container(height: 4, width: 4, decoration: const BoxDecoration(color: _C.emerald, shape: BoxShape.circle)),
