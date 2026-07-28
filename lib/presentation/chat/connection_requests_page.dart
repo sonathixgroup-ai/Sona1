@@ -1,151 +1,137 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/chat/connection_service.dart';
 
-class ConnectionRequestsPage extends StatefulWidget {
-  const ConnectionRequestsPage({super.key});
-
-  @override
-  State<ConnectionRequestsPage> createState() => _ConnectionRequestsPageState();
+class _C {
+  static const bg = Color(0xFF050508);
+  static const surface = Color(0xFF0C0C12);
+  static const surfaceAlt = Color(0xFF111118);
+  static const cardBorder = Color(0x14FFFFFF);
+  static const violet = Color(0xFF7C5CFF);
+  static const white = Colors.white;
+  static const textMuted = Color(0x66FFFFFF);
+  static const textSecondary = Color(0x99FFFFFF);
+  static const red = Color(0xFFFF0A54);
+  static const green = Color(0xFF10B981);
 }
 
-class _ConnectionRequestsPageState extends State<ConnectionRequestsPage> {
-  // Couleurs harmonisées
-  static const Color primaryBlue = Color(0xFF4A8BFF);
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color ivory = Color(0xFFF3F5FA);
-  static const Color success = Color(0xFF1FA971);
-  static const Color danger = Color(0xFFD64545);
-  static const Color mutedText = Color(0xFF6B7690);
+class ConnectionRequestsState {
+  final List<ConnectionRequest> items;
+  final bool loading;
+  final bool loadingMore;
+  final bool hasMore;
+  const ConnectionRequestsState({this.items = const [], this.loading = true, this.loadingMore = false, this.hasMore = true});
+  ConnectionRequestsState copyWith({List<ConnectionRequest>? items, bool? loading, bool? loadingMore, bool? hasMore}) =>
+    ConnectionRequestsState(items: items?? this.items, loading: loading?? this.loading, loadingMore: loadingMore?? this.loadingMore, hasMore: hasMore?? this.hasMore);
+}
 
-  late ConnectionService _connectionService;
-  List<ConnectionRequest> _requests = [];
-  bool _loading = true;
+class ConnectionRequestsNotifier extends StateNotifier<ConnectionRequestsState> {
+  final ConnectionService _svc;
+  static const _limit = 20;
+  ConnectionRequestsNotifier(this._svc) : super(const ConnectionRequestsState()) { loadInitial(); }
 
-  @override
-  void initState() {
+  Future<void> loadInitial() async {
+    state = state.copyWith(loading: true);
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) { state = state.copyWith(loading: false); return; }
+    try {
+      final reqs = await _svc.getPendingRequests(uid, limit: _limit, offset: 0);
+      state = ConnectionRequestsState(items: reqs, loading: false, hasMore: reqs.length == _limit);
+    } catch (_) { state = state.copyWith(loading: false); }
+  }
+
+  Future<void> loadMore() async {
+    if (state.loadingMore ||!state.hasMore) return;
+    state = state.copyWith(loadingMore: true);
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) { state = state.copyWith(loadingMore: false); return; }
+    try {
+      final reqs = await _svc.getPendingRequests(uid, limit: _limit, offset: state.items.length);
+      state = state.copyWith(items: [...state.items,...reqs], hasMore: reqs.length == _limit, loadingMore: false);
+    } catch (_) { state = state.copyWith(loadingMore: false); }
+  }
+
+  Future<void> accept(String id) async { await _svc.acceptRequest(id); await loadInitial(); }
+  Future<void> reject(String id) async { await _svc.rejectRequest(id); await loadInitial(); }
+}
+
+final connectionRequestsProvider = StateNotifierProvider<ConnectionRequestsNotifier, ConnectionRequestsState>((ref) {
+  return ConnectionRequestsNotifier(ConnectionService());
+});
+
+class ConnectionRequestsPage extends ConsumerStatefulWidget {
+  const ConnectionRequestsPage({super.key});
+  @override ConsumerState<ConnectionRequestsPage> createState() => _ConnectionRequestsPageState();
+}
+
+class _ConnectionRequestsPageState extends ConsumerState<ConnectionRequestsPage> {
+  final _scroll = ScrollController();
+
+  @override void initState() {
     super.initState();
-    _connectionService = ConnectionService();
-    _loadRequests();
+    _scroll.addListener(() { if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 200) ref.read(connectionRequestsProvider.notifier).loadMore(); });
   }
+  @override void dispose() { _scroll.dispose(); super.dispose(); }
 
-  Future<void> _loadRequests() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-    setState(() => _loading = true);
-    try {
-      final requests = await _connectionService.getPendingRequests(userId);
-      setState(() {
-        _requests = requests;
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() => _loading = false);
+  Future<void> _confirmReject(String id) async {
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: _C.surface, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color:_C.cardBorder)),
+      title: const Text('Refuser la demande?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize:13)),
+      content: const Text('Êtes-vous sûr de vouloir refuser cette invitation?', style: TextStyle(color:_C.textSecondary, fontSize:12)),
+      actions: [
+        TextButton(onPressed: ()=> Navigator.pop(ctx,false), child: const Text('Annuler',style: TextStyle(color:_C.textMuted))),
+        ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor:_C.red, foregroundColor:Colors.white), onPressed:()=> Navigator.pop(ctx,true), child: const Text('Oui, refuser',style:TextStyle(fontSize:11,fontWeight:FontWeight.w800))),
+      ],
+    ));
+    if (ok==true) {
+      try { await ref.read(connectionRequestsProvider.notifier).reject(id); if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Demande refusée'),backgroundColor:Colors.orange)); }
+      catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Erreur: $e'),backgroundColor:_C.red)); }
     }
   }
 
-  // Confirmation pour refuser (Insister pour le deuxième avis)
-  Future<void> _confirmRejectRequest(String requestId) async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Refuser la demande ?', style: TextStyle(color: navyDeep, fontWeight: FontWeight.bold)),
-        content: const Text('Êtes-vous sûr de vouloir refuser cette invitation ? Prenez un moment pour réfléchir.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: danger),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Oui, refuser', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      _rejectRequest(requestId);
-    }
+  Future<void> _accept(String id) async {
+    try { await ref.read(connectionRequestsProvider.notifier).accept(id); if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Connexion acceptée'),backgroundColor:_C.green)); }
+    catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Erreur: $e'),backgroundColor:_C.red)); }
   }
 
-  Future<void> _acceptRequest(String requestId) async {
-    try {
-      await _connectionService.acceptRequest(requestId);
-      _loadRequests();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connexion acceptée '), backgroundColor: success),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: danger),
-      );
-    }
-  }
+  @override Widget build(BuildContext context) {
+    final state = ref.watch(connectionRequestsProvider);
 
-  Future<void> _rejectRequest(String requestId) async {
-    try {
-      await _connectionService.rejectRequest(requestId);
-      _loadRequests();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Demande refusée'), backgroundColor: Colors.orange),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: danger),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ivory,
-      appBar: AppBar(
-        title: const Text('Demandes reçues', style: TextStyle(fontWeight: FontWeight.w800)),
-        backgroundColor: navyDeep,
-        elevation: 0,
-        centerTitle: true,
+      backgroundColor: _C.bg,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(56),
+        child: ClipRRect(child: BackdropFilter(filter: ImageFilter.blur(sigmaX:20,sigmaY:20), child: AppBar(backgroundColor:_C.bg.withOpacity(0.85), elevation:0, centerTitle:true, leading: IconButton(icon: const Icon(Icons.arrow_back_rounded,color:Colors.white,size:18), onPressed:()=> Navigator.pop(context)), title: const Text('Demandes reçues',style:TextStyle(color:Colors.white,fontSize:13,fontWeight:FontWeight.w800))))),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: primaryBlue))
-          : _requests.isEmpty
-              ? const Center(child: Text('Aucune demande en attente', style: TextStyle(color: mutedText)))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _requests.length,
-                  itemBuilder: (context, index) {
-                    final request = _requests[index];
-                    final sender = request.sender;
-                    final name = sender?['display_name'] ?? sender?['username'] ?? 'Inconnu';
-                    return Card(
-                      elevation: 0,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        leading: CircleAvatar(
-                          backgroundColor: primaryBlue.withOpacity(0.1),
-                          child: Text(name[0].toUpperCase(), style: const TextStyle(color: primaryBlue, fontWeight: FontWeight.bold)),
-                        ),
-                        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(request.message ?? 'Souhaite vous contacter', style: const TextStyle(color: mutedText)),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.check, color: success),
-                              onPressed: () => _acceptRequest(request.id),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close, color: danger),
-                              onPressed: () => _confirmRejectRequest(request.id),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+      body: state.loading? const Center(child: CircularProgressIndicator(color:_C.violet,strokeWidth:2)) : state.items.isEmpty? const Center(child: Text('Aucune demande en attente',style:TextStyle(color:_C.textMuted,fontSize:11))) : RefreshIndicator(
+        color: Colors.white, backgroundColor: _C.surface,
+        onRefresh: () async => ref.read(connectionRequestsProvider.notifier).loadInitial(),
+        child: ListView.builder(
+          controller: _scroll,
+          padding: const EdgeInsets.all(12),
+          itemCount: state.items.length + (state.hasMore?1:0),
+          itemBuilder: (ctx,i){
+            if(i==state.items.length) return const Padding(padding:EdgeInsets.all(20),child:Center(child:CircularProgressIndicator(color:_C.violet,strokeWidth:2)));
+            final req = state.items[i];
+            final sender = req.sender;
+            final name = sender?['display_name']?? sender?['username']?? 'Inconnu';
+            return Container(
+              margin: const EdgeInsets.only(bottom:10),
+              padding: const EdgeInsets.symmetric(horizontal:12,vertical:10),
+              decoration: BoxDecoration(color:_C.surface,borderRadius:BorderRadius.circular(14),border:Border.all(color:_C.cardBorder)),
+              child: Row(children:[
+                CircleAvatar(radius:18,backgroundColor:_C.violet.withOpacity(0.14),child:Text(name[0].toUpperCase(),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800,fontSize:12))),
+                const SizedBox(width:10),
+                Expanded(child: Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w700,fontSize:12)), const SizedBox(height:2), Text(req.message??'Souhaite vous contacter',maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:_C.textMuted,fontSize:10))])),
+                IconButton(icon: const Icon(Icons.check_rounded,color:_C.green,size:18), onPressed:()=> _accept(req.id)),
+                IconButton(icon: const Icon(Icons.close_rounded,color:_C.textMuted,size:18), onPressed:()=> _confirmReject(req.id)),
+              ]),
+            );
+          },
+        ),
+      ),
     );
   }
 }
