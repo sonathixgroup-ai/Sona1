@@ -1,310 +1,164 @@
-// lib/presentation/thix_event/event_category_page.dart
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../providers/event_provider.dart';
 import '../../models/event_model.dart';
-import 'widgets/event_card.dart';
 
 class _ThixColors {
-  static const Color primary = Color(0xFF6B3CE2);
-  static const Color lightBg = Color(0xFFF8F9FA);
-  static const Color darkText = Color(0xFF1E1B4B);
-  static const Color mutedText = Color(0xFF8B8BA7);
+  static const bg = Color(0xFF050508);
+  static const surface = Color(0xFF0C0C12);
+  static const surfaceAlt = Color(0xFF111118);
+  static const cardBorder = Color(0x14FFFFFF);
+  static const cardBorderStrong = Color(0x26FFFFFF);
+  static const primary = Color(0xFFFF0A54);
+  static const textSecondary = Color(0x99FFFFFF);
+  static const textMuted = Color(0x66FFFFFF);
 }
 
-class EventCategoryPage extends StatefulWidget {
+const _names = {
+  'musique': 'Musique & Concerts',
+  'concert': 'Musique & Concerts',
+  'festival': 'Festivals',
+  'business': 'Business',
+  'conference': 'Conférences',
+  'culture': 'Culture & Art',
+  'sport': 'Sport',
+  'spectacle': 'Spectacles',
+};
+
+class EventCategoryPage extends ConsumerStatefulWidget {
   final String category;
   const EventCategoryPage({super.key, required this.category});
-
   @override
-  State<EventCategoryPage> createState() => _EventCategoryPageState();
+  ConsumerState<EventCategoryPage> createState() => _EventCategoryPageState();
 }
 
-class _EventCategoryPageState extends State<EventCategoryPage> {
-  final ScrollController _scrollController = ScrollController();
-  
+class _EventCategoryPageState extends ConsumerState<EventCategoryPage> {
+  final ScrollController _scroll = ScrollController();
   List<Event> _events = [];
-  bool _isLoading = true;
-  bool _isLoadingMore = false;
+  bool _loading = true;
+  bool _loadingMore = false;
   bool _hasMore = true;
-  String? _errorMessage;
-
-  // Pagination dynamique
-  int _currentPage = 0;
-  static const int _limit = 20;
-
-  // 🟢 OPTIMISATION : Mis en statique pour de meilleures performances
-  static const Map<String, String> _categoryNames = {
-    'musique': 'Musique & Concerts',
-    'concert': 'Musique & Concerts',
-    'conference': 'Conférences & Séminaires',
-    'culture': 'Culture & Art',
-    'sport': 'Sport & Loisirs',
-    'match': 'Sport & Loisirs',
-    'festival': 'Festivals & Soirées',
-    'spectacle': 'Spectacles',
-    'exposition': 'Expositions',
-  };
+  int _page = 0;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-    _loadEvents();
+    _scroll.addListener(() {
+      if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 300 &&!_loading &&!_loadingMore && _hasMore) {
+        _loadMore();
+      }
+    });
+    _load();
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      if (!_isLoading && !_isLoadingMore && _hasMore) {
-        _loadMoreEvents();
-      }
+  Future<void> _load({bool refresh = false}) async {
+    if (refresh) { _page = 0; _hasMore = true; }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final svc = ref.read(eventServiceProvider);
+      final res = await svc.getEvents(category: widget.category, page: 0, limit: 20);
+      if (!mounted) return;
+      setState(() { _events = res; _loading = false; _hasMore = res.length >= 20; _page = 0; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _loading = false; _error = 'Connexion impossible'; });
     }
   }
 
-  Future<void> _loadEvents({bool isRefresh = false}) async {
-    if (!mounted) return;
-
-    if (isRefresh) {
-      setState(() {
-        _currentPage = 0;
-        _hasMore = true;
-        _errorMessage = null;
-      });
-    } else {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-    }
-
+  Future<void> _loadMore() async {
+    setState(() => _loadingMore = true);
     try {
-      final provider = context.read<EventProvider>();
-      final events = await provider.fetchEventsByCategory(widget.category);
-
-      if (mounted) {
-        setState(() {
-          _events = events;
-          _isLoading = false;
-          _hasMore = events.length >= _limit; 
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = "Impossible de charger les événements. Veuillez vérifier votre connexion.";
-        });
-      }
-    }
-  }
-
-  Future<void> _loadMoreEvents() async {
-    if (!mounted) return;
-    setState(() => _isLoadingMore = true);
-
-    try {
-      _currentPage++;
-      final provider = context.read<EventProvider>();
-      
-      final newEvents = await provider.fetchEventsByCategory(widget.category);
-      
-      if (mounted) {
-        setState(() {
-          if (newEvents.isEmpty) {
-            _hasMore = false;
-          } else {
-            // Désactivé temporairement tant que le backend ne pagine pas via offset/limit
-            _hasMore = false; 
-          }
-          _isLoadingMore = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _isLoadingMore = false);
+      final svc = ref.read(eventServiceProvider);
+      final res = await svc.getEvents(category: widget.category, page: _page + 1, limit: 20);
+      if (!mounted) return;
+      setState(() { _page++; _events = [..._events,...res]; _hasMore = res.length >= 20; _loadingMore = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _ThixColors.lightBg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Container(
-            decoration: const BoxDecoration(color: _ThixColors.lightBg, shape: BoxShape.circle),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: _ThixColors.darkText, size: 20),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-        ),
-        title: Text(
-          _categoryNames[widget.category.toLowerCase()] ?? widget.category.toUpperCase(),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _ThixColors.darkText),
-        ),
-      ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: _ThixColors.primary));
-    }
-
-    if (_errorMessage != null) {
-      return _buildErrorState();
-    }
-
-    if (_events.isEmpty) {
-      return _buildEmptyState();
-    }
-
-    return RefreshIndicator(
-      color: _ThixColors.primary,
-      backgroundColor: Colors.white,
-      onRefresh: () => _loadEvents(isRefresh: true),
-      child: CustomScrollView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.68, // 🟢 Légèrement ajusté pour éviter le débordement du texte sur les petits écrans
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  return EventCard(
-                    event: _events[index],
-                    isCompact: true, // 🟢 Souvent préférable dans une grille à 2 colonnes
-                    onTap: () => context.push('/thix-event/event/${_events[index].id}'),
-                  );
-                },
-                childCount: _events.length,
-              ),
-            ),
-          ),
-          if (_isLoadingMore)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 24.0),
-                child: Center(
-                  child: CircularProgressIndicator(color: _ThixColors.primary, strokeWidth: 3),
-                ),
-              ),
-            ),
-          const SliverToBoxAdapter(child: SizedBox(height: 40)), 
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState() {
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), shape: BoxShape.circle),
-                    child: const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.red),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _errorMessage!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: _ThixColors.mutedText, fontSize: 14, height: 1.5, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () => _loadEvents(),
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('Réessayer', style: TextStyle(fontWeight: FontWeight.w800)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _ThixColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                      elevation: 0,
+      backgroundColor: _ThixColors.bg,
+      appBar: _appBar(),
+      body: _loading
+         ? const Center(child: CircularProgressIndicator(color: _ThixColors.primary))
+          : _error!= null
+             ? _errorState()
+              : _events.isEmpty
+                 ? _emptyState()
+                  : RefreshIndicator(
+                      color: _ThixColors.primary,
+                      backgroundColor: _ThixColors.surface,
+                      onRefresh: () => _load(refresh: true),
+                      child: CustomScrollView(
+                        controller: _scroll,
+                        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                        slivers: [
+                          SliverPadding(
+                            padding: const EdgeInsets.all(16),
+                            sliver: SliverGrid(
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: 0.68),
+                              delegate: SliverChildBuilderDelegate((_, i) => _card(_events[i]), childCount: _events.length),
+                            ),
+                          ),
+                          if (_loadingMore) const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: _ThixColors.primary))))),
+                          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
-  Widget _buildEmptyState() {
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(color: _ThixColors.primary.withOpacity(0.05), shape: BoxShape.circle),
-                  child: Icon(Icons.local_activity_outlined, size: 64, color: _ThixColors.primary.withOpacity(0.5)),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Aucun événement trouvé',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ThixColors.darkText),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Il n\'y a pas encore d\'événements\ndans cette catégorie pour le moment.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: _ThixColors.mutedText, height: 1.5),
-                ),
-                const SizedBox(height: 32),
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.pop(context), // 🟢 Retour facile pour l'utilisateur
-                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                  label: const Text('Retour', style: TextStyle(fontWeight: FontWeight.w800)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _ThixColors.primary,
-                    side: const BorderSide(color: _ThixColors.primary, width: 1.5),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  ),
-                ),
-              ],
-            ),
+  PreferredSizeWidget _appBar() {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(52),
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: AppBar(
+            backgroundColor: _ThixColors.bg.withOpacity(0.85),
+            elevation: 0,
+            leading: Padding(padding: const EdgeInsets.all(8), child: InkWell(onTap: () => context.pop(), borderRadius: BorderRadius.circular(20), child: Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), shape: BoxShape.circle, border: Border.all(color: _ThixColors.cardBorder)), child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 18)))),
+            title: Text(_names[widget.category.toLowerCase()]?? widget.category.toUpperCase(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+            centerTitle: true,
           ),
         ),
-      ],
+      ),
     );
   }
+
+  Widget _card(Event event) {
+    return GestureDetector(
+      onTap: () => context.push('/thix-event/event/${event.id}'),
+      child: Container(
+        decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: _ThixColors.cardBorder)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Stack(children: [
+            AspectRatio(aspectRatio: 1.25, child: Image.network(event.imageUrl?? '', fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _ThixColors.surfaceAlt))),
+            Positioned(right: 8, top: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.black.withOpacity(0.45), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.12))), child: Text(event.formattedPrice, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)))),
+          ]),
+          Expanded(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(event.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white, height: 1.2)),
+            const Spacer(),
+            Row(children: [Container(height: 26, width: 26, decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), shape: BoxShape.circle, border: Border.all(color: _ThixColors.cardBorder)), child: const Icon(Icons.arrow_outward_rounded, color: Colors.white, size: 12)), const SizedBox(width: 6), const Expanded(child: Text('Réserver', style: TextStyle(fontSize: 10, color: _ThixColors.textSecondary, fontWeight: FontWeight.w700)))]),
+          ]))),
+        ]),
+      ),
+    );
+  }
+
+  Widget _errorState() => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.wifi_off_rounded, color: Colors.red)), const SizedBox(height: 14), Text(_error!, style: const TextStyle(color: _ThixColors.textSecondary, fontSize: 13)), const SizedBox(height: 16), ElevatedButton(onPressed: () => _load(), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))), child: const Text('Réessayer', style: TextStyle(fontWeight: FontWeight.w800)))]));
+  Widget _emptyState() => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: _ThixColors.surface, shape: BoxShape.circle, border: Border.all(color: _ThixColors.cardBorder)), child: Icon(Icons.local_activity_outlined, size: 40, color: Colors.white.withOpacity(0.3))), const SizedBox(height: 16), const Text('Aucun événement', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)), const SizedBox(height: 6), const Text('Pas encore d\'événements\ndans cette catégorie', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: _ThixColors.textMuted)), const SizedBox(height: 20), OutlinedButton(onPressed: () => context.pop(), style: OutlinedButton.styleFrom(side: const BorderSide(color: _ThixColors.cardBorderStrong), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))), child: const Text('Retour', style: TextStyle(color: Colors.white)))]));
 }
