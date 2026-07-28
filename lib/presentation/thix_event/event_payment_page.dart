@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/event_payment_provider.dart';
+// L'IMPORT MANQUANT QUI CAUSAIT LE PROBLÈME :
+import '../../services/event_payment_service.dart';
 
 class _ThixColors {
   static const bg = Color(0xFF050508);
@@ -16,8 +18,8 @@ class _ThixColors {
   static const textSecondary = Color(0x99FFFFFF);
 }
 
-// CORRECTION : Initialisation correcte du Provider avec le client Supabase
-final _paymentProvider = Provider<EventPaymentProvider>((ref) => EventPaymentProvider(Supabase.instance.client));
+// CORRECTION : On instancie correctement le Service, qui est maintenant bien importé
+final _paymentProvider = Provider<EventPaymentProvider>((ref) => EventPaymentProvider(EventPaymentService(Supabase.instance.client)));
 
 class EventPaymentPage extends ConsumerStatefulWidget {
   final String bookingId;
