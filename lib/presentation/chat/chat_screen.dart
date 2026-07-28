@@ -11,7 +11,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:provider/provider.dart'; // Import ajouté pour CallProvider
 
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
@@ -54,6 +53,9 @@ final presenceServiceProvider = Provider((ref) => PresenceService(Supabase.insta
 final audioServiceProvider = Provider((ref) => AudioService(Supabase.instance.client));
 final groupServiceProvider = Provider((ref) => GroupService(Supabase.instance.client));
 final connectionServiceProvider = Provider((ref) => ConnectionService());
+
+// ── BASCULE TOTALE EN RIVERPOD MODERNE POUR LES APPELS ──
+// (Si CallNotifier est un StateNotifier / Notifier, adapter selon son implémentation d'origine, ici on utilise ref.read(callProvider.notifier))
 
 final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
   return ChatMsgNotifier(ref.read(chatServiceProvider), conversationId);
@@ -260,9 +262,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final svc = ref.read(chatServiceProvider);
     final otherId = widget.conversation.participantIds.firstWhere((id) => id != svc.currentUserId, orElse: () => '');
     
-    // Utilisation de Provider.of avec l'import de provider
-    final callProv = Provider.of<CallProvider>(context, listen: false);
-    callProv.start(channel: widget.conversationId, calleeId: otherId, callType: type);
+    // ── BASCULE TOTALE EN RIVERPOD (ref.read au lieu de Provider.of) ──
+    ref.read(callProvider.notifier).start(channel: widget.conversationId, calleeId: otherId, callType: type);
     
     Navigator.push(
       context, 
@@ -318,21 +319,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     }
   }
 
-  void _showEphemeralTimerDialog() { 
-    // Implémentation de ton bottomSheet
-  }
-  
-  void _showPasswordProtectDialog() { 
-    // Implémentation de ta boîte de dialogue
-  }
-  
-  void _showAttachmentMenu() { 
-    // Implémentation de ta boîte de dialogue
-  }
-  
-  Future<void> _pickFile({FileType type = FileType.any}) async { 
-    // Implémentation de ton sélecteur de fichiers
-  }
+  void _showEphemeralTimerDialog() {}
+  void _showPasswordProtectDialog() {}
+  void _showAttachmentMenu() {}
+  Future<void> _pickFile({FileType type = FileType.any}) async {}
 
   @override
   Widget build(BuildContext context) {
