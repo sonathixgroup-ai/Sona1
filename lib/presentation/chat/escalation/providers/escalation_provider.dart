@@ -1,16 +1,12 @@
-// ============================================================
-// Riverpod Moderne - Scalable Millions - White Enterprise
-// ============================================================
+// lib/presentation/chat/escalation/providers/escalation_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/escalation_step.dart';
 import '../models/escalation_level.dart';
 import '../models/escalation_priority.dart';
 import '../services/escalation_service.dart';
 
-// Service
 final escalationServiceProvider = Provider<EscalationService>((ref) => EscalationService());
 
-// State immuable
 class EscalationState {
   final List<EscalationStep> pending;
   final List<EscalationStep> history;
@@ -39,15 +35,17 @@ class EscalationState {
     bool? hasMorePending,
     bool? hasMoreHistory,
     bool clearError = false,
-  }) => EscalationState(
-    pending: pending?? this.pending,
-    history: history?? this.history,
-    isLoading: isLoading?? this.isLoading,
-    isLoadingMore: isLoadingMore?? this.isLoadingMore,
-    error: clearError? null : (error?? this.error),
-    hasMorePending: hasMorePending?? this.hasMorePending,
-    hasMoreHistory: hasMoreHistory?? this.hasMoreHistory,
-  );
+  }) {
+    return EscalationState(
+      pending: pending ?? this.pending,
+      history: history ?? this.history,
+      isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      error: clearError ? null : (error ?? this.error),
+      hasMorePending: hasMorePending ?? this.hasMorePending,
+      hasMoreHistory: hasMoreHistory ?? this.hasMoreHistory,
+    );
+  }
 }
 
 class EscalationNotifier extends Notifier<EscalationState> {
@@ -60,15 +58,25 @@ class EscalationNotifier extends Notifier<EscalationState> {
   @override
   EscalationState build() => const EscalationState();
 
-  // PENDING
   Future<void> loadPending(String agentId, EscalationLevel level, {bool refresh = true}) async {
-    if (refresh) { _pendingPage = 0; state = state.copyWith(pending: [], hasMorePending: true, clearError: true); }
+    if (refresh) { 
+      _pendingPage = 0; 
+      state = state.copyWith(pending: [], hasMorePending: true, clearError: true); 
+    }
     if (!state.hasMorePending) return;
-    state = refresh? state.copyWith(isLoading: true) : state.copyWith(isLoadingMore: true);
+    
+    state = refresh ? state.copyWith(isLoading: true) : state.copyWith(isLoadingMore: true);
+    
     try {
-      final list = await _service.getPendingEscalations(agentId, level, limit: _limit, offset: _pendingPage * _limit);
+      final List<EscalationStep> list = await _service.getPendingEscalations(
+        agentId, 
+        level, 
+        limit: _limit, 
+        offset: _pendingPage * _limit
+      );
+      
       state = state.copyWith(
-        pending: refresh? list : [...state.pending,...list],
+        pending: refresh ? list : [...state.pending, ...list],
         hasMorePending: list.length == _limit,
         isLoading: false,
         isLoadingMore: false,
@@ -79,15 +87,24 @@ class EscalationNotifier extends Notifier<EscalationState> {
     }
   }
 
-  // HISTORY
   Future<void> loadHistory(String conversationId, {bool refresh = true}) async {
-    if (refresh) { _historyPage = 0; state = state.copyWith(history: [], hasMoreHistory: true, clearError: true); }
+    if (refresh) { 
+      _historyPage = 0; 
+      state = state.copyWith(history: [], hasMoreHistory: true, clearError: true); 
+    }
     if (!state.hasMoreHistory) return;
-    state = refresh? state.copyWith(isLoading: true) : state.copyWith(isLoadingMore: true);
+    
+    state = refresh ? state.copyWith(isLoading: true) : state.copyWith(isLoadingMore: true);
+    
     try {
-      final list = await _service.getEscalationHistory(conversationId, limit: _limit, offset: _historyPage * _limit);
+      final List<EscalationStep> list = await _service.getEscalationHistory(
+        conversationId, 
+        limit: _limit, 
+        offset: _historyPage * _limit
+      );
+      
       state = state.copyWith(
-        history: refresh? list : [...state.history,...list],
+        history: refresh ? list : [...state.history, ...list],
         hasMoreHistory: list.length == _limit,
         isLoading: false,
         isLoadingMore: false,
@@ -120,7 +137,7 @@ class EscalationNotifier extends Notifier<EscalationState> {
         comment: comment,
         fromAgentName: fromAgentName,
       );
-      state = state.copyWith(pending: [step,...state.pending], isLoading: false);
+      state = state.copyWith(pending: [step, ...state.pending], isLoading: false);
       return step;
     } catch (e) {
       state = state.copyWith(error: e.toString(), isLoading: false);
@@ -133,8 +150,8 @@ class EscalationNotifier extends Notifier<EscalationState> {
     try {
       final step = await _service.acceptEscalation(escalationId, agentId);
       state = state.copyWith(
-        pending: state.pending.where((s) => s.id!= escalationId).toList(),
-        history: [step,...state.history],
+        pending: state.pending.where((s) => s.id != escalationId).toList(),
+        history: [step, ...state.history],
         isLoading: false,
       );
       return step;
@@ -148,7 +165,10 @@ class EscalationNotifier extends Notifier<EscalationState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final step = await _service.rejectEscalation(escalationId, reason);
-      state = state.copyWith(pending: state.pending.where((s) => s.id!= escalationId).toList(), isLoading: false);
+      state = state.copyWith(
+        pending: state.pending.where((s) => s.id != escalationId).toList(), 
+        isLoading: false
+      );
       return step;
     } catch (e) {
       state = state.copyWith(error: e.toString(), isLoading: false);
@@ -162,7 +182,11 @@ class EscalationNotifier extends Notifier<EscalationState> {
       final step = await _service.resolveEscalation(escalationId);
       final idx = state.history.indexWhere((s) => s.id == escalationId);
       final newHistory = [...state.history];
-      if (idx!= -1) newHistory[idx] = step; else newHistory.insert(0, step);
+      if (idx != -1) {
+        newHistory[idx] = step;
+      } else {
+        newHistory.insert(0, step);
+      }
       state = state.copyWith(history: newHistory, isLoading: false);
       return step;
     } catch (e) {
@@ -175,8 +199,3 @@ class EscalationNotifier extends Notifier<EscalationState> {
 }
 
 final escalationProvider = NotifierProvider<EscalationNotifier, EscalationState>(EscalationNotifier.new);
-
-// Helpers selects - perf millions
-final pendingEscalationsProvider = Provider<List<EscalationStep>>((ref) => ref.watch(escalationProvider).pending);
-final escalationHistoryProvider = Provider<List<EscalationStep>>((ref) => ref.watch(escalationProvider).history);
-final escalationLoadingProvider = Provider<bool>((ref) => ref.watch(escalationProvider).isLoading);
