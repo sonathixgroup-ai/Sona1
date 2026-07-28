@@ -15,7 +15,8 @@ class _ThixColors {
   static const textSecondary = Color(0x99FFFFFF);
 }
 
-final _paymentProvider = Provider<EventPaymentProvider>((ref) => EventPaymentProvider(Supabase.instance.client));
+final _paymentProvider = Provider<EventPaymentProvider>((ref) => EventPaymentProvider(EventPaymentService(Supabase.instance.client)));
+
 
 class EventPaymentPage extends ConsumerStatefulWidget {
   final String bookingId;
