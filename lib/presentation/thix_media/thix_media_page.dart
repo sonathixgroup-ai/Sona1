@@ -49,7 +49,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  
+
   final List<String> _filters = ["Accueil", "Tendances", "NOVA Originals", "Live", "Courts", "Musique", "Gaming", "Formation"];
 
   @override
@@ -152,7 +152,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                                   const SizedBox(height: 20),
                                   _buildRow(
                                     title: 'Continuer à regarder',
-                                    subtitle: 'Reprise intelligente • AV1',
+                                    subtitle: 'Reprise intelligente',
                                     provider: recommendationsProvider,
                                     aspectRatio: 16 / 9,
                                     height: 180,
@@ -162,7 +162,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                                   const SizedBox(height: 40),
                                   _buildRow(
                                     title: 'THIX Originals Exclusifs',
-                                    subtitle: 'Produit par THIX Studios • 4K',
+                                    subtitle: 'Produit par THIX Studios',
                                     provider: newReleasesProvider,
                                     aspectRatio: 2 / 3,
                                     height: 240,
@@ -172,7 +172,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                                   const SizedBox(height: 40),
                                   _buildRow(
                                     title: 'Top 10 cette semaine',
-                                    subtitle: 'Classement mondial',
+                                    subtitle: 'Classement',
                                     provider: trendingProvider,
                                     aspectRatio: 16 / 9,
                                     height: 160,
@@ -182,7 +182,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                                   const SizedBox(height: 40),
                                   _buildRow(
                                     title: 'Courts',
-                                    subtitle: '9:16 • Swipe vertical',
+                                    subtitle: 'Swipe vertical',
                                     provider: upcomingProvider,
                                     aspectRatio: 9 / 16,
                                     height: 260,
@@ -220,6 +220,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
+  // ---------------- Header compact (tout rentre à l'intérieur) ----------------
   Widget _header() {
     final isAdminAsync = ref.watch(isMediaAdminProvider);
     final isAdmin = isAdminAsync.valueOrNull ?? false;
@@ -228,8 +229,8 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
-          height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.7),
             border: const Border(bottom: BorderSide(color: kBorderLight)),
@@ -237,62 +238,76 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
           child: Row(
             children: [
               Container(
-                width: 32, height: 32,
-                decoration: BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(9), boxShadow: [BoxShadow(color: kRed.withOpacity(0.4), blurRadius: 24)]),
-                child: Center(child: Transform.rotate(angle: 0.785, child: Container(width: 10, height: 10, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2))))),
+                width: 26, height: 26,
+                decoration: BoxDecoration(
+                  color: kRed,
+                  borderRadius: BorderRadius.circular(7),
+                  boxShadow: [BoxShadow(color: kRed.withOpacity(0.4), blurRadius: 16)],
+                ),
+                child: Center(
+                  child: Transform.rotate(
+                    angle: 0.785,
+                    child: Container(width: 8, height: 8, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2))),
+                  ),
+                ),
               ),
+              const SizedBox(width: 7),
+              const Text('THIX', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.7)),
               const SizedBox(width: 10),
-              const Text('THIX', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -1)),
-              const Spacer(),
               Expanded(
-                flex: 2,
                 child: Container(
-                  height: 42,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(color: const Color(0xFF0D0D10), borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.white.withOpacity(0.08))),
+                  height: 34,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(color: const Color(0xFF0D0D10), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.08))),
                   child: Row(
                     children: [
-                      const Icon(Icons.search_rounded, color: Colors.white30, size: 18),
-                      const SizedBox(width: 10),
+                      const Icon(Icons.search_rounded, color: Colors.white30, size: 15),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: TextField(
                           controller: _searchController,
                           focusNode: _searchFocusNode,
                           onChanged: _onSearchChanged,
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
-                          decoration: const InputDecoration(hintText: "Rechercher, demander à l'IA...", hintStyle: TextStyle(color: Colors.white30, fontSize: 14), border: InputBorder.none, isDense: true),
+                          style: const TextStyle(color: Colors.white, fontSize: 12.5),
+                          decoration: const InputDecoration(
+                            hintText: "Rechercher...",
+                            hintStyle: TextStyle(color: Colors.white30, fontSize: 12.5),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               if (isAdmin) ...[
                 GestureDetector(
                   onTap: () => context.push('/admin/media'),
                   child: Container(
-                    width: 36, height: 36,
+                    width: 28, height: 28,
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle, 
+                      shape: BoxShape.circle,
                       color: kRed.withOpacity(0.15),
                       border: Border.all(color: kRed.withOpacity(0.3)),
                     ),
-                    child: const Icon(Icons.admin_panel_settings_rounded, color: kRed, size: 18),
+                    child: const Icon(Icons.admin_panel_settings_rounded, color: kRed, size: 14),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
               ],
               Container(
-                width: 36, height: 36,
+                width: 28, height: 28,
                 decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white10),
-                child: const Icon(Icons.notifications_none_rounded, color: Colors.white70, size: 20),
+                child: const Icon(Icons.notifications_none_rounded, color: Colors.white70, size: 15),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.black, width: 2), gradient: const LinearGradient(colors: [kRed, Color(0xFFFF8A00)])),
-                child: const Icon(Icons.person, color: Colors.white, size: 20),
+                width: 28, height: 28,
+                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.black, width: 1.5), gradient: const LinearGradient(colors: [kRed, Color(0xFFFF8A00)])),
+                child: const Icon(Icons.person, color: Colors.white, size: 15),
               ),
             ],
           ),
@@ -307,33 +322,33 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           color: kBg.withOpacity(0.8),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: _filters.map((filter) {
                 final isSelected = selectedCategory == filter;
                 return Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.only(right: 7),
                   child: GestureDetector(
                     onTap: () {
                       ref.read(selectedCategoryProvider.notifier).state = filter;
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
                       decoration: BoxDecoration(
                         color: isSelected ? Colors.white : Colors.white.withOpacity(0.06),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(18),
                         border: Border.all(color: isSelected ? Colors.white : kBorderLight),
-                        boxShadow: isSelected ? [BoxShadow(color: Colors.white.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 2))] : [],
+                        boxShadow: isSelected ? [BoxShadow(color: Colors.white.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 2))] : [],
                       ),
                       child: Text(
                         filter,
                         style: TextStyle(
                           color: isSelected ? Colors.black : Colors.white60,
-                          fontSize: 13,
+                          fontSize: 11.5,
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                         ),
                       ),
@@ -357,6 +372,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         itemCount: bannerItems.length,
         itemBuilder: (context, idx) {
           final item = bannerItems[idx];
+          final hasSubtitle = item.subtitle != null && item.subtitle!.isNotEmpty;
+          final hasYear = item.year != null;
+
           return Stack(
             fit: StackFit.expand,
             children: [
@@ -368,55 +386,41 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(width: 6, height: 6, decoration: const BoxDecoration(color: kRed, shape: BoxShape.circle)),
-                          const SizedBox(width: 8),
-                          const Text("N°1 AUJOURD'HUI • ORIGINAL", style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(item.title.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 56, fontWeight: FontWeight.w900, height: 0.9, letterSpacing: -2)),
-                    const SizedBox(height: 20),
+                    Text(item.title.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w900, height: 0.9, letterSpacing: -2)),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
-                        const Text("98% Match", style: TextStyle(color: kGreen, fontSize: 13, fontWeight: FontWeight.w600)),
-                        const SizedBox(width: 12),
-                        Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white10)), child: const Text("4K DOLBY", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))),
-                        const SizedBox(width: 12),
-                        Text("${item.year ?? '2026'} • ${item.type}", style: const TextStyle(color: Colors.white54, fontSize: 13)),
+                        if (hasYear) ...[
+                          Text("${item.year}", style: const TextStyle(color: Colors.white54, fontSize: 13)),
+                          const SizedBox(width: 10),
+                        ],
+                        Text(item.type, style: const TextStyle(color: Colors.white54, fontSize: 13)),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    // Utilisation sécurisée du subtitle (sous-titre du modèle MediaContent)
-                    Text(
-                      (item.subtitle != null && item.subtitle!.isNotEmpty) 
-                          ? item.subtitle! 
-                          : "Découvrez ce contenu exclusif disponible dès maintenant sur THIX MEDIA.",
-                      style: const TextStyle(color: Colors.white70, fontSize: 14.5, height: 1.5),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 28),
+                    if (hasSubtitle) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        item.subtitle!,
+                        style: const TextStyle(color: Colors.white70, fontSize: 14.5, height: 1.5),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 24),
                     Row(
                       children: [
                         ElevatedButton.icon(
                           onPressed: () => _navigateToVideo(item),
-                          icon: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 24),
-                          label: const Text('Lecture', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                          icon: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 22),
+                          label: const Text('Lecture', style: TextStyle(color: Colors.black, fontSize: 15, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 13), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28))),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         ElevatedButton.icon(
                           onPressed: () {},
-                          icon: const Icon(Icons.add, color: Colors.white, size: 24),
-                          label: const Text('Ma Liste', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.1), padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)), side: BorderSide(color: Colors.white.withOpacity(0.1))),
+                          icon: const Icon(Icons.add, color: Colors.white, size: 22),
+                          label: const Text('Ma Liste', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.1), padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)), side: BorderSide(color: Colors.white.withOpacity(0.1))),
                         ),
                       ],
                     ),
@@ -481,8 +485,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                 children: [
                   _buildImage(item.coverUrl),
                   Container(decoration: BoxDecoration(color: Colors.black.withOpacity(0.3))),
-                  const Center(child: Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 48)),
-                  Positioned(bottom: 0, left: 0, right: 0, child: LinearProgressIndicator(value: 0.6, backgroundColor: Colors.white24, valueColor: const AlwaysStoppedAnimation<Color>(kRed), minHeight: 4)),
+                  const Center(child: Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 44)),
                 ],
               ),
             ),
@@ -495,6 +498,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   }
 
   Widget _originalCard(MediaContent item) {
+    final hasYear = item.year != null;
     return GestureDetector(
       onTap: () => _navigateToVideo(item),
       child: ClipRRect(
@@ -504,8 +508,19 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
           children: [
             _buildImage(item.coverUrl),
             Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.9), Colors.transparent]))),
-            Positioned(top: 10, left: 10, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(4), boxShadow: [BoxShadow(color: kRed.withOpacity(0.5), blurRadius: 8)]), child: const Text("ORIGINAL", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)))),
-            Positioned(bottom: 12, left: 12, right: 12, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text("${item.year ?? 2026} • 98% Match", style: const TextStyle(color: Colors.white54, fontSize: 11))])),
+            Positioned(
+              bottom: 12, left: 12, right: 12,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                  if (hasYear) ...[
+                    const SizedBox(height: 4),
+                    Text("${item.year}", style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -552,7 +567,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
             _buildImage(item.coverUrl),
             Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.8), Colors.transparent]))),
             Positioned(bottom: 12, left: 12, right: 12, child: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
-            const Positioned(top: 10, right: 10, child: Icon(Icons.open_in_new_rounded, color: Colors.white, size: 16)),
           ],
         ),
       ),
