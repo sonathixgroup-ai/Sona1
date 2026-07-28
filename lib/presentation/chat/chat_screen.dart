@@ -11,7 +11,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
@@ -148,11 +147,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   bool _otherUserTyping = false;
   bool _isSending = false;
   
+  // NOUVEAU : Liste des fichiers sélectionnés en attente d'envoi
+  List<PlatformFile> _selectedFiles = [];
+  
   Timer? _typingTimer;
   RealtimeChannel? _typingChannel;
   bool _isAgent = false;
   bool _isInternalNoteMode = false;
   StreamSubscription<List<ChatMessage>>? _messageSub;
+
+  static const List<String> _stickers = [
+    '😀','😃','😄','😁','😆','😅','😂','🤣','🥲','🥹','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','🤩','🥳','🤗','🤔','🤭','🤫','🤥','😏','😒','🙄','😬','😮‍💨','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','😵','🤯','🥴','😵‍💫','🤠','🥸',
+    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💝','💘','💌','💋','💟','❤️‍🔥','❤️‍🩹','💯','🔥','⭐','🌟','💫','✨','💥','💫','🎉','🎊','🎈','🎁','🏆','🥇','🥈','🥉','🏅',
+    '👍','👎','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐️','🖖','👋','✍️','🙏','💪','🦾','👂','👀','👁️','👅','👄','🧠','🫀',
+    '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐽','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🐈','🐓','🦃','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦦','🦥','🐁','🐀','🐿️','🦔',
+    '🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🌮','🌯','🥗','🥘','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','☕','🍵','🧃','🥤','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🍾',
+  ];
 
   @override
   void initState() {
@@ -281,9 +291,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty || _isSending) return;
+    if (text.isEmpty && _selectedFiles.isEmpty) return;
+    if (_isSending) return;
+    
     final svc = ref.read(chatServiceProvider);
     
+    // Vérification de connexion (amis)
     if (!widget.conversation.isGroup && !_isInternalNoteMode) {
       final cur = svc.currentUserId;
       if (cur != null) {
@@ -291,7 +304,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         if (otherId.isNotEmpty) {
           final ok = await ref.read(connectionServiceProvider).checkConnection(cur, otherId);
           if (!ok) {
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vous devez être connecté'), backgroundColor: _C.orange));
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vous devez être connecté pour interagir'), backgroundColor: _C.orange));
             return;
           }
         }
@@ -303,16 +316,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     setState(() => _isSending = true);
     
     try {
-      // CORRECTION : isInternalNote supprimé ici !
-      final msg = await svc.sendMessage(
-        conversationId: widget.conversationId, 
-        content: text, 
-        replyToId: _replyToId.isEmpty ? null : _replyToId, 
-        isEphemeral: _isEphemeral, 
-        ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
-      );
-      
-      ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
+      // 1. ENVOI DES FICHIERS SÉLECTIONNÉS (Envoi multiple)
+      if (_selectedFiles.isNotEmpty) {
+        final filesToSend = List<PlatformFile>.from(_selectedFiles);
+        setState(() { _selectedFiles.clear(); }); // On vide la preview immédiatement
+        
+        for (var f in filesToSend) {
+          final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
+          if (bytes == null) continue;
+          
+          final ext = f.extension ?? 'jpg';
+          final url = await svc.uploadFileWithUniqueName('chat-media', 'messages/${widget.conversationId}', Uint8List.fromList(bytes), ext);
+          
+          if (url != null) {
+            final msg = await svc.sendMessage(
+              conversationId: widget.conversationId,
+              content: f.name, // Nom par défaut du fichier
+              mediaUrl: url,
+              mediaType: _getMediaType(ext),
+              mediaName: f.name,
+              mediaSize: f.size,
+              isEphemeral: _isEphemeral,
+              ephemeralDuration: _ephemeralDuration,
+              replyToId: _replyToId.isEmpty ? null : _replyToId
+            );
+            ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
+          }
+        }
+      }
+
+      // 2. ENVOI DU TEXTE (Si on n'avait pas seulement des fichiers)
+      if (text.isNotEmpty && !text.startsWith('📎')) {
+        final msg = await svc.sendMessage(
+          conversationId: widget.conversationId, 
+          content: text, 
+          replyToId: _replyToId.isEmpty ? null : _replyToId, 
+          isEphemeral: _isEphemeral, 
+          ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
+        );
+        ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
+      }
       
       if (mounted) {
         setState(() { 
@@ -334,6 +377,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   // =======================================================================
   // UI DES FONCTIONNALITÉS (Ephémère, Protégé, Audio, Pièces jointes)
   // =======================================================================
+
+  void _showStickerPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.5, maxChildSize: 0.9, minChildSize: 0.3, expand: false,
+        builder: (_, sc) => Column(
+          children: [
+            const SizedBox(height: 12), 
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(4))),
+            const Padding(padding: EdgeInsets.all(16), child: Text('Stickers', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+            Expanded(
+              child: GridView.builder(
+                controller: sc, padding: const EdgeInsets.all(12),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8, crossAxisSpacing: 6, mainAxisSpacing: 6),
+                itemCount: _stickers.length,
+                itemBuilder: (_, i) => InkWell(
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    // Ajoute l'emoji dans le champ de texte
+                    _inputController.text += _stickers[i];
+                  },
+                  child: Center(child: Text(_stickers[i], style: const TextStyle(fontSize: 26)))
+                )
+              )
+            ),
+          ]
+        )
+      )
+    );
+  }
 
   void _showEphemeralTimerDialog() {
     final customCtrl = TextEditingController();
@@ -511,20 +588,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           children: [
             const SizedBox(height: 12), 
             Container(width: 40, height: 4, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(4))),
-            const Padding(padding: EdgeInsets.all(16), child: Row(children: [Icon(Icons.attach_file_rounded, color: _C.primary), SizedBox(width: 10), Text('Envoyer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))])),
+            const Padding(padding: EdgeInsets.all(16), child: Row(children: [Icon(Icons.attach_file_rounded, color: _C.primary), SizedBox(width: 10), Text('Envoyer (Multiples autorisés)', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))])),
             ListTile(
               leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _C.gold.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.image_rounded, color: _C.gold)), 
-              title: const Text('Photo'), 
+              title: const Text('Photo(s)'), 
               onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.image); }
             ),
             ListTile(
               leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _C.primary.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.videocam_rounded, color: _C.primary)), 
-              title: const Text('Vidéo'), 
+              title: const Text('Vidéo(s)'), 
               onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.video); }
             ),
             ListTile(
               leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _C.textMain.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.insert_drive_file_rounded, color: _C.textMain)), 
-              title: const Text('Document'), 
+              title: const Text('Document(s)'), 
               onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.any); }
             ),
             const SizedBox(height: 12),
@@ -536,33 +613,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   Future<void> _pickFile({FileType type = FileType.any}) async {
     try {
-      final result = await FilePicker.platform.pickFiles(allowMultiple: false, type: type, withData: true);
-      if (result == null || result.files.isEmpty) return;
-      final f = result.files.first; 
-      final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null); 
-      if (bytes == null) return;
-      
-      final ext = f.extension ?? 'jpg'; 
-      final size = f.size;
-      final url = await ref.read(chatServiceProvider).uploadFileWithUniqueName('chat-media', 'messages/${widget.conversationId}', Uint8List.fromList(bytes), ext);
-      
-      if (url != null) { 
-        final msg = await ref.read(chatServiceProvider).sendMessage(
-          conversationId: widget.conversationId, 
-          content: f.name, 
-          mediaUrl: url, 
-          mediaType: _getMediaType(ext), 
-          mediaName: f.name, 
-          mediaSize: size, 
-          isEphemeral: _isEphemeral, 
-          ephemeralDuration: _ephemeralDuration
-        ); 
-        ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
-        _scrollToBottom(); 
+      // allowMultiple est activé
+      final result = await FilePicker.platform.pickFiles(allowMultiple: true, type: type, withData: true);
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _selectedFiles.addAll(result.files);
+          // Si on sélectionne un fichier, on ajoute un espace visuel invisible ou un repère pour tromper la validation "vide"
+          if (_inputController.text.trim().isEmpty) {
+            _inputController.text = '📎 ${_selectedFiles.length} fichier(s)';
+          }
+        });
       }
     } catch (e) { 
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur fichier: $e'), backgroundColor: _C.red)); 
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur de sélection : $e'), backgroundColor: _C.red)); 
     }
+  }
+
+  void _removeFile(int index) {
+    setState(() {
+      _selectedFiles.removeAt(index);
+      if (_selectedFiles.isEmpty && _inputController.text.startsWith('📎')) {
+        _inputController.clear();
+      } else if (_selectedFiles.isNotEmpty && _inputController.text.startsWith('📎')) {
+        _inputController.text = '📎 ${_selectedFiles.length} fichier(s)';
+      }
+    });
   }
   
   String _getMediaType(String ext) { 
@@ -608,12 +683,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               child: widget.conversation.isGroup
                 ? const Icon(Icons.groups_rounded, color: _C.textMuted) 
                 : ClipOval(
-                    child: CachedNetworkImage(
-                      imageUrl: widget.conversation.displayAvatar ?? 'https://i.pravatar.cc/150?img=11', 
+                    child: Image.network( // Remplacé CachedNetworkImage
+                      widget.conversation.displayAvatar ?? 'https://i.pravatar.cc/150?img=11', 
                       width: 40, 
                       height: 40, 
                       fit: BoxFit.cover,
-                      errorWidget: (context, error, stackTrace) => const Icon(Icons.person, color: _C.textMuted),
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: _C.textMuted),
                     )
                   )
             ),
@@ -735,6 +810,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                   ]
                 )
               ),
+
+            // PREVIEW DES FICHIERS SELECTIONNES
+            if (_selectedFiles.isNotEmpty)
+              Container(
+                height: 90,
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: _C.border))),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _selectedFiles.length,
+                  itemBuilder: (ctx, i) {
+                    final f = _selectedFiles[i];
+                    final ext = f.extension?.toLowerCase() ?? '';
+                    final isImg = ['jpg', 'jpeg', 'png', 'webp'].contains(ext);
+                    
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 70,
+                          margin: const EdgeInsets.only(right: 12),
+                          decoration: BoxDecoration(color: _C.surfaceAlt, borderRadius: BorderRadius.circular(10), border: Border.all(color: _C.border)),
+                          clipBehavior: Clip.hardEdge,
+                          child: isImg && f.bytes != null 
+                            ? Image.memory(f.bytes!, fit: BoxFit.cover)
+                            : Center(child: Icon(Icons.insert_drive_file_rounded, color: _C.primary, size: 28)),
+                        ),
+                        Positioned(
+                          top: -4, right: 4,
+                          child: GestureDetector(
+                            onTap: () => _removeFile(i),
+                            child: const CircleAvatar(radius: 12, backgroundColor: Colors.black87, child: Icon(Icons.close, size: 14, color: Colors.white))
+                          )
+                        )
+                      ],
+                    );
+                  }
+                ),
+              ),
               
             ChatInputBar(
               controller: _inputController, 
@@ -748,6 +863,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               isEphemeral: _isEphemeral, 
               onTyping: _onTypingChanged, 
               onInternalNoteToggle: _isAgent ? _toggleInternalNoteMode : null, 
+              onStickerTap: _showStickerPicker, // Connexion du sticker
               isInternalNote: _isInternalNoteMode
             ),
           ]
