@@ -1,7 +1,7 @@
 // lib/presentation/admin/pages/admin_events_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as legacy_provider;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../providers/event_provider.dart';
@@ -15,7 +15,7 @@ class AdminEventsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
+    return legacy_provider.ChangeNotifierProvider<EventProvider>(
       create: (_) => EventProvider(EventService(Supabase.instance.client)),
       child: const AdminEventsDashboard(),
     );
