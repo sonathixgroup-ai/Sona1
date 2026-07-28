@@ -1,278 +1,117 @@
-// lib/presentation/thix_event/event_payment_page.dart
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../../providers/event_payment_provider.dart';
 
 class _ThixColors {
-  static const Color primary = Color(0xFF6B3CE2);
-  static const Color lightBg = Color(0xFFF8F9FA);
-  static const Color darkText = Color(0xFF1E1B4B);
-  static const Color mutedText = Color(0xFF8B8BA7);
+  static const bg = Color(0xFF050508);
+  static const surface = Color(0xFF0C0C12);
+  static const surfaceAlt = Color(0xFF111118);
+  static const cardBorder = Color(0x14FFFFFF);
+  static const cardBorderStrong = Color(0x26FFFFFF);
+  static const primary = Color(0xFFFF0A54);
+  static const textSecondary = Color(0x99FFFFFF);
+  static const textMuted = Color(0x66FFFFFF);
 }
 
-class EventPaymentPage extends StatefulWidget {
+final _paymentProvider = Provider<EventPaymentProvider>((ref) => EventPaymentProvider(Supabase.instance.client));
+
+class EventPaymentPage extends ConsumerStatefulWidget {
   final String bookingId;
   final double amount;
   final String currency;
-
-  const EventPaymentPage({
-    super.key,
-    required this.bookingId,
-    required this.amount,
-    required this.currency,
-  });
-
+  const EventPaymentPage({super.key, required this.bookingId, required this.amount, required this.currency});
   @override
-  State<EventPaymentPage> createState() => _EventPaymentPageState();
+  ConsumerState<EventPaymentPage> createState() => _EventPaymentPageState();
 }
 
-class _EventPaymentPageState extends State<EventPaymentPage> {
-  String _selectedMethod = 'airtel'; // Par défaut sur un réseau de RDC
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _cardNumberController = TextEditingController();
-  final TextEditingController _cardExpiryController = TextEditingController();
-  final TextEditingController _cardCvcController = TextEditingController();
-  
-  StreamSubscription? _paymentSubscription;
+class _EventPaymentPageState extends ConsumerState<EventPaymentPage> {
+  String _selected = 'airtel';
+  final _phone = TextEditingController();
+  StreamSubscription? _sub;
+  bool _processing = false;
+  String? _error;
 
-  final List<Map<String, dynamic>> _methods = [
-    {'id': 'mpesa', 'name': 'M-Pesa', 'brand': 'Vodacom', 'color': const Color(0xFF00A651), 'requiresPhone': true, 'icon': Icons.phone_android_rounded},
-    {'id': 'airtel', 'name': 'Airtel Money', 'brand': 'Airtel', 'color': const Color(0xFFFF0000), 'requiresPhone': true, 'icon': Icons.phone_android_rounded},
-    {'id': 'orange', 'name': 'Orange Money', 'brand': 'Orange', 'color': const Color(0xFFFF6600), 'requiresPhone': true, 'icon': Icons.phone_android_rounded},
-    {'id': 'visa_master', 'name': 'Visa & Mastercard', 'brand': 'Carte Bancaire', 'color': const Color(0xFF1A1F71), 'requiresPhone': false, 'icon': Icons.credit_card_rounded},
+  final _methods = const [
+    {'id': 'mpesa', 'name': 'M-Pesa', 'brand': 'Vodacom', 'color': Color(0xFF00A651), 'icon': Icons.phone_android_rounded},
+    {'id': 'airtel', 'name': 'Airtel Money', 'brand': 'Airtel', 'color': Color(0xFFFF0000), 'icon': Icons.phone_android_rounded},
+    {'id': 'orange', 'name': 'Orange Money', 'brand': 'Orange', 'color': Color(0xFFFF6600), 'icon': Icons.phone_android_rounded},
+    {'id': 'visa_master', 'name': 'Visa & Mastercard', 'brand': 'Carte Bancaire', 'color': Color(0xFF1A1F71), 'icon': Icons.credit_card_rounded},
   ];
 
   @override
-  void dispose() {
-    _phoneController.dispose();
-    _cardNumberController.dispose();
-    _cardExpiryController.dispose();
-    _cardCvcController.dispose();
-    _paymentSubscription?.cancel(); // Arrêter l'écoute si on quitte la page
-    super.dispose();
-  }
+  void dispose() { _phone.dispose(); _sub?.cancel(); super.dispose(); }
 
-  Future<void> _submitPayment(EventPaymentProvider provider) async {
-    final selectedMethodObj = _methods.firstWhere((m) => m['id'] == _selectedMethod);
-    final bool requiresPhone = selectedMethodObj['requiresPhone'] ?? false;
-
-    if (requiresPhone && _phoneController.text.trim().length < 9) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Numéro invalide.'), backgroundColor: Colors.orange));
+  Future<void> _pay() async {
+    final m = _methods.firstWhere((e) => e['id'] == _selected);
+    final needPhone = m['id'] != 'visa_master';
+    if (needPhone && _phone.text.trim().length < 9) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Numéro invalide'), backgroundColor: Colors.orange));
       return;
     }
-
-    final success = await provider.makePayment(
-      bookingId: widget.bookingId,
-      amount: widget.amount,
-      currency: widget.currency,
-      paymentMethod: _selectedMethod,
-      phoneNumber: requiresPhone ? _phoneController.text.trim() : null,
-    );
-
-    if (success && mounted) {
-      _showWaitingForPinDialog();
-    } else if (provider.errorMessage != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : ${provider.errorMessage}'), backgroundColor: Colors.red));
+    setState(() { _processing = true; _error = null; });
+    final svc = ref.read(_paymentProvider);
+    final ok = await svc.makePayment(bookingId: widget.bookingId, amount: widget.amount, currency: widget.currency, paymentMethod: _selected, phoneNumber: needPhone ? _phone.text.trim() : null);
+    setState(() => _processing = false);
+    if (ok && mounted) { _waitingDialog(); } else if (mounted && svc.errorMessage!= null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: ${svc.errorMessage}'), backgroundColor: Colors.red));
     }
   }
 
-  // 🟢 NOUVELLE FONCTION : Pop-up d'attente + Écoute Temps Réel Supabase
-  void _showWaitingForPinDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false, // Empêche l'utilisateur de fermer le pop-up
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 20),
-            const CircularProgressIndicator(color: _ThixColors.primary),
-            const SizedBox(height: 24),
-            const Text('Validation en cours...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ThixColors.darkText)),
-            const SizedBox(height: 12),
-            const Text(
-              'Un message a été envoyé sur votre téléphone. Veuillez taper votre code PIN pour confirmer le paiement.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: _ThixColors.mutedText, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-
-    // Écoute de la ligne de cette réservation spécifique dans Supabase
-    _paymentSubscription = Supabase.instance.client
-        .from('event_bookings')
-        .stream(primaryKey: ['id'])
-        .eq('id', widget.bookingId)
-        .listen((List<Map<String, dynamic>> data) {
-      if (data.isNotEmpty) {
-        final paymentStatus = data.first['payment_status'];
-
-        if (paymentStatus == 'paid') {
-          // Si l'argent est reçu, on ferme le pop-up et on donne le billet !
-          _paymentSubscription?.cancel();
-          Navigator.of(context, rootNavigator: true).pop();
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Paiement confirmé !'), backgroundColor: Colors.green));
-          context.pushReplacement('/thix-event/ticket/${widget.bookingId}');
-        } 
-        else if (paymentStatus == 'failed' || paymentStatus == 'cancelled') {
-          // Si le client annule sur son téléphone
-          _paymentSubscription?.cancel();
-          Navigator.of(context, rootNavigator: true).pop();
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ Transaction échouée ou annulée.'), backgroundColor: Colors.red));
-        }
+  void _waitingDialog() {
+    showDialog(barrierDismissible: false, context: context, builder: (_) => Dialog(backgroundColor: _ThixColors.surface, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: _ThixColors.cardBorder)), child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: const [CircularProgressIndicator(color: _ThixColors.primary), SizedBox(height: 20), Text('Validation en cours...', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)), SizedBox(height: 8), Text('Confirmez le PIN sur votre téléphone', textAlign: TextAlign.center, style: TextStyle(color: _ThixColors.textSecondary, fontSize: 12))]))));
+    _sub = Supabase.instance.client.from('event_bookings').stream(primaryKey: ['id']).eq('id', widget.bookingId).listen((data) {
+      if (data.isEmpty) return;
+      final status = data.first['payment_status'];
+      if (status == 'paid') {
+        _sub?.cancel();
+        if (mounted) { Navigator.of(context, rootNavigator: true).pop(); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Paiement confirmé'), backgroundColor: Colors.green)); context.pushReplacement('/thix-event/ticket/${widget.bookingId}'); }
+      } else if (status == 'failed' || status == 'cancelled') {
+        _sub?.cancel();
+        if (mounted) { Navigator.of(context, rootNavigator: true).pop(); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ Transaction échouée'), backgroundColor: Colors.red)); }
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => EventPaymentProvider(Supabase.instance.client),
-      child: Consumer<EventPaymentProvider>(
-        builder: (context, provider, child) {
-          final selectedMethodObj = _methods.firstWhere((m) => m['id'] == _selectedMethod);
-          final bool requiresPhone = selectedMethodObj['requiresPhone'] ?? false;
+    final selectedObj = _methods.firstWhere((e) => e['id'] == _selected);
+    final needPhone = selectedObj['id'] != 'visa_master';
 
-          return Scaffold(
-            backgroundColor: _ThixColors.lightBg,
-            appBar: AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              centerTitle: true,
-              leading: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Container(
-                  decoration: const BoxDecoration(color: _ThixColors.lightBg, shape: BoxShape.circle),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded, color: _ThixColors.darkText, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-              ),
-              title: const Text('Passerelle de Paiement', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _ThixColors.darkText)),
-            ),
-            body: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Column(
-                      children: [
-                        const Text('Montant total à payer', style: TextStyle(fontSize: 14, color: _ThixColors.mutedText, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${widget.amount.toStringAsFixed(0)} ${widget.currency}',
-                          style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: _ThixColors.primary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  const Text('Moyen de paiement', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _ThixColors.darkText)),
-                  const SizedBox(height: 16),
-                  
-                  ..._methods.map((method) => _buildPaymentOption(method)).toList(),
-                  
-                  const SizedBox(height: 20),
-
-                  if (requiresPhone) ...[
-                    const Text('Numéro de téléphone Mobile Money', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _ThixColors.darkText)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      decoration: InputDecoration(
-                        hintText: 'Ex: +243...',
-                        filled: true,
-                        fillColor: Colors.white,
-                        prefixIcon: const Icon(Icons.phone_iphone_rounded, color: _ThixColors.primary),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _ThixColors.primary, width: 1.5)),
-                      ),
-                    ),
-                  ]
-                ],
-              ),
-            ),
-            bottomNavigationBar: Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))],
-                borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
-              ),
-              child: ElevatedButton(
-                onPressed: provider.isProcessing ? null : () => _submitPayment(provider),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _ThixColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  elevation: 0,
-                ),
-                child: provider.isProcessing
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text('PAYER ${widget.amount.toStringAsFixed(0)} ${widget.currency}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 1)),
-              ),
-            ),
-          );
-        },
+    return Scaffold(
+      backgroundColor: _ThixColors.bg,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(52),
+        child: ClipRRect(child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20), child: AppBar(backgroundColor: _ThixColors.bg.withOpacity(0.85), elevation: 0, leading: Padding(padding: const EdgeInsets.all(8), child: InkWell(onTap: () => context.pop(), child: Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), shape: BoxShape.circle, border: Border.all(color: _ThixColors.cardBorder)), child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 18)))), title: const Text('Paiement', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)), centerTitle: true)))),
       ),
+      body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Center(child: Column(children: [const Text('Montant à payer', style: TextStyle(color: _ThixColors.textMuted, fontSize: 12)), const SizedBox(height: 6), Text('${widget.amount.toStringAsFixed(0)} ${widget.currency}', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: Colors.white)) ])),
+        const SizedBox(height: 28),
+        const Text('Moyen de paiement', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
+        const SizedBox(height: 12),
+        ..._methods.map((m) => _option(m)).toList(),
+        const SizedBox(height: 18),
+        if (needPhone) ...[
+          const Text('Numéro Mobile Money', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+          const SizedBox(height: 8),
+          TextField(controller: _phone, keyboardType: TextInputType.phone, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: '+243...', hintStyle: const TextStyle(color: _ThixColors.textMuted), filled: true, fillColor: _ThixColors.surface, prefixIcon: const Icon(Icons.phone_iphone_rounded, color: _ThixColors.textSecondary), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: _ThixColors.cardBorder)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: _ThixColors.cardBorder)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: _ThixColors.primary, width: 1.2)))),
+        ],
+      ])),
+      bottomNavigationBar: Container(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), decoration: BoxDecoration(color: _ThixColors.surfaceAlt.withOpacity(0.96), border: Border(top: BorderSide(color: _ThixColors.cardBorder))), child: SafeArea(top: false, child: SizedBox(height: 46, width: double.infinity, child: ElevatedButton(onPressed: _processing ? null : _pay, style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(23)), elevation: 0), child: _processing ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)) : Text('PAYER ${widget.amount.toStringAsFixed(0)} ${widget.currency}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)))))),
     );
   }
 
-  Widget _buildPaymentOption(Map<String, dynamic> method) {
-    final isSelected = _selectedMethod == method['id'];
-    final color = method['color'] as Color;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () => setState(() => _selectedMethod = method['id']),
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isSelected ? _ThixColors.primary.withOpacity(0.05) : Colors.white,
-            border: Border.all(color: isSelected ? _ThixColors.primary : const Color(0xFFEEE9FF), width: 1.5),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
-                child: Icon(method['icon'] as IconData, color: color, size: 22),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(method['name'] as String, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _ThixColors.darkText)),
-                    const SizedBox(height: 2),
-                    Text(method['brand'] as String, style: const TextStyle(fontSize: 11, color: _ThixColors.mutedText, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
-              Icon(
-                isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                color: isSelected ? _ThixColors.primary : Colors.grey.shade400,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Widget _option(Map<String, dynamic> m) {
+    final sel = _selected == m['id'];
+    final color = m['color'] as Color;
+    return Padding(padding: const EdgeInsets.only(bottom: 10), child: InkWell(onTap: () => setState(() => _selected = m['id'] as String), borderRadius: BorderRadius.circular(18), child: Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: sel ? _ThixColors.primary.withOpacity(0.10) : _ThixColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: sel ? _ThixColors.primary : _ThixColors.cardBorder, width: sel ? 1.2 : 1)), child: Row(children: [
+      Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withOpacity(0.18), shape: BoxShape.circle), child: Icon(m['icon'] as IconData, color: color, size: 18)),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(m['name'] as String, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)), const SizedBox(height: 2), Text(m['brand'] as String, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 11))])),
+      Icon(sel ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: sel ? _ThixColors.primary : _ThixColors.textMuted, size: 20),
+    ]))));
   }
 }
