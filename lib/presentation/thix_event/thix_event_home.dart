@@ -1,10 +1,11 @@
+// lib/presentation/thix_event/thix_event_home.dart
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // N'oublie pas cet import
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/event_provider.dart';
 import '../../models/event_model.dart';
 
@@ -117,7 +118,6 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
     final recommended = ref.watch(recommendedEventsProvider);
     final upcoming = ref.watch(upcomingEventsProvider);
 
-    // ÉCOUTEUR POUR RELANCER LE HERO BOURCLE QUAND LES DONNÉES SONT LÀ
     ref.listen<AsyncValue<List<Event>>>(featuredEventsProvider, (prev, next) {
       if (next.valueOrNull != null && next.valueOrNull!.length > 1) {
         _startHero();
@@ -207,7 +207,6 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
     );
   }
 
-  // ---------------- AppBar (réduite) ----------------
   PreferredSizeWidget _appBar() {
     final isAdmin = ref.watch(isEventAdminProvider).valueOrNull ?? false;
 
@@ -268,8 +267,6 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
                     ),
                   ],
                 ),
-                
-                // BOUTON ADMIN CONDITIONNEL ICI
                 if (isAdmin) ...[
                   const SizedBox(width: 10),
                   InkWell(
@@ -296,7 +293,6 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
     );
   }
 
-  // ---------------- Hero ----------------
   Widget _hero(List<Event> list) {
     if (list.isEmpty) return const SizedBox(height: 320);
     return SizedBox(
@@ -440,7 +436,6 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
     );
   }
 
-  // ---------------- Catégories en carré ----------------
   Widget _quickFilters() {
     final selected = ref.watch(eventCategoryProvider);
     final filters = const [
@@ -574,7 +569,7 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
         ),
       );
 
-  // ---------------- Carte événement ----------------
+  // 🟢 CORRECTION DE LA CARTE: Affichage clair du titre, date et lieu
   Widget _card(Event event) => GestureDetector(
         onTap: () => context.push('/thix-event/event/${event.id}'),
         child: Container(
@@ -598,26 +593,18 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
                     top: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.45),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withOpacity(0.1)),
-                      ),
-                      child: Text(event.formattedPrice, style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w700)),
+                      decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white.withOpacity(0.1))),
+                      child: Text(event.formattedPrice, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
                     ),
                   ),
                   Positioned(
                     right: 8,
                     bottom: 8,
                     child: Container(
-                      height: 30,
-                      width: 30,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.45),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withOpacity(0.1)),
-                      ),
-                      child: const Icon(Icons.favorite_border_rounded, color: Colors.white, size: 15),
+                      height: 28,
+                      width: 28,
+                      decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.1))),
+                      child: const Icon(Icons.favorite_border_rounded, color: Colors.white, size: 14),
                     ),
                   ),
                 ],
@@ -633,21 +620,26 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
                         event.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white, height: 1.2),
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white, height: 1.2),
                       ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 10),
-                          height: 30,
-                          width: 30,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.06),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: _ThixColors.cardBorder),
+                      Column(
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_today_rounded, size: 10, color: _ThixColors.textMuted),
+                              const SizedBox(width: 4),
+                              Expanded(child: Text(event.shortDate, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600))),
+                            ],
                           ),
-                          child: const Icon(Icons.arrow_outward_rounded, color: Colors.white, size: 15),
-                        ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on_rounded, size: 10, color: _ThixColors.textMuted),
+                              const SizedBox(width: 4),
+                              Expanded(child: Text(event.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _ThixColors.textMuted, fontSize: 10))),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -683,7 +675,6 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
         ),
       );
 
-  // ---------------- Bottom nav (réduite) ----------------
   Widget _bottomNav() => Container(
         margin: const EdgeInsets.only(left: 20, right: 20, bottom: 18),
         height: 58,
@@ -700,10 +691,7 @@ class _ThixEventHomeState extends ConsumerState<ThixEventHome> {
             children: [
               _navItem(icon: Icons.home_rounded, label: 'Accueil', selected: true, onTap: () {}),
               _navItem(icon: Icons.explore_outlined, label: 'Explorer', onTap: () => context.push('/thix-event/search')),
-              
-              // REDIRECTION BILLETS AJOUTÉE ICI :
               _navItem(icon: Icons.confirmation_num_outlined, label: 'Billets', onTap: () => context.push('/thix-event/my-tickets')),
-              
               _navItem(icon: Icons.favorite_border_rounded, label: 'Favoris', onTap: () => context.push('/thix-event/favorites')),
               _navItem(icon: Icons.person_outline_rounded, label: 'Profil', onTap: () => context.push('/profile')),
             ],
