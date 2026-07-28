@@ -308,7 +308,10 @@ class AppRouter {
           return NoTransitionPage(child: ActivationReceiptPage(txRef: qp['txRef'], method: qp['method'], amount: qp['amount'], currency: qp['currency'], paidAt: DateTime.tryParse(qp['paidAt'] ?? '')));
         }),
         GoRoute(path: AppRoutes.publicProfile, name: 'publicProfile', pageBuilder: (_, state) => NoTransitionPage(child: public_profile.PublicProfilePage(initialThixId: state.uri.queryParameters['thixId']))),
+        
+        // CORRECTION DE LA ROUTE DU DASHBOARD
         GoRoute(path: AppRoutes.userDashboard, name: 'userDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: UserDashboardPage())),
+        
         GoRoute(
           path: AppRoutes.network,
           name: 'network',
