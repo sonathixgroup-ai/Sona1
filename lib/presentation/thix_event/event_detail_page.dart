@@ -108,7 +108,6 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => SeatSelectionPage(eventId: _event.id, event: _event)));
   }
 
-  // 🟢 AJOUT DE L'ANCIENNE POPUP ROBUSTE POUR LA FILE D'ATTENTE (Adaptée au thème sombre)
   Future<void> _joinQueue() async {
     setState(() => _isCheckingQueue = true);
 
@@ -116,7 +115,11 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: _ThixColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), border: Border.all(color: _ThixColors.cardBorder)),
+        // CORRECTION ICI: Utilisation de `side` et `BorderSide` au lieu de `border`
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16), 
+          side: const BorderSide(color: _ThixColors.cardBorder)
+        ),
         title: const Text('Catégorie épuisée', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
@@ -179,7 +182,6 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // 🟢 CORRECTION DU CRASH IMAGE : Vérification stricte
                   (_event.imageUrl != null && _event.imageUrl!.isNotEmpty)
                       ? Image.network(_event.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _ThixColors.surface))
                       : Container(color: _ThixColors.surfaceAlt, child: const Icon(Icons.event, size: 60, color: _ThixColors.textMuted)),
@@ -217,7 +219,6 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
                 width: double.infinity, 
                 padding: const EdgeInsets.all(18), 
                 decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: _ThixColors.cardBorder)), 
-                // 🟢 CORRECTION DU CRASH TEXTE : Fallback si la description est vide
                 child: Text(_event.description.isNotEmpty ? _event.description : 'Aucune description disponible pour cet événement.', style: const TextStyle(fontSize: 13, height: 1.6, color: _ThixColors.textSecondary))
               ),
               const SizedBox(height: 28),
@@ -251,7 +252,6 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
     ]);
   }
 
-  // 🟢 ORGANISATEUR : Amélioré de l'ancienne version
   Widget _organizer() {
     return Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: _ThixColors.cardBorder)), child: Row(children: [
       Container(height: 44, width: 44, decoration: BoxDecoration(color: _ThixColors.surfaceAlt, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.business_center_rounded, color: _ThixColors.textSecondary)),
@@ -264,7 +264,6 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
     ]));
   }
 
-  // 🟢 CARTE TIER : Vérification stricte du stock de l'ancienne version
   Widget _tierCard(TicketTier tier) {
     final int remaining = tier.remaining ?? tier.capacity;
     final bool soldOut = (tier.capacity > 0 && remaining <= 0) || (tier.remaining != null && tier.remaining! <= 0);
@@ -284,7 +283,6 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
     ]));
   }
 
-  // 🟢 CARTE DEFAUT : Vérification stricte du stock de l'ancienne version
   Widget _defaultCard() {
     final bool soldOut = (_event.remainingTickets != null && _event.remainingTickets! <= 0);
     
