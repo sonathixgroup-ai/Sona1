@@ -12,12 +12,12 @@ import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
 import 'settings/chat_settings_page.dart';
 
-// Palette "Enterprise SaaS" (Totalement différent de WhatsApp)
+// Palette "Enterprise SaaS" (Ajustée pour le Full White)
 class _C {
-  static const bg = Color(0xFFF1F5F9); // Gris perle (fond d'application pro)
-  static const surface = Colors.white; // Cartes
+  static const bg = Colors.white; // Fond blanc pur continu
+  static const searchBg = Color(0xFFF8FAFC); // Gris très léger pour la barre de recherche
   static const border = Color(0xFFE2E8F0);
-  static const primary = Color(0xFF1D4ED8); // Bleu Corporate (type Teams/LinkedIn)
+  static const primary = Color(0xFF1D4ED8); // Bleu Corporate
   static const primaryLight = Color(0xFFEFF6FF);
   static const textMain = Color(0xFF0F172A);
   static const textMuted = Color(0xFF64748B);
@@ -150,7 +150,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     return Scaffold(
       backgroundColor: _C.bg,
       bottomNavigationBar: _corporateBottomNav(state.totalUnread),
-      // Bouton d'action flottant Étendu (Style Gmail / Enterprise)
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateMenu,
         backgroundColor: _C.primary,
@@ -201,7 +200,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         ],
       ),
       actions: [
-        // 1. Bouton Escalade (Les deux traits verticaux) remis avant la recherche
         Stack(
           alignment: Alignment.center,
           children: [
@@ -221,13 +219,11 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               ),
           ],
         ),
-        // 2. Bouton Recherche
         IconButton(
           icon: Icon(_showSearch ? Icons.close_rounded : Icons.search_rounded, color: _C.textMain, size: 24),
           onPressed: _toggleSearch,
           splashRadius: 24,
         ),
-        // 3. Bouton Notifications
         IconButton(
           icon: const Icon(Icons.notifications_none_rounded, color: _C.textMain, size: 24),
           onPressed: () => _openNotifications(pending),
@@ -272,7 +268,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16), 
       child: Container(
         height: 44, 
-        decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.border)), 
+        decoration: BoxDecoration(color: _C.searchBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.border)), 
         child: TextField(
           controller: _searchCtrl, 
           autofocus: true, 
@@ -296,7 +292,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     return Container(
       color: Colors.white,
       height: 54, 
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 12),
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16), 
         scrollDirection: Axis.horizontal, 
@@ -313,7 +309,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16), 
                 alignment: Alignment.center, 
                 decoration: BoxDecoration(
-                  color: sel ? _C.textMain : _C.bg, 
+                  color: sel ? _C.textMain : Colors.white, 
                   borderRadius: BorderRadius.circular(10), 
                   border: Border.all(color: sel ? _C.textMain : _C.border)
                 ), 
@@ -326,6 +322,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
+  // Liste Full White sans espace (séparation par de simples lignes)
   Widget _chatList(List<ChatConversation> list) {
     if (list.isEmpty) return const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(40), child: Center(child: Text('Aucune conversation', style: TextStyle(color: _C.textMuted, fontSize: 14)))));
     
@@ -335,72 +332,65 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       final t = last != null ? last.createdAt : conv.updatedAt;
       final unread = conv.unreadCount > 0;
       
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: InkWell(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: unread ? _C.primary.withOpacity(0.3) : _C.border),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))]
-            ),
-            child: Row(children: [
-              // Avatar "Squircle" (Carré arrondi) - Design typique SaaS / Enterprise
-              Container(
-                width: 50, height: 50,
-                decoration: BoxDecoration(
-                  color: _C.bg,
-                  borderRadius: BorderRadius.circular(16),
-                  image: conv.displayAvatar != null ? DecorationImage(image: NetworkImage(conv.displayAvatar!), fit: BoxFit.cover) : null,
-                ),
-                child: conv.displayAvatar == null 
-                  ? Center(child: Text(conv.displayName.isNotEmpty ? conv.displayName[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold, color: _C.textMuted, fontSize: 18)))
-                  : null,
-              ),
-              const SizedBox(width: 16),
-              
-              // Contenu central
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Flexible(child: Text(conv.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _C.textMain))), 
-                          if (conv.isGroup) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.groups_rounded, size: 16, color: _C.textMuted))
-                        ]
-                      )
-                    ),
-                    Text(_fmt(t), style: TextStyle(fontSize: 11, fontWeight: unread ? FontWeight.bold : FontWeight.w600, color: unread ? _C.primary : _C.textMuted)),
-                  ]
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(child: Text(last?.content ?? 'Nouvelle conversation', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: unread ? FontWeight.w600 : FontWeight.w500, color: unread ? _C.textMain : _C.textMuted))),
-                    if (unread) 
-                      Container(
-                        margin: const EdgeInsets.only(left: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
-                        decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(8)), 
-                        child: Text('${conv.unreadCount} NOUVEAU', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5))
-                      )
-                  ]
-                ),
-              ])),
-            ]),
+      return InkWell(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: _C.border, width: 0.5)),
           ),
+          child: Row(children: [
+            // Avatar "Squircle" 
+            Container(
+              width: 50, height: 50,
+              decoration: BoxDecoration(
+                color: _C.searchBg,
+                borderRadius: BorderRadius.circular(16),
+                image: conv.displayAvatar != null ? DecorationImage(image: NetworkImage(conv.displayAvatar!), fit: BoxFit.cover) : null,
+              ),
+              child: conv.displayAvatar == null 
+                ? Center(child: Text(conv.displayName.isNotEmpty ? conv.displayName[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold, color: _C.textMuted, fontSize: 18)))
+                : null,
+            ),
+            const SizedBox(width: 16),
+            
+            // Contenu central
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(child: Text(conv.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _C.textMain))), 
+                        if (conv.isGroup) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.groups_rounded, size: 16, color: _C.textMuted))
+                      ]
+                    )
+                  ),
+                  Text(_fmt(t), style: TextStyle(fontSize: 11, fontWeight: unread ? FontWeight.bold : FontWeight.w600, color: unread ? _C.primary : _C.textMuted)),
+                ]
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(child: Text(last?.content ?? 'Nouvelle conversation', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: unread ? FontWeight.w600 : FontWeight.w500, color: unread ? _C.textMain : _C.textMuted))),
+                  if (unread) 
+                    Container(
+                      margin: const EdgeInsets.only(left: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
+                      decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(8)), 
+                      child: Text('${conv.unreadCount} NOUVEAU', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5))
+                    )
+                ]
+              ),
+            ])),
+          ]),
         ),
       );
     }, childCount: list.length));
   }
 
-  // Barre de navigation style Dashboard Professionnel
   Widget _corporateBottomNav(int unread) {
     return Container(
       decoration: const BoxDecoration(
@@ -413,7 +403,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           currentIndex: _selectedNav,
           onTap: (idx) {
             if (idx == 0) context.pushNamed('connections'); 
-            else if (idx == 2) context.pushNamed('workspaces'); // Route fictive si applicable
+            else if (idx == 2) context.pushNamed('workspaces'); 
             else if (idx == 3) Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatSettingsPage())); 
             else setState(() => _selectedNav = idx);
           },
@@ -459,7 +449,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     final today = DateTime(now.year, now.month, now.day);
     if (day == today) return DateFormat('HH:mm').format(d);
     if (day == today.subtract(const Duration(days: 1))) return 'Hier';
-    if (now.difference(d).inDays < 7) return DateFormat('EEEE', 'fr_FR').format(d); // Affiche 'lundi', 'mardi' comme demandé
+    if (now.difference(d).inDays < 7) return DateFormat('EEEE', 'fr_FR').format(d); 
     return DateFormat('dd/MM/yy').format(d);
   }
 }
