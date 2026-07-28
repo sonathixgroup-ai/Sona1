@@ -12,16 +12,16 @@ import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
 import 'settings/chat_settings_page.dart';
 
-// Nouvelle palette "Grandeur Entreprise" (Thème Clair & Lumineux)
+// Palette "Enterprise SaaS" (Totalement différent de WhatsApp)
 class _C {
-  static const bg = Colors.white;
-  static const surface = Color(0xFFF8FAFC); // Gris perle très léger
+  static const bg = Color(0xFFF1F5F9); // Gris perle (fond d'application pro)
+  static const surface = Colors.white; // Cartes
   static const border = Color(0xFFE2E8F0);
-  static const primary = Color(0xFF0A66C2); // Bleu "Trust" Entreprise
+  static const primary = Color(0xFF1D4ED8); // Bleu Corporate (type Teams/LinkedIn)
   static const primaryLight = Color(0xFFEFF6FF);
-  static const textMain = Color(0xFF0F172A); // Noir/Ardoise profond
+  static const textMain = Color(0xFF0F172A);
   static const textMuted = Color(0xFF64748B);
-  static const unreadBadge = Color(0xFF22C55E); // Vert WhatsApp-like
+  static const unreadAccent = Color(0xFF3B82F6); 
   static const red = Color(0xFFEF4444);
 }
 
@@ -92,13 +92,13 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
             child: pending > 0 
               ? ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  leading: Container(width: 44, height: 44, decoration: BoxDecoration(color: _C.red.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.warning_amber_rounded, color: _C.red)),
-                  title: Text('$pending escalade(s) en attente', style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w600, fontSize: 15)),
-                  subtitle: const Text('Nécessite votre attention immédiate', style: TextStyle(color: _C.textMuted, fontSize: 13)),
+                  leading: Container(width: 44, height: 44, decoration: BoxDecoration(color: _C.red.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.swap_vert_rounded, color: _C.red)),
+                  title: Text('$pending escalade(s) en attente', style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w700, fontSize: 14)),
+                  subtitle: const Text('Requiert votre attention', style: TextStyle(color: _C.textMuted, fontSize: 12)),
                   trailing: const Icon(Icons.chevron_right_rounded, color: _C.textMuted),
                   onTap: () { Navigator.pop(ctx); context.pushNamed('chatEscalationReceived'); },
                 ) 
-              : const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: Text('Aucune nouvelle notification', style: TextStyle(color: _C.textMuted, fontSize: 15))))
+              : const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: Text('Aucune notification', style: TextStyle(color: _C.textMuted, fontSize: 14))))
           ),
           const SizedBox(height: 20),
         ]),
@@ -122,7 +122,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           const SizedBox(height: 24), 
           _sheetOpt(Icons.chat_bubble_outline_rounded, 'Nouvelle discussion', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage()))), 
           const SizedBox(height: 12), 
-          _sheetOpt(Icons.group_add_outlined, 'Nouveau groupe', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupCreatePage())))
+          _sheetOpt(Icons.group_add_outlined, 'Créer une équipe (Groupe)', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupCreatePage())))
         ])
       )
     );
@@ -133,11 +133,11 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     borderRadius: BorderRadius.circular(16), 
     child: Container(
       padding: const EdgeInsets.all(16), 
-      decoration: BoxDecoration(color: _C.surface, border: Border.all(color: _C.border), borderRadius: BorderRadius.circular(16)), 
+      decoration: BoxDecoration(color: _C.bg, border: Border.all(color: _C.border), borderRadius: BorderRadius.circular(16)), 
       child: Row(children: [
-        Container(width: 40, height: 40, decoration: BoxDecoration(color: _C.primaryLight, shape: BoxShape.circle), child: Icon(icon, size: 20, color: _C.primary)), 
+        Container(width: 40, height: 40, decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 20, color: Colors.white)), 
         const SizedBox(width: 16), 
-        Text(text, style: const TextStyle(color: _C.textMain, fontSize: 16, fontWeight: FontWeight.w600))
+        Text(text, style: const TextStyle(color: _C.textMain, fontSize: 15, fontWeight: FontWeight.w700))
       ])
     )
   );
@@ -149,12 +149,14 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
     return Scaffold(
       backgroundColor: _C.bg,
-      bottomNavigationBar: _standardBottomNav(state.totalUnread),
-      floatingActionButton: FloatingActionButton(
+      bottomNavigationBar: _corporateBottomNav(state.totalUnread),
+      // Bouton d'action flottant Étendu (Style Gmail / Enterprise)
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateMenu,
         backgroundColor: _C.primary,
         elevation: 4,
-        child: const Icon(Icons.add_comment_rounded, color: Colors.white),
+        icon: const Icon(Icons.edit_square, color: Colors.white, size: 20),
+        label: const Text('Nouveau', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
       ),
       body: state.isLoading 
         ? const Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 3)) 
@@ -166,52 +168,70 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               controller: _scroll,
               physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               slivers: [
-                _buildSliverAppBar(state.pendingEscalations),
+                _buildCorporateAppBar(state.pendingEscalations),
                 SliverToBoxAdapter(child: _searchBar()),
                 SliverToBoxAdapter(child: _filters(state.filterIndex)),
                 if (state.pendingEscalations > 0) SliverToBoxAdapter(child: _escalationBanner(state.pendingEscalations)),
                 _chatList(state.filtered),
                 if (state.isLoadingMore) const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 3)))),
-                const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                const SliverToBoxAdapter(child: SizedBox(height: 100)),
               ],
             ),
           ),
     );
   }
 
-  Widget _buildSliverAppBar(int pending) {
+  Widget _buildCorporateAppBar(int pending) {
     return SliverAppBar(
-      backgroundColor: _C.bg,
+      backgroundColor: Colors.white,
       pinned: true,
       elevation: 0,
       scrolledUnderElevation: 2,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withOpacity(0.05),
       titleSpacing: 20,
-      title: const Text('Discussions', style: TextStyle(color: _C.textMain, fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.chat_rounded, color: Colors.white, size: 16),
+          ),
+          const SizedBox(width: 10),
+          const Text('THIX CHAT', style: TextStyle(color: _C.textMain, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+        ],
+      ),
       actions: [
-        IconButton(
-          icon: Icon(_showSearch ? Icons.close_rounded : Icons.search_rounded, color: _C.textMain, size: 26),
-          onPressed: _toggleSearch,
-          splashRadius: 24,
-        ),
+        // 1. Bouton Escalade (Les deux traits verticaux) remis avant la recherche
         Stack(
           alignment: Alignment.center,
           children: [
             IconButton(
-              icon: const Icon(Icons.notifications_none_rounded, color: _C.textMain, size: 26),
-              onPressed: () => _openNotifications(pending),
+              icon: const Icon(Icons.swap_vert_rounded, color: _C.textMain, size: 26),
+              onPressed: () => context.pushNamed('chatEscalationReceived'),
               splashRadius: 24,
             ),
             if (pending > 0) 
               Positioned(
-                right: 8, 
-                top: 8, 
+                right: 8, top: 8, 
                 child: Container(
-                  padding: const EdgeInsets.all(4), 
-                  decoration: BoxDecoration(color: _C.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(color: _C.red, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white, width: 1.5)),
+                  child: Text('$pending', style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                 )
               ),
           ],
+        ),
+        // 2. Bouton Recherche
+        IconButton(
+          icon: Icon(_showSearch ? Icons.close_rounded : Icons.search_rounded, color: _C.textMain, size: 24),
+          onPressed: _toggleSearch,
+          splashRadius: 24,
+        ),
+        // 3. Bouton Notifications
+        IconButton(
+          icon: const Icon(Icons.notifications_none_rounded, color: _C.textMain, size: 24),
+          onPressed: () => _openNotifications(pending),
+          splashRadius: 24,
         ),
         const SizedBox(width: 8),
       ],
@@ -223,17 +243,22 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       onTap: () => context.pushNamed('chatEscalationReceived'),
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: _C.red.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _C.red.withOpacity(0.2))
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _C.red.withOpacity(0.3)),
+          boxShadow: [BoxShadow(color: _C.red.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]
         ),
         child: Row(children: [
-          const Icon(Icons.error_outline_rounded, color: _C.red, size: 20),
-          const SizedBox(width: 12),
-          Expanded(child: Text('$pending escalade(s) requiert votre attention', style: const TextStyle(color: _C.red, fontWeight: FontWeight.w600, fontSize: 14))),
-          const Icon(Icons.arrow_forward_ios_rounded, color: _C.red, size: 14)
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: _C.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.warning_amber_rounded, color: _C.red, size: 20)
+          ),
+          const SizedBox(width: 16),
+          Expanded(child: Text('$pending escalade(s) requiert votre attention', style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w700, fontSize: 13))),
+          const Icon(Icons.arrow_forward_ios_rounded, color: _C.textMuted, size: 14)
         ]),
       ),
     );
@@ -243,21 +268,22 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     duration: const Duration(milliseconds: 200), 
     crossFadeState: _showSearch ? CrossFadeState.showFirst : CrossFadeState.showSecond, 
     firstChild: Container(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), 
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16), 
       child: Container(
-        height: 46, 
-        decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.border)), 
+        height: 44, 
+        decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.border)), 
         child: TextField(
           controller: _searchCtrl, 
           autofocus: true, 
           onChanged: (v) => ref.read(chatListProvider.notifier).search(v), 
-          style: const TextStyle(fontSize: 16, color: _C.textMain), 
+          style: const TextStyle(fontSize: 14, color: _C.textMain, fontWeight: FontWeight.w500), 
           decoration: const InputDecoration(
-            hintText: 'Rechercher une discussion...', 
-            hintStyle: TextStyle(fontSize: 15, color: _C.textMuted), 
-            prefixIcon: Icon(Icons.search_rounded, size: 20, color: _C.textMuted), 
+            hintText: 'Rechercher un collègue, un ID...', 
+            hintStyle: TextStyle(fontSize: 14, color: _C.textMuted), 
+            prefixIcon: Icon(Icons.search_rounded, size: 18, color: _C.textMuted), 
             border: InputBorder.none, 
-            contentPadding: EdgeInsets.symmetric(vertical: 12)
+            contentPadding: EdgeInsets.symmetric(vertical: 13)
           )
         )
       )
@@ -266,10 +292,11 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   );
 
   Widget _filters(int selected) {
-    final tabs = ['Toutes', 'Non lues', 'Groupes', 'Personnelles'];
+    final tabs = ['Toutes', 'Non lues', 'Équipes', 'Personnelles'];
     return Container(
-      height: 48, 
-      padding: const EdgeInsets.only(bottom: 12),
+      color: Colors.white,
+      height: 54, 
+      padding: const EdgeInsets.only(bottom: 16),
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16), 
         scrollDirection: Axis.horizontal, 
@@ -280,17 +307,17 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
             padding: const EdgeInsets.only(right: 8), 
             child: InkWell(
               onTap: () => ref.read(chatListProvider.notifier).setFilter(i), 
-              borderRadius: BorderRadius.circular(20), 
+              borderRadius: BorderRadius.circular(10), 
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200), 
                 padding: const EdgeInsets.symmetric(horizontal: 16), 
                 alignment: Alignment.center, 
                 decoration: BoxDecoration(
-                  color: sel ? _C.primaryLight : Colors.white, 
-                  borderRadius: BorderRadius.circular(20), 
-                  border: Border.all(color: sel ? _C.primary : _C.border)
+                  color: sel ? _C.textMain : _C.bg, 
+                  borderRadius: BorderRadius.circular(10), 
+                  border: Border.all(color: sel ? _C.textMain : _C.border)
                 ), 
-                child: Text(tabs[i], style: TextStyle(fontSize: 14, fontWeight: sel ? FontWeight.bold : FontWeight.w600, color: sel ? _C.primary : _C.textMuted))
+                child: Text(tabs[i], style: TextStyle(fontSize: 13, fontWeight: sel ? FontWeight.bold : FontWeight.w600, color: sel ? Colors.white : _C.textMuted))
               )
             )
           ); 
@@ -300,7 +327,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   }
 
   Widget _chatList(List<ChatConversation> list) {
-    if (list.isEmpty) return const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(40), child: Center(child: Text('Aucune conversation trouvée', style: TextStyle(color: _C.textMuted, fontSize: 16)))));
+    if (list.isEmpty) return const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(40), child: Center(child: Text('Aucune conversation', style: TextStyle(color: _C.textMuted, fontSize: 14)))));
     
     return SliverList(delegate: SliverChildBuilderDelegate((ctx, idx) {
       final conv = list[idx];
@@ -308,62 +335,73 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       final t = last != null ? last.createdAt : conv.updatedAt;
       final unread = conv.unreadCount > 0;
       
-      return InkWell(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(children: [
-            // Avatar imposant
-            CircleAvatar(
-              radius: 26, 
-              backgroundColor: _C.surface, 
-              backgroundImage: conv.displayAvatar != null ? NetworkImage(conv.displayAvatar!) : null, 
-              child: conv.displayAvatar == null 
-                ? Text(conv.displayName.isNotEmpty ? conv.displayName[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold, color: _C.textMuted, fontSize: 20)) 
-                : null
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: InkWell(
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: unread ? _C.primary.withOpacity(0.3) : _C.border),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))]
             ),
-            const SizedBox(width: 14),
-            // Contenu central
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(child: Text(conv.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _C.textMain))), 
-                        if (conv.isGroup) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.groups_rounded, size: 16, color: _C.textMuted))
-                      ]
-                    )
-                  ),
-                  Text(_fmt(t), style: TextStyle(fontSize: 12, fontWeight: unread ? FontWeight.w600 : FontWeight.w500, color: unread ? _C.unreadBadge : _C.textMuted)),
-                ]
+            child: Row(children: [
+              // Avatar "Squircle" (Carré arrondi) - Design typique SaaS / Enterprise
+              Container(
+                width: 50, height: 50,
+                decoration: BoxDecoration(
+                  color: _C.bg,
+                  borderRadius: BorderRadius.circular(16),
+                  image: conv.displayAvatar != null ? DecorationImage(image: NetworkImage(conv.displayAvatar!), fit: BoxFit.cover) : null,
+                ),
+                child: conv.displayAvatar == null 
+                  ? Center(child: Text(conv.displayName.isNotEmpty ? conv.displayName[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold, color: _C.textMuted, fontSize: 18)))
+                  : null,
               ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(child: Text(last?.content ?? 'Commencer à discuter', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, fontWeight: unread ? FontWeight.w600 : FontWeight.normal, color: unread ? _C.textMain : _C.textMuted))),
-                  if (unread) 
-                    Container(
-                      margin: const EdgeInsets.only(left: 8),
-                      constraints: const BoxConstraints(minWidth: 22, minHeight: 22), 
-                      padding: const EdgeInsets.symmetric(horizontal: 6), 
-                      alignment: Alignment.center, 
-                      decoration: const BoxDecoration(color: _C.unreadBadge, shape: BoxShape.rectangle, borderRadius: BorderRadius.all(Radius.circular(12))), 
-                      child: Text('${conv.unreadCount}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))
-                    )
-                ]
-              ),
-            ])),
-          ]),
+              const SizedBox(width: 16),
+              
+              // Contenu central
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(child: Text(conv.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _C.textMain))), 
+                          if (conv.isGroup) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.groups_rounded, size: 16, color: _C.textMuted))
+                        ]
+                      )
+                    ),
+                    Text(_fmt(t), style: TextStyle(fontSize: 11, fontWeight: unread ? FontWeight.bold : FontWeight.w600, color: unread ? _C.primary : _C.textMuted)),
+                  ]
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(child: Text(last?.content ?? 'Nouvelle conversation', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: unread ? FontWeight.w600 : FontWeight.w500, color: unread ? _C.textMain : _C.textMuted))),
+                    if (unread) 
+                      Container(
+                        margin: const EdgeInsets.only(left: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
+                        decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(8)), 
+                        child: Text('${conv.unreadCount} NOUVEAU', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5))
+                      )
+                  ]
+                ),
+              ])),
+            ]),
+          ),
         ),
       );
     }, childCount: list.length));
   }
 
-  // Barre de navigation standard d'entreprise
-  Widget _standardBottomNav(int unread) {
+  // Barre de navigation style Dashboard Professionnel
+  Widget _corporateBottomNav(int unread) {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -395,17 +433,17 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 clipBehavior: Clip.none, 
                 children: [
                   const Icon(Icons.chat_bubble_outline_rounded), 
-                  if (unread > 0) Positioned(right: -4, top: -2, child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: _C.red, shape: BoxShape.circle)))
+                  if (unread > 0) Positioned(right: -4, top: -4, child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: _C.primary, shape: BoxShape.circle)))
                 ]
               ), 
               activeIcon: Stack(
                 clipBehavior: Clip.none, 
                 children: [
                   const Icon(Icons.chat_bubble_rounded), 
-                  if (unread > 0) Positioned(right: -4, top: -2, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: _C.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5))))
+                  if (unread > 0) Positioned(right: -4, top: -4, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: _C.primary, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5))))
                 ]
               ), 
-              label: 'Chats'
+              label: 'Discussions'
             ),
             const BottomNavigationBarItem(icon: Icon(Icons.workspaces_outline), activeIcon: Icon(Icons.workspaces_filled), label: 'Espaces'),
             const BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: 'Réglages'),
@@ -421,7 +459,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     final today = DateTime(now.year, now.month, now.day);
     if (day == today) return DateFormat('HH:mm').format(d);
     if (day == today.subtract(const Duration(days: 1))) return 'Hier';
-    if (now.difference(d).inDays < 7) return DateFormat('EEEE', 'fr_FR').format(d); // Affiche 'lundi', 'mardi'
+    if (now.difference(d).inDays < 7) return DateFormat('EEEE', 'fr_FR').format(d); // Affiche 'lundi', 'mardi' comme demandé
     return DateFormat('dd/MM/yy').format(d);
   }
 }
