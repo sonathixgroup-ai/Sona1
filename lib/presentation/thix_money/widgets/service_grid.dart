@@ -3,104 +3,108 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thix_id/nav.dart';
 
-class _Service {
+class _GridItem {
   final String label;
-  final Color color;
   final IconData icon;
+  final bool accent;
   final String? route;
-  const _Service({required this.label, required this.color, required this.icon, this.route});
+  const _GridItem({required this.label, required this.icon, this.accent = false, this.route});
 }
 
 class ServiceGrid extends StatelessWidget {
   const ServiceGrid({super.key});
 
-  static const _services = [
-    _Service(label: 'Crédit', color: Color(0xFF1E3A8A), icon: Icons.bolt_outlined, route: AppRoutes.thixMoneyLoans),
-    _Service(label: 'Assurance', color: Color(0xFF0F766E), icon: Icons.security_outlined, route: null),
-    _Service(label: 'Épargne', color: Color(0xFFB45309), icon: Icons.savings_outlined, route: AppRoutes.thixMoneySavings),
-    _Service(label: 'Change', color: Color(0xFF6D28D9), icon: Icons.currency_exchange_outlined, route: null),
-    _Service(label: 'Marchand', color: Color(0xFFC2410C), icon: Icons.storefront_outlined, route: AppRoutes.thixMarket),
-    _Service(label: 'Dons', color: Color(0xFFBE123C), icon: Icons.favorite_border_rounded, route: null),
-    _Service(label: 'Tontine', color: Color(0xFF0369A1), icon: Icons.groups_outlined, route: AppRoutes.thixMoneyTontines),
-    _Service(label: 'Éducation', color: Color(0xFF0E7490), icon: Icons.school_outlined, route: AppRoutes.education),
-    _Service(label: 'Virement', color: Color(0xFF1D4ED8), icon: Icons.language_outlined, route: AppRoutes.thixMoneySend),
-    _Service(label: 'Microfinance', color: Color(0xFF15803D), icon: Icons.account_balance_outlined, route: AppRoutes.thixMoneyLoans),
-    _Service(label: 'Investir', color: Color(0xFFB45309), icon: Icons.show_chart_rounded, route: AppRoutes.thixMoneyInvestments),
-    _Service(label: 'Planifier', color: Color(0xFF0F172A), icon: Icons.calendar_month_outlined, route: AppRoutes.thixMoneySavings),
+  static const navy = Color(0xFF123B7A);
+  static const gold = Color(0xFFE3B23C);
+  static const ivory = Color(0xFFF6F7FB);
+  static const navyDeep = Color(0xFF0A1F44);
+
+  // Ordre et accents identiques au mockup HTML V2
+  static const _items = [
+    _GridItem(label: 'Envoyer', icon: Icons.call_made_rounded, route: AppRoutes.thixMoneySend),
+    _GridItem(label: 'Recharger', icon: Icons.add_card_outlined, accent: true, route: AppRoutes.thixMoneyRecharge),
+    _GridItem(label: 'Scanner', icon: Icons.qr_code_scanner_outlined, route: AppRoutes.thixMoneyScanner),
+    _GridItem(label: 'Retrait', icon: Icons.call_received_rounded, route: null),
+
+    _GridItem(label: 'Crédit instantané', icon: Icons.bolt_outlined, route: AppRoutes.thixMoneyLoans),
+    _GridItem(label: 'Assurance', icon: Icons.shield_outlined, route: null),
+    _GridItem(label: 'Épargne planifiée', icon: Icons.savings_outlined, accent: true, route: AppRoutes.thixMoneySavings),
+    _GridItem(label: 'Change', icon: Icons.currency_exchange_outlined, route: null),
+
+    _GridItem(label: 'Marchand', icon: Icons.storefront_outlined, route: AppRoutes.thixMarket),
+    _GridItem(label: 'Don & Contributions', icon: Icons.volunteer_activism_outlined, route: null),
+    _GridItem(label: 'Ma Tontine', icon: Icons.groups_outlined, accent: true, route: AppRoutes.thixMoneyTontines),
+    _GridItem(label: 'Éducation', icon: Icons.school_outlined, route: AppRoutes.education),
+
+    _GridItem(label: 'Virement international', icon: Icons.public_outlined, route: AppRoutes.thixMoneySend),
+    _GridItem(label: 'Microfinance', icon: Icons.account_balance_outlined, route: AppRoutes.thixMoneyLoans),
+    _GridItem(label: 'Investissement', icon: Icons.show_chart_rounded, accent: true, route: AppRoutes.thixMoneyInvestments),
+    _GridItem(label: 'Planification', icon: Icons.calendar_month_outlined, route: AppRoutes.thixMoneySavings),
   ];
+
+  void _handleTap(BuildContext context, _GridItem item) {
+    if (item.route != null && item.route!.isNotEmpty) {
+      context.push(item.route!);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${item.label} sera bientôt disponible !'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: navyDeep,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Grille resserrée : icônes petites, espacement réduit, pas de vide
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withOpacity(0.04),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 30, 20, 6),
       child: GridView.builder(
-        padding: EdgeInsets.zero,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
+        itemCount: _items.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 4,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 2,
-          childAspectRatio: 0.82,
+          mainAxisSpacing: 26,
+          crossAxisSpacing: 4,
+          childAspectRatio: 0.68,
         ),
-        itemCount: _services.length,
-        itemBuilder: (_, i) {
-          final s = _services[i];
-
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              if (s.route != null && s.route!.isNotEmpty) {
-                context.push(s.route!);
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${s.label.replaceAll('\n', ' ')} sera bientôt disponible !'),
-                    duration: const Duration(seconds: 2),
-                    backgroundColor: const Color(0xFF0F172A),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                );
-              }
-            },
+        itemBuilder: (context, i) {
+          final item = _items[i];
+          return InkWell(
+            onTap: () => _handleTap(context, item),
+            borderRadius: BorderRadius.circular(16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 54,
+                  height: 54,
                   decoration: BoxDecoration(
-                    color: s.color.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(13),
-                    border: Border.all(color: s.color.withOpacity(0.1), width: 1),
+                    color: ivory,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(s.icon, color: s.color, size: 19),
+                  child: Icon(
+                    item.icon,
+                    color: item.accent ? gold : navy,
+                    size: 22,
+                  ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 9),
                 Text(
-                  s.label,
+                  item.label,
                   textAlign: TextAlign.center,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF334155),
-                    letterSpacing: -0.2,
+                    color: navyDeep,
+                    height: 1.25,
+                    letterSpacing: -0.1,
                   ),
                 ),
               ],
