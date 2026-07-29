@@ -185,7 +185,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       elevation: 0,
       scrolledUnderElevation: 0,
       titleSpacing: 24,
-      title: const Text('Messagerie', style: TextStyle(color: _C.textMain, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+      title: const Text('THIX CHAT', style: TextStyle(color: _C.textMain, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
       actions: [
         Stack(
           alignment: Alignment.center,
