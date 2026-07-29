@@ -51,7 +51,7 @@ class CreatePostDialog extends ConsumerStatefulWidget {
 class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with SingleTickerProviderStateMixin {
   final _contentController = TextEditingController();
   final _contentFocusNode = FocusNode();
-  
+
   // Contrôleurs spécifiques Sondages et Challenges
   final List<TextEditingController> _pollOptionControllers = [
     TextEditingController(),
@@ -59,15 +59,18 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
   ];
   final _challengeDescController = TextEditingController();
   DateTime? _challengeEndDate;
-  
+
   // 0 = Standard, 1 = Sondage, 2 = Challenge
   int _postTypeMode = 0;
-  
+
   final List<_MediaItem> _images = [];
   final List<_MediaItem> _videos = [];
   bool _isUploading = false;
   String? _errorMessage;
-  
+
+  // Statut affiché pendant la vérification IA
+  String? _factCheckStatusLabel;
+
   List<Map<String, dynamic>> _mentionSuggestions = [];
   bool _showMentions = false;
   late AnimationController _animationController;
@@ -197,10 +200,135 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
     });
   }
 
+  // ─── FACT-CHECK IA : Tavily recherche EN PREMIER, puis analyse IA basée sur les sources ───
+  //
+  // Règle : l'IA ne doit JAMAIS s'appuyer sur sa propre date/mémoire interne pour juger un fait
+  // récent (marchés financiers, actualité, chiffres). Elle doit se baser UNIQUEMENT sur les
+  // sources Tavily. Si aucune source pertinente n'est trouvée, elle reste SAFE par défaut
+  // (on ne bloque jamais une publication faute de preuve — on bloque seulement en cas de
+  // contradiction claire et sourcée).
+  Future<Map<String, String?>> _runFactCheck(String textContent) async {
+    bool isMisinformation = false;
+    String? factCheckMessage;
+    String? factCheckSeverity;
+
+    if (textContent.isEmpty) {
+      return {
+        'isMisinformation': 'false',
+        'message': null,
+        'severity': null,
+      };
+    }
+
+    List<String> webSources = [];
+    bool tavilySucceeded = false;
+
+    // 1. ÉTAPE OBLIGATOIRE : recherche Tavily AVANT toute analyse IA
+    try {
+      final response = await Supabase.instance.client.rpc(
+        'search_tavily',
+        params: {'search_query': textContent},
+      );
+
+      if (response != null && response['results'] != null) {
+        final results = response['results'] as List;
+        for (var r in results) {
+          final title = r['title'] ?? '';
+          final content = r['content'] ?? '';
+          final url = r['url'] ?? '';
+          webSources.add("- [$title]($url) : $content");
+        }
+        tavilySucceeded = webSources.isNotEmpty;
+      }
+    } catch (searchError) {
+      debugPrint('Erreur recherche Tavily (non bloquante) : $searchError');
+    }
+
+    // 2. Si aucune source web fiable n'a pu être récupérée, on NE lance PAS de verdict FAKE.
+    //    On publie en SAFE pour éviter les faux positifs basés sur la mémoire interne du modèle.
+    if (!tavilySucceeded) {
+      debugPrint('Fact-Check : aucune source Tavily disponible, publication en SAFE par défaut.');
+      return {
+        'isMisinformation': 'false',
+        'message': null,
+        'severity': null,
+      };
+    }
+
+    final contextSources = "SOURCES WEB VÉRIFIÉES EN TEMPS RÉEL (Tavily) :\n${webSources.join('\n')}";
+
+    try {
+      final aiService = AiService(Supabase.instance.client);
+      final today = DateTime.now();
+      final currentDateString = "${today.day}/${today.month}/${today.year}";
+
+      final prompt = """
+Date actuelle réelle : $currentDateString
+
+$contextSources
+
+Tu es un moteur de FACT-CHECKING professionnel.
+
+RÈGLE ABSOLUE N°1 — SOURCE DE VÉRITÉ :
+Tu ne dois JAMAIS te fier à ta propre mémoire interne, à ta date d'entraînement ou à des connaissances
+générales pour juger un fait récent, chiffré, ou lié à l'actualité (marchés financiers, entreprises,
+personnalités, événements). Ta mémoire interne est probablement PÉRIMÉE par rapport à la date actuelle
+ci-dessus. La SEULE source de vérité autorisée pour ton verdict est le contenu des "SOURCES WEB VÉRIFIÉES"
+fourni ci-dessus.
+
+RÈGLE ABSOLUE N°2 — PRÉSOMPTION DE VÉRACITÉ :
+Si les sources web ne contredisent pas explicitement et clairement l'affirmation, réponds SAFE.
+Ne réponds JAMAIS FAKE simplement parce que l'information te semble "improbable" ou que tu ne l'as
+"jamais vue" dans tes données d'entraînement. Une absence de connaissance interne n'est PAS une preuve
+de fausseté.
+
+RÈGLE ABSOLUE N°3 — PÉRIMÈTRE :
+Analyse uniquement le FOND factuel. Ignore totalement : fautes d'orthographe, style, emojis, opinions,
+satire, ton, présentations personnelles.
+
+Ta mission : analyser UNIQUEMENT la véracité des affirmations factuelles présentes dans la publication
+suivante, à la lumière des sources web ci-dessus.
+
+PUBLICATION :
+"$textContent"
+
+Format de réponse STRICT (aucun autre texte) :
+SAFE
+ou
+FAKE: [raison courte, citant explicitement l'élément des sources web qui contredit la publication]
+""";
+
+      final aiResponse = await aiService.askAi(
+        prompt: prompt,
+        provider: AiProvider.mistral,
+        systemPrompt:
+            "Tu es THIX Fact-Check AI. Tu te bases exclusivement sur les sources web fournies dans le prompt, "
+            "jamais sur ta mémoire interne. Réponds uniquement par SAFE ou FAKE: raison.",
+      );
+
+      final responseText = aiResponse.trim().toUpperCase();
+      if (responseText.startsWith("FAKE:")) {
+        isMisinformation = true;
+        factCheckSeverity = "fake";
+        factCheckMessage = aiResponse.substring(aiResponse.toUpperCase().indexOf("FAKE:") + 5).trim();
+      }
+    } catch (aiError) {
+      debugPrint('Erreur Fact-Check IA (non bloquante) : $aiError');
+      // En cas d'erreur IA, on ne bloque jamais la publication : SAFE par défaut.
+      isMisinformation = false;
+    }
+
+    return {
+      'isMisinformation': isMisinformation.toString(),
+      'message': factCheckMessage,
+      'severity': factCheckSeverity,
+    };
+  }
+
   // ─── PUBLICATION AVEC FACT-CHECKING IA ET MODES FORCÉS RÉINTÉGRÉS ───
   Future<void> _publishPost() async {
     final textContent = _contentController.text.trim();
-    
+
     // Validations selon le mode
     if (_postTypeMode == 0 && textContent.isEmpty && _images.isEmpty && _videos.isEmpty) {
       setState(() => _errorMessage = 'Veuillez entrer du contenu ou sélectionner des médias');
@@ -215,81 +343,21 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
       return;
     }
 
-    setState(() => _isUploading = true);
-    
+    setState(() {
+      _isUploading = true;
+      _factCheckStatusLabel = textContent.isNotEmpty ? 'Recherche des sources en cours...' : null;
+    });
+
     try {
       final ns = ref.read(networkServiceProvider);
-      bool isMisinformation = false;
-      String? factCheckMessage;
-      String? factCheckSeverity;
 
-      // Fact-Checking IA connecté à Internet via Tavily
-      if (textContent.isNotEmpty) {
-        try {
-          List<String> webSources = [];
-          try {
-            final response = await Supabase.instance.client.rpc(
-              'search_tavily',
-              params: {'search_query': textContent},
-            );
+      // Fact-check : Tavily d'abord, puis IA basée sur les sources trouvées
+      final factCheckResult = await _runFactCheck(textContent);
+      final bool isMisinformation = factCheckResult['isMisinformation'] == 'true';
+      final String? factCheckMessage = factCheckResult['message'];
+      final String? factCheckSeverity = factCheckResult['severity'];
 
-            if (response != null && response['results'] != null) {
-              final results = response['results'] as List;
-              for (var r in results) {
-                webSources.add("- ${r['title']}: ${r['content']}");
-              }
-            }
-          } catch (searchError) {
-            debugPrint('Erreur recherche web Supabase (non bloquante) : $searchError');
-          }
-
-          final contextSources = webSources.isNotEmpty 
-              ? "SOURCES WEB TROUVÉES EN TEMPS RÉEL :\n${webSources.join('\n')}" 
-              : "Aucune source web spécifique trouvée.";
-
-          final aiService = AiService(Supabase.instance.client);
-          final today = DateTime.now();
-          final currentDateString = "${today.day}/${today.month}/${today.year}";
-
-          final prompt = """
-Date actuelle : $currentDateString
-
-$contextSources
-
-Tu es un moteur de FACT-CHECKING professionnel.
-Ta mission est d'analyser UNIQUEMENT la véracité des affirmations factuelles présentes dans la publication suivante.
-
-PUBLICATION :
-"$textContent"
-
-====================================================
-RÈGLES ABSOLUES
-====================================================
-Analyse uniquement le FOND.
-Ignore totalement : fautes, style, emojis, opinions, satire, présentations personnelles.
-Réponds SAFE par défaut si non prouvé faux.
-Format de réponse :
-SAFE
-ou
-FAKE: [raison]
-""";
-
-          final aiResponse = await aiService.askAi(
-            prompt: prompt,
-            provider: AiProvider.mistral,
-            systemPrompt: "Tu es THIX Fact-Check AI. Réponds uniquement par SAFE ou FAKE: raison.",
-          );
-
-          final responseText = aiResponse.trim().toUpperCase();
-          if (responseText.startsWith("FAKE:")) {
-            isMisinformation = true;
-            factCheckSeverity = "fake";
-            factCheckMessage = aiResponse.substring(aiResponse.toUpperCase().indexOf("FAKE:") + 5).trim();
-          }
-        } catch (aiError) {
-          debugPrint('Erreur Fact-Check IA (non bloquante) : $aiError');
-        }
-      }
+      if (mounted) setState(() => _factCheckStatusLabel = 'Envoi de la publication...');
 
       // Upload des images et vidéos
       final List<String> imageUrls = [];
@@ -336,6 +404,7 @@ FAKE: [raison]
           setState(() {
             _errorMessage = 'Un sondage doit contenir au moins 2 options valides.';
             _isUploading = false;
+            _factCheckStatusLabel = null;
           });
           return;
         }
@@ -344,8 +413,8 @@ FAKE: [raison]
       } else if (_postTypeMode == 2) {
         payload['post_type'] = 'challenge';
         payload['challenge_data'] = {
-          'description': _challengeDescController.text.trim(), 
-          'end_date': _challengeEndDate?.toIso8601String(), 
+          'description': _challengeDescController.text.trim(),
+          'end_date': _challengeEndDate?.toIso8601String(),
           'participants_count': 0
         };
       } else {
@@ -353,11 +422,11 @@ FAKE: [raison]
       }
 
       await Supabase.instance.client.from('posts').insert(payload);
-      
+
       // Actualisation Riverpod
       ref.invalidate(feedProvider);
       widget.onPostCreated?.call();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -370,7 +439,10 @@ FAKE: [raison]
     } catch (e) {
       if (mounted) setState(() => _errorMessage = e.toString());
     } finally {
-      if (mounted) setState(() => _isUploading = false);
+      if (mounted) setState(() {
+        _isUploading = false;
+        _factCheckStatusLabel = null;
+      });
     }
   }
 
@@ -455,7 +527,7 @@ FAKE: [raison]
             Expanded(
               child: SingleChildScrollView(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  
+
                   // Outils de formatage (Masqués pour les challenges pour économiser de la place)
                   if (_postTypeMode != 2) ...[
                     Container(
@@ -529,9 +601,9 @@ FAKE: [raison]
                     const Text('Description et Règles :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _DialogColors.textDark)),
                     const SizedBox(height: 6),
                     TextField(
-                      controller: _challengeDescController, 
-                      minLines: 3, 
-                      maxLines: 5, 
+                      controller: _challengeDescController,
+                      minLines: 3,
+                      maxLines: 5,
                       decoration: InputDecoration(hintText: 'Décrivez les règles du challenge...', filled: true, fillColor: _DialogColors.background, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none))
                     ),
                     const SizedBox(height: 12),
@@ -573,7 +645,7 @@ FAKE: [raison]
                           ]),
                       ]),
                     ),
-                  
+
                   if (_videos.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 10),
@@ -588,10 +660,19 @@ FAKE: [raison]
                 ]),
               ),
             ),
-            const SizedBox(height: 12),
+            if (_factCheckStatusLabel != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(children: [
+                  const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                  const SizedBox(width: 8),
+                  Text(_factCheckStatusLabel!, style: const TextStyle(fontSize: 12, color: _DialogColors.textSecondary)),
+                ]),
+              ),
+            const SizedBox(height: 4),
             Row(children: [
-              _mediaBtn(Icons.photo_rounded, _pickImages, const Color(0xFF059669)), 
-              _mediaBtn(Icons.videocam_rounded, _pickVideos, const Color(0xFFE5484D)), 
+              _mediaBtn(Icons.photo_rounded, _pickImages, const Color(0xFF059669)),
+              _mediaBtn(Icons.videocam_rounded, _pickVideos, const Color(0xFFE5484D)),
               _mediaBtn(Icons.photo_camera_rounded, _pickCamera, _DialogColors.primary)
             ]),
             const SizedBox(height: 12),
