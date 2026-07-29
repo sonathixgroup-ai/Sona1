@@ -19,10 +19,11 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   static const blue = Color(0xFF2D6CDF);
   static const bg = Color(0xFFF7F8FC);
 
+  // Formateur dynamique de devise selon la valeur stockée
   String _cur(dynamic c) {
     final v = (c ?? 'FC').toString().toUpperCase();
     if (v == 'XOF' || v == 'CDF' || v == 'FCFA') return 'FC';
-    if (v == '\$') return 'USD';
+    if (v == 'USD' || v == '\$') return '\$'; // Dynamique : Affiche $ ou FC proprement
     return v;
   }
 
@@ -79,25 +80,23 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
               .limit(3);
         } catch (e) {
           debugPrint('⚠️ Erreur items pour commande ${o['id']}: $e');
-          // Fallback : On essaie de récupérer sans la jointure 'product' si ça crash
           try {
              items = await supa.from('order_items').select('*').eq('order_id', o['id']).limit(3);
           } catch (_) {}
         }
 
         Map<String, dynamic>? shop;
-        // 2. Protection de la requête de la boutique
+        // 2. Protection de la requête de la boutique (Sans 'ville' pour éviter l'erreur 42703)
         if (o['shop_id'] != null) {
           try {
             shop = await supa.from('shops')
-                .select('id,name,logo_url,city,ville,is_verified')
+                .select('id,name,logo_url,city,is_verified')
                 .eq('id', o['shop_id'])
                 .maybeSingle();
           } catch (e) {
             debugPrint('⚠️ Erreur shop pour commande ${o['id']}: $e');
-            // Fallback : On essaie sans la colonne 'is_verified' si elle n'existe pas
             try {
-              shop = await supa.from('shops').select('id,name,logo_url,city,ville').eq('id', o['shop_id']).maybeSingle();
+              shop = await supa.from('shops').select('id,name,logo_url,city').eq('id', o['shop_id']).maybeSingle();
             } catch (_) {}
           }
         }
@@ -279,12 +278,15 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
 
   Widget _orderCard(Map<String,dynamic> o) {
     final status = (o['status'] ?? 'pending').toString();
-    final total = ((o['total'] ?? o['total_amount'] ?? 0) as num).toDouble();
+    
+    // Récupération dynamique du montant total et de la devise
+    final total = ((o['total'] ?? o['total_amount'] ?? 0) as num);
+    final cur = _cur(o['currency']);
+    
     final items = List<Map<String, dynamic>>.from(o['items'] ?? []);
     final shop = o['shop'] as Map?;
-    final cur = _cur(o['currency']);
     final shopName = shop?['name'] ?? 'Boutique';
-    final city = shop?['city'] ?? shop?['ville'] ?? 'RDC';
+    final city = shop?['city'] ?? 'RDC';
     final date = DateTime.tryParse(o['created_at'].toString());
     final color = _statusColor(status);
 
@@ -364,8 +366,11 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                 final img = it['product_image'] ?? it['product']?['image_url'] ?? '';
                 final name = it['product_name'] ?? it['product']?['title'] ?? 'Produit';
                 final qty = it['quantity'] ?? 1; 
-                final price = (it['price'] as num?)?.toInt() ?? 0;
+                final itemPrice = (it['price'] as num?) ?? 0;
                 
+                // Affichage dynamique du prix unitaire selon la devise de la commande
+                final formattedItemPrice = cur == '\$' ? itemPrice.toStringAsFixed(2) : itemPrice.toInt().toString();
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8), 
                   child: Row(
@@ -389,7 +394,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                           children: [
                             Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: navy)),
                             const SizedBox(height: 2),
-                            Text('$qty x $price $cur', style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B7280))),
+                            Text('$qty x $formattedItemPrice $cur', style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B7280))),
                           ]
                         )
                       ),
@@ -436,7 +441,11 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                       children: [
                         const Text('Total', style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))), 
                         const SizedBox(height: 1),
-                        Text('${total.toInt()} $cur', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: navy)),
+                        // Affichage dynamique du total (avec décimales si USD, entier si FC)
+                        Text(
+                          '${cur == '\$' ? total.toStringAsFixed(2) : total.toInt()} $cur', 
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: navy),
+                        ),
                       ]
                     ),
                     const SizedBox(width: 12),
