@@ -24,11 +24,11 @@ dependencies:
   shimmer: ^3.0.0
   flutter_highlight: ^0.7.0
 
-  # State Management
+  # State Management & Hooks (Harmonisés)
   flutter_riverpod: ^2.5.1
+  hooks_riverpod: ^2.5.1
+  flutter_hooks: ^0.20.5
   riverpod_annotation: ^2.3.5
-  flutter_bloc: ^8.1.6
-  get: ^4.6.6
 
   # Backend & API
   supabase_flutter: ^2.8.0
@@ -61,7 +61,6 @@ dependencies:
   record: ^6.1.1
   image_picker: ^1.1.2
   audioplayers: ^6.1.0
-  cached_network_image: ^3.4.1
   flutter_rating_bar: ^4.0.1
   flutter_audio_waveforms: ^1.2.1+8
 
