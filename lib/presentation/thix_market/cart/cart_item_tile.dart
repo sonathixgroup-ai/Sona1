@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class CartItemTile extends StatelessWidget {
   final Map<String, dynamic> cartItem;
@@ -23,7 +22,6 @@ class CartItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ CORRECTION : Parenthèses et Map<String, dynamic>? (avec le point d'interrogation)
     final product = (cartItem['product'] as Map<String, dynamic>?) ?? {};
     final shop = (product['shop'] as Map<String, dynamic>?) ?? {};
     final qty = (cartItem['quantity'] as int?) ?? 1;
@@ -32,7 +30,6 @@ class CartItemTile extends StatelessWidget {
     final shopName = shop['name'] ?? product['shop_name'] ?? 'ZANDO GLOBAL';
     final city = shop['city'] ?? shop['ville'] ?? product['city'] ?? 'Kinshasa';
     
-    // ✅ CORRECTION : Cast sécurisé avec 'num?' au lieu de 'as int' direct
     final stock = (product['stock'] as num?)?.toInt() ?? 999;
     
     final warranty = product['warranty'] ?? product['garantie'] ?? '12 mois';
@@ -54,16 +51,28 @@ class CartItemTile extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(14), 
-                child: CachedNetworkImage(
-                  imageUrl: product['image_url'] ?? '', 
+                // CORRECTION : Remplacement de CachedNetworkImage par Image.network
+                child: Image.network(
+                  product['image_url'] ?? '', 
                   width: 88, 
                   height: 88, 
                   fit: BoxFit.cover, 
-                  errorWidget: (_,__,___) => Container(
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      width: 88, 
+                      height: 88, 
+                      color: const Color(0xFFF7F7FA), 
+                      child: const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFD81E2C))
+                      )
+                    );
+                  },
+                  errorBuilder: (_,__,___) => Container(
                     width: 88, 
                     height: 88, 
                     color: const Color(0xFFF7F7FA), 
-                    child: const Icon(Icons.image_outlined)
+                    child: const Icon(Icons.image_outlined, color: Colors.grey)
                   )
                 )
               ),
