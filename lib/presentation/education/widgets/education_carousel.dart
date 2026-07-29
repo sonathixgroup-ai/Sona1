@@ -60,7 +60,7 @@ class EducationCarousel extends StatelessWidget {
                           ),
                         );
                       },
-                      errorWidget: (_, __, ___) => Container(
+                      errorBuilder: (_, __, ___) => Container(
                         height: 100,
                         color: const Color(0xFFF0F7FF),
                         child: const Icon(Icons.image_rounded, color: Color(0xFF7386A8)),
