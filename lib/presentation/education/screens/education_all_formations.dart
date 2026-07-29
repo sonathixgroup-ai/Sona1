@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../models/category.dart';
-import '../providers/education_providers.dart';
+
+// ✅ CORRIGÉ : Le bon chemin d'importation (sans le "s" à provider)
+import 'package:thix_id/presentation/education/providers/education_provider.dart'; 
+
 import '../widgets/common/education_category_chip.dart';
 import '../widgets/common/education_loading_shimmer.dart';
 import '../widgets/common/formation_card.dart';
@@ -61,7 +64,7 @@ class _EducationAllFormationsState extends ConsumerState<EducationAllFormations>
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: categories.length + 1,
                 itemBuilder: (context, index) {
-                  final cat = index == 0? _allCategory : categories[index - 1];
+                  final cat = index == 0 ? _allCategory : categories[index - 1];
                   final isSelected = _selectedCategory == cat.id;
                   return Padding(padding: const EdgeInsets.only(right: 8), child: EducationCategoryChip(
                     label: cat.name,
@@ -69,8 +72,8 @@ class _EducationAllFormationsState extends ConsumerState<EducationAllFormations>
                     onTap: () {
                       setState(() => _selectedCategory = cat.id);
                       ref.read(formationsProvider.notifier).filter(
-                        categoryId: cat.id == 'all'? null : cat.id,
-                        level: _selectedLevel == 'all'? null : _selectedLevel,
+                        categoryId: cat.id == 'all' ? null : cat.id,
+                        level: _selectedLevel == 'all' ? null : _selectedLevel,
                       );
                     },
                   ));
@@ -87,7 +90,7 @@ class _EducationAllFormationsState extends ConsumerState<EducationAllFormations>
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(16),
-                    itemCount: paginated.items.length + (paginated.hasMore? 1 : 0),
+                    itemCount: paginated.items.length + (paginated.hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == paginated.items.length) {
                         return const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator(color: Color(0xFF2D6CDF))));
@@ -126,8 +129,8 @@ class _EducationAllFormationsState extends ConsumerState<EducationAllFormations>
       onSelected: (_) {
         setState(() => _selectedLevel = value);
         ref.read(formationsProvider.notifier).filter(
-          categoryId: _selectedCategory == 'all'? null : _selectedCategory,
-          level: value == 'all'? null : value,
+          categoryId: _selectedCategory == 'all' ? null : _selectedCategory,
+          level: value == 'all' ? null : value,
         );
         Navigator.pop(context);
       },
