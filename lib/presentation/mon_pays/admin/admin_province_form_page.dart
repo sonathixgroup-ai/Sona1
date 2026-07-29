@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../models/province.dart';
 import '../models/city.dart';
@@ -71,10 +70,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   String? _provinceId;
   bool _isBusy = false; 
 
-  // 🔑 CORRECTIF : compteur pour générer des clés STABLES et UNIQUES.
-  // Sans cela, Flutter réutilise le mauvais widget TextFormField pour le
-  // mauvais élément de liste à chaque rebuild (upload média, switch, ajout
-  // d'un autre élément...), ce qui fait "disparaître" le texte déjà tapé.
   int _keyCounter = 0;
   String _newKey() => 'k${_keyCounter++}_${DateTime.now().microsecondsSinceEpoch}';
 
@@ -119,7 +114,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     _viceGovernorPhotoUrl = p?.viceGovernorPhotoUrl;
     _government = p?.government;
     
-    // 🔑 Chaque élément chargé reçoit désormais une '_localKey' stable
     _ministers = p?.ministers?.map<Map<String, dynamic>>((m) => <String, dynamic>{'_localKey': _newKey(), 'name': m['name'] ?? '', 'role': m['role'] ?? '', 'photo_url': m['photoUrl'] ?? m['photo_url'] ?? ''}).toList() ?? <Map<String, dynamic>>[];
     
     _cities = p?.cities.map<Map<String, dynamic>>((c) => <String, dynamic>{
@@ -453,7 +447,20 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                 children: [
                   Container(
                     width: 70, height: 70, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
-                    child: ClipRRect(borderRadius: BorderRadius.circular(8), child: isVideo ? const Icon(Icons.videocam, color: Colors.grey, size: 30) : CachedNetworkImage(imageUrl: m['url'], fit: BoxFit.cover)),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: isVideo
+                          ? const Icon(Icons.videocam, color: Colors.grey, size: 30)
+                          : Image.network(
+                              m['url'],
+                              fit: BoxFit.cover,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return const Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)));
+                              },
+                              errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey, size: 24),
+                            ),
+                    ),
                   ),
                   Positioned(right: 0, top: 0, child: GestureDetector(onTap: () { mediaList.removeAt(idx); onUpdate(); }, child: Container(decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle), padding: const EdgeInsets.all(4), child: const Icon(Icons.close, size: 12, color: Colors.white)))),
                 ],
@@ -474,7 +481,25 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     return Container(
       padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
       child: Row(children: [
-        Container(width: 50, height: 50, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)), child: hasImg ? ClipRRect(borderRadius: BorderRadius.circular(8), child: CachedNetworkImage(imageUrl: currentUrl, fit: BoxFit.cover)) : const Icon(Icons.image_outlined, color: Colors.grey, size: 24)),
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
+          child: hasImg
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    currentUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)));
+                    },
+                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey, size: 20),
+                  ),
+                )
+              : const Icon(Icons.image_outlined, color: Colors.grey, size: 24),
+        ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: navyDeep)), Text(hasImg ? 'Image chargée' : 'Aucune image', style: TextStyle(fontSize: 11, color: hasImg ? Colors.green.shade700 : Colors.grey))])),
         ElevatedButton.icon(onPressed: () => _uploadSingleFile(folderName, onUpdated), icon: const Icon(Icons.upload, size: 16), label: const Text('Choisir'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8))),
