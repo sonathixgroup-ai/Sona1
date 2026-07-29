@@ -104,34 +104,18 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
     } catch (e) { if (!mounted) return; await FullScreenMessage.showError(context, title: 'Erreur', message: "Impossible d'effectuer la vérification."); } finally { if (mounted) { setState(() => _searching = false); } }
   }
 
-  // CORRECTION DIRECTE : Navigation sécurisée vers le tableau de bord
+  // --- NAVIGATION PROFIL ---
   void _onProfileTap() {
-    final auth = context.read<AuthController>();
     HapticFeedback.mediumImpact();
+    final user = Supabase.instance.client.auth.currentUser;
 
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          'auth=${auth.isAuthenticated} user=${auth.currentUser?.id ?? "NULL"}',
-        ),
-        duration: const Duration(seconds: 3),
-      ),
-    );
-
-    if (!auth.isAuthenticated || auth.currentUser == null) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('→ Redirection LOGIN'), duration: Duration(seconds: 2)),
-      );
+    if (user == null) {
       context.push(AppRoutes.login);
-      return;
+    } else {
+      context.push(AppRoutes.userDashboard);
     }
-
-    messenger.showSnackBar(
-      SnackBar(content: Text('→ go vers ${AppRoutes.userDashboard}'), duration: const Duration(seconds: 2)),
-    );
-    context.go(AppRoutes.userDashboard);
   }
+
   Future<void> _openThixAi() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push('/thix_ia'); return; } context.push(AppRoutes.login); }
   Future<void> _openThixChat() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push(AppRoutes.chat); } else { context.push(AppRoutes.login); } }
   
@@ -229,19 +213,17 @@ class _PremiumHeader extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(AppSpacing.xl, safeTop + 10, AppSpacing.xl, 10),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        // RETRAIT du GestureDetector sur le texte d'accueil
         Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onProfileTap,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-              const _RotatingGreeting(),
-              Row(children: [Flexible(child: Text(displayName, style: const TextStyle(color: AppColors.darkText, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: -0.3), overflow: TextOverflow.ellipsis))])
-            ]),
-          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+            const _RotatingGreeting(),
+            Row(children: [Flexible(child: Text(displayName, style: const TextStyle(color: AppColors.darkText, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: -0.3), overflow: TextOverflow.ellipsis))])
+          ]),
         ),
         Row(children: [
           Material(color: Colors.white, shape: const CircleBorder(), child: InkWell(customBorder: const CircleBorder(), onTap: () { HapticFeedback.lightImpact(); showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const LanguageSheet()); }, child: Container(width: 38, height: 38, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: AppColors.cardBorder), boxShadow: AppShadows.secondary), child: Stack(alignment: Alignment.center, children: [const Icon(Icons.language_rounded, size: 20, color: AppColors.premiumAccent), Positioned(right: 2, bottom: 2, child: Container(padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1), decoration: BoxDecoration(color: AppColors.premiumAccent, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white, width: 1)), child: Text(localeCode.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900))))])))),
           const SizedBox(width: 10),
+          // CLIC UNIQUEMENT SUR L'AVATAR
           GestureDetector(
             onTap: onProfileTap, 
             child: Container(
