@@ -131,16 +131,16 @@ class FormationCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
+                        const Text(
                           'Progression',
                           style: TextStyle(fontSize: 10, color: Color(0xFF7386A8)),
                         ),
                         Text(
                           '${(progress! * 100).toInt()}%',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF2D6CDF),
