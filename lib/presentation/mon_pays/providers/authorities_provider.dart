@@ -136,6 +136,12 @@ class AdminAuthorities extends _$AdminAuthorities {
     return service.getActiveAuthorities();
   }
 
+  /// 🔑 Méthode de rechargement demandée par admin_authorities_page.dart
+  Future<void> loadAuthorities() async {
+    ref.invalidateSelf();
+    await future;
+  }
+
   Future<void> createAuthority(Authority authority) async {
     final service = ref.read(authoritiesServiceProvider);
     
