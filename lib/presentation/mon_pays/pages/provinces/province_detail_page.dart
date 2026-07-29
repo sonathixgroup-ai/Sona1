@@ -1,5 +1,5 @@
 // ============================================================
-// FICHIER - province_detail_page.dart (EXPERT EDITION v6 - WEB SAFE & HOOKS)
+// FICHIER - province_detail_page.dart (EXPERT EDITION v7 - BULLETPROOF)
 // Classement : Identité > Cartographie > Galerie > Exécutif
 // > Réalisations > Villes > Découpage > Tourisme > Économie
 // > Peuples/Tribus > Histoire/Climat/Infra > Urgences > Identité Visuelle
@@ -47,117 +47,118 @@ class ProvinceDetailPage extends HookConsumerWidget {
             _ProvinceHeader(province: province),
             SliverPadding(
               padding: const EdgeInsets.all(16),
-              sliver: SliverList.list(children: [
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  // 1. IDENTITÉ DE LA PROVINCE
+                  _ProvinceIdentityCard(province: province),
+                  const SizedBox(height: 16),
 
-                // 1. IDENTITÉ DE LA PROVINCE
-                _ProvinceIdentityCard(province: province),
-                const SizedBox(height: 16),
+                  // 2. CARTOGRAPHIE
+                  if (province.mapUrl != null && province.mapUrl!.trim().isNotEmpty) ...[
+                    _SectionCard(
+                      icon: Icons.map_rounded, color: _navy, title: 'Cartographie',
+                      children: [_MapContent(url: province.mapUrl!, provinceName: province.name)],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
-                // 2. CARTOGRAPHIE
-                if (province.mapUrl != null && province.mapUrl!.trim().isNotEmpty) ...[
+                  // 3. GALERIE (AUTO-SCROLLING Géré via Hooks)
+                  if (province.galleryMedia != null && province.galleryMedia!.isNotEmpty) ...[
+                    _SectionCard(
+                      icon: Icons.perm_media, color: _navy, title: 'Galerie Média Globale (Photos & Vidéos)', count: province.galleryMedia!.length,
+                      children: [_GalleryBanner(media: province.galleryMedia!, provinceName: province.name)],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 4. EXÉCUTIF PROVINCIAL
                   _SectionCard(
-                    icon: Icons.map_rounded, color: _navy, title: 'Cartographie',
-                    children: [_MapContent(url: province.mapUrl!, provinceName: province.name)],
+                    icon: Icons.account_balance, color: _navy, title: 'Gouvernance & Exécutif Provincial',
+                    children: [_GovernanceContent(province: province)],
                   ),
                   const SizedBox(height: 16),
-                ],
 
-                // 3. GALERIE (AUTO-SCROLLING Géré via Hooks)
-                if (province.galleryMedia != null && province.galleryMedia!.isNotEmpty) ...[
+                  // 5. GRANDES RÉALISATIONS & PROJETS MAJEURS
+                  if (province.achievements != null && province.achievements!.isNotEmpty) ...[
+                    _SectionCard(
+                      icon: Icons.emoji_events, color: _navy, title: 'Réalisations & Projets Majeurs', count: province.achievements!.length,
+                      children: [_AchievementsSection(achievements: province.achievements!)],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 6. VILLES PRINCIPALES
+                  if (province.cities.isNotEmpty) ...[
+                    _SectionCard(
+                      icon: Icons.location_city, color: _navy, title: 'Villes Principales (avec Galerie)', count: province.cities.length,
+                      children: [_CitiesSection(cities: province.cities)],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 7. DÉCOUPAGE ADMINISTRATIF
+                  if (province.administrativeDivisions.isNotEmpty) ...[
+                    _SectionCard(
+                      icon: Icons.dashboard_customize, color: const Color(0xFF6A1B9A), title: 'Découpage Administratif (Détaillé)', count: province.administrativeDivisions.length,
+                      children: [_AdministrativeSection(divisions: province.administrativeDivisions)],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 8. TOURISME & SITES REMARQUABLES
+                  if (province.tourismSites.isNotEmpty) ...[
+                    _SectionCard(
+                      icon: Icons.landscape, color: const Color(0xFF1565C0), title: 'Tourisme & Sites Remarquables', count: province.tourismSites.length,
+                      children: [_TourismSection(sites: province.tourismSites)],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 9. ÉCONOMIE & SECTEURS CLÉS
+                  if (province.economicResources.isNotEmpty) ...[
+                    _SectionCard(
+                      icon: Icons.monetization_on, color: const Color(0xFF2E7D32), title: 'Économie & Secteurs Clés', count: province.economicResources.length,
+                      children: [_EconomySection(resources: province.economicResources)],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 10. PEUPLES & TRIBUS
+                  if (_hasCultureData(province)) ...[
+                    _SectionCard(
+                      icon: Icons.people, color: _navy, title: 'Culture, Langues & Peuples / Tribus',
+                      children: [_CultureAndTribesContent(province: province)],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 11. HISTOIRE, CLIMAT & INFRASTRUCTURES
+                  if (_hasInstitutionalData(province)) ...[
+                    _SectionCard(
+                      icon: Icons.history_edu, color: _navy, title: 'Histoire, Climat & Infrastructures',
+                      children: [_MonographyContent(province: province)],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 12. URGENCES & CONTACTS UTILES
+                  if (province.emergencyContacts.isNotEmpty) ...[
+                    _SectionCard(
+                      icon: Icons.emergency, color: const Color(0xFFD32F2F), title: 'Urgences & Contacts Utiles', count: province.emergencyContacts.length,
+                      children: [_EmergencySection(contacts: province.emergencyContacts)],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 13. IDENTITÉ VISUELLE OFFICIELLE
                   _SectionCard(
-                    icon: Icons.perm_media, color: _navy, title: 'Galerie Média Globale (Photos & Vidéos)', count: province.galleryMedia!.length,
-                    children: [_GalleryBanner(media: province.galleryMedia!, provinceName: province.name)],
+                    icon: Icons.image, color: _navy, title: 'Identité Visuelle Officielle',
+                    children: [_VisualIdentityContent(province: province)],
                   ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 4. EXÉCUTIF PROVINCIAL
-                _SectionCard(
-                  icon: Icons.account_balance, color: _navy, title: 'Gouvernance & Exécutif Provincial',
-                  children: [_GovernanceContent(province: province)],
-                ),
-                const SizedBox(height: 16),
-
-                // 5. GRANDES RÉALISATIONS & PROJETS MAJEURS
-                if (province.achievements != null && province.achievements!.isNotEmpty) ...[
-                  _SectionCard(
-                    icon: Icons.emoji_events, color: _navy, title: 'Réalisations & Projets Majeurs', count: province.achievements!.length,
-                    children: [_AchievementsSection(achievements: province.achievements!)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 6. VILLES PRINCIPALES
-                if (province.cities.isNotEmpty) ...[
-                  _SectionCard(
-                    icon: Icons.location_city, color: _navy, title: 'Villes Principales (avec Galerie)', count: province.cities.length,
-                    children: [_CitiesSection(cities: province.cities)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 7. DÉCOUPAGE ADMINISTRATIF
-                if (province.administrativeDivisions.isNotEmpty) ...[
-                  _SectionCard(
-                    icon: Icons.dashboard_customize, color: const Color(0xFF6A1B9A), title: 'Découpage Administratif (Détaillé)', count: province.administrativeDivisions.length,
-                    children: [_AdministrativeSection(divisions: province.administrativeDivisions)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 8. TOURISME & SITES REMARQUABLES
-                if (province.tourismSites.isNotEmpty) ...[
-                  _SectionCard(
-                    icon: Icons.landscape, color: const Color(0xFF1565C0), title: 'Tourisme & Sites Remarquables', count: province.tourismSites.length,
-                    children: [_TourismSection(sites: province.tourismSites)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 9. ÉCONOMIE & SECTEURS CLÉS
-                if (province.economicResources.isNotEmpty) ...[
-                  _SectionCard(
-                    icon: Icons.monetization_on, color: const Color(0xFF2E7D32), title: 'Économie & Secteurs Clés', count: province.economicResources.length,
-                    children: [_EconomySection(resources: province.economicResources)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 10. PEUPLES & TRIBUS
-                if (_hasCultureData(province)) ...[
-                  _SectionCard(
-                    icon: Icons.people, color: _navy, title: 'Culture, Langues & Peuples / Tribus',
-                    children: [_CultureAndTribesContent(province: province)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 11. HISTOIRE, CLIMAT & INFRASTRUCTURES
-                if (_hasInstitutionalData(province)) ...[
-                  _SectionCard(
-                    icon: Icons.history_edu, color: _navy, title: 'Histoire, Climat & Infrastructures',
-                    children: [_MonographyContent(province: province)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 12. URGENCES & CONTACTS UTILES
-                if (province.emergencyContacts.isNotEmpty) ...[
-                  _SectionCard(
-                    icon: Icons.emergency, color: const Color(0xFFD32F2F), title: 'Urgences & Contacts Utiles', count: province.emergencyContacts.length,
-                    children: [_EmergencySection(contacts: province.emergencyContacts)],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 13. IDENTITÉ VISUELLE OFFICIELLE
-                _SectionCard(
-                  icon: Icons.image, color: _navy, title: 'Identité Visuelle Officielle',
-                  children: [_VisualIdentityContent(province: province)],
-                ),
-                const SizedBox(height: 40),
-              ]),
-            ],
+                  const SizedBox(height: 40),
+                ]),
+              ),
+            ),
           ],
         ),
       ),
