@@ -17,7 +17,7 @@ import 'dashboard_tabs.dart';
 import 'dashboard_editors.dart';
 
 // =============================================================================
-// STATE MANAGEMENT: CONTRÔLEUR HAUTE PERFORMANCE (SANS STREAM)
+// STATE MANAGEMENT
 // =============================================================================
 
 class DashboardCache {
@@ -41,6 +41,7 @@ class UserDashboardCtrl extends ChangeNotifier {
   ThixProfile? profile;
   AppUser? mergedUser;
   int score = 0;
+  String debugStatus = 'ctrl créé';
 
   UserDashboardCtrl({
     required this.profileService,
@@ -49,7 +50,9 @@ class UserDashboardCtrl extends ChangeNotifier {
   });
 
   Future<void> init(AppUser authUser) async {
-    debugPrint('>>> UserDashboardCtrl.init appelé pour ${authUser.id}');
+    debugStatus = 'init() démarré pour ${authUser.id}';
+    notifyListeners();
+
     unawaited(userService.logSecurityEvent(uid: authUser.id, type: 'dashboard_open', label: 'Ouverture dashboard').catchError((_) {}));
     unawaited(profileService.ensureProfileExists(user: authUser).catchError((_) {}));
 
@@ -57,6 +60,7 @@ class UserDashboardCtrl extends ChangeNotifier {
       profile = DashboardCache().lastProfile;
       _mergeAndCompute(authUser);
       loading = false;
+      debugStatus = 'chargé depuis le cache';
       notifyListeners();
       unawaited(refreshSilently(authUser));
       return;
@@ -64,6 +68,7 @@ class UserDashboardCtrl extends ChangeNotifier {
 
     loading = true;
     error = null;
+    debugStatus = 'fetch profile en cours...';
     notifyListeners();
 
     try {
@@ -74,10 +79,10 @@ class UserDashboardCtrl extends ChangeNotifier {
       DashboardCache().lastFetch = DateTime.now();
 
       _mergeAndCompute(authUser);
-      debugPrint('>>> UserDashboardCtrl.init succès, profile chargé');
+      debugStatus = 'succès, profile chargé';
     } catch (e) {
       error = 'Impossible de charger les données du profil.';
-      debugPrint('>>> UserDashboardCtrl init ERROR: $e');
+      debugStatus = 'ERREUR: $e';
     } finally {
       loading = false;
       notifyListeners();
@@ -95,7 +100,8 @@ class UserDashboardCtrl extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('Silent refresh error: $e');
+      debugStatus = 'refresh error: $e';
+      notifyListeners();
     }
   }
 
@@ -147,11 +153,11 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
 
   final _docFilter = ValueNotifier<String>('Tous');
   bool _initTriggered = false;
+  String _buildDebug = 'initState pas encore passé par build';
 
   @override
   void initState() {
     super.initState();
-    debugPrint('>>> UserDashboardPage.initState');
     _profileService = ProfileService();
     _userService = UserService(Supabase.instance.client);
     _docsService = DocumentService();
@@ -168,7 +174,6 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   void _tryInit() {
     if (_initTriggered || !mounted) return;
     final me = context.read<AuthController>().currentUser;
-    debugPrint('>>> _tryInit: currentUser=${me?.id}');
     if (me == null) return;
     if (me.accountType == AccountType.enterprise) {
       _initTriggered = true;
@@ -189,22 +194,55 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   @override
   Widget build(BuildContext context) {
     final me = context.watch<AuthController>().currentUser;
-    debugPrint('>>> UserDashboardPage.build: currentUser=${me?.id} initTriggered=$_initTriggered');
+    _buildDebug = 'build: user=${me?.id ?? "NULL"} initTriggered=$_initTriggered';
+
+    // BANDEAU DE DEBUG TEMPORAIRE
+    Widget debugBanner(String text) => Material(
+      color: Colors.black,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Text(text, style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
+        ),
+      ),
+    );
 
     if (me == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        body: Column(
+          children: [
+            debugBanner(_buildDebug),
+            const Expanded(child: Center(child: CircularProgressIndicator())),
+          ],
+        ),
+      );
     }
 
     if (me.accountType == AccountType.enterprise) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) context.go(AppRoutes.enterpriseDashboard);
       });
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        body: Column(
+          children: [
+            debugBanner('$_buildDebug — redirection enterprise...'),
+            const Expanded(child: Center(child: CircularProgressIndicator())),
+          ],
+        ),
+      );
     }
 
     if (!_initTriggered) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _tryInit());
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        body: Column(
+          children: [
+            debugBanner('$_buildDebug — en attente de _tryInit...'),
+            const Expanded(child: Center(child: CircularProgressIndicator())),
+          ],
+        ),
+      );
     }
 
     return ChangeNotifierProvider.value(
@@ -216,19 +254,31 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
           body: Consumer<UserDashboardCtrl>(
             builder: (context, ctrl, _) {
               if (ctrl.loading && ctrl.profile == null) {
-                return const Center(child: CircularProgressIndicator(color: Color(0xFF0D2CC1)));
+                return Column(
+                  children: [
+                    debugBanner('$_buildDebug\nctrl: ${ctrl.debugStatus}'),
+                    const Expanded(child: Center(child: CircularProgressIndicator(color: Color(0xFF0D2CC1)))),
+                  ],
+                );
               }
 
               if (ctrl.error != null && ctrl.profile == null) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(ctrl.error!, style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 12),
-                      ElevatedButton(onPressed: () => ctrl.init(me), child: const Text('Réessayer'))
-                    ],
-                  ),
+                return Column(
+                  children: [
+                    debugBanner('$_buildDebug\nctrl: ${ctrl.debugStatus}'),
+                    Expanded(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(ctrl.error!, style: const TextStyle(color: Colors.red)),
+                            const SizedBox(height: 12),
+                            ElevatedButton(onPressed: () => ctrl.init(me), child: const Text('Réessayer'))
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 );
               }
 
@@ -240,46 +290,53 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                 child: Stack(
                   children: [
                     const DashboardBackground(),
-                    RefreshIndicator(
-                      color: const Color(0xFF0D2CC1),
-                      onRefresh: () => ctrl.refreshSilently(me),
-                      child: Column(
-                        children: [
-                          DashboardTopBar(
-                            user: mergedUser,
-                            score: score,
-                            onBack: () => context.go(AppRoutes.home),
-                            onOpenSettings: () => context.push(AppRoutes.settings),
-                            onLogout: () async {
-                              await context.read<AuthController>().signOut();
-                              if (context.mounted) context.go(AppRoutes.home);
-                            },
-                            onEditProfile: () async {
-                              await ProfileEditorSheet.show(context, profile: profile, profileService: _profileService, authUser: me);
-                              if (context.mounted) ctrl.refreshSilently(me);
-                            },
-                            onDownloadCv: () => DefaultTabController.of(context).animateTo(4),
-                            onShareProfile: () => ShareProfileSheet.show(context, profile),
-                          ),
-                          const DashboardTabsHeader(),
-                          Expanded(
-                            child: TabBarView(
+                    Column(
+                      children: [
+                        debugBanner('$_buildDebug\nctrl: ${ctrl.debugStatus}'),
+                        Expanded(
+                          child: RefreshIndicator(
+                            color: const Color(0xFF0D2CC1),
+                            onRefresh: () => ctrl.refreshSilently(me),
+                            child: Column(
                               children: [
-                                KeepAliveWrapper(child: ProfileTab(authUser: me, profile: profile, score: score, profileService: _profileService, userService: _userService)),
-                                KeepAliveWrapper(child: ValueListenableBuilder(valueListenable: _docFilter, builder: (_, filter, __) => DocumentsTab(uid: me.id, docs: _docsService, userService: _userService, filter: filter, onChangeFilter: (v) => _docFilter.value = v))),
-                                KeepAliveWrapper(child: ExperienceSkillsTab(profile: profile, profileService: _profileService)),
-                                KeepAliveWrapper(child: FormationsTab(user: me, userService: _userService)),
-                                KeepAliveWrapper(child: CvTab(user: mergedUser)),
-                                KeepAliveWrapper(child: PaymentsTab(uid: me.id, userService: _userService, user: me)),
-                                KeepAliveWrapper(child: SecurityTab(uid: me.id, user: me, userService: _userService)),
+                                DashboardTopBar(
+                                  user: mergedUser,
+                                  score: score,
+                                  onBack: () => context.go(AppRoutes.home),
+                                  onOpenSettings: () => context.push(AppRoutes.settings),
+                                  onLogout: () async {
+                                    await context.read<AuthController>().signOut();
+                                    if (context.mounted) context.go(AppRoutes.home);
+                                  },
+                                  onEditProfile: () async {
+                                    await ProfileEditorSheet.show(context, profile: profile, profileService: _profileService, authUser: me);
+                                    if (context.mounted) ctrl.refreshSilently(me);
+                                  },
+                                  onDownloadCv: () => DefaultTabController.of(context).animateTo(4),
+                                  onShareProfile: () => ShareProfileSheet.show(context, profile),
+                                ),
+                                const DashboardTabsHeader(),
+                                Expanded(
+                                  child: TabBarView(
+                                    children: [
+                                      KeepAliveWrapper(child: ProfileTab(authUser: me, profile: profile, score: score, profileService: _profileService, userService: _userService)),
+                                      KeepAliveWrapper(child: ValueListenableBuilder(valueListenable: _docFilter, builder: (_, filter, __) => DocumentsTab(uid: me.id, docs: _docsService, userService: _userService, filter: filter, onChangeFilter: (v) => _docFilter.value = v))),
+                                      KeepAliveWrapper(child: ExperienceSkillsTab(profile: profile, profileService: _profileService)),
+                                      KeepAliveWrapper(child: FormationsTab(user: me, userService: _userService)),
+                                      KeepAliveWrapper(child: CvTab(user: mergedUser)),
+                                      KeepAliveWrapper(child: PaymentsTab(uid: me.id, userService: _userService, user: me)),
+                                      KeepAliveWrapper(child: SecurityTab(uid: me.id, user: me, userService: _userService)),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                     Positioned(
-                      top: 18,
+                      top: 60,
                       right: 18,
                       child: GestureDetector(onTap: () => context.push(AppRoutes.chat), child: const ChatFab())
                     ),
@@ -305,7 +362,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
 }
 
 // =============================================================================
-// WIDGET OPTIMISATION (CONSERVATION D'ÉTAT)
+// WIDGET OPTIMISATION
 // =============================================================================
 
 class KeepAliveWrapper extends StatefulWidget {
