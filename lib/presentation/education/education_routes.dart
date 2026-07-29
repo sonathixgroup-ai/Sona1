@@ -16,7 +16,7 @@ import 'package:thix_id/presentation/education/pages/recommendations_page.dart';
 import 'package:thix_id/presentation/education/models/certificate.dart';
 
 // Formateur – routes fonctionnelles
-import 'package:thix_id/presentation/education/instructor/instructor_dashboard.dart';
+import 'package:thix_id/presentation/education/instructor/dashboard/instructor_dashboard.dart';
 import 'package:thix_id/presentation/education/instructor/courses/course_list_page.dart';
 import 'package:thix_id/presentation/education/instructor/courses/course_create_page.dart';
 import 'package:thix_id/presentation/education/instructor/content/module_management_page.dart';
