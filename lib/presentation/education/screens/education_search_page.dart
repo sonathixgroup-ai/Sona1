@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/education_providers.dart';
+
+// ✅ CORRIGÉ : Le bon chemin d'importation (sans le "s" à provider)
+import 'package:thix_id/presentation/education/providers/education_provider.dart'; 
+
 import '../widgets/common/education_empty_state.dart';
 import '../widgets/common/formation_card.dart';
 
@@ -80,14 +83,14 @@ class _EducationSearchPageState extends ConsumerState<EducationSearchPage> {
             ]));
           }
 
-          if (results.isEmpty &&!paginated.hasMore) {
+          if (results.isEmpty && !paginated.hasMore) {
             return EducationEmptyState(title: 'Aucun résultat', subtitle: 'Aucune formation pour "$query"', icon: Icons.search_off_rounded, buttonText: 'Effacer', onButtonPressed: () { _searchController.clear(); notifier.clear(); });
           }
 
           return ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.all(16),
-            itemCount: results.length + (paginated.hasMore? 1 : 0),
+            itemCount: results.length + (paginated.hasMore ? 1 : 0),
             itemBuilder: (context, index) {
               if (index == results.length) {
                 return const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator(color: Color(0xFF2D6CDF))));
