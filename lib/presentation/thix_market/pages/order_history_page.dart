@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class OrderHistoryPage extends StatefulWidget {
   const OrderHistoryPage({super.key});
@@ -312,7 +311,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                       decoration: BoxDecoration(
                         color: const Color(0xFFF3F4F6), 
                         borderRadius: BorderRadius.circular(10), 
-                        image: shop?['logo_url'] != null ? DecorationImage(image: CachedNetworkImageProvider(shop!['logo_url']), fit: BoxFit.cover) : null
+                        image: shop?['logo_url'] != null ? DecorationImage(image: NetworkImage(shop!['logo_url']), fit: BoxFit.cover) : null
                       ), 
                       child: shop?['logo_url'] == null ? const Icon(Icons.storefront_rounded, size: 18, color: Color(0xFF9CA3AF)) : null
                     ),
@@ -373,10 +372,14 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10), 
-                        child: CachedNetworkImage(
-                          imageUrl: img, 
+                        child: Image.network(
+                          img, 
                           width: 48, height: 48, fit: BoxFit.cover, 
-                          errorWidget: (_, __, ___) => Container(width: 48, height: 48, color: const Color(0xFFF3F4F6), child: const Icon(Icons.image_outlined, size: 18))
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return Container(width: 48, height: 48, color: const Color(0xFFF3F4F6), child: const Center(child: CircularProgressIndicator(strokeWidth: 2)));
+                          },
+                          errorBuilder: (_, __, ___) => Container(width: 48, height: 48, color: const Color(0xFFF3F4F6), child: const Icon(Icons.image_outlined, size: 18))
                         )
                       ),
                       const SizedBox(width: 10),
