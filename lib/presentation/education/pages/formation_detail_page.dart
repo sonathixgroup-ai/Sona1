@@ -1,118 +1,125 @@
 // lib/presentation/education/pages/formation_detail_page.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // ✅ CORRIGÉ
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:thix_id/presentation/education/models/formation.dart';
 import 'package:thix_id/presentation/education/models/module.dart';
 import 'package:thix_id/presentation/education/models/lesson.dart';
-import 'package:thix_id/presentation/education/providers/education_provider.dart';
-import 'package:thix_id/presentation/education/providers/progress_provider.dart';
+import 'package:thix_id/presentation/education/providers/education_provider.dart'; // Contient formationDetailProvider
 import 'package:thix_id/presentation/education/widgets/common/education_empty_state.dart';
 import 'package:thix_id/presentation/education/widgets/common/education_loading_shimmer.dart';
 import 'package:thix_id/presentation/education/widgets/formation_detail/formation_module_list.dart';
 
-class FormationDetailPage extends StatefulWidget {
+// ✅ CORRIGÉ : ConsumerStatefulWidget
+class FormationDetailPage extends ConsumerStatefulWidget {
   final String formationId;
 
   const FormationDetailPage({super.key, required this.formationId});
 
   @override
-  State<FormationDetailPage> createState() => _FormationDetailPageState();
+  ConsumerState<FormationDetailPage> createState() => _FormationDetailPageState();
 }
 
-class _FormationDetailPageState extends State<FormationDetailPage> {
+// ✅ CORRIGÉ : ConsumerState
+class _FormationDetailPageState extends ConsumerState<FormationDetailPage> {
+  // Vous aviez progressProvider, je le remplace par un state local temporaire pour éviter les crashs 
+  // si le progressProvider n'a pas encore été migré sous Riverpod.
+  double _progress = 0.0;
+  bool _isEnrolled = false;
+
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _checkEnrollment();
   }
 
-  Future<void> _loadData() async {
-    final educationProvider = context.read<EducationProvider>();
-    final progressProvider = context.read<ProgressProvider>();
+  Future<void> _checkEnrollment() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
 
-    await educationProvider.loadFormationDetails(widget.formationId);
-    if (userId != null) {
-      await progressProvider.loadProgress(userId, widget.formationId);
+    final res = await Supabase.instance.client
+        .from('enrollments')
+        .select('progress')
+        .eq('user_id', userId)
+        .eq('formation_id', widget.formationId)
+        .maybeSingle();
+
+    if (res != null && mounted) {
+      setState(() {
+        _isEnrolled = true;
+        _progress = (res['progress'] ?? 0) / 100.0;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final educationProvider = context.watch<EducationProvider>();
-    final formation = educationProvider.currentFormation;
+    // ✅ CORRIGÉ : Utilisation de Riverpod pour charger la formation
+    final formationAsync = ref.watch(formationDetailProvider(widget.formationId));
 
-    if (educationProvider.isLoading) {
-      return const Scaffold(
-        body: EducationLoadingShimmer(),
-      );
-    }
-
-    if (formation == null) {
-      return Scaffold(
-        body: EducationEmptyState(
-          title: 'Formation introuvable',
-          subtitle: 'Cette formation n\'existe pas ou a été supprimée.',
-          icon: Icons.school_rounded,
-          buttonText: 'Retourner à la liste',
-          onButtonPressed: () => context.pop(),
-        ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: Text(
-          formation.title,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.bookmark_border_rounded),
-            onPressed: () {
-              // Sauvegarder la formation (à implémenter)
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // En-tête de la formation
-            _buildHeader(formation),
-            const SizedBox(height: 16),
-            // Description
-            _buildDescription(formation),
-            const SizedBox(height: 16),
-            // Informations complémentaires
-            _buildInfoRow(formation),
-            const SizedBox(height: 16),
-            // Bouton d'inscription (si non inscrit)
-            _buildEnrollButton(formation),
-            const SizedBox(height: 16),
-            // Liste des modules et leçons
-            FormationModuleList(
-              formation: formation,
-              onLessonTap: (lesson) {
-                _openLesson(lesson);
-              },
+    return formationAsync.when(
+      loading: () => const Scaffold(body: EducationLoadingShimmer()),
+      error: (err, stack) => Scaffold(body: Center(child: Text('Erreur: $err'))),
+      data: (formation) {
+        if (formation == null) {
+          return Scaffold(
+            body: EducationEmptyState(
+              title: 'Formation introuvable',
+              subtitle: 'Cette formation n\'existe pas ou a été supprimée.',
+              icon: Icons.school_rounded,
+              buttonText: 'Retourner à la liste',
+              onButtonPressed: () => context.pop(),
             ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: AppBar(
+            title: Text(
+              formation.title,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: () => context.pop(),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.bookmark_border_rounded),
+                onPressed: () {},
+              ),
+            ],
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(formation),
+                const SizedBox(height: 16),
+                _buildDescription(formation),
+                const SizedBox(height: 16),
+                _buildInfoRow(formation),
+                const SizedBox(height: 16),
+                _buildEnrollButton(formation),
+                const SizedBox(height: 16),
+                FormationModuleList(
+                  formation: formation,
+                  onLessonTap: (lesson) {
+                    _openLesson(lesson);
+                  },
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -143,8 +150,6 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
             ),
           ),
           const SizedBox(height: 8),
-          // ❌ Ligne supprimée : formation.instructor ?? 'Instructeur'
-          // ✅ Affichage du formateur (correction définitive)
           if (formation.instructorName != null && formation.instructorName!.isNotEmpty)
             Row(
               children: [
@@ -333,10 +338,7 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
   }
 
   Widget _buildEnrollButton(Formation formation) {
-    final progressProvider = context.watch<ProgressProvider>();
-    final isEnrolled = progressProvider.currentEnrollment != null;
-
-    if (isEnrolled) {
+    if (_isEnrolled) {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         decoration: BoxDecoration(
@@ -349,7 +351,7 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
             const Icon(Icons.check_circle_rounded, color: Color(0xFF2D6CDF), size: 20),
             const SizedBox(width: 8),
             Text(
-              'Inscrit · ${(progressProvider.overallProgress * 100).toInt()}%',
+              'Inscrit · ${(_progress * 100).toInt()}%',
               style: const TextStyle(
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF2D6CDF),
@@ -372,13 +374,18 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
             );
             return;
           }
-          final provider = context.read<EducationProvider>();
-          final enrollment = await provider.enrollUser(userId, formation.id);
-          if (enrollment != null) {
+          
+          // ✅ CORRIGÉ : Utilisation de Riverpod pour l'inscription
+          final success = await ref.read(enrollProvider.notifier).enroll(
+            userId: userId, 
+            formationId: formation.id,
+          );
+          
+          if (success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Inscription réussie !')),
             );
-            await _loadData();
+            _checkEnrollment();
           }
         },
         style: ElevatedButton.styleFrom(
@@ -397,7 +404,6 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
   }
 
   void _openLesson(Lesson lesson) {
-    // Naviguer vers le lecteur de leçon
     context.push(
       '/education/lesson/${lesson.id}',
       extra: {
