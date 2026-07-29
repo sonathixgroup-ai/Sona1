@@ -1,8 +1,8 @@
 // lib/presentation/admin/admin_article_form_page.dart
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';       // 👈 INDISPENSABLE POUR LES HOOKS
-import 'package:hooks_riverpod/hooks_riverpod.dart';   // 👈 INDISPENSABLE POUR RIVERPOD
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/news_provider.dart';
