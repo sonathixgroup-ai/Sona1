@@ -1,7 +1,7 @@
 // lib/presentation/education/instructor/courses/course_create_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // ✅ Modifié
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/presentation/education/models/formation.dart';
 import 'package:thix_id/presentation/education/models/module.dart';
@@ -10,15 +10,17 @@ import 'package:thix_id/presentation/education/providers/education_provider.dart
 import 'package:thix_id/presentation/education/instructor/content/module_management_page.dart';
 import 'package:file_picker/file_picker.dart';
 
-class CourseCreatePage extends StatefulWidget {
+// ✅ Modifié : ConsumerStatefulWidget
+class CourseCreatePage extends ConsumerStatefulWidget {
   final String? courseId;
   const CourseCreatePage({super.key, this.courseId});
 
   @override
-  State<CourseCreatePage> createState() => _CourseCreatePageState();
+  ConsumerState<CourseCreatePage> createState() => _CourseCreatePageState();
 }
 
-class _CourseCreatePageState extends State<CourseCreatePage> {
+// ✅ Modifié : ConsumerState
+class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -96,7 +98,7 @@ class _CourseCreatePageState extends State<CourseCreatePage> {
         description: _descriptionController.text,
         categoryId: _categoryId,
         instructorId: userId,
-        instructorName: _instructorController.text, // ✅ correction ici
+        instructorName: _instructorController.text,
         level: _level,
         duration: totalDuration,
         price: double.tryParse(_priceController.text) ?? 0.0,
@@ -111,8 +113,8 @@ class _CourseCreatePageState extends State<CourseCreatePage> {
         modules: _modules,
       );
 
-      // Sauvegarde
-      final provider = context.read<EducationProvider>();
+      // ✅ Modifié : Utilisation de ref.read au lieu de context.read
+      final provider = ref.read(educationProvider);
       await provider.createFormation(formation);
 
       if (!mounted) return;
