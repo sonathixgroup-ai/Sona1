@@ -18,6 +18,22 @@ class AuthController extends ChangeNotifier {
   AppUser? get currentUser => _auth.currentUser;
   bool get isAuthenticated => currentUser != null;
 
+  // ============================================================
+  // 🛡️ SÉCURITÉ : Vérification du rôle Administrateur
+  // Utilisé par AppRouter pour bloquer l'accès aux routes /admin
+  // ============================================================
+  bool get isAdmin {
+    if (currentUser == null) return false;
+    
+    // ⚠️ À ADAPTER SELON VOTRE MODÈLE 'AppUser'
+    // Si votre AppUser utilise un champ 'role' :
+    return currentUser!.role == 'admin' || currentUser!.role == 'super_admin';
+    
+    // Si vous utilisez 'AccountType' pour les admins, décommentez ceci :
+    // return currentUser!.accountType == AccountType.admin;
+  }
+  // ============================================================
+
   Future<void> init() => _auth.init();
 
   Future<AppUser> signIn({required String identifier, required String password, required bool rememberMe}) async {
