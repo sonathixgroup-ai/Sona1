@@ -1,13 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'education_providers.dart';
 import '../models/forum_topic.dart';
+
+// Provider local pour éviter le cycle d'import
+final _supabaseProvider = Provider<SupabaseClient>((ref) => Supabase.instance.client);
 
 class PaginatedForumTopics {
   final List<ForumTopic> items;
   final bool hasMore;
   const PaginatedForumTopics({required this.items, this.hasMore = true});
-  PaginatedForumTopics copyWith({List<ForumTopic>? items, bool? hasMore}) => 
+  PaginatedForumTopics copyWith({List<ForumTopic>? items, bool? hasMore}) =>
     PaginatedForumTopics(items: items ?? this.items, hasMore: hasMore ?? this.hasMore);
 }
 
@@ -20,7 +22,7 @@ class ForumTopicsNotifier extends FamilyAsyncNotifier<PaginatedForumTopics, Stri
   @override
   Future<PaginatedForumTopics> build(String formationId) async {
     _offset = 0; _hasMore = true;
-    final client = ref.watch(supabaseClientProvider);
+    final client = ref.watch(_supabaseProvider);
     final res = await client.from('forum_topics')
      .select('id,formation_id,title,content,author_id,created_at,pinned,reply_count,author:profiles(id,full_name,avatar_url)')
      .eq('formation_id', formationId)
@@ -33,7 +35,7 @@ class ForumTopicsNotifier extends FamilyAsyncNotifier<PaginatedForumTopics, Stri
 
   Future<void> loadMore() async {
     if (!_hasMore) return;
-    final client = ref.read(supabaseClientProvider);
+    final client = ref.read(_supabaseProvider);
     final res = await client.from('forum_topics')
      .select('id,formation_id,title,content,author_id,created_at,pinned,reply_count,author:profiles(id,full_name,avatar_url)')
      .eq('formation_id', arg).order('pinned', ascending: false).order('created_at', ascending: false)
@@ -46,7 +48,7 @@ class ForumTopicsNotifier extends FamilyAsyncNotifier<PaginatedForumTopics, Stri
   }
 
   Future<ForumTopic?> createTopic({required String title, required String content}) async {
-    final client = ref.read(supabaseClientProvider);
+    final client = ref.read(_supabaseProvider);
     final userId = client.auth.currentUser?.id;
     if (userId == null) return null;
     final res = await client.from('forum_topics').insert({
@@ -60,4 +62,5 @@ class ForumTopicsNotifier extends FamilyAsyncNotifier<PaginatedForumTopics, Stri
     return topic;
   }
 }
+
 final forumTopicsProvider = AsyncNotifierProvider.family<ForumTopicsNotifier, PaginatedForumTopics, String>(ForumTopicsNotifier.new);
