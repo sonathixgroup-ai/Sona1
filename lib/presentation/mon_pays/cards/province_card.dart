@@ -4,7 +4,6 @@
 // lib/presentation/mon_pays/cards/province_card.dart
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/province.dart';
 
 class ProvinceCard extends StatelessWidget {
@@ -26,24 +25,26 @@ class ProvinceCard extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              // Blason
+              // Blason Web-Safe
               Container(
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  image: province.coatOfArmsUrl != null
+                  image: province.coatOfArmsUrl != null && province.coatOfArmsUrl!.trim().isNotEmpty
                       ? DecorationImage(
-                          image: CachedNetworkImageProvider(province.coatOfArmsUrl!),
+                          image: NetworkImage(province.coatOfArmsUrl!),
                           fit: BoxFit.contain,
                         )
                       : null,
                   color: Colors.grey.shade200,
                 ),
-                child: province.coatOfArmsUrl == null
+                child: (province.coatOfArmsUrl == null || province.coatOfArmsUrl!.trim().isEmpty)
                     ? Center(
                         child: Text(
-                          province.code.substring(0, 2).toUpperCase(),
+                          province.code.length >= 2
+                              ? province.code.substring(0, 2).toUpperCase()
+                              : province.code.toUpperCase(),
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                         ),
                       )
