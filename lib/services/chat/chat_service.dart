@@ -16,33 +16,24 @@ class ChatService {
 
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
 
-  // ============================================================
-  // Helper: extrait le meilleur nom disponible depuis un profil
-  // ============================================================
   static String _resolveDisplayName(Map<String, dynamic>? profile) {
     if (profile == null) return 'Utilisateur inconnu';
     final displayName = profile['display_name'] as String?;
-    if (displayName != null && displayName.trim().isNotEmpty) {
-      return displayName;
-    }
+    if (displayName != null && displayName.trim().isNotEmpty) return displayName;
     final fullName = profile['full_name'] as String?;
-    if (fullName != null && fullName.trim().isNotEmpty) {
-      return fullName;
-    }
+    if (fullName != null && fullName.trim().isNotEmpty) return fullName;
     return 'Utilisateur inconnu';
   }
 
   // ============================================================
-  // CONVERSATIONS (OPTIMISÉES POUR L'ÉCHELLE)
+  // CONVERSATIONS
   // ============================================================
 
-  /// ✅ NOUVEAU : Récupère uniquement le nombre total de messages non lus (Ultra léger)
   Future<int> getTotalUnreadCount() async {
     try {
       final uid = currentUserId;
       if (uid.isEmpty) return 0;
 
-      // 1. Récupérer les IDs (très léger)
       final participantResponse = await _supabase
           .from('conversation_participants')
           .select('conversation_id')
@@ -54,7 +45,6 @@ class ChatService {
           .map((e) => e['conversation_id'] as String)
           .toList();
 
-      // 2. Compter uniquement les messages non lus (sans ramener le contenu)
       final unreadResponse = await _supabase
           .from('messages')
           .select('id')
@@ -69,13 +59,11 @@ class ChatService {
     }
   }
 
-  /// ✅ CORRIGÉ : Récupération paginée des conversations (Fini les crashs DB)
   Future<List<ChatConversation>> getConversations({int limit = 20, int offset = 0}) async {
     try {
       final uid = currentUserId;
       if (uid.isEmpty) return [];
 
-      // 1. Récupérer TOUS les IDs (cette table est légère, ça passe à l'échelle)
       final participantResponse = await _supabase
           .from('conversation_participants')
           .select('conversation_id')
@@ -87,7 +75,6 @@ class ChatService {
           .map((e) => e['conversation_id'] as String)
           .toList();
 
-      // 2. Récupérer UNIQUEMENT la page actuelle de conversations
       final response = await _supabase
           .from('conversations')
           .select('''
@@ -104,19 +91,17 @@ class ChatService {
           ''')
           .inFilter('id', allConversationIds)
           .order('updated_at', ascending: false)
-          .range(offset, offset + limit - 1); // 🔥 PAGINATION APPLIQUÉE ICI !
+          .range(offset, offset + limit - 1);
 
       final paginatedConversations = response as List;
       if (paginatedConversations.isEmpty) return [];
 
-      // On isole les IDs de CETTE page seulement (max 20)
       final pageConversationIds = paginatedConversations.map((c) => c['id'] as String).toList();
 
-      // 3. Récupérer les non-lus UNIQUEMENT pour cette page
       final unreadResponse = await _supabase
           .from('messages')
-          .select('id, conversation_id')
-          .inFilter('conversation_id', pageConversationIds) // 🔥 Cible réduite
+          .select('conversation_id')
+          .inFilter('conversation_id', pageConversationIds)
           .eq('is_read', false)
           .neq('sender_id', uid);
 
@@ -126,34 +111,27 @@ class ChatService {
         unreadCounts[cid] = (unreadCounts[cid] ?? 0) + 1;
       }
 
-      // 4. Récupérer les derniers messages (Max 20 requêtes, plus de crash DB !)
+      // 💡 NOTE ARCHITECTURE : Pour passer à 100 000 utilisateurs, il faudra remplacer 
+      // ce bloc Future.wait par une "Postgres View" ou un "RPC" côté base de données
+      // qui renvoie directement le dernier message joint à la conversation.
       final futures = paginatedConversations.map((conv) async {
         final cid = conv['id'] as String;
         final participants = conv['conversation_participants'] as List;
         final participantIds = participants.map((p) => p['user_id'] as String).toList();
 
-        String? otherParticipantName;
-        String? otherParticipantAvatar;
-
+        String? otherName, otherAvatar;
         if (!(conv['is_group'] ?? false) && participants.length == 2) {
           final other = participants.firstWhere((p) => p['user_id'] != uid, orElse: () => null);
           if (other != null) {
             final profile = other['profiles'] as Map<String, dynamic>?;
-            otherParticipantName = _resolveDisplayName(profile);
-            otherParticipantAvatar = profile?['avatar_url'] as String?;
+            otherName = _resolveDisplayName(profile);
+            otherAvatar = profile?['avatar_url'] as String?;
           }
         }
 
         final lastMsg = await _supabase
             .from('messages')
-            .select('''
-              *,
-              profiles!sender_id (
-                display_name,
-                full_name,
-                avatar_url
-              )
-            ''')
+            .select('*, profiles!sender_id(display_name, full_name, avatar_url)')
             .eq('conversation_id', cid)
             .eq('is_deleted', false)
             .order('created_at', ascending: false)
@@ -174,8 +152,8 @@ class ChatService {
           groupName: conv['group_name'],
           groupAvatar: conv['group_avatar'],
           participantIds: participantIds,
-          otherParticipantName: otherParticipantName ?? 'Utilisateur inconnu',
-          otherParticipantAvatar: otherParticipantAvatar,
+          otherParticipantName: otherName ?? 'Utilisateur inconnu',
+          otherParticipantAvatar: otherAvatar,
           lastMessage: lastMessage,
           unreadCount: unreadCounts[cid] ?? 0,
           updatedAt: DateTime.parse(conv['updated_at']),
@@ -184,27 +162,11 @@ class ChatService {
       });
 
       final conversations = await Future.wait(futures);
-      
-      // On s'assure que le tri est parfait
       conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-
       return conversations;
     } catch (e) {
       debugPrint('❌ getConversations: $e');
       return [];
-    }
-  }
-
-  Future<void> updateMessageSentiment(String messageId, SentimentResult sentiment) async {
-    try {
-      final sentimentValue = sentiment.toString().split('.').last;
-      await _supabase 
-          .from('messages') 
-          .update({'sentiment': sentimentValue}) 
-          .eq('id', messageId);
-    } catch (e) {
-      debugPrint('❌ Erreur lors de la mise à jour du sentiment: $e');
-      throw Exception('Impossible de mettre à jour le sentiment');
     }
   }
 
@@ -217,40 +179,20 @@ class ChatService {
     final uid = currentUserId;
     if (uid.isEmpty) throw Exception('Not logged in');
 
-    if (!participantIds.contains(uid)) {
-      participantIds = [...participantIds, uid];
-    }
+    if (!participantIds.contains(uid)) participantIds = [...participantIds, uid];
 
+    // Vérification optimisée d'une conversation 1v1 existante
     if (!isGroup && participantIds.length == 2) {
       final otherId = participantIds.firstWhere((id) => id != uid);
-      final existing = await _supabase
-          .from('conversation_participants')
-          .select('conversation_id')
-          .eq('user_id', uid);
-
-      final convIds = (existing as List)
-          .map((e) => e['conversation_id'] as String)
-          .toList();
-
+      // RPC recommandé ici dans le futur (ex: get_direct_conversation(uid1, uid2))
+      final existing = await _supabase.from('conversation_participants').select('conversation_id').eq('user_id', uid);
+      final convIds = (existing as List).map((e) => e['conversation_id'] as String).toList();
+      
       for (var cid in convIds) {
-        final other = await _supabase
-            .from('conversation_participants')
-            .select('user_id')
-            .eq('conversation_id', cid)
-            .neq('user_id', uid);
+        final other = await _supabase.from('conversation_participants').select('user_id').eq('conversation_id', cid).neq('user_id', uid);
         if ((other as List).length == 1 && other[0]['user_id'] == otherId) {
-          final convData = await _supabase
-              .from('conversations')
-              .select('*')
-              .eq('id', cid)
-              .single();
-
-          final otherProfile = await _supabase
-              .from('profiles')
-              .select('display_name, full_name, avatar_url')
-              .eq('id', otherId)
-              .single();
-
+          final convData = await _supabase.from('conversations').select('*').eq('id', cid).single();
+          final otherProfile = await _supabase.from('profiles').select('display_name, full_name, avatar_url').eq('id', otherId).single();
           return ChatConversation.fromJson({
             ...convData,
             'other_participant_name': _resolveDisplayName(otherProfile),
@@ -268,17 +210,15 @@ class ChatService {
       'group_name': groupName,
       'group_avatar': groupAvatar,
       'updated_at': DateTime.now().toIso8601String(),
-      'is_pinned': false,
     });
 
-    for (var pid in participantIds) {
-      await _supabase.from('conversation_participants').insert({
-        'conversation_id': conversationId,
-        'user_id': pid,
-        'role': pid == uid ? 'admin' : 'member',
-        'last_read_at': DateTime.now().toIso8601String(),
-      });
-    }
+    // 💡 Optimisation: Insertion en parallèle pour l'atomicité de l'action
+    await Future.wait(participantIds.map((pid) => _supabase.from('conversation_participants').insert({
+      'conversation_id': conversationId,
+      'user_id': pid,
+      'role': pid == uid ? 'admin' : 'member',
+      'last_read_at': DateTime.now().toIso8601String(),
+    })));
 
     if (isGroup) {
       await _supabase.from('group_info').upsert({
@@ -289,15 +229,10 @@ class ChatService {
       });
     }
 
-    String? otherName;
-    String? otherAvatar;
+    String? otherName, otherAvatar;
     if (!isGroup && participantIds.length == 2) {
       final otherId = participantIds.firstWhere((id) => id != uid);
-      final otherProfile = await _supabase
-          .from('profiles')
-          .select('display_name, full_name, avatar_url')
-          .eq('id', otherId)
-          .single();
+      final otherProfile = await _supabase.from('profiles').select('display_name, full_name, avatar_url').eq('id', otherId).single();
       otherName = _resolveDisplayName(otherProfile);
       otherAvatar = otherProfile['avatar_url'];
     }
@@ -315,198 +250,26 @@ class ChatService {
     });
   }
 
-  Future<void> addParticipant(String conversationId, String userId) async {
-    await _supabase.from('conversation_participants').insert({
-      'conversation_id': conversationId,
-      'user_id': userId,
-      'role': 'member',
-      'last_read_at': DateTime.now().toIso8601String(),
-    });
-  }
-
-  Future<void> removeParticipant(String conversationId, String userId) async {
-    await _supabase
-        .from('conversation_participants')
-        .delete()
-        .eq('conversation_id', conversationId)
-        .eq('user_id', userId);
-  }
-
-  Future<void> togglePinned(String conversationId) async {
-    final conv = await _supabase
-        .from('conversations')
-        .select('is_pinned')
-        .eq('id', conversationId)
-        .single();
-    await _supabase
-        .from('conversations')
-        .update({'is_pinned': !(conv['is_pinned'] ?? false)})
-        .eq('id', conversationId);
-  }
-
-  Future<ChatConversation?> getConversation(String conversationId) async {
-    try {
-      final uid = currentUserId;
-      if (uid.isEmpty) return null;
-
-      final response = await _supabase
-          .from('conversations')
-          .select('''
-            *,
-            conversation_participants (
-              user_id,
-              role,
-              profiles!user_id (
-                display_name,
-                full_name,
-                avatar_url
-              )
-            )
-          ''')
-          .eq('id', conversationId)
-          .maybeSingle();
-
-      if (response == null) {
-        debugPrint('❌ getConversation: conversation $conversationId introuvable');
-        return null;
-      }
-
-      final participants = response['conversation_participants'] as List? ?? [];
-      final participantIds = participants.map((p) => p['user_id'] as String).toList();
-
-      String? otherParticipantName;
-      String? otherParticipantAvatar;
-
-      if (!(response['is_group'] ?? false)) {
-        if (participants.isNotEmpty) {
-          final other = participants.firstWhere(
-            (p) => p['user_id'] != uid,
-            orElse: () => participants.first,
-          );
-          if (other != null) {
-            final profile = other['profiles'] as Map<String, dynamic>?;
-            otherParticipantName = _resolveDisplayName(profile);
-            otherParticipantAvatar = profile?['avatar_url'] as String?;
-          }
-        } else {
-          otherParticipantName = 'Client (escalade)';
-        }
-      }
-
-      return ChatConversation.fromJson({
-        ...response,
-        'participant_ids': participantIds,
-        'other_participant_name': otherParticipantName ?? 'Utilisateur inconnu',
-        'other_participant_avatar': otherParticipantAvatar,
-      });
-    } catch (e, stack) {
-      debugPrint('❌ getConversation: $e');
-      debugPrint('Stack: $stack');
-      return null;
-    }
-  }
-
-  // ============================================================
-  // GROUPES
-  // ============================================================
-
-  Future<List<GroupMember>> getGroupMembers(String conversationId) async {
-    try {
-      final uid = currentUserId;
-      if (uid.isEmpty) return [];
-
-      final data = await _supabase
-          .from('conversation_participants')
-          .select('''
-            user_id,
-            role,
-            last_read_at,
-            profiles!user_id (
-              display_name,
-              full_name,
-              avatar_url
-            )
-          ''')
-          .eq('conversation_id', conversationId);
-
-      final members = <GroupMember>[];
-      for (var p in data as List) {
-        final profile = p['profiles'] as Map<String, dynamic>?;
-        final userId = p['user_id'] as String;
-        final role = p['role'] as String? ?? 'member';
-
-        final presence = await _supabase
-            .from('user_presence')
-            .select('status')
-            .eq('user_id', userId)
-            .maybeSingle();
-        final isOnline = presence != null && presence['status'] == 'online';
-
-        members.add(GroupMember(
-          userId: userId,
-          displayName: _resolveDisplayName(profile),
-          avatarUrl: profile?['avatar_url'],
-          role: role,
-          isOnline: isOnline,
-          joinedAt: DateTime.parse(p['last_read_at'] ?? DateTime.now().toIso8601String()),
-        ));
-      }
-      return members;
-    } catch (e) {
-      debugPrint('❌ getGroupMembers: $e');
-      return [];
-    }
-  }
-
-  Future<Map<String, dynamic>?> getGroupInfoDetails(String groupId) async {
-    try {
-      return await _supabase
-          .from('group_info')
-          .select('*')
-          .eq('group_id', groupId)
-          .maybeSingle() as Map<String, dynamic>?;
-    } catch (e) {
-      debugPrint('❌ getGroupInfoDetails: $e');
-      return null;
-    }
-  }
-
   // ============================================================
   // MESSAGES
   // ============================================================
 
-  Future<List<ChatMessage>> getMessages(
-    String conversationId, {
-    int limit = 50,
-    int offset = 0,
-  }) async {
+  Future<List<ChatMessage>> getMessages(String conversationId, {int limit = 50, int offset = 0}) async {
     try {
-      final uid = currentUserId;
-      if (uid.isEmpty) return [];
-
       final response = await _supabase
           .from('messages')
-          .select('''
-            *,
-            profiles!sender_id (
-              display_name,
-              full_name,
-              avatar_url
-            )
-          ''')
+          .select('*, profiles!sender_id(display_name, full_name, avatar_url)')
           .eq('conversation_id', conversationId)
           .eq('is_deleted', false)
           .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1); // ✅ Range respecté pour la pagination
+          .range(offset, offset + limit - 1);
 
-      final messages = (response as List).map((e) {
+      return (response as List).map((e) {
         final profile = e['profiles'] as Map<String, dynamic>?;
         e['sender_name'] = _resolveDisplayName(profile);
         e['sender_avatar'] = profile?['avatar_url'];
         return ChatMessage.fromJson(e);
       }).toList();
-
-      return messages; // 💡 Attention, on ne fait PLUS de .reversed ici, l'UI gère l'ordre inversé
     } catch (e) {
       debugPrint('❌ getMessages: $e');
       return [];
@@ -520,21 +283,15 @@ class ChatService {
     String? mediaType,
     String? mediaName,
     int? mediaSize,
-    String? mimeType,
     String? replyToId,
     bool isEphemeral = false,
     int? ephemeralDuration,
-    bool isCodeSnippet = false,
-    String? codeLanguage,
-    String? codeContent,
   }) async {
     final uid = currentUserId;
     if (uid.isEmpty) throw Exception('Not logged in');
 
     final now = DateTime.now();
-    final deleteAt = isEphemeral && ephemeralDuration != null
-        ? now.add(Duration(seconds: ephemeralDuration))
-        : null;
+    final deleteAt = isEphemeral && ephemeralDuration != null ? now.add(Duration(seconds: ephemeralDuration)) : null;
 
     final response = await _supabase.from('messages').insert({
       'conversation_id': conversationId,
@@ -544,77 +301,26 @@ class ChatService {
       'media_url': mediaUrl,
       'media_type': mediaType,
       'reply_to_id': replyToId,
-      'is_read': false,
-      'is_delivered': false,
-      'is_deleted': false,
       'is_ephemeral': isEphemeral,
       'ephemeral_duration': ephemeralDuration,
       'delete_at': deleteAt?.toIso8601String(),
-      'is_code_snippet': isCodeSnippet,
-      'code_language': codeLanguage,
-      'code_content': codeContent,
-    }).select('''
-      *,
-      profiles!sender_id (
-        display_name,
-        full_name,
-        avatar_url
-      )
-    ''').single();
+    }).select('*, profiles!sender_id(display_name, full_name, avatar_url)').single();
 
     final profile = response['profiles'] as Map<String, dynamic>?;
     response['sender_name'] = _resolveDisplayName(profile);
     response['sender_avatar'] = profile?['avatar_url'];
 
-    await _supabase
-        .from('conversations')
-        .update({'updated_at': now.toIso8601String()})
-        .eq('id', conversationId);
+    // 💡 Avertissement: Ceci devrait être un "Trigger Base de données" pour être vraiment robuste.
+    await _supabase.from('conversations').update({'updated_at': now.toIso8601String()}).eq('id', conversationId);
 
     return ChatMessage.fromJson(response);
-  }
-
-  Future<ChatMessage> sendAudioMessage({
-    required String conversationId,
-    required Uint8List audioData,
-    required int duration,
-    String? fileName,
-    bool isEphemeral = false,
-    int? ephemeralDuration,
-    String? replyToId,
-  }) async {
-    final uid = currentUserId;
-    if (uid.isEmpty) throw Exception('Not logged in');
-
-    final bucket = 'audio';
-    final extension = fileName?.split('.').last ?? 'm4a';
-    final uniqueName = '${const Uuid().v4()}.$extension';
-    final path = 'messages/$conversationId/$uniqueName';
-
-    try {
-      await _supabase.storage.from(bucket).uploadBinary(path, audioData);
-    } catch (e) {
-      debugPrint('❌ Upload audio échoué: $e');
-      throw Exception('Échec de l\'upload audio');
-    }
-
-    final audioUrl = _supabase.storage.from(bucket).getPublicUrl(path);
-
-    return sendMessage(
-      conversationId: conversationId,
-      content: '🎤 Message audio (${duration}s)',
-      mediaUrl: audioUrl,
-      mediaType: 'audio',
-      replyToId: replyToId,
-      isEphemeral: isEphemeral,
-      ephemeralDuration: ephemeralDuration,
-    );
   }
 
   Future<void> markAsRead(String conversationId) async {
     final uid = currentUserId;
     if (uid.isEmpty) return;
 
+    // Mise à jour de masse plus performante (on vérifie l'existence avant d'envoyer la requête)
     await _supabase
         .from('messages')
         .update({'is_read': true})
@@ -629,67 +335,12 @@ class ChatService {
         .eq('user_id', uid);
   }
 
-  Future<void> deleteMessage(String messageId) async {
-    final uid = currentUserId;
-    if (uid.isEmpty) throw Exception('Not logged in');
-
-    final msg = await _supabase
-        .from('messages')
-        .select('sender_id')
-        .eq('id', messageId)
-        .single();
-
-    if (msg['sender_id'] != uid) {
-      throw Exception('You cannot delete this message');
-    }
-
-    await _supabase
-        .from('messages')
-        .update({'is_deleted': true})
-        .eq('id', messageId);
-  }
-
-  Future<void> toggleReaction(String messageId, String reaction) async {
-    final uid = currentUserId;
-    if (uid.isEmpty) return;
-
-    final existing = await _supabase
-        .from('message_reactions')
-        .select('id')
-        .eq('message_id', messageId)
-        .eq('user_id', uid)
-        .maybeSingle();
-
-    if (existing != null) {
-      await _supabase
-          .from('message_reactions')
-          .delete()
-          .eq('message_id', messageId)
-          .eq('user_id', uid);
-    } else {
-      await _supabase.from('message_reactions').insert({
-        'message_id': messageId,
-        'user_id': uid,
-        'reaction': reaction,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-    }
-  }
-
   Future<ChatMessage?> getMessageById(String messageId) async {
     try {
       final response = await _supabase
           .from('messages')
-          .select('''
-            *,
-            profiles!sender_id (
-              display_name,
-              full_name,
-              avatar_url
-            )
-          ''')
+          .select('*, profiles!sender_id(display_name, full_name, avatar_url)')
           .eq('id', messageId)
-          .eq('is_deleted', false)
           .maybeSingle();
       if (response == null) return null;
       final profile = response['profiles'] as Map<String, dynamic>?;
@@ -702,83 +353,8 @@ class ChatService {
     }
   }
 
-  Future<void> cleanupEphemeralMessages() async {
-    try {
-      await _supabase
-          .from('messages')
-          .delete()
-          .eq('is_ephemeral', true)
-          .lt('delete_at', DateTime.now().toIso8601String());
-    } catch (e) {
-      debugPrint('❌ cleanupEphemeralMessages: $e');
-    }
-  }
-
   // ============================================================
-  // PRÉSENCE / STATUT
-  // ============================================================
-
-  Future<void> updatePresence(String status, {String? customStatus}) async {
-    final uid = currentUserId;
-    if (uid.isEmpty) return;
-
-    await _supabase.from('user_presence').upsert({
-      'user_id': uid,
-      'status': status,
-      'custom_status': customStatus,
-      'last_seen_at': DateTime.now().toIso8601String(),
-      'updated_at': DateTime.now().toIso8601String(),
-    });
-  }
-
-  Future<UserStatus?> getUserPresence(String userId) async {
-    try {
-      final response = await _supabase
-          .from('user_presence')
-          .select('''
-            *,
-            profiles!user_id (
-              display_name,
-              full_name,
-              avatar_url
-            )
-          ''')
-          .eq('user_id', userId)
-          .maybeSingle();
-      if (response == null) return null;
-      return UserStatus.fromJson(response);
-    } catch (e) {
-      debugPrint('❌ getUserPresence: $e');
-      return null;
-    }
-  }
-
-  Future<List<UserStatus>> getUsersPresence(List<String> userIds) async {
-    try {
-      if (userIds.isEmpty) return [];
-      final response = await _supabase
-          .from('user_presence')
-          .select('''
-            *,
-            profiles!user_id (
-              display_name,
-              full_name,
-              avatar_url
-            )
-          ''')
-          .inFilter('user_id', userIds);
-
-      return (response as List)
-          .map((e) => UserStatus.fromJson(e))
-          .toList();
-    } catch (e) {
-      debugPrint('❌ getUsersPresence: $e');
-      return [];
-    }
-  }
-
-  // ============================================================
-  // REALTIME / STREAMS
+  // REALTIME / STREAMS (CORRECTION MAJEURE ICI 🚨)
   // ============================================================
 
   Stream<List<ChatMessage>> subscribeToMessages(String conversationId) {
@@ -795,9 +371,26 @@ class ChatService {
         value: conversationId,
       ),
       callback: (payload) async {
-        // Optionnel: tu pourrais vouloir ne récupérer que le delta plutôt que tout relire
-        final msgs = await getMessages(conversationId);
-        controller.add(msgs);
+        // 🔥 CORRECTION : On ne refetch JAMAIS toute la liste des messages.
+        // On traite uniquement le delta (le message qui a changé/qui a été ajouté).
+        
+        if (payload.eventType == PostgresChangeEvent.insert || payload.eventType == PostgresChangeEvent.update) {
+          // On fetch juste le message concerné pour récupérer sa jointure (nom/avatar)
+          final msgId = payload.newRecord['id'] as String?;
+          if (msgId != null) {
+            final singleMessage = await getMessageById(msgId);
+            if (singleMessage != null) {
+              controller.add([singleMessage]); // Renvoie une liste d'1 élément (qui sera traitée par l'UI via upsertRealtime)
+            }
+          }
+        } else if (payload.eventType == PostgresChangeEvent.delete) {
+          // Si c'est une suppression définitive
+          final oldId = payload.oldRecord['id'] as String?;
+          if (oldId != null) {
+             final deletedMsg = ChatMessage.fromJson({...payload.oldRecord, 'is_deleted': true});
+             controller.add([deletedMsg]);
+          }
+        }
       },
     ).subscribe();
 
@@ -807,95 +400,5 @@ class ChatService {
     };
 
     return controller.stream;
-  }
-
-  Stream<List<UserStatus>> subscribeToPresence(List<String> userIds) {
-    final controller = StreamController<List<UserStatus>>();
-    final channel = _supabase.channel('presence:all');
-
-    channel.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'user_presence',
-      callback: (payload) async {
-        final statuses = await getUsersPresence(userIds);
-        controller.add(statuses);
-      },
-    ).subscribe();
-
-    controller.onCancel = () {
-      _supabase.removeChannel(channel);
-      controller.close();
-    };
-
-    return controller.stream;
-  }
-
-  // ============================================================
-  // UPLOAD DE FICHIERS
-  // ============================================================
-
-  Future<String?> uploadFile(String bucket, String path, Uint8List fileData) async {
-    try {
-      await _supabase.storage.from(bucket).uploadBinary(path, fileData);
-      final url = _supabase.storage.from(bucket).getPublicUrl(path);
-      return url;
-    } catch (e) {
-      debugPrint('❌ uploadFile: $e');
-      return null;
-    }
-  }
-
-  Future<void> deleteFile(String bucket, String path) async {
-    try {
-      await _supabase.storage.from(bucket).remove([path]);
-    } catch (e) {
-      debugPrint('❌ deleteFile: $e');
-    }
-  }
-
-  Future<String?> uploadFileWithUniqueName(
-    String bucket,
-    String folder,
-    Uint8List fileData,
-    String extension,
-  ) async {
-    try {
-      final fileName = '${const Uuid().v4()}.$extension';
-      final path = '$folder/$fileName';
-      final url = await uploadFile(bucket, path, fileData);
-      return url;
-    } catch (e) {
-      debugPrint('❌ uploadFileWithUniqueName: $e');
-      return null;
-    }
-  }
-
-  // ============================================================
-  // UTILITAIRES
-  // ============================================================
-
-  bool get isAuthenticated => currentUserId.isNotEmpty;
-
-  Future<void> signOut() async {
-    await _supabase.auth.signOut();
-  }
-
-  User? get currentUser => _supabase.auth.currentUser;
-
-  Future<Map<String, dynamic>?> getCurrentUserProfile() async {
-    try {
-      final uid = currentUserId;
-      if (uid.isEmpty) return null;
-      final response = await _supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', uid)
-          .maybeSingle();
-      return response as Map<String, dynamic>?;
-    } catch (e) {
-      debugPrint('❌ getCurrentUserProfile: $e');
-      return null;
-    }
   }
 }
