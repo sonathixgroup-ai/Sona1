@@ -1,5 +1,5 @@
 // ============================================================
-// FICHIER - province_detail_page.dart (EXPERT EDITION v7 - BULLETPROOF)
+// FICHIER - province_detail_page.dart (EXPERT EDITION v8 - BULLETPROOF STATEFUL)
 // Classement : Identité > Cartographie > Galerie > Exécutif
 // > Réalisations > Villes > Découpage > Tourisme > Économie
 // > Peuples/Tribus > Histoire/Climat/Infra > Urgences > Identité Visuelle
@@ -8,8 +8,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/provinces_provider.dart';
@@ -27,14 +26,13 @@ const Color _ink = Color(0xFF10182B);
 const Color _itemBg = Color(0xFFFAFBFD);
 const Color _itemBorder = Color(0xFFEDEFF5);
 
-class ProvinceDetailPage extends HookConsumerWidget {
+class ProvinceDetailPage extends ConsumerWidget {
   final String provinceId;
   const ProvinceDetailPage({required this.provinceId, super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provinceAsync = ref.watch(provinceWithAllRelationsProvider(provinceId));
-    final scrollCtrl = useScrollController();
 
     return Scaffold(
       backgroundColor: _ivory,
@@ -42,7 +40,6 @@ class ProvinceDetailPage extends HookConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator(color: _navy)),
         error: (e, _) => _ErrorView(onRetry: () => ref.invalidate(provinceWithAllRelationsProvider(provinceId))),
         data: (province) => CustomScrollView(
-          controller: scrollCtrl,
           slivers: [
             _ProvinceHeader(province: province),
             SliverPadding(
@@ -62,7 +59,7 @@ class ProvinceDetailPage extends HookConsumerWidget {
                     const SizedBox(height: 16),
                   ],
 
-                  // 3. GALERIE (AUTO-SCROLLING Géré via Hooks)
+                  // 3. GALERIE (AUTO-SCROLLING STATEFUL)
                   if (province.galleryMedia != null && province.galleryMedia!.isNotEmpty) ...[
                     _SectionCard(
                       icon: Icons.perm_media, color: _navy, title: 'Galerie Média Globale (Photos & Vidéos)', count: province.galleryMedia!.length,
@@ -259,7 +256,7 @@ class _SectionCard extends StatelessWidget {
 }
 
 // ============================================================
-// GALERIE MÉDIA PLEIN ÉCRAN & GRILLE (WEB SAFE via HookWidget)
+// GALERIE MÉDIA PLEIN ÉCRAN & GRILLE (STATEFUL SAFE)
 // ============================================================
 void _openMediaGallery(BuildContext context, List<Map<String, dynamic>> media, {int initialIndex = 0, String title = 'Galerie'}) {
   if (media.isEmpty) return;
@@ -277,27 +274,45 @@ void _openMediaGrid(BuildContext context, List<Map<String, dynamic>> media, {Str
   Navigator.of(context).push(MaterialPageRoute(builder: (_) => _MediaGridPage(media: media, title: title)));
 }
 
-class _MediaGalleryPage extends HookWidget {
+class _MediaGalleryPage extends StatefulWidget {
   final List<Map<String, dynamic>> media;
   final int initialIndex;
   final String title;
   const _MediaGalleryPage({required this.media, required this.title, this.initialIndex = 0});
 
   @override
-  Widget build(BuildContext context) {
-    final pageCtrl = usePageController(initialPage: initialIndex);
-    final currentIndex = useState(initialIndex);
+  State<_MediaGalleryPage> createState() => _MediaGalleryPageState();
+}
 
+class _MediaGalleryPageState extends State<_MediaGalleryPage> {
+  late final PageController _pageCtrl;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+    _pageCtrl = PageController(initialPage: _index);
+  }
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
           PageView.builder(
-            controller: pageCtrl,
-            itemCount: media.length,
-            onPageChanged: (i) => currentIndex.value = i,
+            controller: _pageCtrl,
+            itemCount: widget.media.length,
+            onPageChanged: (i) => setState(() => _index = i),
             itemBuilder: (_, i) {
-              final item = media[i];
+              final item = widget.media[i];
               final url = item['url']?.toString() ?? '';
               final isVideo = item['type'] == 'video';
               
@@ -343,14 +358,14 @@ class _MediaGalleryPage extends HookWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
-                  child: Text('${currentIndex.value + 1} / ${media.length}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+                  child: Text('${_index + 1} / ${widget.media.length}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
                 ),
               ],
             ),
           ),
           Positioned(
             bottom: 32, left: 0, right: 0,
-            child: Text(title, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+            child: Text(widget.title, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -449,33 +464,54 @@ class _MediaStrip extends StatelessWidget {
 }
 
 // ============================================================
-// GALERIE BANNER (Logique métier HookWidget)
+// GALERIE BANNER (STATEFUL AUTO-SCROLLING)
 // ============================================================
-class _GalleryBanner extends HookWidget {
+class _GalleryBanner extends StatefulWidget {
   final List<Map<String, dynamic>> media;
   final String provinceName;
   const _GalleryBanner({required this.media, required this.provinceName});
 
   @override
-  Widget build(BuildContext context) {
-    final photos = media.where((m) => m['type'] != 'video').toList();
-    final display = photos.isNotEmpty ? photos : media;
-    if (display.isEmpty) return const SizedBox.shrink();
+  State<_GalleryBanner> createState() => _GalleryBannerState();
+}
 
-    final pageCtrl = usePageController();
-    final currentIndex = useState(0);
-    final count = display.length;
+class _GalleryBannerState extends State<_GalleryBanner> {
+  late final PageController _pageCtrl;
+  Timer? _timer;
+  int _currentIndex = 0;
 
-    useEffect(() {
-      if (count <= 1) return null;
-      final timer = Timer.periodic(const Duration(seconds: 4), (_) {
-        if (pageCtrl.hasClients) {
-          currentIndex.value = (currentIndex.value + 1) % count;
-          pageCtrl.animateToPage(currentIndex.value, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
-        }
+  @override
+  void initState() {
+    super.initState();
+    _pageCtrl = PageController();
+    final photos = widget.media.where((m) => m['type'] != 'video').toList();
+    final display = photos.isNotEmpty ? photos : widget.media;
+
+    if (display.length > 1) {
+      _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+        if (!mounted || !_pageCtrl.hasClients) return;
+        _currentIndex = (_currentIndex + 1) % display.length;
+        _pageCtrl.animateToPage(
+          _currentIndex,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
       });
-      return timer.cancel;
-    }, [count]);
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final photos = widget.media.where((m) => m['type'] != 'video').toList();
+    final display = photos.isNotEmpty ? photos : widget.media;
+    if (display.isEmpty) return const SizedBox.shrink();
 
     return Column(children: [
       ClipRRect(
@@ -483,14 +519,15 @@ class _GalleryBanner extends HookWidget {
         child: SizedBox(
           height: 180,
           child: PageView.builder(
-            controller: pageCtrl, itemCount: display.length,
-            onPageChanged: (i) => currentIndex.value = i,
+            controller: _pageCtrl, 
+            itemCount: display.length,
+            onPageChanged: (i) => setState(() => _currentIndex = i),
             itemBuilder: (_, i) {
               final item = display[i];
               final url = item['url']?.toString() ?? '';
               final isVideo = item['type'] == 'video';
               return GestureDetector(
-                onTap: () => _openMediaGallery(context, display, initialIndex: i, title: provinceName),
+                onTap: () => _openMediaGallery(context, display, initialIndex: i, title: widget.provinceName),
                 child: Stack(fit: StackFit.expand, children: [
                   isVideo
                       ? Container(color: _navyDeep, child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 44))
@@ -506,9 +543,9 @@ class _GalleryBanner extends HookWidget {
       Align(
         alignment: Alignment.centerRight,
         child: TextButton.icon(
-          onPressed: () => _openMediaGrid(context, media, title: provinceName),
+          onPressed: () => _openMediaGrid(context, widget.media, title: widget.provinceName),
           icon: const Icon(Icons.grid_view_rounded, size: 16),
-          label: Text('Voir toute la galerie (${media.length})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+          label: Text('Voir toute la galerie (${widget.media.length})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
           style: TextButton.styleFrom(foregroundColor: _navy),
         ),
       ),
