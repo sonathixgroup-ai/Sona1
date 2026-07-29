@@ -5,49 +5,56 @@ import 'package:thix_id/nav.dart';
 
 class _Service {
   final String label;
+  final Color color; 
   final IconData icon;
   final String? route;
-  const _Service({required this.label, required this.icon, this.route});
+  const _Service({required this.label, required this.color, required this.icon, this.route});
 }
 
 class ServiceGrid extends StatelessWidget {
   const ServiceGrid({super.key});
 
-  // Palette inspirée de Mixx (Bleu nuit institutionnel)
-  static const Color primaryBlue = Color(0xFF003882); 
-
-  // Les vraies routes, sans données fictives
+  // Ta liste de services avec les couleurs et routes connectées
   static const _services = [
-    _Service(label: 'Envoyer', icon: Icons.send_outlined, route: AppRoutes.thixMoneySend),
-    _Service(label: 'Recharger', icon: Icons.add_card_outlined, route: AppRoutes.thixMoneyRecharge),
-    _Service(label: 'Lipa Simu', icon: Icons.qr_code_scanner_outlined, route: AppRoutes.thixMoneyScanner),
-    _Service(label: 'Retrait', icon: Icons.call_received_rounded, route: null),
-    
-    _Service(label: 'Crédit', icon: Icons.bolt_outlined, route: AppRoutes.thixMoneyLoans),
-    _Service(label: 'Assurance', icon: Icons.shield_outlined, route: null),
-    _Service(label: 'Épargne', icon: Icons.savings_outlined, route: AppRoutes.thixMoneySavings),
-    _Service(label: 'Change', icon: Icons.currency_exchange_outlined, route: null),
-    
-    _Service(label: 'Marchand', icon: Icons.storefront_outlined, route: AppRoutes.thixMarket),
-    _Service(label: 'Dons', icon: Icons.volunteer_activism_outlined, route: null),
-    _Service(label: 'Tontine', icon: Icons.groups_outlined, route: AppRoutes.thixMoneyTontines),
-    _Service(label: 'Éducation', icon: Icons.school_outlined, route: AppRoutes.education),
+    _Service(label: 'Crédit', color: Color(0xFF1E3A8A), icon: Icons.bolt_outlined, route: AppRoutes.thixMoneyLoans),
+    _Service(label: 'Assurance', color: Color(0xFF0F766E), icon: Icons.security_outlined, route: null),
+    _Service(label: 'Épargne', color: Color(0xFFB45309), icon: Icons.savings_outlined, route: AppRoutes.thixMoneySavings),
+    _Service(label: 'Change', color: Color(0xFF6D28D9), icon: Icons.currency_exchange_outlined, route: null),
+    _Service(label: 'Marchand', color: Color(0xFFC2410C), icon: Icons.storefront_outlined, route: AppRoutes.thixMarket),
+    _Service(label: 'Dons', color: Color(0xFFBE123C), icon: Icons.favorite_border_rounded, route: null),
+    _Service(label: 'Tontine', color: Color(0xFF0369A1), icon: Icons.groups_outlined, route: AppRoutes.thixMoneyTontines),
+    _Service(label: 'Éducation', color: Color(0xFF0E7490), icon: Icons.school_outlined, route: AppRoutes.education),
+    _Service(label: 'Virement', color: Color(0xFF1D4ED8), icon: Icons.language_outlined, route: AppRoutes.thixMoneySend),
+    _Service(label: 'Microfinance', color: Color(0xFF15803D), icon: Icons.account_balance_outlined, route: AppRoutes.thixMoneyLoans),
+    _Service(label: 'Investir', color: Color(0xFFB45309), icon: Icons.show_chart_rounded, route: AppRoutes.thixMoneyInvestments),
+    _Service(label: 'Planifier', color: Color(0xFF0F172A), icon: Icons.calendar_month_outlined, route: AppRoutes.thixMoneySavings),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      // Padding ajusté pour s'intégrer proprement sous le Header
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF003882).withOpacity(0.04), // Ombre très premium
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
       child: GridView.builder(
         padding: EdgeInsets.zero,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 4,
-          mainAxisSpacing: 24, // Espacement aéré verticalement
+          mainAxisSpacing: 18,
           crossAxisSpacing: 8,
-          childAspectRatio: 0.85, // Ajusté pour donner de la place au texte (2 lignes)
+          childAspectRatio: 0.78,
         ),
         itemCount: _services.length,
         itemBuilder: (_, i) {
@@ -56,7 +63,6 @@ class ServiceGrid extends StatelessWidget {
           return InkWell(
             borderRadius: BorderRadius.circular(12),
             onTap: () {
-              // Logique de navigation conservée
               if (s.route != null && s.route!.isNotEmpty) {
                 context.push(s.route!);
               } else {
@@ -64,7 +70,7 @@ class ServiceGrid extends StatelessWidget {
                   SnackBar(
                     content: Text('${s.label} sera bientôt disponible !'),
                     duration: const Duration(seconds: 2),
-                    backgroundColor: primaryBlue,
+                    backgroundColor: s.color, // S'adapte à la couleur du service
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -74,24 +80,28 @@ class ServiceGrid extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                // 🌟 PLUS DE FOND COLORÉ : L'icône est nue, petite et élégante
-                Icon(
-                  s.icon, 
-                  color: primaryBlue, 
-                  size: 28 // Taille réduite pour coller à l'image
+                // Le conteneur en relief avec le fond teinté
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: s.color.withOpacity(0.08), // Fond pastel basé sur ta couleur
+                    borderRadius: BorderRadius.circular(14), // Coins carrés arrondis style iOS
+                  ),
+                  child: Icon(s.icon, color: s.color, size: 24),
                 ),
-                const SizedBox(height: 10), 
+                const SizedBox(height: 6),
                 Text(
                   s.label,
                   textAlign: TextAlign.center,
-                  maxLines: 2, // Permet au texte long de passer sur 2 lignes
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 11, 
-                    fontWeight: FontWeight.w600, 
-                    color: primaryBlue, // Texte bleu comme dans Mixx
-                    height: 1.2,
-                    letterSpacing: -0.2
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E2A4F), // Texte bleu nuit foncé élégant
+                    height: 1.15,
+                    letterSpacing: -0.2,
                   ),
                 ),
               ],
