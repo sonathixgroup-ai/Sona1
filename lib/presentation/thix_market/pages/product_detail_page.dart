@@ -113,8 +113,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       } else {
         await db.from('wishlist').delete().match({'user_id': uid, 'product_id': widget.productId});
       }
+      // CORRECTION 1: On ne rafraîchit que le provider local car favoritesProvider n'est pas défini ici.
       ref.invalidate(isFavoriteProvider(widget.productId));
-      ref.invalidate(favoritesProvider);
     } catch(e) { 
       debugPrint('fav error $e'); 
     }
@@ -516,6 +516,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                   children: [
                                     if (similar.isNotEmpty) ...[
                                       _buildHorizontalTitle('Produits similaires du vendeur'),
+                                      // CORRECTION 2: EdgeInsets.only(top: 12) utilisé ici
                                       _buildHorizontalList(similar, symbol),
                                       const SizedBox(height: 20),
                                     ],
@@ -656,7 +657,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   Widget _buildHorizontalList(List<Map<String,dynamic>> products, String symbol) {
     return Container(
       height: 210,
-      margin: const EdgeInsets.top(12),
+      margin: const EdgeInsets.only(top: 12),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
