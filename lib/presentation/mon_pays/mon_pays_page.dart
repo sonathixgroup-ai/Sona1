@@ -5,8 +5,28 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/provinces_provider.dart';
 import 'providers/authorities_provider.dart';
+
+// ─── Provider rôle admin ──────────────────────────────────────────
+// Vérifie en base (table profiles, colonne role) si l'utilisateur
+// connecté a un rôle admin. Retourne false par défaut (sécurité).
+final isAdminProvider = FutureProvider<bool>((ref) async {
+  final user = Supabase.instance.client.auth.currentUser;
+  if (user == null) return false;
+  try {
+    final res = await Supabase.instance.client
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+    final role = (res?['role'] ?? '').toString().toLowerCase();
+    return role == 'admin' || role == 'super_admin';
+  } catch (_) {
+    return false;
+  }
+});
 
 class MonPaysPage extends ConsumerStatefulWidget {
   const MonPaysPage({super.key});
@@ -61,6 +81,18 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
     _timer?.cancel();
     _patrioticCtrl.dispose();
     super.dispose();
+  }
+
+  // Navigation sécurisée — évite tout comportement de "saut" en cas
+  // d'échec silencieux de la route nommée.
+  void _goToAdminSpace() {
+    try {
+      context.push('/mon-pays/admin');
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible d\'accéder à l\'Espace Admin')),
+      );
+    }
   }
 
   // ─── Build principal ─────────────────────────────────────────────
@@ -125,9 +157,7 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
 
   // ─── Barre supérieure ────────────────────────────────────────────
   Widget _buildTopBar() {
-    // 🚀 VÉRIFICATION DU RÔLE ADMIN
-    // TODO: Remplacez ceci par votre vraie logique (ex: ref.watch(userProvider).role == 'admin')
-    final bool isAdmin = true; 
+    final adminAsync = ref.watch(isAdminProvider);
 
     return SliverAppBar(
       pinned: true,
@@ -196,28 +226,37 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
               ),
             ],
           ),
-          
-          // 🚀 BOUTON ESPACE ADMIN FIXÉ ET FONCTIONNEL
-          if (isAdmin) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () {
-                context.push('/mon-pays/admin');
-              },
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: rdcRed, width: 2), 
+
+          // ── Bouton Espace Admin — visible uniquement si role admin ──
+          adminAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (isAdmin) {
+              if (!isAdmin) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: _goToAdminSpace,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: rdcRed, width: 2),
+                      ),
+                      child: const CircleAvatar(
+                        radius: 16,
+                        backgroundColor: primaryBlue,
+                        child: Icon(Icons.admin_panel_settings, color: Colors.white, size: 18),
+                      ),
+                    ),
+                  ),
                 ),
-                child: const CircleAvatar(
-                  radius: 16,
-                  backgroundColor: primaryBlue,
-                  child: Icon(Icons.admin_panel_settings, color: Colors.white, size: 18),
-                ),
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ],
       ),
     );
@@ -440,7 +479,6 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
                 return const Text('Aucune autorité enregistrée');
               }
 
-              // ─── Tri intelligent ──────────────────────────
               int getPriority(String? title) {
                 if (title == null) return 99;
                 final t = title.toLowerCase();
@@ -452,7 +490,6 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
                 return 99;
               }
 
-              // On trie directement (sans .toList() inutile)
               final sortedList = authorities..sort(
                     (a, b) => getPriority(a.title)
                         .compareTo(getPriority(b.title)),
@@ -465,7 +502,6 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
 
               return Column(
                 children: [
-                  // ── Carte du président (Cliquable) ──
                   InkWell(
                     onTap: () => context.push('/mon-pays/authorities/${president.id}'),
                     borderRadius: BorderRadius.circular(16),
@@ -545,8 +581,6 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  
-                  // ── Grille des 3 autres (Cliquables également) ──
                   if (others.isNotEmpty)
                     GridView.builder(
                       shrinkWrap: true,
