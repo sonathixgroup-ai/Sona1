@@ -1,7 +1,7 @@
+// lib/presentation/thix_market/delivery/providers/delivery_provider.dart
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:geolocator/geolocator.dart'; // Utile si tu implémentes la géoloc live plus tard
 
 // ─── DÉCLARATION GLOBALE RIVERPOD ───
 // À importer dans tes autres fichiers UI (ex: ref.watch(deliveryProvider))
