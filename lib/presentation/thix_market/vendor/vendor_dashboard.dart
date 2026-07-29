@@ -6,7 +6,7 @@ import '../providers/shop_provider.dart';
 import '../providers/market_providers.dart';
 
 // ============================================================
-// PROVIDERS PROD (Corrigés pour utiliser shop_id au lieu de seller_id)
+// PROVIDERS PROD (Corrigés pour utiliser shop_id)
 // ============================================================
 final vendorOrdersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final db = ref.read(supabaseClientProvider);
@@ -34,7 +34,16 @@ final vendorAnnouncementsProvider = FutureProvider<List<Map<String, dynamic>>>((
   final db = ref.read(supabaseClientProvider);
   final uid = db.auth.currentUser?.id;
   if (uid == null) return [];
-  final res = await db.from('products').select('id').eq('owner_id', uid);
+
+  // 1. On récupère les boutiques du vendeur
+  final shopsRes = await db.from('shops').select('id').eq('owner_id', uid);
+  final shops = List<Map<String, dynamic>>.from(shopsRes);
+  if (shops.isEmpty) return [];
+
+  final shopIds = shops.map((s) => s['id']).toList();
+
+  // 2. On récupère les produits liés aux boutiques (via shop_id au lieu de owner_id)
+  final res = await db.from('products').select('id').inFilter('shop_id', shopIds);
   return List<Map<String, dynamic>>.from(res);
 });
 
