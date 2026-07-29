@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'delivery_provider.dart';
+import 'delivery_provider.dart'; // Assure-toi que ce fichier exporte bien ton `final deliveryProvider = ...`
 
-class DeliveryTrackingPage extends StatefulWidget {
+class DeliveryTrackingPage extends ConsumerStatefulWidget {
   final String orderId;
   const DeliveryTrackingPage({super.key, required this.orderId});
 
   @override
-  State<DeliveryTrackingPage> createState() => _DeliveryTrackingPageState();
+  ConsumerState<DeliveryTrackingPage> createState() => _DeliveryTrackingPageState();
 }
 
-class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
+class _DeliveryTrackingPageState extends ConsumerState<DeliveryTrackingPage> {
   GoogleMapController? _mapController;
   final Set<Marker> _markers = {};
   LatLng? _currentLocation;
@@ -24,7 +24,8 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DeliveryProvider>().trackDelivery(widget.orderId);
+      // Appel de l'action via Riverpod
+      ref.read(deliveryProvider).trackDelivery(widget.orderId);
     });
   }
 
@@ -38,14 +39,14 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
 
   void _updateMap(Map<String, dynamic> tracking) {
     final driver = tracking['driver'] as Map<String, dynamic>?;
-    final driverLat = _safeDouble(driver?['current_lat']?? tracking['driver_lat']);
-    final driverLng = _safeDouble(driver?['current_lng']?? tracking['driver_lng']);
-    final destLat = _safeDouble(tracking['dest_lat']?? tracking['dest_latitude']?? tracking['delivery_lat']);
-    final destLng = _safeDouble(tracking['dest_lng']?? tracking['dest_longitude']?? tracking['delivery_lng']);
+    final driverLat = _safeDouble(driver?['current_lat'] ?? tracking['driver_lat']);
+    final driverLng = _safeDouble(driver?['current_lng'] ?? tracking['driver_lng']);
+    final destLat = _safeDouble(tracking['dest_lat'] ?? tracking['dest_latitude'] ?? tracking['delivery_lat']);
+    final destLng = _safeDouble(tracking['dest_lng'] ?? tracking['dest_longitude'] ?? tracking['delivery_lng']);
 
     _markers.clear();
 
-    if (driverLat!= null && driverLng!= null) {
+    if (driverLat != null && driverLng != null) {
       _currentLocation = LatLng(driverLat, driverLng);
       _markers.add(Marker(
         markerId: const MarkerId('driver'),
@@ -55,7 +56,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
       ));
     }
 
-    if (destLat!= null && destLng!= null) {
+    if (destLat != null && destLng != null) {
       _markers.add(Marker(
         markerId: const MarkerId('destination'),
         position: LatLng(destLat, destLng),
@@ -64,7 +65,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
       ));
     }
 
-    if (_mapController!= null && _currentLocation!= null) {
+    if (_mapController != null && _currentLocation != null) {
       _mapController!.animateCamera(CameraUpdate.newLatLngZoom(_currentLocation!, 15));
     }
     if (mounted) setState(() {});
@@ -78,6 +79,9 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Écoute réactive de l'état via Riverpod
+    final provider = ref.watch(deliveryProvider);
+
     return Scaffold(
       backgroundColor: Colors.white,
       extendBodyBehindAppBar: true,
@@ -88,12 +92,13 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
         centerTitle: true,
         iconTheme: const IconThemeData(color: darkText),
       ),
-      body: Consumer<DeliveryProvider>(
-        builder: (context, provider, _) {
+      // Remplacement de Consumer par l'utilisation directe de 'provider'
+      body: Builder(
+        builder: (context) {
           if (provider.isLoadingTracking) {
             return const Center(child: CircularProgressIndicator(color: thixOrange));
           }
-          if (provider.errorTracking!= null) {
+          if (provider.errorTracking != null) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -105,7 +110,8 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
                     Text('Erreur: ${provider.errorTracking}', textAlign: TextAlign.center),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: () => provider.trackDelivery(widget.orderId),
+                      // Relance de l'action via Riverpod
+                      onPressed: () => ref.read(deliveryProvider).trackDelivery(widget.orderId),
                       child: const Text('Réessayer'),
                     ),
                   ],
@@ -113,6 +119,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
               ),
             );
           }
+          
           final tracking = provider.currentTracking;
           if (tracking == null) return _buildEmptyState();
 
@@ -148,12 +155,12 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
                       const SizedBox(height: 12),
                       Container(width: 48, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
                       const SizedBox(height: 16),
-                      if (tracking['driver']!= null)
+                      if (tracking['driver'] != null)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: _buildDriverCard(tracking['driver'] as Map<String, dynamic>),
                         ),
-                      if (tracking['driver']!= null)
+                      if (tracking['driver'] != null)
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                           child: Divider(height: 1),
@@ -196,13 +203,13 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(driver['name']?.toString()?? 'Livreur', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
+                Text(driver['name']?.toString() ?? 'Livreur', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
                 const SizedBox(height: 4),
                 Row(
                   children: [
                     const Icon(Icons.directions_car_rounded, size: 14, color: mutedText),
                     const SizedBox(width: 4),
-                    Text(driver['vehicle']?.toString()?? 'Véhicule THIX', style: const TextStyle(fontSize: 13, color: mutedText)),
+                    Text(driver['vehicle']?.toString() ?? 'Véhicule THIX', style: const TextStyle(fontSize: 13, color: mutedText)),
                   ],
                 ),
               ],
@@ -225,7 +232,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
       {'key': 'out_for_delivery', 'label': 'En approche', 'desc': 'Le livreur est proche', 'icon': Icons.location_on_rounded},
       {'key': 'delivered', 'label': 'Livré', 'desc': 'Commande remise avec succès', 'icon': Icons.check_circle_rounded},
     ];
-    final currentStatus = (tracking['status'] as String?)?? 'preparing';
+    final currentStatus = (tracking['status'] as String?) ?? 'preparing';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -241,8 +248,8 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
   }
 
   Widget _buildTimelineItem({required Map<String, dynamic> status, required bool isCompleted, required bool isCurrent, required bool isLast}) {
-    final activeColor = isCompleted? Colors.green : (isCurrent? thixOrange : Colors.grey[300]!);
-    final iconColor = (isCompleted || isCurrent)? Colors.white : Colors.grey[500]!;
+    final activeColor = isCompleted ? Colors.green : (isCurrent ? thixOrange : Colors.grey[300]!);
+    final iconColor = (isCompleted || isCurrent) ? Colors.white : Colors.grey[500]!;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -254,7 +261,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
               decoration: BoxDecoration(
                 color: activeColor,
                 shape: BoxShape.circle,
-                boxShadow: isCurrent? [BoxShadow(color: thixOrange.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 4))] : [],
+                boxShadow: isCurrent ? [BoxShadow(color: thixOrange.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 4))] : [],
               ),
               child: Icon(status['icon'] as IconData, color: iconColor, size: 20),
             ),
@@ -263,7 +270,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
                 width: 3,
                 height: 40,
                 margin: const EdgeInsets.symmetric(vertical: 4),
-                decoration: BoxDecoration(color: isCompleted? Colors.green : Colors.grey[200], borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: isCompleted ? Colors.green : Colors.grey[200], borderRadius: BorderRadius.circular(2)),
               ),
           ],
         ),
@@ -274,9 +281,9 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(status['label'] as String, style: TextStyle(fontWeight: isCurrent? FontWeight.w800 : FontWeight.w600, fontSize: 16, color: (isCompleted || isCurrent)? darkText : Colors.grey[500])),
+                Text(status['label'] as String, style: TextStyle(fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600, fontSize: 16, color: (isCompleted || isCurrent) ? darkText : Colors.grey[500])),
                 const SizedBox(height: 4),
-                Text(status['desc'] as String, style: TextStyle(fontSize: 13, color: isCurrent? mutedText : Colors.grey[400])),
+                Text(status['desc'] as String, style: TextStyle(fontSize: 13, color: isCurrent ? mutedText : Colors.grey[400])),
                 if (!isLast) const SizedBox(height: 24),
               ],
             ),
@@ -295,9 +302,13 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
           const SizedBox(height: 16),
           const Text('Suivi indisponible', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkText)),
           const SizedBox(height: 8),
-          Text('Les informations de suivi pour cette\ncommande ne sont pas encore prêtes.', textAlign: TextAlign.center, style: TextStyle(color: mutedText)),
+          const Text('Les informations de suivi pour cette\ncommande ne sont pas encore prêtes.', textAlign: TextAlign.center, style: TextStyle(color: mutedText)),
           const SizedBox(height: 16),
-          ElevatedButton(onPressed: () => context.read<DeliveryProvider>().trackDelivery(widget.orderId), child: const Text('Actualiser')),
+          ElevatedButton(
+            // Relance de l'action via Riverpod
+            onPressed: () => ref.read(deliveryProvider).trackDelivery(widget.orderId), 
+            child: const Text('Actualiser')
+          ),
         ],
       ),
     );
