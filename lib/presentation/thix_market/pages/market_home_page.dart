@@ -19,7 +19,7 @@ class MarketHomePage extends ConsumerStatefulWidget {
 class _MarketHomePageState extends ConsumerState<MarketHomePage> {
   final ScrollController _scroll = ScrollController();
   final PageController _bannerCtrl = PageController(viewportFraction: 0.94);
-  final ScrollController _flashScrollCtrl = ScrollController(); // Contrôleur pour l'auto-scroll des produits
+  final ScrollController _flashScrollCtrl = ScrollController();
   Timer? _timer;
   int _currentBanner = 0;
   int _selectedNav = 0;
@@ -49,8 +49,7 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
     try{ context.pushNamed(name); }catch(_){ try{ context.push(path); }catch(_){} }
   }
 
-  // Boucle d'auto-scrolling pour le Hero Banner ET les Ventes Flash
-  void _startAuto(int count){
+  void _startAuto(int count, int flashCount){
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 4), (_){
       // 1. Auto-scroll du Hero Banner
@@ -59,11 +58,12 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
         _bannerCtrl.animateToPage(_currentBanner, duration: const Duration(milliseconds: 700), curve: Curves.easeOutCubic);
         if(mounted) setState((){});
       }
-      // 2. Auto-scroll des produits Flash Sales (Au-delà de 4)
-      if (_flashScrollCtrl.hasClients) {
+      
+      // 2. Auto-scroll des produits Flash Sales UNIQUEMENT SI > 4 produits
+      if (flashCount > 4 && _flashScrollCtrl.hasClients) {
         double maxExt = _flashScrollCtrl.position.maxScrollExtent;
         double current = _flashScrollCtrl.offset;
-        double next = current + 167; // Largeur d'une carte (155) + espacement (12)
+        double next = current + 167; // 155 (carte) + 12 (espacement)
         
         if (next > maxExt) {
           _flashScrollCtrl.animateTo(0, duration: const Duration(milliseconds: 800), curve: Curves.easeInOut);
@@ -94,7 +94,6 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
   
   double _price(dynamic v){ if(v is num) return v.toDouble(); return double.tryParse(v?.toString()??'')??0; }
   
-  // Fonction robuste pour extraire l'image du Banner ou Produit depuis Supabase
   String? _extractImage(Map<String, dynamic>? data) {
     if (data == null) return null;
     if (data['image_url'] != null && data['image_url'].toString().isNotEmpty) return data['image_url'].toString();
@@ -120,7 +119,8 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
     final all = ref.watch(allMarketProductsProvider);
     final hasMore = ref.read(forYouProvider.notifier).hasMore;
 
-    bannersAsync.whenData((b)=> WidgetsBinding.instance.addPostFrameCallback((_)=> _startAuto(b.length)));
+    // Synchronisation de l'auto-scroll avec la taille des listes
+    bannersAsync.whenData((b)=> flashAsync.whenData((f)=> WidgetsBinding.instance.addPostFrameCallback((_)=> _startAuto(b.length, f.length))));
 
     return Scaffold(
       backgroundColor: MarketColors.lightBg,
@@ -147,16 +147,47 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
             SliverToBoxAdapter(child: _buildB2BTools()),
             const SliverToBoxAdapter(child: SizedBox(height:20)),
             
-            // BANDEAU MARQUEE FLASH SCROLLING (Texte Rouge)
+            // BANDEAU DÉFILANT ROUGE AVEC MINUTEUR AU DÉBUT
             SliverToBoxAdapter(child: flashAsync.maybeWhen(
-              data: (list) => list.isNotEmpty 
-                ? Container(
-                    color: MarketColors.red.withOpacity(0.08),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: const _MarqueeWidget(text: "⚡ VENTE FLASH EN COURS • DÉCOUVREZ NOS OFFRES EXCLUSIVES ⚡ JUSQU'À -50% SUR UNE SÉLECTION ⚡"),
-                  ) 
-                : const SizedBox.shrink(),
+              data: (list) {
+                if (list.isEmpty) return const SizedBox.shrink();
+                
+                DateTime? timerEnd;
+                for (var p in list) {
+                  if (p['expires_at'] != null) {
+                    final dt = DateTime.tryParse(p['expires_at'].toString());
+                    if (dt != null && dt.isAfter(DateTime.now())) {
+                      if (timerEnd == null || dt.isBefore(timerEnd)) timerEnd = dt;
+                    }
+                  }
+                }
+                timerEnd ??= DateTime.now().add(const Duration(hours: 2, minutes: 45));
+
+                return Container(
+                  color: MarketColors.red, // Fond rouge
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      // Minuteur au début à gauche
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12, right: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                          child: FlashSaleTimer(endTime: timerEnd),
+                        ),
+                      ),
+                      // Texte défilant blanc en gras
+                      const Expanded(
+                        child: ClipRect(
+                          child: _MarqueeWidget(text: "⚡ VENTE FLASH EN COURS • JUSQU'À -50% SUR UNE SÉLECTION DE PRODUITS • PROFITEZ-EN VITE ⚡"),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
               orElse: () => const SizedBox.shrink(),
             )),
 
@@ -214,12 +245,10 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
           onPageChanged: (i)=> setState(()=> _currentBanner=i),
           itemBuilder: (_, index){
             final b = slides[index] as Map<String,dynamic>?;
-            
-            // Utilisation de la fonction d'extraction robuste
             final imageUrl = _extractImage(b);
             final title = b?['title'] ?? 'Votre marketplace\npremium et sécurisée';
             final subtitle = b?['description'] ?? b?['subtitle'] ?? 'Des milliers de produits, des vendeurs vérifiés, une expérience unique.';
-            final productId = b?['id'] ?? b?['target_url']; // Support produit ou URL personnalisée
+            final productId = b?['id'] ?? b?['target_url'];
 
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal:6),
@@ -375,17 +404,6 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
       data: (list){
         if(list.isEmpty) return const SizedBox.shrink();
 
-        DateTime? timerEnd;
-        for (var p in list) {
-          if (p['expires_at'] != null) {
-            final dt = DateTime.tryParse(p['expires_at'].toString());
-            if (dt != null && dt.isAfter(DateTime.now())) {
-              if (timerEnd == null || dt.isBefore(timerEnd)) timerEnd = dt;
-            }
-          }
-        }
-        timerEnd ??= DateTime.now().add(const Duration(hours: 2, minutes: 45));
-
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal:16), 
@@ -393,15 +411,13 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
               const Icon(Icons.bolt_rounded, color: MarketColors.gold, size:22), 
               const SizedBox(width:6), 
               const Text('Offres flash', style: TextStyle(fontWeight: FontWeight.w900, fontSize:18)), 
-              const Spacer(), 
-              FlashSaleTimer(endTime: timerEnd)
             ])
           ),
           const SizedBox(height:12),
           SizedBox(
             height:245, 
             child: ListView.separated(
-              controller: _flashScrollCtrl, // Ajout du contrôleur d'auto-scroll
+              controller: _flashScrollCtrl,
               padding: const EdgeInsets.symmetric(horizontal:16), 
               scrollDirection: Axis.horizontal, 
               itemCount: list.length, 
@@ -531,9 +547,6 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
   }
 }
 
-// =======================================================
-// WIDGET TEXTE DÉFILANT (MARQUEE) POUR LA VENTE FLASH
-// =======================================================
 class _MarqueeWidget extends StatefulWidget {
   final String text;
   const _MarqueeWidget({required this.text});
@@ -558,7 +571,7 @@ class _MarqueeWidgetState extends State<_MarqueeWidget> {
         if (currentScroll >= maxScroll) {
           _marqueeScrollCtrl.jumpTo(0);
         } else {
-          _marqueeScrollCtrl.jumpTo(currentScroll + 2.0); // Vitesse du texte
+          _marqueeScrollCtrl.jumpTo(currentScroll + 2.0);
         }
       }
     });
@@ -576,17 +589,16 @@ class _MarqueeWidgetState extends State<_MarqueeWidget> {
       child: ListView.builder(
         controller: _marqueeScrollCtrl,
         scrollDirection: Axis.horizontal,
-        physics: const NeverScrollableScrollPhysics(), // Scroll automatique uniquement
+        physics: const NeverScrollableScrollPhysics(),
         itemBuilder: (context, index) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Text(
               widget.text,
               style: const TextStyle(
-                color: MarketColors.red,
+                color: Colors.white, // Texte en blanc gras
                 fontWeight: FontWeight.w900,
-                fontSize: 14,
-                fontStyle: FontStyle.italic,
+                fontSize: 13,
               ),
             ),
           );
