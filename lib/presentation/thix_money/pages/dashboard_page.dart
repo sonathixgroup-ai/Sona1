@@ -192,9 +192,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       {'l': 'Envoyer', 'i': Icons.north_east_rounded, 'r': AppRoutes.thixMoneySend},
       {'l': 'Recharger', 'i': Icons.add_card_rounded, 'r': AppRoutes.thixMoneyRecharge},
       {'l': 'Scanner', 'i': Icons.qr_code_scanner_rounded, 'r': AppRoutes.thixMoneyScanner},
-      {'l': 'Retrait', 'i': Icons.south_west_rounded, 'r': AppRoutes.thixMoneyWithdraw},
+      {'l': 'Retrait', 'i': Icons.south_west_rounded, 'r': null},
     ];
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
