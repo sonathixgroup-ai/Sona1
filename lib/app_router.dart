@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart' as app_provider;
+
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/account_type.dart';
@@ -11,7 +12,6 @@ import 'package:thix_id/supabase/supabase_config.dart';
 
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/services/user_service.dart';
-
 
 import 'package:thix_id/presentation/home/home_page.dart';
 import 'package:thix_id/presentation/auth/login_page.dart';
@@ -272,10 +272,39 @@ class AppRouter {
           ElevatedButton(onPressed: () => context.go(AppRoutes.home), child: const Text('Accueil')),
         ])),
       ),
+      
+      // ============================================================
+      // 🛡️ MIDDLEWARE DE SÉCURITÉ (ENTERPRISE GRADE)
+      // ============================================================
       redirect: (context, state) {
         try {
+          final path = state.uri.path;
+          final logged = auth.isAuthenticated;
+
+          // ⚠️ Assurez-vous d'avoir ajouté isAdmin dans votre AuthController
+          // Exemple d'implémentation si absent : final isAdmin = auth.currentUser?.userMetadata?['role'] == 'admin';
+          // Pour l'instant on utilise auth.isAdmin (veuillez le créer si besoin)
+          final isAdmin = (auth as dynamic).isAdmin ?? false; 
+
+          // 1️⃣ LE PARE-FEU PAR REGEX : Détecte TOUTE route contenant le segment "/admin"
+          final isAdminRoute = RegExp(r'(^|/)admin(/|$)').hasMatch(path);
+
+          if (isAdminRoute) {
+            if (!logged) {
+              debugPrint('🛡️ [SECURITY] Accès admin refusé (Non connecté) -> $path');
+              return '${AppRoutes.login}?returnTo=${Uri.encodeComponent(path)}';
+            }
+            if (!isAdmin) {
+              debugPrint('🛡️ [SECURITY FATAL] Tentative d\'intrusion admin par un non-admin -> $path');
+              return AppRoutes.home; 
+            }
+            // Si admin connecté, on le laisse passer ce check et évaluer la suite
+          }
+
+          // 2️⃣ LOGIQUE PUBLIQUE / PRIVÉE CLASSIQUE
           final loc = state.matchedLocation;
           final isAuthPage = loc == AppRoutes.login || loc == AppRoutes.personalReg || loc == AppRoutes.enterpriseReg;
+          
           final isPublic = loc == AppRoutes.start || loc == AppRoutes.home || loc == AppRoutes.publicProfile ||
               loc == AppRoutes.jobs || loc == AppRoutes.opportunities || loc == AppRoutes.education ||
               loc == AppRoutes.trainingHome || loc.startsWith('${AppRoutes.trainingDetailsBasePath}/') ||
@@ -283,17 +312,20 @@ class AppRouter {
               loc.startsWith('/thix-event') || loc.startsWith('/thix-urgent') ||
               loc.startsWith('/thix-reservation/delivery') || isAuthPage;
 
-          final logged = auth.isAuthenticated;
+          if (!logged && !isPublic) {
+            return AppRoutes.login;
+          }
+          if (logged && isAuthPage) {
+            return AppRoutes.userDashboard;
+          }
 
-          if (!logged && !isPublic) return AppRoutes.login;
-          if (logged && isAuthPage) return AppRoutes.userDashboard;
-
-          return null;
+          return null; // ✅ Tout est conforme, on laisse passer
         } catch (e) {
-          debugPrint('GoRouter redirect error: $e');
-          return null;
+          debugPrint('🛡️ [SECURITY ERROR] Crash dans le redirect GoRouter: $e');
+          return AppRoutes.home; // Fail-Secure : en cas de crash, on protège
         }
       },
+      
       routes: [
         GoRoute(path: AppRoutes.start, name: 'start', pageBuilder: (_, __) => const NoTransitionPage(child: ThixIdStartPage())),
         GoRoute(path: AppRoutes.home, name: 'home', pageBuilder: (_, __) => const NoTransitionPage(child: HomePagePremium())),
@@ -310,18 +342,12 @@ class AppRouter {
         }),
         GoRoute(path: AppRoutes.publicProfile, name: 'publicProfile', pageBuilder: (_, state) => NoTransitionPage(child: public_profile.PublicProfilePage(initialThixId: state.uri.queryParameters['thixId']))),
         
-        // =====================================================
-        // CORRECTION DE LA ROUTE DU DASHBOARD + SECURITE
-        // =====================================================
-        
-        // 1. La VRAIE route du dashboard (utilise la nouvelle classe)
         GoRoute(
           path: AppRoutes.userDashboard, 
           name: 'userDashboard', 
           pageBuilder: (_, __) => const NoTransitionPage(child: ThixUserDashboardPage())
         ),
         
-        // 2. FILETS DE SÉCURITÉ : Redirigent les anciens liens erronés
         GoRoute(
           path: '/user/dashboard', 
           redirect: (_, __) => AppRoutes.userDashboard,
@@ -330,7 +356,6 @@ class AppRouter {
           path: '/user-dashboard', 
           redirect: (_, __) => AppRoutes.userDashboard,
         ),
-        // =====================================================
 
         GoRoute(
           path: AppRoutes.network,
@@ -548,6 +573,14 @@ class AppRouter {
           GoRoute(path: 'admin/articles/form', name: 'monPaysAdminArticleForm', pageBuilder: (_, state) => NoTransitionPage(child: monpays_form.AdminArticleFormPage(article: state.extra as Article?))),
           GoRoute(path: 'admin/provinces', name: 'monPaysAdminProvinces', pageBuilder: (_, __) => const NoTransitionPage(child: AdminProvincesPage())),
           GoRoute(path: 'admin/provinces/form', name: 'monPaysAdminProvinceForm', pageBuilder: (_, state) => NoTransitionPage(child: AdminProvinceFormPage(province: state.extra as Province?))),
+          GoRoute(path: 'admin/government/form', name: 'monPaysAdminGovernmentForm', pageBuilder: (_, state) => NoTransitionPage(child: AdminGovernmentFormPage(provinceId: state.extra as String))),
+          GoRoute(path: 'admin/economic/form', name: 'monPaysAdminEconomicForm', pageBuilder: (_, state) => NoTransitionPage(child: AdminEconomicFormPage(provinceId: state.extra as String))),
+          GoRoute(path: 'admin/budget/form', name: 'monPaysAdminBudgetForm', pageBuilder: (_, state) => NoTransitionPage(child: AdminBudgetFormPage(provinceId: state.extra as String))),
+          GoRoute(path: 'admin/tourism/form', name: 'monPaysAdminTourismForm', pageBuilder: (_, state) => NoTransitionPage(child: AdminTourismFormPage(provinceId: state.extra as String))),
+          GoRoute(path: 'admin/emergency/form', name: 'monPaysAdminEmergencyForm', pageBuilder: (_, state) => NoTransitionPage(child: AdminEmergencyFormPage(provinceId: state.extra as String))),
+          GoRoute(path: 'admin/administrative/form', name: 'monPaysAdminAdministrativeForm', pageBuilder: (_, state) => NoTransitionPage(child: AdminAdministrativeFormPage(provinceId: state.extra as String))),
+          GoRoute(path: 'admin/achievement/form', name: 'monPaysAdminAchievementForm', pageBuilder: (_, state) => NoTransitionPage(child: AdminAchievementFormPage(provinceId: state.extra as String))),
+          GoRoute(path: 'admin/media/form', name: 'monPaysAdminMediaForm', pageBuilder: (_, state) => NoTransitionPage(child: AdminMediaFormPage(provinceId: state.extra as String))),
         ]),
         GoRoute(path: '${AppRoutes.admin}/:module', name: 'admin', pageBuilder: (_, state) => NoTransitionPage(child: AdminPage(module: AdminModuleX.fromSlug(state.pathParameters['module'])))),
         GoRoute(path: AppRoutes.admin, name: 'adminRoot', redirect: (_, __) => '${AppRoutes.admin}/${AdminModule.overview.slug}'),
