@@ -1,11 +1,12 @@
 // lib/presentation/mon_pays/pages/laws/article_detail_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/article.dart';
 import '../../providers/articles_provider.dart';
 
-class ArticleDetailPage extends ConsumerWidget {
+class ArticleDetailPage extends HookConsumerWidget {
   final String articleId;
 
   const ArticleDetailPage({required this.articleId, super.key});
@@ -29,24 +30,35 @@ class ArticleDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final articleAsync = ref.watch(articleDetailProvider(articleId));
 
+    // HOOKS : Gestion de l'état des langues pour chaque section indépendamment
+    // FR = Français, LN = Lingala, SW = Swahili
+    final selectedLangContent = useState<String>('FR');
+    final selectedLangExplanation = useState<String>('FR');
+
     return Scaffold(
       backgroundColor: ivory,
       appBar: _buildAppBar(),
       body: articleAsync.when(
         loading: () => _buildLoadingState(),
         error: (error, stack) => _buildErrorState(context, ref, error),
-        data: (article) => _buildContent(context, article),
+        data: (article) => _buildContent(
+          context, 
+          article, 
+          selectedLangContent, 
+          selectedLangExplanation,
+        ),
       ),
     );
   }
 
   // ============================================================
-  // APP BAR — dégradé navy institutionnel
+  // APP BAR — Dégradé navy institutionnel
   // ============================================================
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: navyDeep,
       elevation: 0,
+      iconTheme: const IconThemeData(color: Colors.white),
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -143,15 +155,18 @@ class ArticleDetailPage extends ConsumerWidget {
   // ============================================================
   // CONTENU DE L'ARTICLE
   // ============================================================
-  Widget _buildContent(BuildContext context, Article article) {
+  Widget _buildContent(
+    BuildContext context, 
+    Article article,
+    ValueNotifier<String> contentLang,
+    ValueNotifier<String> expLang,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ============================================================
-          // EN-TÊTE — titre, chapitre, numéro d'article
-          // ============================================================
+          // ── EN-TÊTE ──────────────────────────────────────────────
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
@@ -189,9 +204,7 @@ class ArticleDetailPage extends ConsumerWidget {
           ),
           const SizedBox(height: 18),
 
-          // ============================================================
-          // CONTENU PRINCIPAL
-          // ============================================================
+          // ── PARTIE 1 : DÉTAIL (CONTENU) ──────────────────────────
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
@@ -205,33 +218,42 @@ class ArticleDetailPage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      width: 4,
-                      height: 18,
-                      decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(3)),
+                    Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 18,
+                          decoration: BoxDecoration(color: primaryBlue, borderRadius: BorderRadius.circular(3)),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Détail', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: darkText)),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    const Text('Contenu', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: darkText)),
+                    // Cage de langue pour le Contenu
+                    _buildLanguageSelector(contentLang),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  article.content,
-                  style: const TextStyle(fontSize: 14.5, height: 1.65, color: darkText, fontWeight: FontWeight.w400),
+                const SizedBox(height: 16),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    _getLocalizedText(article.content, contentLang.value, 'ce contenu', article),
+                    key: ValueKey<String>(contentLang.value),
+                    style: const TextStyle(fontSize: 14.5, height: 1.65, color: darkText, fontWeight: FontWeight.w400),
+                  ),
                 ),
               ],
             ),
           ),
 
-          // ============================================================
-          // EXPLICATION — encart or/ivoire
-          // ============================================================
+          // ── PARTIE 2 : EXPLICATION ──────────────────────────────
           if (article.explanation != null && article.explanation!.isNotEmpty) ...[
             const SizedBox(height: 14),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: gold.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(18),
@@ -241,29 +263,38 @@ class ArticleDetailPage extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: navyDeep, borderRadius: BorderRadius.circular(9)),
-                        child: const Icon(Icons.info_outline_rounded, size: 15, color: gold),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(color: navyDeep, borderRadius: BorderRadius.circular(9)),
+                            child: const Icon(Icons.lightbulb_outline_rounded, size: 15, color: gold),
+                          ),
+                          const SizedBox(width: 9),
+                          const Text('Explication', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: navyDeep)),
+                        ],
                       ),
-                      const SizedBox(width: 9),
-                      const Text('Explication', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: darkText)),
+                      // Cage de langue pour l'Explication
+                      _buildLanguageSelector(expLang, isGoldTheme: true),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    article.explanation!,
-                    style: const TextStyle(fontSize: 13.5, height: 1.55, color: darkText, fontWeight: FontWeight.w500),
+                  const SizedBox(height: 16),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      _getLocalizedText(article.explanation!, expLang.value, 'cette explication', article),
+                      key: ValueKey<String>('exp_${expLang.value}'),
+                      style: const TextStyle(fontSize: 14.0, height: 1.6, color: darkText, fontWeight: FontWeight.w500),
+                    ),
                   ),
                 ],
               ),
             ),
           ],
 
-          // ============================================================
-          // STATUT — badge publication + date
-          // ============================================================
+          // ── STATUT ───────────────────────────────────────────────
           const SizedBox(height: 18),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -317,6 +348,52 @@ class ArticleDetailPage extends ConsumerWidget {
     );
   }
 
+  // ============================================================
+  // WIDGET : CAGE DE LANGUE (Sélecteur)
+  // ============================================================
+  Widget _buildLanguageSelector(ValueNotifier<String> selectedLang, {bool isGoldTheme = false}) {
+    final activeBgColor = isGoldTheme ? navyDeep : primaryBlue;
+    final activeTextColor = isGoldTheme ? gold : pureWhite;
+    final inactiveBgColor = isGoldTheme ? gold.withOpacity(0.2) : hairline;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: inactiveBgColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: ['FR', 'LN', 'SW'].map((lang) {
+          final isSelected = selectedLang.value == lang;
+          return GestureDetector(
+            onTap: () => selectedLang.value = lang,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? activeBgColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                lang,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                  color: isSelected ? activeTextColor : (isGoldTheme ? navyDeep : mutedText),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ============================================================
+  // UTILITAIRES
+  // ============================================================
+
   Widget _headerBadge(IconData icon, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -337,6 +414,26 @@ class ArticleDetailPage extends ConsumerWidget {
   }
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  /// 🚀 TODO: À lier avec votre modèle `Article`
+  /// Cette fonction simule la récupération du texte traduit.
+  /// Mettez à jour votre modèle Article pour inclure `contentLn`, `contentSw`, etc.
+  String _getLocalizedText(String originalFr, String lang, String sectionName, Article article) {
+    if (lang == 'FR') return originalFr;
+    
+    // Exemple d'intégration quand vous aurez ajouté les champs dans la base de données :
+    // if (lang == 'LN') return article.contentLn ?? 'Traduction en Lingala indisponible.';
+    // if (lang == 'SW') return article.contentSw ?? 'Traduction en Swahili indisponible.';
+
+    if (lang == 'LN') {
+      return 'Traduction en Lingala pour $sectionName en cours de préparation par l\'administration...';
+    }
+    if (lang == 'SW') {
+      return 'Traduction en Swahili pour $sectionName en cours de préparation par l\'administration...';
+    }
+    
+    return originalFr;
   }
 }
