@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/nav.dart';
-import '../widgets/service_grid.dart';
+import '../services/wallet_service.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -13,30 +13,40 @@ class DashboardPage extends ConsumerStatefulWidget {
 }
 
 class _DashboardPageState extends ConsumerState<DashboardPage> {
-  // Palette THIX MONEY — identique au mockup HTML V2
-  static const navyDeep = Color(0xFF0A1F44);
-  static const navy = Color(0xFF123B7A);
-  static const blue = Color(0xFF2D6CDF);
-  static const gold = Color(0xFFE3B23C);
-  static const ivory = Color(0xFFF6F7FB);
-  static const textDark = Color(0xFF1B2A4A);
-  static const textGrey = Color(0xFF8A93A6);
-  static const lineColor = Color(0xFFE4E8F1);
+  // ─── PALETTE INSPIRÉE DE L'IMAGE (Mixx Style) ───
+  static const Color primaryBlue = Color(0xFF003882); // Bleu nuit profond (Nav bar, textes)
+  static const Color accentYellow = Color(0xFFFFC72C); // Jaune/Doré (Bouton central, accents)
+  static const Color bgLight = Color(0xFFF8F9FB); // Fond très clair
+  static const Color circleBg = Color(0xFFEBF0FA); // Fond des cercles "Personnalisé"
+  static const Color textDark = Color(0xFF1E2A4F); // Texte principal
+  static const Color textGrey = Color(0xFF64748B); // Texte secondaire
 
-  int _currentDot = 0;
   int _bottomIndex = 0;
 
-  Future<Map<String, String>> _getProfile() async {
+  // ─── LOGIQUE RÉELLE CONNECTÉE À SUPABASE ───
+  Future<Map<String, dynamic>> _getRealDashboardData() async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return {'name': 'Bienvenue', 'phone': ''};
-    final r = await Supabase.instance.client
+    if (user == null) return {'name': 'Utilisateur', 'balance': 0.0, 'thix_id': ''};
+
+    // 1. Récupérer le Profil
+    final profileRes = await Supabase.instance.client
         .from('profiles')
-        .select('full_name, phone')
+        .select('first_name, full_name')
         .eq('id', user.id)
         .maybeSingle();
-    final name = (r?['full_name'] ?? user.email?.split('@').first ?? 'Utilisateur').toString();
-    final phone = (r?['phone'] ?? '').toString();
-    return {'name': name, 'phone': phone};
+    final name = profileRes?['first_name'] ?? profileRes?['full_name'] ?? 'Utilisateur';
+
+    // 2. Récupérer le Wallet (Solde et Thix ID)
+    final walletRes = await Supabase.instance.client
+        .from('wallets')
+        .select('balance, thix_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+    
+    final balance = (walletRes?['balance'] ?? 0.0).toDouble();
+    final thixId = walletRes?['thix_id'] ?? '';
+
+    return {'name': name, 'balance': balance, 'thix_id': thixId};
   }
 
   String _formatBalance(double value) {
@@ -52,341 +62,372 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      extendBody: true,
-      body: SafeArea(
-        bottom: false,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 120),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: bgLight,
+      extendBody: true, // Pour que la page passe sous la BottomAppBar transparente
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _getRealDashboardData(),
+        builder: (context, snapshot) {
+          final data = snapshot.data ?? {'name': '...', 'balance': 0.0, 'thix_id': ''};
+          final thixId = data['thix_id'] as String;
+
+          return CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: SafeArea(
+                  bottom: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(data['name'], data['balance']),
+                      const SizedBox(height: 24),
+                      
+                      // Grille principale (2 lignes de 4 icônes sans cercles)
+                      _buildMainServicesGrid(),
+                      const SizedBox(height: 24),
+                      
+                      // Bannière bleue
+                      _buildPromoBanner(),
+                      const SizedBox(height: 32),
+                      
+                      // Section "Personnalisé pour vous" (Cercles)
+                      _sectionTitle('Personnalisé pour vous'),
+                      const SizedBox(height: 16),
+                      _buildPersonalisedRow(),
+                      const SizedBox(height: 32),
+
+                      // Section Transactions réelles (Logique de l'ancien fichier)
+                      _sectionTitle('Opérations récentes'),
+                      const SizedBox(height: 12),
+                      _buildRealTransactions(thixId),
+                      
+                      const SizedBox(height: 120), // Espace pour la BottomNav
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+      
+      // ─── BOTTOM NAVIGATION BAR (Style Mixx) ───
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: accentYellow,
+        elevation: 4,
+        shape: const CircleBorder(),
+        onPressed: () => context.push(AppRoutes.thixMoneyScanner),
+        child: const Icon(Icons.qr_code_scanner_rounded, color: primaryBlue, size: 28),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        color: primaryBlue,
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8.0,
+        child: SizedBox(
+          height: 65,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _header(),
-              const ServiceGrid(),
-              _divider(),
-              _promoBanner(),
-              const SizedBox(height: 12),
-              _dots(),
-              const SizedBox(height: 24),
-              _sectionTitle('Accès rapide'),
-              const SizedBox(height: 6),
-              _quickAccessRow(),
+              _bottomNavItem(Icons.home_filled, 'Accueil', 0),
+              _bottomNavItem(Icons.grid_view_rounded, 'Mini Apps', 1),
+              const SizedBox(width: 48), // Espace pour le FAB central
+              _bottomNavItem(Icons.headset_mic_rounded, 'Support', 2),
+              _bottomNavItem(Icons.person_rounded, 'Compte', 3),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: _bottomNav(),
     );
   }
 
   // ==========================================
-  // HEADER — dégradé clair, logo centré, solde
+  // WIDGETS DE L'INTERFACE
   // ==========================================
-  Widget _header() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFDCE3F0), Color(0xFFF6F7FB)],
-        ),
-      ),
-      child: FutureBuilder<Map<String, String>>(
-        future: _getProfile(),
-        builder: (context, snap) {
-          final name = snap.data?['name'] ?? '';
-          final phone = snap.data?['phone'] ?? '';
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+
+  Widget _buildHeader(String name, double balance) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  InkWell(
-                    onTap: () => Scaffold.of(context).openDrawer(),
-                    child: const Icon(Icons.menu_rounded, color: navyDeep, size: 26),
-                  ),
+                  Text('Bonjour, $name', style: const TextStyle(color: textGrey, fontSize: 13, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      _topIconBtn(Icons.search_rounded, () => context.push('/money/search')),
-                      const SizedBox(width: 16),
-                      _topIconBtn(Icons.notifications_outlined, () => context.push('/money/notifications')),
+                      Text(
+                        '${_formatBalance(balance)} FC', 
+                        style: const TextStyle(color: primaryBlue, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.5)
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.visibility_outlined, color: textGrey, size: 18),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
-              const Text(
-                'Bienvenue,',
-                style: TextStyle(color: textGrey, fontSize: 13, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                name.isEmpty ? 'Chargement...' : name,
-                style: const TextStyle(color: navyDeep, fontSize: 20, fontWeight: FontWeight.w800),
-              ),
-              if (phone.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(
-                      phone,
-                      style: const TextStyle(color: blue, fontSize: 13.5, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(width: 5),
-                    const Icon(Icons.keyboard_arrow_down_rounded, color: blue, size: 16),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 26),
-              Center(
-                child: Column(
-                  children: [
-                    RichText(
-                      text: const TextSpan(
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 30, letterSpacing: -0.5, fontFamily: 'SpaceGrotesk'),
-                        children: [
-                          TextSpan(text: 'THIX', style: TextStyle(color: navyDeep)),
-                          TextSpan(text: 'MONEY', style: TextStyle(color: gold)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Solde disponible',
-                      style: TextStyle(color: textGrey, fontSize: 13.5, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${_formatBalance(1250000)} FC',
-                      style: const TextStyle(color: navy, fontSize: 15, fontWeight: FontWeight.w800),
-                    ),
-                  ],
-                ),
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: circleBg,
+                child: const Icon(Icons.person, color: primaryBlue),
               ),
             ],
-          );
-        },
+          ),
+        ],
       ),
     );
   }
 
-  Widget _topIconBtn(IconData icon, VoidCallback onTap) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.10), blurRadius: 10, offset: const Offset(0, 4))],
-          ),
-          child: Icon(icon, color: navy, size: 17),
-        ),
-      );
-
-  Widget _divider() => Container(
-        height: 1,
-        margin: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
-        color: lineColor,
-      );
-
-  // ==========================================
-  // BANNIÈRE PROMO — dégradé navy
-  // ==========================================
-  Widget _promoBanner() {
+  Widget _buildMainServicesGrid() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 22),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: () => context.push(AppRoutes.thixMoneyTontines),
-        child: Container(
-          height: 150,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [navyDeep, navy],
-            ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _mainIconNode(Icons.send_outlined, 'Envoi\nArgent', AppRoutes.thixMoneySend),
+              _mainIconNode(Icons.payments_outlined, 'Retrait\nCash', AppRoutes.thixMoneyRecharge),
+              _mainIconNode(Icons.qr_code_2_rounded, 'Lipa Kwa\nSimu', AppRoutes.thixMoneyScanner),
+              _mainIconNode(Icons.receipt_long_outlined, 'Payer\nFactures', AppRoutes.thixMoneyLoans),
+            ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: Row(
-              children: [
-                Container(
-                  width: 130,
-                  height: double.infinity,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [blue, navy],
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    'Ma Tontine',
-                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _mainIconNode(Icons.account_balance_outlined, 'Paiements\nÉtat', ''),
+              _mainIconNode(Icons.account_balance_wallet_outlined, 'Prêts &\nCrédits', ''),
+              _mainIconNode(Icons.storefront_outlined, 'Boutique\nMobile', ''),
+              _mainIconNode(Icons.more_horiz_rounded, 'Voir\nTout', ''),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mainIconNode(IconData icon, String label, String route) {
+    return InkWell(
+      onTap: () {
+        if (route.isNotEmpty) context.push(route);
+      },
+      child: SizedBox(
+        width: 70,
+        child: Column(
+          children: [
+            Icon(icon, color: primaryBlue, size: 28), // Taille d'icône fine et petite
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: primaryBlue, height: 1.2),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPromoBanner() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      height: 100,
+      decoration: BoxDecoration(
+        color: primaryBlue,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  RichText(
+                    text: const TextSpan(
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, height: 1.2),
                       children: [
-                        RichText(
-                          text: TextSpan(
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, height: 1.4, color: Colors.white),
-                            children: [
-                              const TextSpan(text: 'Épargnez '),
-                              TextSpan(text: 'ensemble', style: TextStyle(color: gold)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Créez votre cercle en 2 minutes',
-                          style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12, fontWeight: FontWeight.w500),
-                        ),
+                        TextSpan(text: 'Achetez des forfaits et du crédit pour '),
+                        TextSpan(text: 'vous', style: TextStyle(color: accentYellow)),
+                        TextSpan(text: ' ou vos proches !'),
                       ],
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _dots() => Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(3, (i) {
-          final active = i == _currentDot;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.symmetric(horizontal: 2.5),
-            width: active ? 16 : 5,
-            height: 5,
-            decoration: BoxDecoration(
-              color: active ? gold : lineColor,
-              borderRadius: BorderRadius.circular(3),
-            ),
-          );
-        }),
-      );
-
-  Widget _sectionTitle(String t) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 22),
-        child: Text(
-          t,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: navyDeep),
-        ),
-      );
-
-  // ==========================================
-  // ACCÈS RAPIDE — cercles horizontaux
-  // ==========================================
-  Widget _quickAccessRow() {
-    final items = [
-      {'l': 'Recharger', 'i': Icons.add_card_outlined, 'r': AppRoutes.thixMoneyRecharge},
-      {'l': 'Crédit', 'i': Icons.bolt_outlined, 'r': AppRoutes.thixMoneyLoans},
-      {'l': 'Tontine', 'i': Icons.groups_outlined, 'r': AppRoutes.thixMoneyTontines},
-      {'l': 'Investir', 'i': Icons.trending_up_rounded, 'r': AppRoutes.thixMoneyInvestments},
-    ];
-
-    return SizedBox(
-      height: 100,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 22),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 18),
-        itemBuilder: (_, i) {
-          final item = items[i];
-          return InkWell(
-            onTap: () => context.push(item['r'] as String),
-            borderRadius: BorderRadius.circular(32),
-            child: SizedBox(
-              width: 66,
-              child: Column(
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: const BoxDecoration(color: ivory, shape: BoxShape.circle),
-                    child: Icon(item['i'] as IconData, color: navy, size: 24),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    item['l'] as String,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: navyDeep, height: 1.25),
                   ),
                 ],
               ),
             ),
+          ),
+          // Image décorative (remplacée par un conteneur stylisé pour l'instant)
+          Container(
+            width: 100,
+            decoration: const BoxDecoration(
+              color: Color(0xFF002B66),
+              borderRadius: BorderRadius.horizontal(right: Radius.circular(16)),
+            ),
+            child: const Center(child: Icon(Icons.people_alt_rounded, color: Colors.white24, size: 50)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: primaryBlue),
+      ),
+    );
+  }
+
+  Widget _buildPersonalisedRow() {
+    final items = [
+      {'l': 'Recharge', 'i': Icons.phone_android_rounded},
+      {'l': 'Lipa Simu', 'i': Icons.qr_code_rounded},
+      {'l': 'Loterie', 'i': Icons.casino_outlined},
+      {'l': 'Forfaits', 'i': Icons.shopping_cart_outlined},
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: items.map((item) {
+          return SizedBox(
+            width: 70,
+            child: Column(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: const BoxDecoration(
+                    color: circleBg,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(item['i'] as IconData, color: primaryBlue, size: 24),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  item['l'] as String,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textDark, height: 1.2),
+                ),
+              ],
+            ),
           );
-        },
+        }).toList(),
       ),
     );
   }
 
   // ==========================================
-  // BOTTOM NAV — bouton scan flottant doré
+  // LOGIQUE DE TRANSACTIONS RÉELLES (Ancien fichier)
   // ==========================================
-  Widget _bottomNav() => Container(
-        padding: const EdgeInsets.only(top: 14, bottom: 24, left: 10, right: 10),
-        decoration: const BoxDecoration(color: navyDeep),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            _navItem(Icons.home_rounded, 'Accueil', 0),
-            _navItem(Icons.grid_view_rounded, 'Services', 1),
-            GestureDetector(
-              onTap: () => context.push(AppRoutes.thixMoneyScanner),
-              child: Transform.translate(
-                offset: const Offset(0, -22),
-                child: Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(colors: [gold, Color(0xFFB8871F)]),
-                    border: Border.all(color: navyDeep, width: 5),
-                    boxShadow: [BoxShadow(color: gold.withOpacity(0.6), blurRadius: 20, offset: const Offset(0, 10))],
-                  ),
-                  child: const Icon(Icons.qr_code_scanner_rounded, color: navyDeep, size: 24),
-                ),
-              ),
-            ),
-            _navItem(Icons.receipt_long_outlined, 'Historique', 3),
-            _navItem(Icons.person_outline_rounded, 'Profil', 4),
-          ],
-        ),
-      );
+  Widget _buildRealTransactions(String thixId) {
+    if (thixId.isEmpty) {
+      return const Center(child: Text('Chargement du Thix ID...', style: TextStyle(color: textGrey)));
+    }
 
-  Widget _navItem(IconData icon, String label, int index) {
-    final active = _bottomIndex == index;
+    return FutureBuilder(
+      future: Supabase.instance.client
+          .from('thix_transactions')
+          .select()
+          .eq('thix_id', thixId)
+          .order('created_at', ascending: false)
+          .limit(5),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: primaryBlue));
+        }
+        
+        final list = (snapshot.data as List?) ?? [];
+        
+        if (list.isEmpty) {
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+            child: const Center(child: Text('Aucune opération récente', style: TextStyle(fontSize: 13, color: textGrey))),
+          );
+        }
+
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+          ),
+          child: Column(
+            children: list.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final t = entry.value;
+              final bool isDeposit = (t['type'] == 'reception' || t['type'] == 'Deposit');
+
+              return Column(
+                children: [
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        color: isDeposit ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isDeposit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                        color: isDeposit ? Colors.green : Colors.red,
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(t['type'] ?? 'Opération', style: const TextStyle(fontWeight: FontWeight.w700, color: textDark, fontSize: 13)),
+                    subtitle: Text(t['ref_transa'] ?? 'Détails indisponibles', style: const TextStyle(fontSize: 11, color: textGrey)),
+                    trailing: Text(
+                      '${isDeposit ? '+' : '-'} ${t['montant']} ${t['devise']}',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: isDeposit ? Colors.green : textDark),
+                    ),
+                  ),
+                  if (idx < list.length - 1)
+                    Divider(height: 1, indent: 64, color: Colors.grey.withOpacity(0.1)),
+                ],
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  // ==========================================
+  // BOTTOM NAVIGATION ITEM
+  // ==========================================
+  Widget _bottomNavItem(IconData icon, String label, int index) {
+    final isActive = _bottomIndex == index;
     return InkWell(
       onTap: () => setState(() => _bottomIndex = index),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 20, color: active ? gold : Colors.white.withOpacity(0.45)),
-          const SizedBox(height: 5),
+          Icon(icon, color: isActive ? accentYellow : Colors.white70, size: 24),
+          const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: active ? gold : Colors.white.withOpacity(0.45)),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              color: isActive ? accentYellow : Colors.white70,
+            ),
           ),
         ],
       ),
