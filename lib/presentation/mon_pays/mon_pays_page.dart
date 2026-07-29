@@ -207,8 +207,6 @@ class MonPaysPage extends HookConsumerWidget {
     );
   }
 
-  // ... (Le reste du code reste strictement identique)
-
   // ─── Carrousel ───────────────────────────────────────────────────
   Widget _buildPatrioticCarousel(PageController ctrl, int currentIndex) {
     return Column(
