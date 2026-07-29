@@ -3,108 +3,95 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thix_id/nav.dart';
 
-class _GridItem {
+class _Service {
   final String label;
   final IconData icon;
-  final bool accent;
   final String? route;
-  const _GridItem({required this.label, required this.icon, this.accent = false, this.route});
+  const _Service({required this.label, required this.icon, this.route});
 }
 
 class ServiceGrid extends StatelessWidget {
   const ServiceGrid({super.key});
 
-  static const navy = Color(0xFF123B7A);
-  static const gold = Color(0xFFE3B23C);
-  static const ivory = Color(0xFFF6F7FB);
-  static const navyDeep = Color(0xFF0A1F44);
+  // Palette inspirée de Mixx (Bleu nuit institutionnel)
+  static const Color primaryBlue = Color(0xFF003882); 
 
-  // Ordre et accents identiques au mockup HTML V2
-  static const _items = [
-    _GridItem(label: 'Envoyer', icon: Icons.call_made_rounded, route: AppRoutes.thixMoneySend),
-    _GridItem(label: 'Recharger', icon: Icons.add_card_outlined, accent: true, route: AppRoutes.thixMoneyRecharge),
-    _GridItem(label: 'Scanner', icon: Icons.qr_code_scanner_outlined, route: AppRoutes.thixMoneyScanner),
-    _GridItem(label: 'Retrait', icon: Icons.call_received_rounded, route: null),
-
-    _GridItem(label: 'Crédit instantané', icon: Icons.bolt_outlined, route: AppRoutes.thixMoneyLoans),
-    _GridItem(label: 'Assurance', icon: Icons.shield_outlined, route: null),
-    _GridItem(label: 'Épargne planifiée', icon: Icons.savings_outlined, accent: true, route: AppRoutes.thixMoneySavings),
-    _GridItem(label: 'Change', icon: Icons.currency_exchange_outlined, route: null),
-
-    _GridItem(label: 'Marchand', icon: Icons.storefront_outlined, route: AppRoutes.thixMarket),
-    _GridItem(label: 'Don & Contributions', icon: Icons.volunteer_activism_outlined, route: null),
-    _GridItem(label: 'Ma Tontine', icon: Icons.groups_outlined, accent: true, route: AppRoutes.thixMoneyTontines),
-    _GridItem(label: 'Éducation', icon: Icons.school_outlined, route: AppRoutes.education),
-
-    _GridItem(label: 'Virement international', icon: Icons.public_outlined, route: AppRoutes.thixMoneySend),
-    _GridItem(label: 'Microfinance', icon: Icons.account_balance_outlined, route: AppRoutes.thixMoneyLoans),
-    _GridItem(label: 'Investissement', icon: Icons.show_chart_rounded, accent: true, route: AppRoutes.thixMoneyInvestments),
-    _GridItem(label: 'Planification', icon: Icons.calendar_month_outlined, route: AppRoutes.thixMoneySavings),
+  // Les vraies routes, sans données fictives
+  static const _services = [
+    _Service(label: 'Envoyer', icon: Icons.send_outlined, route: AppRoutes.thixMoneySend),
+    _Service(label: 'Recharger', icon: Icons.add_card_outlined, route: AppRoutes.thixMoneyRecharge),
+    _Service(label: 'Lipa Simu', icon: Icons.qr_code_scanner_outlined, route: AppRoutes.thixMoneyScanner),
+    _Service(label: 'Retrait', icon: Icons.call_received_rounded, route: null),
+    
+    _Service(label: 'Crédit', icon: Icons.bolt_outlined, route: AppRoutes.thixMoneyLoans),
+    _Service(label: 'Assurance', icon: Icons.shield_outlined, route: null),
+    _Service(label: 'Épargne', icon: Icons.savings_outlined, route: AppRoutes.thixMoneySavings),
+    _Service(label: 'Change', icon: Icons.currency_exchange_outlined, route: null),
+    
+    _Service(label: 'Marchand', icon: Icons.storefront_outlined, route: AppRoutes.thixMarket),
+    _Service(label: 'Dons', icon: Icons.volunteer_activism_outlined, route: null),
+    _Service(label: 'Tontine', icon: Icons.groups_outlined, route: AppRoutes.thixMoneyTontines),
+    _Service(label: 'Éducation', icon: Icons.school_outlined, route: AppRoutes.education),
   ];
-
-  void _handleTap(BuildContext context, _GridItem item) {
-    if (item.route != null && item.route!.isNotEmpty) {
-      context.push(item.route!);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${item.label} sera bientôt disponible !'),
-          duration: const Duration(seconds: 2),
-          backgroundColor: navyDeep,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 30, 20, 6),
+      // Padding ajusté pour s'intégrer proprement sous le Header
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: GridView.builder(
+        padding: EdgeInsets.zero,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: _items.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 4,
-          mainAxisSpacing: 26,
-          crossAxisSpacing: 4,
-          childAspectRatio: 0.68,
+          mainAxisSpacing: 24, // Espacement aéré verticalement
+          crossAxisSpacing: 8,
+          childAspectRatio: 0.85, // Ajusté pour donner de la place au texte (2 lignes)
         ),
-        itemBuilder: (context, i) {
-          final item = _items[i];
+        itemCount: _services.length,
+        itemBuilder: (_, i) {
+          final s = _services[i];
+          
           return InkWell(
-            onTap: () => _handleTap(context, item),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              // Logique de navigation conservée
+              if (s.route != null && s.route!.isNotEmpty) {
+                context.push(s.route!);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${s.label} sera bientôt disponible !'),
+                    duration: const Duration(seconds: 2),
+                    backgroundColor: primaryBlue,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                );
+              }
+            },
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    color: ivory,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(
-                    item.icon,
-                    color: item.accent ? gold : navy,
-                    size: 22,
-                  ),
+                // 🌟 PLUS DE FOND COLORÉ : L'icône est nue, petite et élégante
+                Icon(
+                  s.icon, 
+                  color: primaryBlue, 
+                  size: 28 // Taille réduite pour coller à l'image
                 ),
-                const SizedBox(height: 9),
+                const SizedBox(height: 10), 
                 Text(
-                  item.label,
+                  s.label,
                   textAlign: TextAlign.center,
-                  maxLines: 2,
+                  maxLines: 2, // Permet au texte long de passer sur 2 lignes
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: navyDeep,
-                    height: 1.25,
-                    letterSpacing: -0.1,
+                    fontSize: 11, 
+                    fontWeight: FontWeight.w600, 
+                    color: primaryBlue, // Texte bleu comme dans Mixx
+                    height: 1.2,
+                    letterSpacing: -0.2
                   ),
                 ),
               ],
