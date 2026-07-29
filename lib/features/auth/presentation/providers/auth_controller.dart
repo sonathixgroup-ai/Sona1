@@ -1,3 +1,4 @@
+// lib/auth/auth_controller_provider.dart (ou votre chemin actuel)
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thix_id/auth/auth_controller.dart' as legacy;
 import 'package:thix_id/models/app_user.dart';
@@ -13,6 +14,18 @@ class AuthControllerNotifier extends AsyncNotifier<AppUser?> {
   Future<AppUser?> build() async {
     await _auth.init();
     return _auth.currentUser;
+  }
+
+  // ============================================================
+  // 🛡️ SÉCURITÉ : Getter d'administration direct (Enterprise Grade)
+  // Permet de vérifier si l'utilisateur actuel est admin
+  // ============================================================
+  bool get isAdmin {
+    final user = state.value;
+    if (user == null) return false;
+    
+    // ⚠️ À ADAPTER SELON VOTRE MODÈLE 'AppUser' (ex: user.role == 'admin')
+    return user.role == 'admin' || user.role == 'super_admin';
   }
 
   Future<void> signIn({required String identifier, required String password, required bool rememberMe}) async {
