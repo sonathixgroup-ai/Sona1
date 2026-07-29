@@ -1,120 +1,91 @@
-import 'package:flutter/material.dart';
-import '../services/education_service.dart';
-import '../models/formation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/category.dart';
-import '../models/enrollment.dart';
+import '../models/formation.dart';
+import '../models/certificate.dart';
 
-class EducationProvider extends ChangeNotifier {
-  final EducationService _service;
+// Ne casse pas la DB - on garde le même client
+final supabaseClientProvider = Provider((ref) => Supabase.instance.client);
+final currentUserIdProvider = Provider<String?>((ref) => Supabase.instance.client.auth.currentUser?.id);
 
-  List<Formation> _formations = [];
-  List<Category> _categories = [];
-  List<Enrollment> _myEnrollments = [];
-  Formation? _currentFormation;
-  bool _isLoading = false;
-  String? _error;
+// SCABLE 1M+ : Categories = keepAlive, 1 seule requête pour tous
+final categoriesProvider = FutureProvider<List<Category>>((ref) async {
+  final client = ref.watch(supabaseClientProvider);
+  final res = await client.from('categories')
+   .select('id,name,icon,created_at')
+   .order('name');
+  return res.map((e) => Category.fromJson(e)).toList();
+});
 
-  List<Formation> get formations => _formations;
-  List<Category> get categories => _categories;
-  List<Enrollment> get myEnrollments => _myEnrollments;
-  Formation? get currentFormation => _currentFormation;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+// État paginé scalable
+class PaginatedFormations {
+  final List<Formation> items;
+  final bool hasMore;
+  final bool isLoadingMore;
+  const PaginatedFormations({required this.items, this.hasMore = true, this.isLoadingMore = false});
+  PaginatedFormations copyWith({List<Formation>? items, bool? hasMore, bool? isLoadingMore}) =>
+    PaginatedFormations(items: items?? this.items, hasMore: hasMore?? this.hasMore, isLoadingMore: isLoadingMore?? this.isLoadingMore);
+}
 
-  EducationProvider(this._service);
+// SCABLE 1M+ : Formation avec range + select light
+class FormationsNotifier extends AsyncNotifier<PaginatedFormations> {
+  static const _limit = 20;
+  int _offset = 0;
+  String? _categoryId;
+  String? get currentCategory => _categoryId;
 
-  Future<void> loadFormations({String? categoryId, String? level, String? search, bool force = false}) async {
-    if (!force && _formations.isNotEmpty) return;
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-    try {
-      _formations = await _service.getFormations(
-        categoryId: categoryId,
-        level: level,
-        search: search,
-        status: 'published',
-      );
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+  @override
+  Future<PaginatedFormations> build() async {
+    _offset = 0;
+    final client = ref.watch(supabaseClientProvider);
+    var query = client.from('formations').select('id,title,image_url,rating,price,currency,is_free,category_id,created_at');
+    if (_categoryId!= null) query = query.eq('category_id', _categoryId!);
+    final res = await query.order('created_at', ascending: false).range(0, _limit - 1);
+    final items = res.map((e) => Formation.fromJson(e)).toList();
+    _offset = items.length;
+    return PaginatedFormations(items: items, hasMore: items.length == _limit);
   }
 
-  // Dans education_provider.dart, méthode loadCategories :
-Future<void> loadCategories() async {
-  try {
-    _categories = await _service.getCategories(); // ✅ Correction
-    notifyListeners();
-  } catch (e) {
-    _error = e.toString();
-    notifyListeners();
+  Future<void> loadMore() async {
+    if (state.value == null ||!state.value!.hasMore || state.value!.isLoadingMore) return;
+    state = AsyncData(state.value!.copyWith(isLoadingMore: true));
+    final client = ref.read(supabaseClientProvider);
+    var query = client.from('formations').select('id,title,image_url,rating,price,currency,is_free,category_id,created_at');
+    if (_categoryId!= null) query = query.eq('category_id', _categoryId!);
+    final res = await query.order('created_at', ascending: false).range(_offset, _offset + _limit - 1);
+    final newItems = res.map((e) => Formation.fromJson(e)).toList();
+    _offset += newItems.length;
+    state = AsyncData(PaginatedFormations(items: [...state.value!.items,...newItems], hasMore: newItems.length == _limit));
+  }
+
+  Future<void> filterByCategory(String? categoryId) async {
+    _categoryId = categoryId;
+    state = const AsyncLoading();
+    ref.invalidateSelf();
   }
 }
-  Future<void> loadFormationDetails(String formationId) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      _currentFormation = await _service.getFormationDetails(formationId);
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
 
-  Future<void> loadMyEnrollments(String userId) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      final formations = await _service.getMyFormations(userId);
-      _myEnrollments = [];
-      for (final f in formations) {
-        final enrollment = await _service.getEnrollment(userId, f.id);
-        if (enrollment != null) {
-          enrollment.formation = f;
-          _myEnrollments.add(enrollment);
-        }
-      }
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
+final formationsProvider = AsyncNotifierProvider<FormationsNotifier, PaginatedFormations>(FormationsNotifier.new);
 
-  Future<Enrollment?> enrollUser(String userId, String formationId) async {
-    try {
-      final enrollment = await _service.enrollUser(userId, formationId);
-      await loadMyEnrollments(userId);
-      return enrollment;
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      return null;
-    }
-  }
+// Mes cours - paginé par user_id + RLS
+final myEnrollmentsProvider = FutureProvider.family((ref, String userId) async {
+  final client = ref.watch(supabaseClientProvider);
+  final res = await client.from('enrollments')
+   .select('id,progress,created_at,formation:formations(id,title,image_url,rating,price,currency,is_free)')
+   .eq('user_id', userId).order('created_at', ascending: false).range(0, 49);
+  return res;
+});
 
-  Future<bool> isUserEnrolled(String userId, String formationId) async {
-    final enrollment = await _service.getEnrollment(userId, formationId);
-    return enrollment != null;
-  }
+// Certificats
+final certificatesProvider = FutureProvider.family<List<Certificate>, String>((ref, String userId) async {
+  final client = ref.watch(supabaseClientProvider);
+  final res = await client.from('certificates').select().eq('user_id', userId).order('issued_at', ascending: false);
+  return res.map((e) => Certificate.fromJson(e)).toList();
+});
 
-  Future<void> createFormation(Formation formation) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      await _service.createFormation(formation);
-      await loadFormations(force: true);
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-}
+// Recommandations
+final recommendationsProvider = FutureProvider.family<List<Formation>, String>((ref, String userId) async {
+  final client = ref.watch(supabaseClientProvider);
+  final res = await client.from('recommendations').select('formation:formations(id,title,image_url,rating,price,currency,is_free)').eq('user_id', userId).limit(10);
+  return res.map((e) => Formation.fromJson(e['formation'])).toList();
+});
