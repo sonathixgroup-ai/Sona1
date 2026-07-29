@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/education_providers.dart';
-import '../providers/certificate_provider.dart';
+
+// ✅ CORRIGÉ : Import explicite depuis la racine du projet pour les providers
+import 'package:thix_id/presentation/education/providers/education_provider.dart'; 
+import 'package:thix_id/presentation/education/providers/certificate_provider.dart'; 
+
 import '../models/certificate.dart';
 import '../widgets/common/education_empty_state.dart';
 import '../widgets/common/education_loading_shimmer.dart';
