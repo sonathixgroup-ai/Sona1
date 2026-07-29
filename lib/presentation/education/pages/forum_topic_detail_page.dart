@@ -1,7 +1,7 @@
 // lib/presentation/education/pages/forum_topic_detail_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // ✅ Modifié
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -9,7 +9,8 @@ import 'package:thix_id/presentation/education/providers/forum_provider.dart';
 import 'package:thix_id/presentation/education/models/forum_reply.dart';
 import 'package:thix_id/presentation/education/widgets/common/education_loading_shimmer.dart';
 
-class ForumTopicDetailPage extends StatefulWidget {
+// ✅ Modifié : ConsumerStatefulWidget au lieu de StatefulWidget
+class ForumTopicDetailPage extends ConsumerStatefulWidget {
   final String topicId;
 
   const ForumTopicDetailPage({
@@ -18,11 +19,11 @@ class ForumTopicDetailPage extends StatefulWidget {
   });
 
   @override
-  State<ForumTopicDetailPage> createState() =>
-      _ForumTopicDetailPageState();
+  ConsumerState<ForumTopicDetailPage> createState() => _ForumTopicDetailPageState();
 }
 
-class _ForumTopicDetailPageState extends State<ForumTopicDetailPage> {
+// ✅ Modifié : ConsumerState
+class _ForumTopicDetailPageState extends ConsumerState<ForumTopicDetailPage> {
   final TextEditingController _replyController = TextEditingController();
   bool _sending = false;
 
@@ -36,7 +37,8 @@ class _ForumTopicDetailPageState extends State<ForumTopicDetailPage> {
   }
 
   Future<void> _loadReplies() async {
-    final provider = context.read<ForumProvider>();
+    // ✅ Modifié : Utilisation de ref.read() avec la variable de votre provider
+    final provider = ref.read(forumProvider); 
     await provider.loadTopicReplies(widget.topicId);
   }
 
@@ -59,7 +61,8 @@ class _ForumTopicDetailPageState extends State<ForumTopicDetailPage> {
     setState(() => _sending = true);
 
     try {
-      final provider = context.read<ForumProvider>();
+      // ✅ Modifié : Utilisation de ref.read()
+      final provider = ref.read(forumProvider);
 
       await provider.createReply(
         topicId: widget.topicId,
@@ -92,7 +95,8 @@ class _ForumTopicDetailPageState extends State<ForumTopicDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<ForumProvider>();
+    // ✅ Modifié : Utilisation de ref.watch() au lieu de context.watch()
+    final provider = ref.watch(forumProvider);
     final replies = provider.replies;
 
     return Scaffold(
