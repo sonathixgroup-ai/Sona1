@@ -1,104 +1,90 @@
 // lib/presentation/mon_pays/providers/authorities_provider.dart
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../models/authority.dart';
 import '../services/authorities_service.dart';
 
+part 'authorities_provider.g.dart';
+
 // ============================================================
-// SERVICE PROVIDER
+// SERVICE PROVIDER (KeepAlive pour éviter de recréer l'instance)
 // ============================================================
-final authoritiesServiceProvider = Provider<AuthoritiesService>((ref) {
+@Riverpod(keepAlive: true)
+AuthoritiesService authoritiesService(Ref ref) {
   return AuthoritiesService();
-});
+}
 
 // ============================================================
-// PAGINATION AVEC STATE NOTIFIER
+// PAGINATION AVEC ASYNC NOTIFIER (Scalable)
 // ============================================================
-final authoritiesPaginatedProvider =
-    StateNotifierProvider<AuthoritiesPaginatedNotifier, AsyncValue<PaginatedResult<Authority>>>(
-  (ref) => AuthoritiesPaginatedNotifier(ref),
-);
-
-class AuthoritiesPaginatedNotifier extends StateNotifier<AsyncValue<PaginatedResult<Authority>>> {
-  final Ref _ref;
-  String? _currentCategory;
-  String? _currentSearch;
-  bool? _activeOnly;
+// Riverpod 2.0 transforme les paramètres de build() en "Family".
+// Cela permet d'avoir un cache unique par combinaison de filtres !
+@riverpod
+class AuthoritiesPaginated extends _$AuthoritiesPaginated {
   int _currentPage = 0;
   final int _limit = 20;
   bool _hasMore = true;
 
-  AuthoritiesPaginatedNotifier(this._ref) : super(const AsyncValue.loading()) {
-    loadFirstPage();
-  }
-
-  Future<void> loadFirstPage({
+  @override
+  FutureOr<PaginatedResult<Authority>> build({
     String? category,
     String? search,
     bool? activeOnly,
   }) async {
     _currentPage = 0;
-    _currentCategory = category;
-    _currentSearch = search;
-    _activeOnly = activeOnly;
     _hasMore = true;
-    await _loadPage();
+    return _fetchPage();
+  }
+
+  Future<PaginatedResult<Authority>> _fetchPage({bool append = false}) async {
+    final service = ref.read(authoritiesServiceProvider);
+    final result = await service.getAuthoritiesPaginated(
+      page: _currentPage,
+      limit: _limit,
+      category: category,
+      search: search,
+      activeOnly: activeOnly,
+    );
+
+    _hasMore = result.hasMore;
+
+    if (append && state.hasValue) {
+      final currentData = state.value!;
+      return PaginatedResult<Authority>(
+        data: [...currentData.data, ...result.data],
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        hasMore: result.hasMore,
+      );
+    }
+    return result;
   }
 
   Future<void> loadNextPage() async {
-    if (!_hasMore) return;
+    // Évite les appels simultanés ou si on a atteint la fin
+    if (!_hasMore || state.isLoading || state.isReloading) return;
+
     _currentPage++;
-    await _loadPage(append: true);
-  }
-
-  Future<void> refreshData() async {
-    _currentPage = 0;
-    _hasMore = true;
-    await _loadPage();
-  }
-
-  Future<void> _loadPage({bool append = false}) async {
-    try {
-      final service = _ref.read(authoritiesServiceProvider);
-      final result = await service.getAuthoritiesPaginated(
-        page: _currentPage,
-        limit: _limit,
-        category: _currentCategory,
-        search: _currentSearch,
-        activeOnly: _activeOnly,
-      );
-
-      _hasMore = result.hasMore;
-
-      if (append && state.hasValue) {
-        final currentData = state.value!;
-        final combined = PaginatedResult(
-          data: [...currentData.data, ...result.data],
-          total: result.total,
-          page: result.page,
-          limit: result.limit,
-          hasMore: result.hasMore,
-        );
-        state = AsyncValue.data(combined);
-      } else {
-        state = AsyncValue.data(result);
-      }
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
+    
+    // Ajoute la nouvelle page sans écraser l'état actuel (garde l'UI fluide)
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() => _fetchPage(append: true));
   }
 }
 
 // ============================================================
-// AUTRES PROVIDERS PUBLICS
+// LECTURE SEULE (Queries)
 // ============================================================
 
-/// Les 4 plus hautes autorités (actives) – avec normalisation des titres
-final topAuthoritiesProvider = FutureProvider<List<Authority>>((ref) async {
+/// Les 4 plus hautes autorités.
+/// Note Entreprise : Idéalement, backend devrait avoir un endpoint dédié 
+/// pour ne pas fetcher TOUTES les autorités actives côté client.
+@riverpod
+Future<List<Authority>> topAuthorities(Ref ref) async {
   final service = ref.watch(authoritiesServiceProvider);
   final all = await service.getActiveAuthorities();
 
-  // Fonction de normalisation : minuscule, trim, suppression des accents
   String normalize(String s) {
     s = s.toLowerCase().trim();
     const accents = 'àáâãäåçèéêëìíîïñòóôõöùúûüýÿ';
@@ -106,119 +92,110 @@ final topAuthoritiesProvider = FutureProvider<List<Authority>>((ref) async {
     final sb = StringBuffer();
     for (int i = 0; i < s.length; i++) {
       final index = accents.indexOf(s[i]);
-      if (index != -1) {
-        sb.write(sansAccents[index]);
-      } else {
-        sb.write(s[i]);
-      }
+      sb.write(index != -1 ? sansAccents[index] : s[i]);
     }
     return sb.toString();
   }
 
-  final normalizedTitles = <String>{
+  final targetTitles = {
     normalize('Président de la République'),
+    normalize('Première Ministre'),
     normalize('Président du Sénat'),
     normalize('Président de l\'Assemblée Nationale'),
-    normalize('Première Ministre'),
   };
 
-  return all.where((a) => normalizedTitles.contains(normalize(a.title))).toList();
-});
+  final filtered = all.where((a) => targetTitles.contains(normalize(a.title))).toList();
 
-/// Détail d'une autorité avec toutes ses relations
-final authorityDetailProvider = FutureProvider.family<Authority, String>((ref, id) async {
-  final service = ref.watch(authoritiesServiceProvider);
-  return service.getAuthorityWithRelations(id);
-});
-
-/// Autorités historiques (inactives)
-final historicalAuthoritiesProvider = FutureProvider<List<Authority>>((ref) async {
-  final service = ref.watch(authoritiesServiceProvider);
-  return service.getHistoricalAuthorities();
-});
-
-// ============================================================
-// ADMIN
-// ============================================================
-
-final adminAuthoritiesProvider =
-    StateNotifierProvider<AdminAuthoritiesNotifier, AsyncValue<List<Authority>>>(
-  (ref) => AdminAuthoritiesNotifier(ref),
-);
-
-class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>> {
-  final Ref _ref;
-
-  AdminAuthoritiesNotifier(this._ref) : super(const AsyncValue.loading()) {
-    loadAuthorities();
+  // Tri pour garantir l'ordre de préséance institutionnelle
+  int getPriority(String title) {
+    final t = normalize(title);
+    if (t.contains('président de la république')) return 1;
+    if (t.contains('première ministre') || t.contains('premier ministre')) return 2;
+    if (t.contains('sénat')) return 3;
+    if (t.contains('assemblée')) return 4;
+    return 99;
   }
 
-  Future<void> loadAuthorities() async {
-    state = const AsyncValue.loading();
-    try {
-      final service = _ref.read(authoritiesServiceProvider);
-      final list = await service.getActiveAuthorities();
-      state = AsyncValue.data(list);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
+  filtered.sort((a, b) => getPriority(a.title).compareTo(getPriority(b.title)));
+  return filtered;
+}
+
+@riverpod
+Future<Authority> authorityDetail(Ref ref, String id) async {
+  final service = ref.watch(authoritiesServiceProvider);
+  return service.getAuthorityWithRelations(id);
+}
+
+@riverpod
+Future<List<Authority>> historicalAuthorities(Ref ref) async {
+  final service = ref.watch(authoritiesServiceProvider);
+  return service.getHistoricalAuthorities();
+}
+
+// ============================================================
+// ADMIN / MUTATIONS (CUD Operations)
+// ============================================================
+@riverpod
+class AdminAuthorities extends _$AdminAuthorities {
+  @override
+  FutureOr<List<Authority>> build() async {
+    final service = ref.watch(authoritiesServiceProvider);
+    return service.getActiveAuthorities();
   }
 
   Future<void> createAuthority(Authority authority) async {
-    try {
-      final service = _ref.read(authoritiesServiceProvider);
+    final service = ref.read(authoritiesServiceProvider);
+    
+    // AsyncValue.guard gère automatiquement les try/catch et met à jour l'état
+    await AsyncValue.guard(() async {
       await service.createAuthority(authority);
-      _ref.invalidate(topAuthoritiesProvider);
-      await loadAuthorities();
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-      throw e; // 🚀 Permet au formulaire d'attraper l'erreur !
-    }
+      ref.invalidate(topAuthoritiesProvider);
+      
+      // Riverpod 2.0 : refetch directement la liste admin après création
+      ref.invalidateSelf(); 
+    });
   }
 
   Future<void> updateAuthority(Authority authority) async {
-    try {
-      final service = _ref.read(authoritiesServiceProvider);
+    final service = ref.read(authoritiesServiceProvider);
+    
+    await AsyncValue.guard(() async {
       await service.updateAuthority(authority);
       
-      // 🚀 Vide les caches pour forcer l'interface à se rafraîchir !
-      _ref.invalidate(topAuthoritiesProvider);
-      _ref.invalidate(authorityDetailProvider(authority.id)); 
+      // Invalidation sélective et intelligente
+      ref.invalidate(topAuthoritiesProvider);
+      ref.invalidate(authorityDetailProvider(authority.id)); 
       
-      await loadAuthorities();
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-      throw e; // 🚀 Permet au formulaire d'attraper l'erreur !
-    }
+      // Invalider la pagination pour forcer un refresh si l'admin va sur la liste
+      ref.invalidate(authoritiesPaginatedProvider);
+      ref.invalidateSelf();
+    });
   }
 
   Future<void> deleteAuthority(String id) async {
-    try {
-      final service = _ref.read(authoritiesServiceProvider);
+    final service = ref.read(authoritiesServiceProvider);
+    
+    await AsyncValue.guard(() async {
       await service.deleteAuthority(id);
       
-      _ref.invalidate(topAuthoritiesProvider);
-      _ref.invalidate(authorityDetailProvider(id));
-      
-      await loadAuthorities();
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-      throw e; // 🚀
-    }
+      ref.invalidate(topAuthoritiesProvider);
+      ref.invalidate(authorityDetailProvider(id));
+      ref.invalidate(authoritiesPaginatedProvider);
+      ref.invalidateSelf();
+    });
   }
 
   Future<void> archiveAuthority(String id) async {
-    try {
-      final service = _ref.read(authoritiesServiceProvider);
+    final service = ref.read(authoritiesServiceProvider);
+    
+    await AsyncValue.guard(() async {
       await service.archiveAuthority(id);
       
-      _ref.invalidate(topAuthoritiesProvider);
-      _ref.invalidate(authorityDetailProvider(id));
-      
-      await loadAuthorities();
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-      throw e; // 🚀
-    }
+      ref.invalidate(topAuthoritiesProvider);
+      ref.invalidate(historicalAuthoritiesProvider); // Ajouté aux archives
+      ref.invalidate(authorityDetailProvider(id));
+      ref.invalidate(authoritiesPaginatedProvider);
+      ref.invalidateSelf();
+    });
   }
 }
