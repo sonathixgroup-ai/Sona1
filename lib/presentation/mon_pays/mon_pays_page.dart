@@ -125,6 +125,10 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
 
   // ─── Barre supérieure ────────────────────────────────────────────
   Widget _buildTopBar() {
+    // 🚀 VÉRIFICATION DU RÔLE ADMIN
+    // TODO: Remplacez ceci par votre vraie logique (ex: ref.watch(userProvider).role == 'admin')
+    final bool isAdmin = true; 
+
     return SliverAppBar(
       pinned: true,
       floating: true,
@@ -192,14 +196,28 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
               ),
             ],
           ),
-          const SizedBox(width: 8),
-          InkWell(
-            onTap: () => context.push('/mon-pays/admin'),
-            child: const CircleAvatar(
-              radius: 18,
-              backgroundImage: NetworkImage('https://i.pravatar.cc/100'),
+          
+          // 🚀 BOUTON ESPACE ADMIN FIXÉ ET FONCTIONNEL
+          if (isAdmin) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () {
+                context.push('/mon-pays/admin');
+              },
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: rdcRed, width: 2), 
+                ),
+                child: const CircleAvatar(
+                  radius: 16,
+                  backgroundColor: primaryBlue,
+                  child: Icon(Icons.admin_panel_settings, color: Colors.white, size: 18),
+                ),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -348,7 +366,7 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
     );
   }
 
-  // ─── Section Autorités (entièrement réécrite) ──────────────────
+  // ─── Section Autorités ───────────────────────────────────────────
   Widget _buildAutoritesFullWidth() {
     final authAsync = ref.watch(topAuthoritiesProvider);
 
