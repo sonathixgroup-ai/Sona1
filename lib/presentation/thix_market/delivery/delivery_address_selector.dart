@@ -1,8 +1,12 @@
+// lib/presentation/thix_market/delivery/pages/client/delivery_address_selector.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'delivery_provider.dart';
 
-class DeliveryAddressSelector extends StatelessWidget {
+// Déclaration du provider Riverpod pour le DeliveryProvider
+final deliveryProvider = ChangeNotifierProvider<DeliveryProvider>((ref) => DeliveryProvider());
+
+class DeliveryAddressSelector extends ConsumerWidget {
   final Function(Map<String, dynamic>)? onAddressSelected;
 
   const DeliveryAddressSelector({super.key, this.onAddressSelected});
@@ -11,37 +15,35 @@ class DeliveryAddressSelector extends StatelessWidget {
   static const Color thixOrange = Color(0xFFE5592F);
 
   @override
-  Widget build(BuildContext context) {
-    return Consumer<DeliveryProvider>(
-      builder: (context, provider, _) {
-        if (provider.isLoadingAddresses) {
-          return const Center(child: CircularProgressIndicator(color: thixOrange));
-        }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = ref.watch(deliveryProvider);
 
-        return Column(
-          children: [
-            Expanded(
-              child: provider.addresses.isEmpty
-                  ? _buildEmptyState(context, provider)
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: provider.addresses.length,
-                      itemBuilder: (context, index) {
-                        final address = provider.addresses[index];
-                        final isSelected = provider.selectedAddress?['id'] == address['id'];
-                        return _buildAddressCard(context, address, isSelected, provider);
-                      },
-                    ),
-            ),
-            _buildAddAddressButton(context, provider),
-          ],
-        );
-      },
+    if (provider.isLoadingAddresses) {
+      return const Center(child: CircularProgressIndicator(color: thixOrange));
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: provider.addresses.isEmpty
+              ? _buildEmptyState(context, ref)
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: provider.addresses.length,
+                  itemBuilder: (context, index) {
+                    final address = provider.addresses[index];
+                    final isSelected = provider.selectedAddress?['id'] == address['id'];
+                    return _buildAddressCard(context, address, isSelected, ref);
+                  },
+                ),
+        ),
+        _buildAddAddressButton(context, ref),
+      ],
     );
   }
 
   // ─── CARTE D'ADRESSE (DESIGN AMÉLIORÉ) ───
-  Widget _buildAddressCard(BuildContext context, Map<String, dynamic> address, bool isSelected, DeliveryProvider provider) {
+  Widget _buildAddressCard(BuildContext context, Map<String, dynamic> address, bool isSelected, WidgetRef ref) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -61,9 +63,9 @@ class DeliveryAddressSelector extends StatelessWidget {
       ),
       child: RadioListTile<Map<String, dynamic>>(
         value: address,
-        groupValue: provider.selectedAddress,
+        groupValue: ref.watch(deliveryProvider).selectedAddress,
         onChanged: (value) {
-          provider.selectAddress(value!);
+          ref.read(deliveryProvider).selectAddress(value!);
           onAddressSelected?.call(value);
         },
         title: Padding(
@@ -124,14 +126,14 @@ class DeliveryAddressSelector extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         secondary: IconButton(
           icon: Icon(Icons.edit_note_rounded, size: 28, color: Colors.grey[600]),
-          onPressed: () => _showEditAddressDialog(context, provider, address),
+          onPressed: () => _showEditAddressDialog(context, ref, address),
         ),
       ),
     );
   }
 
   // ─── ÉTAT VIDE (DESIGN AMÉLIORÉ) ───
-  Widget _buildEmptyState(BuildContext context, DeliveryProvider provider) {
+  Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -161,7 +163,7 @@ class DeliveryAddressSelector extends StatelessWidget {
   }
 
   // ─── BOUTON D'AJOUT (DESIGN AMÉLIORÉ) ───
-  Widget _buildAddAddressButton(BuildContext context, DeliveryProvider provider) {
+  Widget _buildAddAddressButton(BuildContext context, WidgetRef ref) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -171,7 +173,7 @@ class DeliveryAddressSelector extends StatelessWidget {
         ],
       ),
       child: OutlinedButton.icon(
-        onPressed: () => _showAddAddressDialog(context, provider),
+        onPressed: () => _showAddAddressDialog(context, ref),
         icon: const Icon(Icons.add_location_alt_rounded),
         label: const Text(
           'Ajouter une adresse',
@@ -225,7 +227,7 @@ class DeliveryAddressSelector extends StatelessWidget {
   }
 
   // ─── FORMULAIRE D'AJOUT ───
-  void _showAddAddressDialog(BuildContext context, DeliveryProvider provider) {
+  void _showAddAddressDialog(BuildContext context, WidgetRef ref) {
     final formKey = GlobalKey<FormState>();
     final fullNameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
@@ -256,7 +258,6 @@ class DeliveryAddressSelector extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Drag Handle
                   Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
                   const SizedBox(height: 20),
                   const Text('Nouvelle adresse', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF10192E))),
@@ -304,7 +305,7 @@ class DeliveryAddressSelector extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () async {
                       if (formKey.currentState!.validate()) {
-                        await provider.addAddress({
+                        await ref.read(deliveryProvider).addAddress({
                           'full_name': fullNameCtrl.text,
                           'phone': phoneCtrl.text,
                           'alt_phone': altPhoneCtrl.text,
@@ -337,7 +338,7 @@ class DeliveryAddressSelector extends StatelessWidget {
   }
 
   // ─── FORMULAIRE DE MODIFICATION ───
-  void _showEditAddressDialog(BuildContext context, DeliveryProvider provider, Map<String, dynamic> address) {
+  void _showEditAddressDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> address) {
     final formKey = GlobalKey<FormState>();
     final fullNameCtrl = TextEditingController(text: address['full_name']);
     final phoneCtrl = TextEditingController(text: address['phone']);
@@ -414,7 +415,7 @@ class DeliveryAddressSelector extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () {
-                            provider.deleteAddress(address['id']);
+                            ref.read(deliveryProvider).deleteAddress(address['id']);
                             if (context.mounted) Navigator.pop(context);
                           },
                           style: OutlinedButton.styleFrom(
@@ -432,7 +433,7 @@ class DeliveryAddressSelector extends StatelessWidget {
                         child: ElevatedButton(
                           onPressed: () async {
                             if (formKey.currentState!.validate()) {
-                              await provider.updateAddress(address['id'], {
+                              await ref.read(deliveryProvider).updateAddress(address['id'], {
                                 'full_name': fullNameCtrl.text,
                                 'phone': phoneCtrl.text,
                                 'alt_phone': altPhoneCtrl.text,
