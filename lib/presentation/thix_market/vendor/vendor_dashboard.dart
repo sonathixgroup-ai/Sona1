@@ -6,14 +6,27 @@ import '../providers/shop_provider.dart';
 import '../providers/market_providers.dart';
 
 // ============================================================
-// PROVIDERS PROD (scalable)
+// PROVIDERS PROD (Corrigés pour utiliser shop_id au lieu de seller_id)
 // ============================================================
 final vendorOrdersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final db = ref.read(supabaseClientProvider);
   final uid = db.auth.currentUser?.id;
   if (uid == null) return [];
-  // orders where seller is current user or shop owned
-  final res = await db.from('orders').select('id, total, status, created_at').eq('seller_id', uid).order('created_at', ascending: false).limit(50);
+
+  // 1. On récupère d'abord les boutiques de l'utilisateur connecté
+  final shopsRes = await db.from('shops').select('id').eq('owner_id', uid);
+  final shops = List<Map<String, dynamic>>.from(shopsRes);
+  if (shops.isEmpty) return [];
+
+  final shopIds = shops.map((s) => s['id']).toList();
+
+  // 2. On récupère les commandes liées aux boutiques du vendeur (via shop_id)
+  final res = await db.from('orders')
+      .select('id, total, status, created_at')
+      .inFilter('shop_id', shopIds)
+      .order('created_at', ascending: false)
+      .limit(50);
+      
   return List<Map<String, dynamic>>.from(res);
 });
 
@@ -68,25 +81,26 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
         ],
       ),
       body: shopsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF1A73E8))),
         error: (e, _) => Center(child: Text('Erreur $e')),
         data: (shops) {
           final hasShop = shops.isNotEmpty;
-          final shop = hasShop? shops.first : null;
+          final shop = hasShop ? shops.first : null;
           return ordersAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF1A73E8))),
             error: (e, _) => Center(child: Text('Erreur commandes $e')),
             data: (orders) {
-              final announcements = annAsync.valueOrNull?? [];
+              final announcements = annAsync.valueOrNull ?? [];
               final pending = orders.where((o) => o['status'] == 'pending').length;
-              final rating = (shop?['rating'] as num?)?.toDouble()?? 0.0;
+              final rating = (shop?['rating'] as num?)?.toDouble() ?? 0.0;
               return RefreshIndicator(
+                color: const Color(0xFF1A73E8),
                 onRefresh: _refresh,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    hasShop? _shopHeader(shop!, context) : _noShopHeader(context),
+                    hasShop ? _shopHeader(shop!, context) : _noShopHeader(context),
                     const SizedBox(height: 24),
                     _kpiGrid(orders.length, pending, announcements.length, rating),
                     const SizedBox(height: 24),
@@ -127,11 +141,11 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1A73E8), Color(0xFF0D47A1)]), borderRadius: BorderRadius.circular(12)),
       child: Row(children: [
-        CircleAvatar(radius: 30, backgroundColor: Colors.white, backgroundImage: shop['logo_url']!= null && (shop['logo_url'] as String).isNotEmpty? NetworkImage(shop['logo_url']) : null, child: shop['logo_url'] == null? const Icon(Icons.store, color: Colors.white) : null),
+        CircleAvatar(radius: 30, backgroundColor: Colors.white, backgroundImage: shop['logo_url'] != null && (shop['logo_url'] as String).isNotEmpty ? NetworkImage(shop['logo_url']) : null, child: shop['logo_url'] == null ? const Icon(Icons.store, color: Colors.white) : null),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(shop['name']?? 'Ma boutique', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-          Text(shop['city']?? 'Ville non renseignée', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Text(shop['name'] ?? 'Ma boutique', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(shop['city'] ?? 'Ville non renseignée', style: const TextStyle(color: Colors.white70, fontSize: 12)),
         ])),
         IconButton(icon: const Icon(Icons.edit, color: Colors.white), onPressed: () => context.pushNamed('marketManageShop', pathParameters: {'shopId': shop['id'].toString()})),
       ]),
@@ -178,7 +192,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
       {'icon': Icons.live_tv, 'label': 'Lives', 'onTap': () => context.pushNamed('marketCreateLive')},
       {'icon': Icons.bar_chart, 'label': 'Stats', 'onTap': () {
         final shopId = ref.read(myShopsProvider).valueOrNull?.first?['id'];
-        if(shopId!=null) context.push('/market/shop/$shopId/stats');
+        if(shopId != null) context.push('/market/shop/$shopId/stats');
       }},
       {'icon': Icons.local_shipping, 'label': 'Livraisons', 'onTap': () => context.pushNamed('deliveryManagement')},
       {'icon': Icons.settings, 'label': 'Paramètres', 'onTap': () => context.pushNamed('marketSettings')},
@@ -197,7 +211,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
         children: actions.map((a) {
           return InkWell(
             onTap: (){
-              if(!hasShop && a['label']!='Ma boutique' && a['label']!='Paramètres'){
+              if(!hasShop && a['label'] != 'Ma boutique' && a['label'] != 'Paramètres'){
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez créer une boutique d\'abord.')));
                 return;
               }
@@ -226,7 +240,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
         TextButton(onPressed: ()=> context.pushNamed('marketSell', queryParameters: {'tab': 'orders'}), child: const Text('Voir tout')),
       ]),
       const SizedBox(height: 8),
-      recent.isEmpty? Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: const Center(child: Text('Aucune commande récente', style: TextStyle(color: Colors.grey)))) :
+      recent.isEmpty ? Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: const Center(child: Text('Aucune commande récente', style: TextStyle(color: Colors.grey)))) :
       ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -234,12 +248,12 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
         separatorBuilder: (_, __)=> const Divider(height: 1),
         itemBuilder: (c,i){
           final o = recent[i];
-          final isPending = o['status']=='pending';
+          final isPending = o['status'] == 'pending';
           return ListTile(
-            leading: CircleAvatar(backgroundColor: isPending? Colors.orange : Colors.green, radius: 12, child: Icon(isPending? Icons.pending : Icons.check, color: Colors.white, size: 14)),
+            leading: CircleAvatar(backgroundColor: isPending ? Colors.orange : Colors.green, radius: 12, child: Icon(isPending ? Icons.pending : Icons.check, color: Colors.white, size: 14)),
             title: Text('Commande #${o['id'].toString().substring(0,8)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            subtitle: Text('${(o['total'] as num?)?.toInt()??0} FCFA', style: const TextStyle(fontSize: 12)),
-            trailing: Text(o['status']??'', style: TextStyle(fontSize: 11, color: isPending? Colors.orange : Colors.green, fontWeight: FontWeight.w600)),
+            subtitle: Text('${(o['total'] as num?)?.toInt() ?? 0} FCFA', style: const TextStyle(fontSize: 12)),
+            trailing: Text(o['status'] ?? '', style: TextStyle(fontSize: 11, color: isPending ? Colors.orange : Colors.green, fontWeight: FontWeight.w600)),
           );
         },
       ),
