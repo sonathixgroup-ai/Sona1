@@ -24,8 +24,7 @@ class ForumTopicsNotifier extends FamilyAsyncNotifier<PaginatedForumTopics, Stri
     final res = await client.from('forum_topics')
      .select('id,formation_id,title,content,author_id,created_at,pinned,reply_count,author:profiles(id,full_name,avatar_url)')
      .eq('formation_id', formationId)
-     .order('pinned', ascending: false)
-     .order('created_at', ascending: false)
+     .order('pinned', ascending: false).order('created_at', ascending: false)
      .range(0, _limit - 1);
     _offset = res.length;
     _hasMore = res.length == _limit;
@@ -37,16 +36,13 @@ class ForumTopicsNotifier extends FamilyAsyncNotifier<PaginatedForumTopics, Stri
     final client = ref.read(supabaseClientProvider);
     final res = await client.from('forum_topics')
      .select('id,formation_id,title,content,author_id,created_at,pinned,reply_count,author:profiles(id,full_name,avatar_url)')
-     .eq('formation_id', arg)
-     .order('pinned', ascending: false)
-     .order('created_at', ascending: false)
+     .eq('formation_id', arg).order('pinned', ascending: false).order('created_at', ascending: false)
      .range(_offset, _offset + _limit - 1);
     if (res.isEmpty) { _hasMore = false; return; }
     _offset += res.length;
     _hasMore = res.length == _limit;
     final newItems = res.map((e) => ForumTopic.fromJson(e)).toList();
-    final current = state.value?.items ?? [];
-    state = AsyncData(PaginatedForumTopics(items: [...current, ...newItems], hasMore: _hasMore));
+    state = AsyncData(PaginatedForumTopics(items: [...state.value?.items ?? [], ...newItems], hasMore: _hasMore));
   }
 
   Future<ForumTopic?> createTopic({required String title, required String content}) async {
@@ -54,10 +50,7 @@ class ForumTopicsNotifier extends FamilyAsyncNotifier<PaginatedForumTopics, Stri
     final userId = client.auth.currentUser?.id;
     if (userId == null) return null;
     final res = await client.from('forum_topics').insert({
-      'formation_id': arg,
-      'title': title,
-      'content': content,
-      'author_id': userId,
+      'formation_id': arg, 'title': title, 'content': content, 'author_id': userId,
     }).select('id,formation_id,title,content,author_id,created_at,pinned,reply_count').single();
     final topic = ForumTopic.fromJson(res);
     final current = state.value;
@@ -67,5 +60,4 @@ class ForumTopicsNotifier extends FamilyAsyncNotifier<PaginatedForumTopics, Stri
     return topic;
   }
 }
-
 final forumTopicsProvider = AsyncNotifierProvider.family<ForumTopicsNotifier, PaginatedForumTopics, String>(ForumTopicsNotifier.new);
