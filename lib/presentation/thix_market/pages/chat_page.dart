@@ -1,7 +1,7 @@
+// lib/presentation/thix_market/pages/chat_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 
 class ChatPage extends StatefulWidget {
@@ -34,7 +34,7 @@ class _ChatPageState extends State<ChatPage> {
   Map<String, dynamic>? _otherUser;
   String? _currentUserId;
   bool _isSending = false;
-  String? _conversationId; // réel ID de la conversation
+  String? _conversationId;
 
   static const Color primaryBlue = Color(0xFF1A73E8);
   static const Color bgLight = Color(0xFFF8F9FA);
@@ -57,7 +57,6 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _initializeChat() async {
     setState(() => _isLoading = true);
 
-    // Si conversationId fourni, on l'utilise
     if (widget.conversationId.isNotEmpty) {
       _conversationId = widget.conversationId;
       await _loadConversationDetails();
@@ -68,10 +67,8 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
 
-    // Sinon, on essaie de créer ou récupérer une conversation avec le vendeur (shopId)
     if (widget.shopId != null && widget.shopId!.isNotEmpty) {
       try {
-        // Récupérer l'ID du vendeur à partir du shopId
         final shopResponse = await Supabase.instance.client
             .from('shops')
             .select('owner_id')
@@ -83,7 +80,6 @@ class _ChatPageState extends State<ChatPage> {
         }
         _otherUserId = sellerId;
 
-        // Vérifier si une conversation existe déjà entre les deux utilisateurs
         final existingConv = await Supabase.instance.client
             .from('conversations')
             .select('id, participant_ids')
@@ -92,13 +88,11 @@ class _ChatPageState extends State<ChatPage> {
 
         if (existingConv != null) {
           _conversationId = existingConv['id'];
-          // Mettre à jour le titre si nécessaire
           await _loadConversationDetails();
           await _fetchMessages();
           _subscribeToMessages();
           _markAsRead();
         } else {
-          // Créer une nouvelle conversation
           final newConv = await Supabase.instance.client
               .from('conversations')
               .insert({
@@ -110,7 +104,6 @@ class _ChatPageState extends State<ChatPage> {
               .single();
           _conversationId = newConv['id'];
 
-          // Ajouter les participants
           await Supabase.instance.client
               .from('conversation_participants')
               .insert([
@@ -128,7 +121,6 @@ class _ChatPageState extends State<ChatPage> {
                 },
               ]);
 
-          // Charger les infos de l'autre utilisateur
           final userResponse = await Supabase.instance.client
               .from('users')
               .select('name, avatar')
@@ -177,11 +169,6 @@ class _ChatPageState extends State<ChatPage> {
             .eq('id', _otherUserId!)
             .single();
         _otherUser = userResponse;
-      }
-
-      // Si un titre est fourni en extra, on le priorise
-      if (widget.title != null && widget.title!.isNotEmpty) {
-        // On pourrait mettre à jour la conversation, mais pour l'affichage on utilise le widget.title
       }
     } catch (e) {
       debugPrint('Error loading conversation details: $e');
@@ -350,6 +337,8 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
+    final avatarUrl = widget.avatar ?? _otherUser?['avatar'];
+
     return Scaffold(
       backgroundColor: bgLight,
       appBar: AppBar(
@@ -357,12 +346,10 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundImage: widget.avatar != null
-                  ? CachedNetworkImageProvider(widget.avatar!)
-                  : _otherUser?['avatar'] != null
-                      ? CachedNetworkImageProvider(_otherUser!['avatar'])
-                      : null,
-              child: widget.avatar == null && _otherUser?['avatar'] == null
+              backgroundImage: avatarUrl != null && avatarUrl.toString().isNotEmpty
+                  ? NetworkImage(avatarUrl)
+                  : null,
+              child: avatarUrl == null || avatarUrl.toString().isEmpty
                   ? const Icon(Icons.person, size: 18)
                   : null,
             ),
@@ -430,6 +417,7 @@ class _ChatPageState extends State<ChatPage> {
     final text = message['message'] ?? '';
     final time = _formatTime(message['created_at']);
     final imageUrl = message['image_url'] as String?;
+    final avatarUrl = widget.avatar ?? _otherUser?['avatar'];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
@@ -439,12 +427,10 @@ class _ChatPageState extends State<ChatPage> {
           if (!isOwn && isFirst)
             CircleAvatar(
               radius: 14,
-              backgroundImage: widget.avatar != null
-                  ? CachedNetworkImageProvider(widget.avatar!)
-                  : _otherUser?['avatar'] != null
-                      ? CachedNetworkImageProvider(_otherUser!['avatar'])
-                      : null,
-              child: widget.avatar == null && _otherUser?['avatar'] == null
+              backgroundImage: avatarUrl != null && avatarUrl.toString().isNotEmpty
+                  ? NetworkImage(avatarUrl)
+                  : null,
+              child: avatarUrl == null || avatarUrl.toString().isEmpty
                   ? const Icon(Icons.person, size: 14)
                   : null,
             ),
@@ -473,22 +459,30 @@ class _ChatPageState extends State<ChatPage> {
                 children: [
                   if (imageUrl != null && imageUrl.isNotEmpty)
                     GestureDetector(
-                      onTap: () {
-                        // Afficher l'image en grand
-                      },
+                      onTap: () {},
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: CachedNetworkImage(
-                          imageUrl: imageUrl,
+                        child: Image.network(
+                          imageUrl,
                           height: 150,
                           width: 200,
                           fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
-                            height: 150,
-                            width: 200,
-                            color: Colors.grey[200],
-                          ),
-                          errorWidget: (_, __, ___) => Container(
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              height: 150,
+                              width: 200,
+                              color: Colors.grey[200],
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (_, __, ___) => Container(
                             height: 150,
                             width: 200,
                             color: Colors.grey[200],
