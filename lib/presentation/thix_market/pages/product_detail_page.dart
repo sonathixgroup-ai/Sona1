@@ -7,10 +7,8 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:intl/intl.dart';
 
 import '../providers/market_providers.dart';
-import '../widgets/products/product_card.dart';
 import '../checkout/checkout_page.dart';
 import '../cart/cart_provider.dart';
-import '../providers/product_provider.dart'; 
 
 // ============================================================
 // CHARTE GRAPHIQUE THIX MARKET — ROUGE & OR
@@ -23,11 +21,11 @@ class _MarketColors {
   static const pureWhite = Color(0xFFFFFFFF);
   static const darkText = Color(0xFF1A1A1A);
   static const mutedText = Color(0xFF8A8A8F);
-  static const cardBorder = Color(0xFFF0F0F0);
+  static const cardBorder = Color(0xFFE5E7EB);
   static const successGreen = Color(0xFF00B074);
 }
 
-// ─── PROVIDERS RIVERPOD (Performants et mis en cache) ───
+// ─── PROVIDERS RIVERPOD ───
 
 final productDetailProvider = FutureProvider.family<Map<String,dynamic>, String>((ref, productId) async {
   final db = ref.read(supabaseClientProvider);
@@ -65,12 +63,12 @@ final productDetailProvider = FutureProvider.family<Map<String,dynamic>, String>
   };
 });
 
-final similarProductsProvider = FutureProvider.family<List<Map<String,dynamic>>, Map<String,String>>((ref, params) async {
+// Provider pour charger les autres produits de LA MÊME BOUTIQUE (façon Alibaba)
+final storeProductsProvider = FutureProvider.family<List<Map<String,dynamic>>, String>((ref, shopId) async {
   final db = ref.read(supabaseClientProvider);
   final res = await db.from('products')
-      .select('*, shop:shops(name, city)')
-      .eq('category', params['category']!)
-      .neq('id', params['id']!)
+      .select()
+      .eq('shop_id', shopId)
       .limit(10);
   return List<Map<String,dynamic>>.from(res);
 });
@@ -165,15 +163,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rupture de stock'))); 
       return; 
     }
-    
     await _addToCart();
-    
     if (mounted) {
-      try { 
-        context.push('/market/checkout'); 
-      } catch(_) { 
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const CheckoutPage())); 
-      }
+      try { context.push('/market/checkout'); } catch(_) { Navigator.push(context, MaterialPageRoute(builder: (_) => const CheckoutPage())); }
     }
   }
 
@@ -188,7 +180,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     
     String name = shop?['name']?.toString() ?? 'Vendeur';
     String? avatar = shop?['logo_url']?.toString();
-    
     context.push('/market/chat/$shopId', extra: {'title': name, 'userName': name, 'userAvatar': avatar});
   }
 
@@ -225,9 +216,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         List colors = product['colors'] is List ? product['colors'] as List : [];
         List reviews = product['reviews'] is List ? product['reviews'] as List : [];
         bool isFav = favAsync.valueOrNull ?? false;
-
-        final shippingCost = product['shipping_cost'] as num?;
-        final warrantyMonths = product['warranty_months'] as int?;
+        final shopId = product['shop_id']?.toString();
 
         return Scaffold(
           backgroundColor: _MarketColors.lightBg,
@@ -253,10 +242,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                       color: isFav ? _MarketColors.red : _MarketColors.darkText
                     )
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8, top: 8, bottom: 8), 
-                    child: _circleBtn(Icons.share_rounded, () {})
-                  ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
@@ -273,11 +258,11 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           img, 
                           fit: BoxFit.contain, 
                           width: double.infinity, 
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
                             return const Center(child: CircularProgressIndicator(color: _MarketColors.red));
                           },
-                          errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image_rounded, size: 50, color: _MarketColors.mutedText))
+                          errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image_rounded, size: 50, color: _MarketColors.mutedText))
                         )).toList()
                       ),
                       if (images.length > 1) 
@@ -309,104 +294,73 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
               // CONTENU DU PRODUIT
               // ============================================================
               SliverToBoxAdapter(
-                child: Transform.translate(
-                  offset: const Offset(0, -20), 
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: _MarketColors.lightBg, 
-                      borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))
-                    ), 
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start, 
-                      children: [
-                        const SizedBox(height: 8),
-                        
-                        // --- TITRE ET PRIX ---
-                        _card(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start, 
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, 
+                  children: [
+                    // --- TITRE ET PRIX ---
+                    Container(
+                      color: _MarketColors.pureWhite,
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start, 
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end, 
                             children: [
                               Text(
-                                product['title']?.toString() ?? '', 
-                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _MarketColors.darkText, height: 1.2)
+                                '${(hasDiscount ? product['discount_price'] : product['price']).toString()} $symbol', 
+                                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: _MarketColors.darkText)
                               ),
-                              const SizedBox(height: 12),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.end, 
-                                children: [
-                                  Text(
-                                    '${(hasDiscount ? product['discount_price'] : product['price']).toString()} $symbol', 
-                                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: _MarketColors.red)
-                                  ),
-                                  if (hasDiscount) 
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 10, bottom: 4), 
-                                      child: Text(
-                                        '${product['price'].toString()} $symbol', 
-                                        style: const TextStyle(fontSize: 14, decoration: TextDecoration.lineThrough, color: _MarketColors.mutedText, fontWeight: FontWeight.w700)
-                                      )
-                                    ),
-                                  if (hasDiscount)
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 10, bottom: 4),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(color: _MarketColors.red, borderRadius: BorderRadius.circular(8)),
-                                        child: Text(
-                                          '-${((1 - ((product['discount_price'] as num) / (product['price'] as num))) * 100).round()}%',
-                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white),
-                                        ),
-                                      ),
-                                    ),
-                                ]
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween, 
-                                children: [
-                                  Row(
-                                    children: [
-                                      RatingBar.builder(
-                                        initialRating: (product['rating'] as num).toDouble(), 
-                                        minRating: 1, 
-                                        direction: Axis.horizontal, 
-                                        allowHalfRating: true, 
-                                        itemCount: 5, 
-                                        itemSize: 16, 
-                                        ignoreGestures: true, 
-                                        itemBuilder: (_, __) => const Icon(Icons.star_rounded, color: _MarketColors.gold), 
-                                        onRatingUpdate: (_) {}
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text('${product['reviews_count']} avis', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _MarketColors.darkText)),
-                                    ]
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), 
-                                    decoration: BoxDecoration(
-                                      color: available ? _MarketColors.successGreen.withOpacity(0.1) : _MarketColors.red.withOpacity(0.1), 
-                                      borderRadius: BorderRadius.circular(8)
-                                    ), 
-                                    child: Text(
-                                      available ? 'En stock ($stock)' : 'Rupture', 
-                                      style: TextStyle(
-                                        fontSize: 11, 
-                                        fontWeight: FontWeight.w800, 
-                                        color: available ? _MarketColors.successGreen : _MarketColors.red
-                                      )
-                                    )
-                                  ),
-                                ]
-                              ),
+                              if (hasDiscount) 
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8, bottom: 4), 
+                                  child: Text(
+                                    '${product['price'].toString()} $symbol', 
+                                    style: const TextStyle(fontSize: 14, decoration: TextDecoration.lineThrough, color: _MarketColors.mutedText, fontWeight: FontWeight.w600)
+                                  )
+                                ),
                             ]
-                          )
-                        ),
-
-                        // --- SÉLECTION QUANTITÉ ---
-                        _card(
-                          child: Row(
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            product['title']?.toString() ?? '', 
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: _MarketColors.darkText, height: 1.3)
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
                             children: [
-                              const Text('Quantité', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _MarketColors.darkText)),
+                              RatingBar.builder(
+                                initialRating: (product['rating'] as num).toDouble(), 
+                                minRating: 1, direction: Axis.horizontal, allowHalfRating: true, 
+                                itemCount: 5, itemSize: 14, ignoreGestures: true, 
+                                itemBuilder: (_, __) => const Icon(Icons.star_rounded, color: _MarketColors.gold), 
+                                onRatingUpdate: (_) {}
+                              ),
+                              const SizedBox(width: 8),
+                              Text('${product['reviews_count']} avis', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: _MarketColors.mutedText)),
+                            ]
+                          ),
+                        ]
+                      )
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // --- SÉLECTION QUANTITÉ & VARIANTES ---
+                    Container(
+                      color: _MarketColors.pureWhite,
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (variants.isNotEmpty) _buildVariants(variants),
+                          if (variants.isNotEmpty && colors.isNotEmpty) const SizedBox(height: 16),
+                          if (colors.isNotEmpty) _buildColors(colors),
+                          if (variants.isNotEmpty || colors.isNotEmpty) const SizedBox(height: 16),
+                          
+                          Row(
+                            children: [
+                              const Text('Quantité', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _MarketColors.darkText)),
                               const Spacer(),
                               Container(
                                 decoration: BoxDecoration(
@@ -425,179 +379,202 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                               ),
                             ]
                           )
-                        ),
+                        ],
+                      ),
+                    ),
 
-                        // --- VARIANTES ET COULEURS ---
-                        if (variants.isNotEmpty || colors.isNotEmpty) 
-                          _card(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start, 
-                              children: [
-                                if (variants.isNotEmpty) _buildVariants(variants),
-                                if (variants.isNotEmpty && colors.isNotEmpty) const SizedBox(height: 16),
-                                if (colors.isNotEmpty) _buildColors(colors),
-                              ]
-                            )
-                          ),
+                    const SizedBox(height: 10),
 
-                        // --- BOUTIQUE / SHOP ---
-                        _card(
-                          child: InkWell(
-                            onTap: () => context.push('/market/shop/${product['shop_id']}'), 
-                            child: Row(
+                    // --- BOUTIQUE / SHOP (STYLE ALIBABA) ---
+                    if (product['shop'] != null)
+                      Container(
+                        color: _MarketColors.pureWhite,
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
                                 Container(
-                                  width: 54, height: 54,
+                                  width: 50, height: 50,
                                   decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: _MarketColors.lightBg,
-                                    border: Border.all(color: _MarketColors.cardBorder, width: 1.5),
-                                    image: product['shop']?['logo_url'] != null 
-                                      ? DecorationImage(image: NetworkImage(product['shop']['logo_url'].toString()), fit: BoxFit.cover) 
-                                      : null,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: _MarketColors.cardBorder),
                                   ),
-                                  child: product['shop']?['logo_url'] == null ? const Icon(Icons.storefront_rounded, color: _MarketColors.mutedText) : null,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      product['shop']['logo_url']?.toString() ?? '',
+                                      fit: BoxFit.cover,
+                                      loadingBuilder: (_, child, p) => p == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                      errorBuilder: (_,__,___) => const Icon(Icons.storefront_rounded, color: _MarketColors.mutedText)
+                                    )
+                                  )
                                 ),
-                                const SizedBox(width: 14),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start, 
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        product['shop']?['name']?.toString() ?? 'Boutique Partenaire', 
-                                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: _MarketColors.darkText)
+                                        product['shop']['name']?.toString() ?? 'Boutique Partenaire', 
+                                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: _MarketColors.darkText)
                                       ),
                                       const SizedBox(height: 4),
-                                      const Text('Voir les articles de la boutique', style: TextStyle(color: _MarketColors.mutedText, fontSize: 12, fontWeight: FontWeight.w600)),
+                                      Text(
+                                        'Partenaire vérifié • Situé à ${product['shop']['city'] ?? 'Kinshasa'}', 
+                                        style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12)
+                                      ),
                                     ]
                                   )
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: const BoxDecoration(color: _MarketColors.lightBg, shape: BoxShape.circle),
-                                  child: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _MarketColors.darkText)
-                                ),
                               ]
-                            )
-                          )
-                        ),
-
-                        // --- DESCRIPTION ET INFOS TECHNIQUES ---
-                        _card(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start, 
-                            children: [
-                              const Text('Description', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _MarketColors.darkText)),
-                              const SizedBox(height: 12),
-                              Text(
-                                product['description']?.toString() ?? '', 
-                                style: const TextStyle(height: 1.5, color: _MarketColors.mutedText, fontSize: 13, fontWeight: FontWeight.w500)
-                              ),
-                              
-                              const SizedBox(height: 24),
-                              const Text('Informations techniques', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _MarketColors.darkText)),
-                              const SizedBox(height: 16),
-                              if (product['brand'] != null) 
-                                _buildInfoRow(Icons.branding_watermark_rounded, 'Marque', product['brand'].toString()),
-                              if (product['condition'] != null) 
-                                _buildInfoRow(Icons.info_outline_rounded, 'État', product['condition'].toString()),
-                              
-                              _buildInfoRow(
-                                Icons.local_shipping_rounded, 
-                                'Livraison', 
-                                shippingCost != null ? '${shippingCost.toInt()} $symbol' : 'Fixé par le vendeur'
-                              ),
-                              
-                              _buildInfoRow(
-                                Icons.verified_user_rounded, 
-                                'Garantie', 
-                                warrantyMonths != null ? '$warrantyMonths mois' : 'Non spécifiée'
-                              ),
-                            ]
-                          )
-                        ),
-
-                        // --- AVIS CLIENTS ---
-                        if (reviews.isNotEmpty) 
-                          _card(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start, 
+                            ),
+                            const SizedBox(height: 16),
+                            const Row(
                               children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween, 
-                                  children: [
-                                    const Text('Avis clients', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _MarketColors.darkText)), 
-                                    GestureDetector(
-                                      onTap: () => _showAllReviews(reviews), 
-                                      child: const Text('Voir tout', style: TextStyle(color: _MarketColors.red, fontWeight: FontWeight.w800, fontSize: 13))
-                                    )
-                                  ]
-                                ),
-                                const SizedBox(height: 16),
-                                ...reviews.take(3).map((r) => _reviewCard(r)),
-                              ]
-                            )
-                          ),
-
-                        // --- RESTAURATION DE LA SECTION PRODUITS SIMILAIRES ---
-                        Consumer(
-                          builder: (context, ref, _) {
-                            final cat = product['category']?.toString() ?? '';
-                            final simAsync = ref.watch(similarProductsProvider({'category': cat, 'id': widget.productId}));
-                            
-                            return simAsync.when(
-                              loading: () => const SizedBox(), 
-                              error: (e, _) => const SizedBox(), 
-                              data: (sim) {
-                                if (sim.isEmpty) return const SizedBox();
-                                return Container(
-                                  color: _MarketColors.pureWhite, 
-                                  padding: const EdgeInsets.symmetric(vertical: 24), 
+                                Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start, 
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Padding(
-                                        padding: EdgeInsets.symmetric(horizontal: 16), 
-                                        child: Text('Vous pourriez aussi aimer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _MarketColors.darkText))
-                                      ),
-                                      const SizedBox(height: 16),
-                                      SizedBox(
-                                        height: 260, 
-                                        child: ListView.builder(
-                                          padding: const EdgeInsets.symmetric(horizontal: 16), 
-                                          scrollDirection: Axis.horizontal, 
-                                          itemCount: sim.length, 
-                                          itemBuilder: (ctx, idx) { 
-                                            final p = sim[idx]; 
-                                            return Container(
-                                              width: 160, 
-                                              margin: const EdgeInsets.only(right: 12), 
-                                              child: ProductCard(
-                                                product: p, 
-                                                onTap: (_) => context.push('/market/product/${p['id']}')
-                                              )
-                                            ); 
-                                          }
-                                        )
-                                      ),
+                                      Text('Company overview', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                                      SizedBox(height: 8),
+                                      Text('100.0%', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                                      Text('On-time dispatch rate', style: TextStyle(color: _MarketColors.mutedText, fontSize: 11)),
                                     ]
                                   )
-                                );
-                              }
-                            );
-                          }
-                        ),
-                        const SizedBox(height: 110),
-                      ]
-                    )
-                  )
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      SizedBox(height: 24),
+                                      Text('≤2h', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                                      Text('Response Time', style: TextStyle(color: _MarketColors.mutedText, fontSize: 11)),
+                                    ]
+                                  )
+                                )
+                              ]
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => context.push('/market/shop/${product['shop_id']}'), 
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: _MarketColors.darkText,
+                                      side: const BorderSide(color: _MarketColors.darkText),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+                                    ),
+                                    child: const Text('Plus de produits')
+                                  )
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => context.push('/market/shop/${product['shop_id']}'), 
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: _MarketColors.darkText,
+                                      side: const BorderSide(color: _MarketColors.darkText),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+                                    ),
+                                    child: const Text('Profil vendeur')
+                                  )
+                                )
+                              ]
+                            )
+                          ]
+                        )
+                      ),
+
+                    const SizedBox(height: 10),
+
+                    // --- SECTION PRODUITS SIMILAIRES & BESTSELLERS (ALIBABA STYLE) ---
+                    if (shopId != null)
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final storeProdsAsync = ref.watch(storeProductsProvider(shopId));
+                          
+                          return storeProdsAsync.when(
+                            loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: _MarketColors.red))),
+                            error: (_, __) => const SizedBox(),
+                            data: (products) {
+                              // On filtre le produit actuel pour ne pas le réafficher
+                              final filtered = products.where((p) => p['id'] != widget.productId).toList();
+                              if (filtered.isEmpty) return const SizedBox();
+                              
+                              // On simule deux listes : "Produits similaires" et "Meilleures ventes"
+                              final similar = filtered.take(5).toList();
+                              final bestsellers = filtered.skip(5).take(5).toList();
+                              
+                              return Container(
+                                color: _MarketColors.pureWhite,
+                                padding: const EdgeInsets.symmetric(vertical: 20),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (similar.isNotEmpty) ...[
+                                      _buildHorizontalTitle('Produits similaires du vendeur'),
+                                      _buildHorizontalList(similar, symbol),
+                                      const SizedBox(height: 20),
+                                    ],
+                                    if (bestsellers.isNotEmpty) ...[
+                                      _buildHorizontalTitle('Meilleures ventes de la boutique'),
+                                      _buildHorizontalList(bestsellers, symbol),
+                                    ]
+                                  ]
+                                )
+                              );
+                            }
+                          );
+                        }
+                      ),
+
+                    const SizedBox(height: 10),
+
+                    // --- DESCRIPTION ET AVIS ---
+                    Container(
+                      color: _MarketColors.pureWhite,
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Détails du produit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _MarketColors.darkText)),
+                          const SizedBox(height: 12),
+                          Text(
+                            product['description']?.toString() ?? '', 
+                            style: const TextStyle(height: 1.5, color: _MarketColors.mutedText, fontSize: 13)
+                          ),
+                          const SizedBox(height: 24),
+                          const Divider(color: _MarketColors.cardBorder),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+                            children: [
+                              const Text('Avis clients', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _MarketColors.darkText)), 
+                              if (reviews.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () => _showAllReviews(reviews), 
+                                  child: const Text('Voir tout', style: TextStyle(color: _MarketColors.red, fontWeight: FontWeight.w800, fontSize: 13))
+                                )
+                            ]
+                          ),
+                          const SizedBox(height: 16),
+                          if (reviews.isEmpty) const Text('Aucun avis pour le moment.', style: TextStyle(color: _MarketColors.mutedText, fontSize: 13))
+                          else ...reviews.take(3).map((r) => _reviewCard(r)),
+                        ]
+                      )
+                    ),
+                    const SizedBox(height: 110),
+                  ]
                 )
               ),
             ]
           ),
 
           // ============================================================
-          // BARRE INFÉRIEURE — Boutons Acheter & Panier
+          // BARRE INFÉRIEURE — Style Alibaba (Boutique, Chat, Buy)
           // ============================================================
           bottomNavigationBar: Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -609,55 +586,47 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
               top: false, 
               child: Row(
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: _MarketColors.lightBg, 
-                      borderRadius: BorderRadius.circular(16), 
-                      border: Border.all(color: _MarketColors.cardBorder)
-                    ), 
-                    child: IconButton(
-                      icon: const Icon(Icons.chat_bubble_outline_rounded, color: _MarketColors.darkText), 
-                      onPressed: () => _openChat(product),
-                      tooltip: 'Contacter le vendeur',
-                    )
+                  InkWell(
+                    onTap: () => context.push('/market/shop/${product['shop_id']}'),
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.storefront_rounded, color: _MarketColors.darkText, size: 22),
+                        SizedBox(height: 2),
+                        Text('Store', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600))
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   
                   Expanded(
                     flex: 1,
                     child: OutlinedButton(
-                      onPressed: available && !_adding ? _addToCart : null, 
+                      onPressed: () => _openChat(product), 
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: _MarketColors.red, width: 2), 
-                        foregroundColor: _MarketColors.red, 
-                        padding: const EdgeInsets.symmetric(vertical: 16), 
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
+                        side: const BorderSide(color: _MarketColors.darkText, width: 1.5), 
+                        foregroundColor: _MarketColors.darkText, 
+                        padding: const EdgeInsets.symmetric(vertical: 14), 
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))
                       ), 
-                      child: _adding 
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: _MarketColors.red, strokeWidth: 2)) 
-                        : const Icon(Icons.add_shopping_cart_rounded)
+                      child: const Text('Chat now', style: TextStyle(fontWeight: FontWeight.w800))
                     )
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   
                   Expanded(
-                    flex: 2, 
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [_MarketColors.redDark, _MarketColors.red]), 
-                        borderRadius: BorderRadius.circular(16)
+                    flex: 1, 
+                    child: ElevatedButton(
+                      onPressed: available && !_adding ? () => _buyNow(stock) : null, 
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD0391A), // Orange brûlé style Alibaba
+                        padding: const EdgeInsets.symmetric(vertical: 14), 
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))
                       ), 
-                      child: ElevatedButton(
-                        onPressed: available && !_adding ? () => _buyNow(stock) : null, 
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent, 
-                          shadowColor: Colors.transparent, 
-                          padding: const EdgeInsets.symmetric(vertical: 16), 
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
-                        ), 
-                        child: const Text('Acheter', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.white))
-                      )
+                      child: _adding 
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('Buy now', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white))
                     )
                   ),
                 ]
@@ -669,21 +638,76 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     );
   }
 
-  // ─── MÉTHODES UTILITAIRES POUR L'UI ───
+  // ─── WIDGETS HORIZONTAUX ALIBABA STYLE ───
 
-  Widget _card({required Widget child}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12, left: 16, right: 16), 
-      padding: const EdgeInsets.all(20), 
-      decoration: BoxDecoration(
-        color: _MarketColors.pureWhite, 
-        borderRadius: BorderRadius.circular(20), 
-        border: Border.all(color: _MarketColors.cardBorder), 
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))]
-      ), 
-      child: child
+  Widget _buildHorizontalTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _MarketColors.darkText)),
+          const Icon(Icons.chevron_right_rounded, color: _MarketColors.mutedText)
+        ]
+      )
     );
   }
+
+  Widget _buildHorizontalList(List<Map<String,dynamic>> products, String symbol) {
+    return Container(
+      height: 210,
+      margin: const EdgeInsets.top(12),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: products.length,
+        itemBuilder: (context, index) {
+          final p = products[index];
+          final price = p['discount_price'] ?? p['price'] ?? 0;
+          final stock = p['stock'] != null ? (p['stock'] as num).toInt() : 1;
+          
+          return GestureDetector(
+            onTap: () => context.push('/market/product/${p['id']}'),
+            child: Container(
+              width: 140,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 140,
+                    width: 140,
+                    decoration: BoxDecoration(
+                      color: _MarketColors.lightBg,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _MarketColors.cardBorder)
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        p['image_url']?.toString() ?? '',
+                        fit: BoxFit.cover,
+                        loadingBuilder: (_, child, prog) => prog == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                        errorBuilder: (_,__,___) => const Icon(Icons.image_outlined, color: Colors.grey)
+                      )
+                    )
+                  ),
+                  const SizedBox(height: 8),
+                  Text('$price $symbol', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: _MarketColors.darkText)),
+                  const SizedBox(height: 2),
+                  Text('$stock unité(s) (MOQ)', style: const TextStyle(fontSize: 11, color: _MarketColors.mutedText)),
+                  const SizedBox(height: 2),
+                  const Text('Lower price', style: TextStyle(fontSize: 11, color: _MarketColors.red)),
+                ]
+              )
+            )
+          );
+        }
+      )
+    );
+  }
+
+  // ─── MÉTHODES UTILITAIRES POUR L'UI ───
 
   Widget _circleBtn(IconData icon, VoidCallback onTap, {Color color = _MarketColors.darkText}) {
     return InkWell(
@@ -718,8 +742,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start, 
       children: [
-        const Text('Taille / Modèle', style: TextStyle(fontWeight: FontWeight.w800, color: _MarketColors.darkText, fontSize: 14)), 
-        const SizedBox(height: 12), 
+        const Text('Taille / Modèle', style: TextStyle(fontWeight: FontWeight.w600, color: _MarketColors.darkText, fontSize: 14)), 
+        const SizedBox(height: 8), 
         Wrap(
           spacing: 10, runSpacing: 10, 
           children: list.map((v) { 
@@ -736,8 +760,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start, 
       children: [
-        const Text('Couleurs', style: TextStyle(fontWeight: FontWeight.w800, color: _MarketColors.darkText, fontSize: 14)), 
-        const SizedBox(height: 12), 
+        const Text('Couleurs', style: TextStyle(fontWeight: FontWeight.w600, color: _MarketColors.darkText, fontSize: 14)), 
+        const SizedBox(height: 8), 
         Wrap(
           spacing: 10, runSpacing: 10, 
           children: list.map((c) { 
@@ -753,43 +777,24 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   Widget _chip(String label, bool sel, VoidCallback onTap) {
     return InkWell(
       onTap: onTap, 
-      borderRadius: BorderRadius.circular(12), 
+      borderRadius: BorderRadius.circular(8), 
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200), 
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), 
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
         decoration: BoxDecoration(
-          color: sel ? _MarketColors.red : _MarketColors.lightBg, 
-          borderRadius: BorderRadius.circular(12), 
+          color: sel ? _MarketColors.red.withOpacity(0.1) : _MarketColors.lightBg, 
+          borderRadius: BorderRadius.circular(8), 
           border: Border.all(color: sel ? _MarketColors.red : _MarketColors.cardBorder)
         ), 
         child: Text(
           label, 
           style: TextStyle(
-            fontWeight: sel ? FontWeight.w900 : FontWeight.w600, 
+            fontWeight: sel ? FontWeight.w800 : FontWeight.w500, 
             fontSize: 13, 
-            color: sel ? Colors.white : _MarketColors.darkText
+            color: sel ? _MarketColors.red : _MarketColors.darkText
           )
         )
       )
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: _MarketColors.lightBg, borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, size: 18, color: _MarketColors.red),
-          ),
-          const SizedBox(width: 12),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w800, color: _MarketColors.darkText, fontSize: 13)),
-          const Spacer(),
-          Text(value, style: const TextStyle(color: _MarketColors.mutedText, fontSize: 13, fontWeight: FontWeight.w600)),
-        ],
-      ),
     );
   }
 
@@ -813,8 +818,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       padding: const EdgeInsets.all(16), 
       decoration: BoxDecoration(
         color: _MarketColors.lightBg, 
-        borderRadius: BorderRadius.circular(16), 
-        border: Border.all(color: _MarketColors.cardBorder)
+        borderRadius: BorderRadius.circular(12), 
       ), 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, 
@@ -822,25 +826,24 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           Row(
             children: [
               CircleAvatar(
-                radius: 18, 
+                radius: 16, 
                 backgroundColor: _MarketColors.cardBorder, 
                 backgroundImage: avatar != null ? NetworkImage(avatar) : null, 
-                child: avatar == null ? const Icon(Icons.person_rounded, size: 18, color: _MarketColors.mutedText) : null
+                child: avatar == null ? const Icon(Icons.person_rounded, size: 16, color: _MarketColors.mutedText) : null
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start, 
                   children: [
-                    Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: _MarketColors.darkText)),
-                    const SizedBox(height: 4),
+                    Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _MarketColors.darkText)),
                     RatingBar.builder(
                       initialRating: rating, 
                       minRating: 1, 
                       direction: Axis.horizontal, 
                       allowHalfRating: true, 
                       itemCount: 5, 
-                      itemSize: 12, 
+                      itemSize: 10, 
                       ignoreGestures: true, 
                       itemBuilder: (context, _) => const Icon(Icons.star_rounded, color: _MarketColors.gold), 
                       onRatingUpdate: (_) {}
@@ -848,13 +851,13 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   ]
                 )
               ),
-              Text(date, style: const TextStyle(fontSize: 11, color: _MarketColors.mutedText, fontWeight: FontWeight.w600)),
+              Text(date, style: const TextStyle(fontSize: 11, color: _MarketColors.mutedText)),
             ]
           ),
           if (comment.isNotEmpty) 
             Padding(
-              padding: const EdgeInsets.only(top: 12), 
-              child: Text(comment, style: const TextStyle(height: 1.5, fontSize: 13, color: _MarketColors.darkText, fontWeight: FontWeight.w500))
+              padding: const EdgeInsets.only(top: 10), 
+              child: Text(comment, style: const TextStyle(height: 1.4, fontSize: 13, color: _MarketColors.darkText))
             ),
         ]
       )
