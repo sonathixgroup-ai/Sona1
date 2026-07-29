@@ -1,19 +1,16 @@
 // lib/presentation/mon_pays/pages/laws/article_detail_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';       // 👈 INDISPENSABLE pour useState
+import 'package:hooks_riverpod/hooks_riverpod.dart';   // 👈 INDISPENSABLE pour HookConsumerWidget et WidgetRef
 import '../../models/article.dart';
 import '../../providers/articles_provider.dart';
 
-class ArticleDetailPage extends HookConsumerWidget {
+class ArticleDetailPage extends HookConsumerWidget {   // 👈 Utilisation de HookConsumerWidget
   final String articleId;
 
   const ArticleDetailPage({required this.articleId, super.key});
 
-  // ============================================================
-  // CHARTE THIX ID — Design Institutionnel Premium (Navy / Bleu / Or)
-  // ============================================================
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color navy = Color(0xFF123B7A);
   static const Color primaryBlue = Color(0xFF2D6CDF);
@@ -31,7 +28,6 @@ class ArticleDetailPage extends HookConsumerWidget {
     final articleAsync = ref.watch(articleDetailProvider(articleId));
 
     // HOOKS : Gestion de l'état des langues pour chaque section indépendamment
-    // FR = Français, LN = Lingala, SW = Swahili
     final selectedLangContent = useState<String>('FR');
     final selectedLangExplanation = useState<String>('FR');
 
@@ -51,9 +47,6 @@ class ArticleDetailPage extends HookConsumerWidget {
     );
   }
 
-  // ============================================================
-  // APP BAR — Dégradé navy institutionnel
-  // ============================================================
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: navyDeep,
@@ -86,9 +79,6 @@ class ArticleDetailPage extends HookConsumerWidget {
     );
   }
 
-  // ============================================================
-  // ÉTAT CHARGEMENT
-  // ============================================================
   Widget _buildLoadingState() {
     return const Center(
       child: Column(
@@ -105,9 +95,6 @@ class ArticleDetailPage extends HookConsumerWidget {
     );
   }
 
-  // ============================================================
-  // ÉTAT ERREUR
-  // ============================================================
   Widget _buildErrorState(BuildContext context, WidgetRef ref, Object error) {
     return Center(
       child: Column(
@@ -152,9 +139,6 @@ class ArticleDetailPage extends HookConsumerWidget {
     );
   }
 
-  // ============================================================
-  // CONTENU DE L'ARTICLE
-  // ============================================================
   Widget _buildContent(
     BuildContext context, 
     Article article,
@@ -166,7 +150,6 @@ class ArticleDetailPage extends HookConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── EN-TÊTE ──────────────────────────────────────────────
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
@@ -204,7 +187,6 @@ class ArticleDetailPage extends HookConsumerWidget {
           ),
           const SizedBox(height: 18),
 
-          // ── PARTIE 1 : DÉTAIL (CONTENU) ──────────────────────────
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
@@ -231,7 +213,6 @@ class ArticleDetailPage extends HookConsumerWidget {
                         const Text('Détail', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: darkText)),
                       ],
                     ),
-                    // Cage de langue pour le Contenu
                     _buildLanguageSelector(contentLang),
                   ],
                 ),
@@ -248,7 +229,6 @@ class ArticleDetailPage extends HookConsumerWidget {
             ),
           ),
 
-          // ── PARTIE 2 : EXPLICATION ──────────────────────────────
           if (article.explanation != null && article.explanation!.isNotEmpty) ...[
             const SizedBox(height: 14),
             Container(
@@ -276,7 +256,6 @@ class ArticleDetailPage extends HookConsumerWidget {
                           const Text('Explication', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: navyDeep)),
                         ],
                       ),
-                      // Cage de langue pour l'Explication
                       _buildLanguageSelector(expLang, isGoldTheme: true),
                     ],
                   ),
@@ -294,7 +273,6 @@ class ArticleDetailPage extends HookConsumerWidget {
             ),
           ],
 
-          // ── STATUT ───────────────────────────────────────────────
           const SizedBox(height: 18),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -348,9 +326,6 @@ class ArticleDetailPage extends HookConsumerWidget {
     );
   }
 
-  // ============================================================
-  // WIDGET : CAGE DE LANGUE (Sélecteur)
-  // ============================================================
   Widget _buildLanguageSelector(ValueNotifier<String> selectedLang, {bool isGoldTheme = false}) {
     final activeBgColor = isGoldTheme ? navyDeep : primaryBlue;
     final activeTextColor = isGoldTheme ? gold : pureWhite;
@@ -390,10 +365,6 @@ class ArticleDetailPage extends HookConsumerWidget {
     );
   }
 
-  // ============================================================
-  // UTILITAIRES
-  // ============================================================
-
   Widget _headerBadge(IconData icon, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -417,23 +388,14 @@ class ArticleDetailPage extends HookConsumerWidget {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
-  /// 🚀 TODO: À lier avec votre modèle `Article`
-  /// Cette fonction simule la récupération du texte traduit.
-  /// Mettez à jour votre modèle Article pour inclure `contentLn`, `contentSw`, etc.
   String _getLocalizedText(String originalFr, String lang, String sectionName, Article article) {
     if (lang == 'FR') return originalFr;
-    
-    // Exemple d'intégration quand vous aurez ajouté les champs dans la base de données :
-    // if (lang == 'LN') return article.contentLn ?? 'Traduction en Lingala indisponible.';
-    // if (lang == 'SW') return article.contentSw ?? 'Traduction en Swahili indisponible.';
-
     if (lang == 'LN') {
       return 'Traduction en Lingala pour $sectionName en cours de préparation par l\'administration...';
     }
     if (lang == 'SW') {
       return 'Traduction en Swahili pour $sectionName en cours de préparation par l\'administration...';
     }
-    
     return originalFr;
   }
 }
