@@ -1,8 +1,7 @@
-// lib/presentation/thix_market/delivery/pages/client/delivery_address_selector.dart
+// lib/presentation/thix_market/delivery/delivery_address_selector.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// Importe le bon chemin vers ton delivery_provider.dart
-import '../../providers/delivery_provider.dart'; 
+import 'delivery_provider.dart'; // CORRECTION ICI : Import direct dans le même dossier
 
 class DeliveryAddressSelector extends ConsumerWidget {
   final Function(Map<String, dynamic>)? onAddressSelected;
