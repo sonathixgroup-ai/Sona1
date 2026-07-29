@@ -1,5 +1,6 @@
 // lib/presentation/mon_pays/providers/authorities_provider.dart
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../models/authority.dart';
 import '../services/authorities_service.dart';
@@ -17,8 +18,6 @@ AuthoritiesService authoritiesService(Ref ref) {
 // ============================================================
 // PAGINATION AVEC ASYNC NOTIFIER (Scalable)
 // ============================================================
-// Riverpod 2.0 transforme les paramètres de build() en "Family".
-// Cela permet d'avoir un cache unique par combinaison de filtres !
 @riverpod
 class AuthoritiesPaginated extends _$AuthoritiesPaginated {
   int _currentPage = 0;
@@ -62,12 +61,10 @@ class AuthoritiesPaginated extends _$AuthoritiesPaginated {
   }
 
   Future<void> loadNextPage() async {
-    // Évite les appels simultanés ou si on a atteint la fin
     if (!_hasMore || state.isLoading || state.isReloading) return;
 
     _currentPage++;
     
-    // Ajoute la nouvelle page sans écraser l'état actuel (garde l'UI fluide)
     state = const AsyncLoading();
     state = await AsyncValue.guard(() => _fetchPage(append: true));
   }
@@ -77,9 +74,6 @@ class AuthoritiesPaginated extends _$AuthoritiesPaginated {
 // LECTURE SEULE (Queries)
 // ============================================================
 
-/// Les 4 plus hautes autorités.
-/// Note Entreprise : Idéalement, backend devrait avoir un endpoint dédié 
-/// pour ne pas fetcher TOUTES les autorités actives côté client.
 @riverpod
 Future<List<Authority>> topAuthorities(Ref ref) async {
   final service = ref.watch(authoritiesServiceProvider);
@@ -106,7 +100,6 @@ Future<List<Authority>> topAuthorities(Ref ref) async {
 
   final filtered = all.where((a) => targetTitles.contains(normalize(a.title))).toList();
 
-  // Tri pour garantir l'ordre de préséance institutionnelle
   int getPriority(String title) {
     final t = normalize(title);
     if (t.contains('président de la république')) return 1;
@@ -146,12 +139,9 @@ class AdminAuthorities extends _$AdminAuthorities {
   Future<void> createAuthority(Authority authority) async {
     final service = ref.read(authoritiesServiceProvider);
     
-    // AsyncValue.guard gère automatiquement les try/catch et met à jour l'état
     await AsyncValue.guard(() async {
       await service.createAuthority(authority);
       ref.invalidate(topAuthoritiesProvider);
-      
-      // Riverpod 2.0 : refetch directement la liste admin après création
       ref.invalidateSelf(); 
     });
   }
@@ -162,11 +152,8 @@ class AdminAuthorities extends _$AdminAuthorities {
     await AsyncValue.guard(() async {
       await service.updateAuthority(authority);
       
-      // Invalidation sélective et intelligente
       ref.invalidate(topAuthoritiesProvider);
       ref.invalidate(authorityDetailProvider(authority.id)); 
-      
-      // Invalider la pagination pour forcer un refresh si l'admin va sur la liste
       ref.invalidate(authoritiesPaginatedProvider);
       ref.invalidateSelf();
     });
@@ -192,7 +179,7 @@ class AdminAuthorities extends _$AdminAuthorities {
       await service.archiveAuthority(id);
       
       ref.invalidate(topAuthoritiesProvider);
-      ref.invalidate(historicalAuthoritiesProvider); // Ajouté aux archives
+      ref.invalidate(historicalAuthoritiesProvider);
       ref.invalidate(authorityDetailProvider(id));
       ref.invalidate(authoritiesPaginatedProvider);
       ref.invalidateSelf();
