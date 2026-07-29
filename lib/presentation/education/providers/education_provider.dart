@@ -33,7 +33,9 @@ class FormationsNotifier extends AsyncNotifier<PaginatedFormations> {
   static const _limit = 20;
   int _offset = 0;
   String? _categoryId;
+  String? _level;
   String? get currentCategory => _categoryId;
+  String? get currentLevel => _level;
 
   @override
   Future<PaginatedFormations> build() async {
@@ -45,42 +47,38 @@ class FormationsNotifier extends AsyncNotifier<PaginatedFormations> {
   }
 
   Future<List<Formation>> _fetchPage(SupabaseClient client, int offset) async {
-    var query = client.from('formations').select('id,title,image_url,rating,price,currency,is_free,category_id,created_at');
-    if (_categoryId != null) {
-      query = query.eq('category_id', _categoryId!);
-    }
+    var query = client.from('formations').select('id,title,image_url,rating,price,currency,is_free,category_id,level,created_at');
+    if (_categoryId!= null) query = query.eq('category_id', _categoryId!);
+    if (_level!= null) query = query.eq('level', _level!);
     final data = await query.order('created_at', ascending: false).range(offset, offset + _limit - 1);
     return data.map((e) => Formation.fromJson(e)).toList();
   }
 
   Future<void> loadMore() async {
     final current = state.value;
-    if (current == null || !current.hasMore || current.isLoadingMore) return;
+    if (current == null ||!current.hasMore || current.isLoadingMore) return;
     state = AsyncData(current.copyWith(isLoadingMore: true));
     try {
       final client = ref.read(supabaseClientProvider);
       final newItems = await _fetchPage(client, _offset);
       _offset += newItems.length;
-      state = AsyncData(PaginatedFormations(
-        items: [...current.items, ...newItems],
-        hasMore: newItems.length == _limit,
-        isLoadingMore: false,
-      ));
+      state = AsyncData(PaginatedFormations(items: [...current.items,...newItems], hasMore: newItems.length == _limit));
     } catch (e, st) {
       state = AsyncError(e, st);
     }
   }
 
-  Future<void> filterByCategory(String? categoryId) async {
-    if (_categoryId == categoryId) return;
+  Future<void> filter({String? categoryId, String? level}) async {
+    if (_categoryId == categoryId && _level == level && _offset!= 0) return;
     _categoryId = categoryId;
+    _level = level;
     _offset = 0;
     ref.invalidateSelf();
   }
+
+  Future<void> filterByCategory(String? c) => filter(categoryId: c, level: _level);
+  Future<void> filterByLevel(String? l) => filter(categoryId: _categoryId, level: l);
 }
-
-final formationsProvider = AsyncNotifierProvider<FormationsNotifier, PaginatedFormations>(FormationsNotifier.new);
-
 // --- MES COURS PAGINÉ - RLS par user_id ---
 class MyEnrollmentsNotifier extends FamilyAsyncNotifier<List<Enrollment>, String> {
   static const _limit = 20;
