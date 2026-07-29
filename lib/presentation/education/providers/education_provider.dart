@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/category.dart';
@@ -5,17 +6,15 @@ import '../models/formation.dart';
 import '../models/certificate.dart';
 import '../models/enrollment.dart';
 
-// Ne casse pas la DB - même client
+// Client global - ne casse pas la DB
 final supabaseClientProvider = Provider<SupabaseClient>((ref) => Supabase.instance.client);
 final currentUserIdProvider = Provider<String?>((ref) => Supabase.instance.client.auth.currentUser?.id);
 
-// SCALABLE : 1 seule requête pour 1M users - keepAlive
+// Catégories - keepAlive pour 1M users
 final categoriesProvider = FutureProvider<List<Category>>((ref) async {
-  ref.keepAlive(); // ne se recharge jamais sauf invalidate
+  ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
-  final res = await client.from('categories')
-   .select('id,name,icon,created_at')
-   .order('name');
+  final res = await client.from('categories').select('id,name,icon,created_at').order('name');
   return res.map((e) => Category.fromJson(e)).toList();
 });
 
@@ -41,35 +40,34 @@ class FormationsNotifier extends AsyncNotifier<PaginatedFormations> {
   Future<PaginatedFormations> build() async {
     _offset = 0;
     final client = ref.watch(supabaseClientProvider);
-    final res = await _fetchPage(client, 0);
-    _offset = res.length;
-    return PaginatedFormations(items: res, hasMore: res.length == _limit);
+    final items = await _fetchPage(client, 0);
+    _offset = items.length;
+    return PaginatedFormations(items: items, hasMore: items.length == _limit);
   }
 
   Future<List<Formation>> _fetchPage(SupabaseClient client, int offset) async {
     var query = client.from('formations').select('id,title,image_url,rating,price,currency,is_free,category_id,level,created_at');
-    if (_categoryId!= null) query = query.eq('category_id', _categoryId!);
-    if (_level!= null) query = query.eq('level', _level!);
+    if (_categoryId != null) query = query.eq('category_id', _categoryId!);
+    if (_level != null) query = query.eq('level', _level!);
     final data = await query.order('created_at', ascending: false).range(offset, offset + _limit - 1);
     return data.map((e) => Formation.fromJson(e)).toList();
   }
 
   Future<void> loadMore() async {
     final current = state.value;
-    if (current == null ||!current.hasMore || current.isLoadingMore) return;
+    if (current == null || !current.hasMore || current.isLoadingMore) return;
     state = AsyncData(current.copyWith(isLoadingMore: true));
     try {
       final client = ref.read(supabaseClientProvider);
       final newItems = await _fetchPage(client, _offset);
       _offset += newItems.length;
-      state = AsyncData(PaginatedFormations(items: [...current.items,...newItems], hasMore: newItems.length == _limit));
+      state = AsyncData(PaginatedFormations(items: [...current.items, ...newItems], hasMore: newItems.length == _limit));
     } catch (e, st) {
       state = AsyncError(e, st);
     }
   }
 
   Future<void> filter({String? categoryId, String? level}) async {
-    if (_categoryId == categoryId && _level == level && _offset!= 0) return;
     _categoryId = categoryId;
     _level = level;
     _offset = 0;
@@ -79,7 +77,10 @@ class FormationsNotifier extends AsyncNotifier<PaginatedFormations> {
   Future<void> filterByCategory(String? c) => filter(categoryId: c, level: _level);
   Future<void> filterByLevel(String? l) => filter(categoryId: _categoryId, level: l);
 }
-// --- MES COURS PAGINÉ - RLS par user_id ---
+
+final formationsProvider = AsyncNotifierProvider<FormationsNotifier, PaginatedFormations>(FormationsNotifier.new);
+
+// --- MES COURS PAGINÉS ---
 class MyEnrollmentsNotifier extends FamilyAsyncNotifier<List<Enrollment>, String> {
   static const _limit = 20;
   int _offset = 0;
@@ -88,14 +89,11 @@ class MyEnrollmentsNotifier extends FamilyAsyncNotifier<List<Enrollment>, String
 
   @override
   Future<List<Enrollment>> build(String userId) async {
-    _offset = 0;
-    _hasMore = true;
+    _offset = 0; _hasMore = true;
     final client = ref.watch(supabaseClientProvider);
     final res = await client.from('enrollments')
      .select('id,progress,created_at,formation:formations(id,title,image_url,rating,price,currency,is_free,category_id,created_at)')
-     .eq('user_id', userId)
-     .order('created_at', ascending: false)
-     .range(0, _limit - 1);
+     .eq('user_id', userId).order('created_at', ascending: false).range(0, _limit - 1);
     _offset = res.length;
     _hasMore = res.length == _limit;
     return res.map((e) => Enrollment.fromJson(e)).toList();
@@ -103,13 +101,10 @@ class MyEnrollmentsNotifier extends FamilyAsyncNotifier<List<Enrollment>, String
 
   Future<void> loadMore() async {
     if (!_hasMore) return;
-    final userId = arg;
     final client = ref.read(supabaseClientProvider);
     final res = await client.from('enrollments')
      .select('id,progress,created_at,formation:formations(id,title,image_url,rating,price,currency,is_free,category_id,created_at)')
-     .eq('user_id', userId)
-     .order('created_at', ascending: false)
-     .range(_offset, _offset + _limit - 1);
+     .eq('user_id', arg).order('created_at', ascending: false).range(_offset, _offset + _limit - 1);
     if (res.isEmpty) { _hasMore = false; return; }
     _offset += res.length;
     _hasMore = res.length == _limit;
@@ -117,45 +112,34 @@ class MyEnrollmentsNotifier extends FamilyAsyncNotifier<List<Enrollment>, String
     state = AsyncData([...state.value ?? [], ...newItems]);
   }
 }
-
 final myEnrollmentsProvider = AsyncNotifierProvider.family<MyEnrollmentsNotifier, List<Enrollment>, String>(MyEnrollmentsNotifier.new);
 
-// --- CERTIFICATS - select light + paginé ---
+// --- CERTIFICATS ---
 final certificatesProvider = FutureProvider.family<List<Certificate>, String>((ref, String userId) async {
   final client = ref.watch(supabaseClientProvider);
-  final res = await client.from('certificates')
-   .select('id,formation_id,verification_hash,issued_at,created_at')
-   .eq('user_id', userId)
-   .order('issued_at', ascending: false)
-   .limit(50);
+  final res = await client.from('certificates').select('id,formation_id,verification_hash,issued_at,created_at').eq('user_id', userId).order('issued_at', ascending: false).limit(100);
   return res.map((e) => Certificate.fromJson(e)).toList();
 });
 
-// --- DETAIL FORMATION SCALABLE : 1 requête avec modules+leçons ---
+final recommendationsProvider = FutureProvider.family<List<Formation>, String>((ref, String userId) async {
+  final client = ref.watch(supabaseClientProvider);
+  final res = await client.from('recommendations').select('formation:formations(id,title,image_url,rating,price,currency,is_free)').eq('user_id', userId).limit(10);
+  return res.where((e) => e['formation'] != null).map((e) => Formation.fromJson(e['formation'] as Map<String,dynamic>)).toList();
+});
+
 final formationDetailProvider = FutureProvider.family<Formation?, String>((ref, String formationId) async {
   final client = ref.watch(supabaseClientProvider);
-  final res = await client.from('formations').select('''
-    id,title,description,image_url,price,currency,is_free,level,duration,instructor_name,
-    category:categories(id,name),
-    modules(id,title,order_index, lessons(id,title,duration,order_index,type,module_id))
-  ''').eq('id', formationId).maybeSingle();
+  final res = await client.from('formations').select('*, category:categories(id,name), modules(id,title,order_index, lessons(id,title,duration,order_index,type,module_id))').eq('id', formationId).maybeSingle();
   return res == null ? null : Formation.fromJson(res);
 });
 
-// --- PROGRESS / ENROLLMENT ---
 final enrollmentProvider = FutureProvider.family<dynamic, ({String userId, String formationId})>((ref, params) async {
   final client = ref.watch(supabaseClientProvider);
-  final res = await client.from('enrollments')
-   .select('id,progress,formation_id,user_id')
-   .eq('user_id', params.userId)
-   .eq('formation_id', params.formationId)
-   .maybeSingle();
-  return res;
+  return await client.from('enrollments').select('id,progress').eq('user_id', params.userId).eq('formation_id', params.formationId).maybeSingle();
 });
 
 class EnrollNotifier extends AsyncNotifier<void> {
-  @override
-  Future<void> build() async {}
+  @override Future<void> build() async {}
   Future<bool> enroll({required String userId, required String formationId}) async {
     state = const AsyncLoading();
     try {
@@ -172,14 +156,13 @@ class EnrollNotifier extends AsyncNotifier<void> {
 }
 final enrollProvider = AsyncNotifierProvider<EnrollNotifier, void>(EnrollNotifier.new);
 
-// --- RECHERCHE SCALABLE 1M+ : debounce + ilike + limit ---
+// --- RECHERCHE ---
 class SearchFormationsNotifier extends AsyncNotifier<PaginatedFormations> {
   static const _limit = 20;
   int _offset = 0;
   String _query = '';
   Timer? _debounce;
   bool _hasMore = false;
-
   String get query => _query;
   bool get hasMore => _hasMore;
 
@@ -193,17 +176,13 @@ class SearchFormationsNotifier extends AsyncNotifier<PaginatedFormations> {
     _debounce?.cancel();
     final q = value.trim();
     if (q.isEmpty) {
-      _query = '';
-      _offset = 0;
-      _hasMore = false;
+      _query = ''; _offset = 0; _hasMore = false;
       state = const AsyncData(PaginatedFormations(items: [], hasMore: false));
       return;
     }
-    if (q.length < 2) return; // pas de recherche < 2 lettres = moins de charge DB
-
+    if (q.length < 2) return;
     _debounce = Timer(const Duration(milliseconds: 400), () async {
-      _query = q;
-      _offset = 0;
+      _query = q; _offset = 0;
       state = const AsyncLoading();
       try {
         final client = ref.read(supabaseClientProvider);
@@ -218,20 +197,13 @@ class SearchFormationsNotifier extends AsyncNotifier<PaginatedFormations> {
   }
 
   Future<List<Formation>> _fetch(SupabaseClient client, String q, int offset) async {
-    // IMPORTANT pour le scale : crée cet index dans Supabase SQL Editor
-    // CREATE EXTENSION IF NOT EXISTS pg_trgm;
-    // CREATE INDEX idx_formations_search ON formations USING gin ((title || ' ' || description) gin_trgm_ops);
     final safeQ = q.replaceAll('%', '').replaceAll('_', '');
-    final res = await client.from('formations')
-     .select('id,title,image_url,rating,price,currency,is_free,category_id,created_at')
-     .or('title.ilike.%$safeQ%,description.ilike.%$safeQ%')
-     .order('rating', ascending: false)
-     .range(offset, offset + _limit - 1);
+    final res = await client.from('formations').select('id,title,image_url,rating,price,currency,is_free,category_id,created_at').or('title.ilike.%$safeQ%,description.ilike.%$safeQ%').order('rating', ascending: false).range(offset, offset + _limit - 1);
     return res.map((e) => Formation.fromJson(e)).toList();
   }
 
   Future<void> loadMore() async {
-    if (!_hasMore || _query.isEmpty || state.isLoading) return;
+    if (!_hasMore || _query.isEmpty) return;
     final current = state.value;
     if (current == null) return;
     state = AsyncData(current.copyWith(isLoadingMore: true));
@@ -240,7 +212,7 @@ class SearchFormationsNotifier extends AsyncNotifier<PaginatedFormations> {
       final newItems = await _fetch(client, _query, _offset);
       _offset += newItems.length;
       _hasMore = newItems.length == _limit;
-      state = AsyncData(PaginatedFormations(items: [...current.items,...newItems], hasMore: _hasMore));
+      state = AsyncData(PaginatedFormations(items: [...current.items, ...newItems], hasMore: _hasMore));
     } catch (e, st) {
       state = AsyncError(e, st);
     }
@@ -248,28 +220,8 @@ class SearchFormationsNotifier extends AsyncNotifier<PaginatedFormations> {
 
   void clear() {
     _debounce?.cancel();
-    _query = '';
-    _offset = 0;
-    _hasMore = false;
+    _query = ''; _offset = 0; _hasMore = false;
     state = const AsyncData(PaginatedFormations(items: [], hasMore: false));
   }
 }
-
 final searchFormationsProvider = AsyncNotifierProvider<SearchFormationsNotifier, PaginatedFormations>(SearchFormationsNotifier.new);
-
-// --- RECOMMANDATIONS - sans N+1 ---
-final recommendationsProvider = FutureProvider.family<List<Formation>, String>((ref, String userId) async {
-  final client = ref.watch(supabaseClientProvider);
-  final res = await client.from('recommendations')
-   .select('formation:formations(id,title,image_url,rating,price,currency,is_free,category_id,created_at)')
-   .eq('user_id', userId)
-   .limit(10);
-  return res.where((e) => e['formation'] != null).map((e) => Formation.fromJson(e['formation'] as Map<String,dynamic>)).toList();
-});
-
-// BONUS pour page détail - scalable
-final formationByIdProvider = FutureProvider.family<Formation?, String>((ref, String id) async {
-  final client = ref.watch(supabaseClientProvider);
-  final res = await client.from('formations').select().eq('id', id).maybeSingle();
-  return res == null ? null : Formation.fromJson(res);
-});
