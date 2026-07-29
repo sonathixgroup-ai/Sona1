@@ -62,6 +62,7 @@ final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<
   return ChatMsgNotifier(ref.read(chatServiceProvider), conversationId);
 });
 
+// ── LOGIQUE DES MESSAGES CORRIGÉE (DESCENDING STRICT) ──
 class ChatMsgNotifier extends StateNotifier<List<ChatMessage>> {
   final ChatService svc;
   final String convId;
@@ -76,8 +77,11 @@ class ChatMsgNotifier extends StateNotifier<List<ChatMessage>> {
 
   Future<void> loadInitial() async {
     page = 0;
+    // On suppose que svc.getMessages renvoie les plus récents en premier.
     final msgs = await svc.getMessages(convId, limit: pageSize, offset: 0);
     hasMore = msgs.length >= pageSize;
+    // On trie pour être 100% sûr : les plus récents à l'index 0
+    msgs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     state = msgs;
   }
 
@@ -87,32 +91,49 @@ class ChatMsgNotifier extends StateNotifier<List<ChatMessage>> {
     page++;
     final msgs = await svc.getMessages(convId, limit: pageSize, offset: page * pageSize);
     hasMore = msgs.length >= pageSize;
-    final merged = [...msgs.reversed, ...state];
+    
+    // On ajoute les anciens messages à la fin de la liste
+    var current = [...state, ...msgs];
     final seen = <String>{};
-    state = merged.where((m) => seen.add(m.id)).toList();
+    current = current.where((m) => seen.add(m.id)).toList();
+    current.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    
+    state = current;
     loadingMore = false;
   }
 
   void upsertRealtime(List<ChatMessage> updated) {
     var current = [...state];
+    bool changed = false;
+
     for (var msg in updated) {
       final idx = current.indexWhere((m) => m.id == msg.id);
       if (idx != -1) {
         if (msg.isDeleted) {
           current.removeAt(idx);
         } else {
-          current[idx] = msg;
+          current[idx] = msg; // Mise à jour (ex: "Vu", réactions)
         }
+        changed = true;
       } else if (!msg.isDeleted) {
-        current.add(msg);
+        // Nouveau message entrant, on l'insère au début
+        current.insert(0, msg);
+        changed = true;
       }
     }
-    state = current;
+
+    if (changed) {
+      // Le tri strict garantit l'affichage parfait et force Riverpod à refresh l'UI (statuts vu)
+      current.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      state = current;
+    }
   }
 
   void addLocal(ChatMessage msg) {
     if (!state.any((m) => m.id == msg.id)) {
-      state = [...state, msg];
+      var current = [msg, ...state]; // Nouveau message en premier
+      current.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      state = current;
     }
   }
 
@@ -140,14 +161,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   List<GroupMember> _groupMembers = [];
   String _replyToId = '';
   
-  // Variables d'état
   bool _isEphemeral = false;
   int? _ephemeralDuration;
   bool _isTyping = false;
   bool _otherUserTyping = false;
   bool _isSending = false;
   
-  // NOUVEAU : Liste des fichiers sélectionnés en attente d'envoi
   List<PlatformFile> _selectedFiles = [];
   
   Timer? _typingTimer;
@@ -156,12 +175,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   bool _isInternalNoteMode = false;
   StreamSubscription<List<ChatMessage>>? _messageSub;
 
+  // ── AJOUT DES DRAPEAUX DU MONDE & CORRECTION EMOJI ──
   static const List<String> _stickers = [
     '😀','😃','😄','😁','😆','😅','😂','🤣','🥲','🥹','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','🤩','🥳','🤗','🤔','🤭','🤫','🤥','😏','😒','🙄','😬','😮‍💨','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','😵','🤯','🥴','😵‍💫','🤠','🥸',
     '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💝','💘','💌','💋','💟','❤️‍🔥','❤️‍🩹','💯','🔥','⭐','🌟','💫','✨','💥','💫','🎉','🎊','🎈','🎁','🏆','🥇','🥈','🥉','🏅',
     '👍','👎','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐️','🖖','👋','✍️','🙏','💪','🦾','👂','👀','👁️','👅','👄','🧠','🫀',
     '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐽','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🐈','🐓','🦃','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦦','🦥','🐁','🐀','🐿️','🦔',
     '🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🌮','🌯','🥗','🥘','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','☕','🍵','🧃','🥤','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🍾',
+    // NOUVEAUX DRAPEAUX DU MONDE:
+    '🏁','🚩','🎌','🏴','🏳️','🏳️‍🌈','🏳️‍⚧️','🏴‍☠️','🇦🇫','🇿🇦','🇦🇱','🇩🇿','🇩🇪','🇦🇩','🇦🇴','🇦🇮','🇦🇶','🇦🇬','🇸🇦','🇦🇷','🇦🇲','🇦🇼','🇦🇺','🇦🇹','🇦🇿','🇧🇸','🇧🇭','🇧🇩','🇧🇧','🇧🇪','🇧🇿','🇧🇯','🇧🇲','🇧🇹','🇧🇾','🇲🇲','🇧🇴','🇧🇦','🇧🇼','🇧🇷','🇧🇳','🇧🇬','🇧🇫','🇧🇮','🇰🇭','🇨🇲','🇨🇦','🇨🇻','🇨🇱','🇨🇳','🇨🇾','🇨🇴','🇰🇲','🇨🇬','🇨🇩','🇰🇵','🇰🇷','🇨🇷','🇨🇮','🇭🇷','🇨🇺','🇩🇰','🇩🇯','🇩🇲','🇪🇬','🇸🇻','🇦🇪','🇪🇨','🇪🇷','🇪🇸','🇪🇪','🇺🇸','🇪🇹','🇫🇯','🇫🇮','🇫🇷','🇬🇦','🇬🇲','🇬🇪','🇬🇭','🇬🇮','🇬🇷','🇬🇩','🇬🇱','🇬🇹','🇬🇳','🇬🇶','🇬🇼','🇬🇾','🇭🇹','🇭🇳','🇭🇰','🇭🇺','🇮🇳','🇮🇩','🇮🇷','🇮🇶','🇮🇪','🇮🇸','🇮🇱','🇮🇹','🇯🇲','🇯🇵','🇯🇴','🇰🇿','🇰🇪','🇰🇬','🇰🇮','🇽🇰','🇰🇼','🇱🇦','🇱🇸','🇱🇻','🇱🇧','🇱🇷','🇱🇾','🇱🇮','🇱🇹','🇱🇺','🇲🇴','🇲🇰','🇲🇬','🇲🇾','🇲🇼','🇲🇻','🇲🇱','🇲🇹','🇲🇦','🇲🇺','🇲🇷','🇲🇽','🇫🇲','🇲🇩','🇲🇨','🇲🇳','🇲🇪','🇲🇿','🇳🇦','🇳🇷','🇳🇵','🇳🇮','🇳🇪','🇳🇬','🇳🇺','🇳🇴','🇳🇿','🇴🇲','🇺🇬','🇺🇿','🇵🇰','🇵🇼','🇵🇸','🇵🇦','🇵🇬','🇵🇾','🇳🇱','🇵🇪','🇵🇭','🇵🇱','🇵🇷','🇵🇹','🇶🇦','🇨🇫','🇩🇴','🇷🇴','🇬🇧','🇷🇺','🇷🇼','🇸🇳','🇷🇸','🇸🇨','🇸🇱','🇸🇬','🇸🇰','🇸🇮','🇸🇴','🇸🇩','🇸🇸','🇱🇰','🇸🇪','🇨🇭','🇸🇷','🇸🇾','🇹🇯','🇹🇼','🇹🇿','🇹🇩','🇨🇿','🇹🇭','🇹🇱','🇹🇬','🇹🇴','🇹🇹','🇹🇳','🇹🇲','🇹🇷','🇹🇻','🇺🇦','🇺🇾','🇻🇺','🇻🇦','🇻🇪','🇻🇳','🇾🇪','🇿🇲','🇿🇼'
   ];
 
   @override
@@ -247,8 +269,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   void _subscribeToRealtime() {
     _messageSub = ref.read(chatServiceProvider).subscribeToMessages(widget.conversationId).listen((updated) {
       ref.read(chatMessagesProvider(widget.conversationId).notifier).upsertRealtime(updated);
-      _scrollToBottom();
-      _markAsRead();
+      _markAsRead(); // Marquer comme lu immédiatement à la réception
     });
   }
 
@@ -296,7 +317,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     
     final svc = ref.read(chatServiceProvider);
     
-    // Vérification de connexion (amis)
     if (!widget.conversation.isGroup && !_isInternalNoteMode) {
       final cur = svc.currentUserId;
       if (cur != null) {
@@ -316,10 +336,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     setState(() => _isSending = true);
     
     try {
-      // 1. ENVOI DES FICHIERS SÉLECTIONNÉS (Envoi multiple)
       if (_selectedFiles.isNotEmpty) {
         final filesToSend = List<PlatformFile>.from(_selectedFiles);
-        setState(() { _selectedFiles.clear(); }); // On vide la preview immédiatement
+        setState(() { _selectedFiles.clear(); }); 
         
         for (var f in filesToSend) {
           final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
@@ -331,7 +350,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           if (url != null) {
             final msg = await svc.sendMessage(
               conversationId: widget.conversationId,
-              content: f.name, // Nom par défaut du fichier
+              content: f.name,
               mediaUrl: url,
               mediaType: _getMediaType(ext),
               mediaName: f.name,
@@ -345,7 +364,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         }
       }
 
-      // 2. ENVOI DU TEXTE (Si on n'avait pas seulement des fichiers)
       if (text.isNotEmpty && !text.startsWith('📎')) {
         final msg = await svc.sendMessage(
           conversationId: widget.conversationId, 
@@ -374,10 +392,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     }
   }
 
-  // =======================================================================
-  // UI DES FONCTIONNALITÉS (Ephémère, Protégé, Audio, Pièces jointes)
-  // =======================================================================
-
   void _showStickerPicker() {
     showModalBottomSheet(
       context: context,
@@ -390,7 +404,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           children: [
             const SizedBox(height: 12), 
             Container(width: 40, height: 4, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(4))),
-            const Padding(padding: EdgeInsets.all(16), child: Text('Stickers', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+            const Padding(padding: EdgeInsets.all(16), child: Text('Stickers & Drapeaux', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
             Expanded(
               child: GridView.builder(
                 controller: sc, padding: const EdgeInsets.all(12),
@@ -399,10 +413,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 itemBuilder: (_, i) => InkWell(
                   onTap: () {
                     Navigator.pop(ctx);
-                    // Ajoute l'emoji dans le champ de texte
                     _inputController.text += _stickers[i];
                   },
-                  child: Center(child: Text(_stickers[i], style: const TextStyle(fontSize: 26)))
+                  child: Center(
+                    child: Text(
+                      _stickers[i], 
+                      style: const TextStyle(
+                        fontSize: 26,
+                        // Assure le rendu des émojis en couleurs natives (Corrige le problème du Noir & Blanc)
+                        fontFamilyFallback: ['Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'EmojiOne Color'],
+                      )
+                    )
+                  )
                 )
               )
             ),
@@ -613,12 +635,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   Future<void> _pickFile({FileType type = FileType.any}) async {
     try {
-      // allowMultiple est activé
       final result = await FilePicker.platform.pickFiles(allowMultiple: true, type: type, withData: true);
       if (result != null && result.files.isNotEmpty) {
         setState(() {
           _selectedFiles.addAll(result.files);
-          // Si on sélectionne un fichier, on ajoute un espace visuel invisible ou un repère pour tromper la validation "vide"
           if (_inputController.text.trim().isEmpty) {
             _inputController.text = '📎 ${_selectedFiles.length} fichier(s)';
           }
@@ -655,10 +675,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   void _viewEscalationHistory() { context.pushNamed('chatEscalationHistory', pathParameters: {'conversationId': widget.conversationId}); }
   void _toggleInternalNoteMode() { setState(() => _isInternalNoteMode = !_isInternalNoteMode); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isInternalNoteMode ? 'Mode note interne ON' : 'Mode note interne OFF'), backgroundColor: _isInternalNoteMode ? _C.orange : _C.textMuted)); }
 
-  // ----------------------------------------------------------------------
-  // BUILD
-  // ----------------------------------------------------------------------
-
   @override
   Widget build(BuildContext context) {
     final messages = ref.watch(chatMessagesProvider(widget.conversationId));
@@ -683,7 +699,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               child: widget.conversation.isGroup
                 ? const Icon(Icons.groups_rounded, color: _C.textMuted) 
                 : ClipOval(
-                    child: Image.network( // Remplacé CachedNetworkImage
+                    child: Image.network(
                       widget.conversation.displayAvatar ?? 'https://i.pravatar.cc/150?img=11', 
                       width: 40, 
                       height: 40, 
@@ -754,13 +770,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 children: [
                   ListView.builder(
                     controller: _scrollController,
-                    reverse: true,
+                    reverse: true, // Le plus bas = Index 0 = le plus récent
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     itemCount: messages.length + (msgNotifier.loadingMore ? 1 : 0),
                     itemBuilder: (ctx, i) {
                       if (i == messages.length) return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary)));
                       
-                      final msg = messages[messages.length - 1 - i];
+                      // ── CORRECTION AFFICHAGE : L'index correspond directement au message car l'ordre est parfait
+                      final msg = messages[i];
                       final isOwn = msg.senderId == ref.read(chatServiceProvider).currentUserId;
                       
                       return ChatMessageBubble(
@@ -811,7 +828,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 )
               ),
 
-            // PREVIEW DES FICHIERS SELECTIONNES
             if (_selectedFiles.isNotEmpty)
               Container(
                 height: 90,
@@ -863,7 +879,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               isEphemeral: _isEphemeral, 
               onTyping: _onTypingChanged, 
               onInternalNoteToggle: _isAgent ? _toggleInternalNoteMode : null, 
-              onStickerTap: _showStickerPicker, // Connexion du sticker
+              onStickerTap: _showStickerPicker,
               isInternalNote: _isInternalNoteMode
             ),
           ]
