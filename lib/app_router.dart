@@ -439,7 +439,7 @@ class AppRouter {
         GoRoute(path: '/jobs/:jobId', name: 'jobDetails', pageBuilder: (_, state) => NoTransitionPage(child: JobDetailsPage(jobId: state.pathParameters['jobId'] ?? '', applied: (state.uri.queryParameters['applied'] ?? '') == '1'))),
         GoRoute(path: '/jobs/:jobId/apply', name: 'jobApply', pageBuilder: (_, state) => NoTransitionPage(child: JobApplyPage(jobId: state.pathParameters['jobId'] ?? ''))),
         ...educationRoutes,
-        ...instructor,
+        ...instructorRoutes,
         ...ThixMoneyRouter.routes,
         GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => const NoTransitionPage(child: ThixInfoHome())),
         GoRoute(path: AppRoutes.thixInfoArticle, name: 'thixInfoArticle', pageBuilder: (_, state) => NoTransitionPage(child: thixInfoArticle.ArticleDetailPage(articleId: state.pathParameters['articleId']!))),
