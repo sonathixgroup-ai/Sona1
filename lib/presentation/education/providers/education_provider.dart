@@ -133,6 +133,91 @@ final certificatesProvider = FutureProvider.family<List<Certificate>, String>((r
   return res.map((e) => Certificate.fromJson(e)).toList();
 });
 
+// --- RECHERCHE SCALABLE 1M+ : debounce + ilike + limit ---
+class SearchFormationsNotifier extends AsyncNotifier<PaginatedFormations> {
+  static const _limit = 20;
+  int _offset = 0;
+  String _query = '';
+  Timer? _debounce;
+  bool _hasMore = false;
+
+  String get query => _query;
+  bool get hasMore => _hasMore;
+
+  @override
+  Future<PaginatedFormations> build() async {
+    ref.onDispose(() => _debounce?.cancel());
+    return const PaginatedFormations(items: [], hasMore: false);
+  }
+
+  void setQuery(String value) {
+    _debounce?.cancel();
+    final q = value.trim();
+    if (q.isEmpty) {
+      _query = '';
+      _offset = 0;
+      _hasMore = false;
+      state = const AsyncData(PaginatedFormations(items: [], hasMore: false));
+      return;
+    }
+    if (q.length < 2) return; // pas de recherche < 2 lettres = moins de charge DB
+
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      _query = q;
+      _offset = 0;
+      state = const AsyncLoading();
+      try {
+        final client = ref.read(supabaseClientProvider);
+        final items = await _fetch(client, _query, 0);
+        _offset = items.length;
+        _hasMore = items.length == _limit;
+        state = AsyncData(PaginatedFormations(items: items, hasMore: _hasMore));
+      } catch (e, st) {
+        state = AsyncError(e, st);
+      }
+    });
+  }
+
+  Future<List<Formation>> _fetch(SupabaseClient client, String q, int offset) async {
+    // IMPORTANT pour le scale : crée cet index dans Supabase SQL Editor
+    // CREATE EXTENSION IF NOT EXISTS pg_trgm;
+    // CREATE INDEX idx_formations_search ON formations USING gin ((title || ' ' || description) gin_trgm_ops);
+    final safeQ = q.replaceAll('%', '').replaceAll('_', '');
+    final res = await client.from('formations')
+     .select('id,title,image_url,rating,price,currency,is_free,category_id,created_at')
+     .or('title.ilike.%$safeQ%,description.ilike.%$safeQ%')
+     .order('rating', ascending: false)
+     .range(offset, offset + _limit - 1);
+    return res.map((e) => Formation.fromJson(e)).toList();
+  }
+
+  Future<void> loadMore() async {
+    if (!_hasMore || _query.isEmpty || state.isLoading) return;
+    final current = state.value;
+    if (current == null) return;
+    state = AsyncData(current.copyWith(isLoadingMore: true));
+    try {
+      final client = ref.read(supabaseClientProvider);
+      final newItems = await _fetch(client, _query, _offset);
+      _offset += newItems.length;
+      _hasMore = newItems.length == _limit;
+      state = AsyncData(PaginatedFormations(items: [...current.items,...newItems], hasMore: _hasMore));
+    } catch (e, st) {
+      state = AsyncError(e, st);
+    }
+  }
+
+  void clear() {
+    _debounce?.cancel();
+    _query = '';
+    _offset = 0;
+    _hasMore = false;
+    state = const AsyncData(PaginatedFormations(items: [], hasMore: false));
+  }
+}
+
+final searchFormationsProvider = AsyncNotifierProvider<SearchFormationsNotifier, PaginatedFormations>(SearchFormationsNotifier.new);
+
 // --- RECOMMANDATIONS - sans N+1 ---
 final recommendationsProvider = FutureProvider.family<List<Formation>, String>((ref, String userId) async {
   final client = ref.watch(supabaseClientProvider);
