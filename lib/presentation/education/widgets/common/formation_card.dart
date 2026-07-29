@@ -1,6 +1,5 @@
 // lib/presentation/education/widgets/common/formation_card.dart
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:thix_id/presentation/education/models/formation.dart';
 
 class FormationCard extends StatelessWidget {
@@ -36,17 +35,26 @@ class FormationCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: CachedNetworkImage(
-                imageUrl: formation.imageUrl ?? 'https://via.placeholder.com/300x120',
+              child: Image.network(
+                formation.imageUrl ?? 'https://via.placeholder.com/300x120',
                 height: 120,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
-                  height: 120,
-                  color: const Color(0xFFF0F7FF),
-                  child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                ),
-                errorWidget: (_, __, ___) => Container(
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    height: 120,
+                    color: const Color(0xFFF0F7FF),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (_, __, ___) => Container(
                   height: 120,
                   color: const Color(0xFFF0F7FF),
                   child: const Icon(Icons.image_rounded, color: Color(0xFF7386A8)),
@@ -123,16 +131,16 @@ class FormationCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           'Progression',
-                          style: const TextStyle(fontSize: 10, color: Color(0xFF7386A8)),
+                          style: TextStyle(fontSize: 10, color: Color(0xFF7386A8)),
                         ),
                         Text(
                           '${(progress! * 100).toInt()}%',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF2D6CDF),
