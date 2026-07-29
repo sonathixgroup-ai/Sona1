@@ -1,4 +1,3 @@
-
 // lib/presentation/mon_pays/mon_pays_page.dart
 
 import 'dart:async';
@@ -10,14 +9,17 @@ import 'package:go_router/go_router.dart';
 import 'providers/featured_provinces_provider.dart';
 import 'providers/authorities_provider.dart';
 
+// 💡 TODO: Importez ici votre Provider d'authentification
+// import '../../providers/auth_provider.dart';
+
 class MonPaysPage extends HookConsumerWidget {
   const MonPaysPage({super.key});
 
   // ─── Charte Graphique Institutionnelle RDC ────────────────────────
-  static const Color primaryBlue = Color(0xFF0052A5); // Bleu drapeau RDC officiel
+  static const Color primaryBlue = Color(0xFF0052A5);
   static const Color lightBg = Color(0xFFF4F7FB);
-  static const Color gold = Color(0xFFF7C948); // Or drapeau RDC
-  static const Color rdcRed = Color(0xFFCE1126); // Rouge drapeau RDC
+  static const Color gold = Color(0xFFF7C948);
+  static const Color rdcRed = Color(0xFFCE1126);
   static const Color mutedText = Color(0xFF5A6B87);
   static const Color cardBorder = Color(0xFFE2E8F0);
   static const Color darkText = Color(0xFF0F172A);
@@ -48,7 +50,8 @@ class MonPaysPage extends HookConsumerWidget {
       backgroundColor: lightBg,
       body: CustomScrollView(
         slivers: [
-          _buildSliverAppBar(context),
+          // 🚀 On passe 'ref' pour permettre l'écoute de l'utilisateur connecté
+          _buildSliverAppBar(context, ref),
           SliverToBoxAdapter(
             child: Column(
               children: [
@@ -92,7 +95,12 @@ class MonPaysPage extends HookConsumerWidget {
   }
 
   // ─── En-tête Institutionnel ──────────────────────────────────────
-  Widget _buildSliverAppBar(BuildContext context) {
+  Widget _buildSliverAppBar(BuildContext context, WidgetRef ref) {
+    // 🚀 VÉRIFICATION DU RÔLE (À adapter selon votre authProvider)
+    // final user = ref.watch(authProvider).value;
+    // final isAdmin = user?.role == 'admin';
+    final isAdmin = true; // Bouchon : Mettez à false pour tester la disparition
+
     return SliverAppBar(
       pinned: true,
       floating: true,
@@ -138,16 +146,20 @@ class MonPaysPage extends HookConsumerWidget {
           _actionIconButton(Icons.search_rounded, () => _showComingSoon(context)),
           const SizedBox(width: 8),
           _actionIconButton(Icons.notifications_none_rounded, () {}, badge: 3),
-          const SizedBox(width: 12),
-          InkWell(
-            onTap: () => context.push('/mon-pays/admin'),
-            borderRadius: BorderRadius.circular(20),
-            child: const CircleAvatar(
-              radius: 18,
-              backgroundColor: cardBorder,
-              backgroundImage: NetworkImage('https://i.pravatar.cc/100'),
+          
+          // 🚀 AFFICHAGE CONDITIONNEL DU BOUTON ADMIN
+          if (isAdmin) ...[
+            const SizedBox(width: 12),
+            InkWell(
+              onTap: () => context.push('/mon-pays/admin'),
+              borderRadius: BorderRadius.circular(20),
+              child: const CircleAvatar(
+                radius: 18,
+                backgroundColor: cardBorder,
+                backgroundImage: NetworkImage('https://i.pravatar.cc/100'),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -194,6 +206,8 @@ class MonPaysPage extends HookConsumerWidget {
       ],
     );
   }
+
+  // ... (Le reste du code reste strictement identique)
 
   // ─── Carrousel ───────────────────────────────────────────────────
   Widget _buildPatrioticCarousel(PageController ctrl, int currentIndex) {
@@ -294,7 +308,6 @@ class MonPaysPage extends HookConsumerWidget {
 
   // ─── Autorités (Logique déportée dans le Provider) ───────────────
   Widget _buildAutoritesTop(BuildContext context, WidgetRef ref) {
-    // Le tri est maintenant fait dans le backend ou le Notifier
     final authoritiesAsync = ref.watch(topAuthoritiesProvider);
 
     return Container(
@@ -317,7 +330,7 @@ class MonPaysPage extends HookConsumerWidget {
               if (authorities.isEmpty) return const Text('Aucune donnée');
 
               final president = authorities.first;
-              final others = authorities.skip(1).take(3).toList(); // Limite entreprise
+              final others = authorities.skip(1).take(3).toList();
 
               return Column(
                 children: [
@@ -434,9 +447,6 @@ class MonPaysPage extends HookConsumerWidget {
     );
   }
 
-  // ─── Sections UI standards simplifiées ───────────────────────────
-  // Note: Répétez le pattern `_buildSectionHeader` et `_cardDecoration()` pour Institutions, Actualités, etc.
-  
   BoxDecoration _cardDecoration() => BoxDecoration(
     color: Colors.white,
     borderRadius: BorderRadius.circular(24),
@@ -465,9 +475,7 @@ class MonPaysPage extends HookConsumerWidget {
     );
   }
 
-  // ─── Provinces (Optimisé) ────────────────────────────────────────
   Widget _buildProvincesSection(BuildContext context, WidgetRef ref) {
-    // Utilisation d'un provider dédié aux provinces à la une (évite de requêter la DB entière)
     final provAsync = ref.watch(featuredProvincesProvider);
     
     return Container(
@@ -526,13 +534,12 @@ class MonPaysPage extends HookConsumerWidget {
     );
   }
 
-  // ─── Bottom Navigation ───────────────────────────────────────────
   Widget _buildBottomNav(BuildContext context) {
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95), // Effet Glassmorphism léger
+        color: Colors.white.withOpacity(0.95),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [BoxShadow(color: primaryBlue.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
       ),
@@ -541,7 +548,6 @@ class MonPaysPage extends HookConsumerWidget {
         children: [
           _navItem(Icons.home_rounded, 'Accueil', false, () => context.go('/')),
           _navItem(Icons.flag_rounded, 'Mon Pays', true, () {}),
-          // Bouton central institutionnel
           FloatingActionButton(
             elevation: 0,
             backgroundColor: primaryBlue,
@@ -582,7 +588,6 @@ class MonPaysPage extends HookConsumerWidget {
     );
   }
 
-  // Bouchons pour raccourcir l'exemple (à implémenter comme _buildProvincesSection)
   Widget _buildInstitutions(BuildContext context) => const SizedBox();
   Widget _buildActualites(BuildContext context) => const SizedBox();
   Widget _buildQuickAccess(BuildContext context) => const SizedBox();
