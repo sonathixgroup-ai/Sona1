@@ -106,21 +106,32 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
 
   // CORRECTION DIRECTE : Navigation sécurisée vers le tableau de bord
   void _onProfileTap() {
-  debugPrint('>>> _onProfileTap appelé');
-  final auth = context.read<AuthController>();
-  debugPrint('>>> isAuthenticated=${auth.isAuthenticated} currentUser=${auth.currentUser?.id}');
-  HapticFeedback.mediumImpact();
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Tap détecté'), duration: Duration(seconds: 1)),
-  );
-  if (!auth.isAuthenticated || auth.currentUser == null) {
-    context.push(AppRoutes.login);
-    return;
+    final auth = context.read<AuthController>();
+    HapticFeedback.mediumImpact();
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          'auth=${auth.isAuthenticated} user=${auth.currentUser?.id ?? "NULL"}',
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+
+    if (!auth.isAuthenticated || auth.currentUser == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('→ Redirection LOGIN'), duration: Duration(seconds: 2)),
+      );
+      context.push(AppRoutes.login);
+      return;
+    }
+
+    messenger.showSnackBar(
+      SnackBar(content: Text('→ go vers ${AppRoutes.userDashboard}'), duration: const Duration(seconds: 2)),
+    );
+    context.go(AppRoutes.userDashboard);
   }
-  debugPrint('>>> go vers ${AppRoutes.userDashboard}');
-  context.go(AppRoutes.userDashboard);
-}
-  
   Future<void> _openThixAi() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push('/thix_ia'); return; } context.push(AppRoutes.login); }
   Future<void> _openThixChat() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push(AppRoutes.chat); } else { context.push(AppRoutes.login); } }
   
