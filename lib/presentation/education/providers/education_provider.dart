@@ -131,6 +131,47 @@ final certificatesProvider = FutureProvider.family<List<Certificate>, String>((r
   return res.map((e) => Certificate.fromJson(e)).toList();
 });
 
+// --- DETAIL FORMATION SCALABLE : 1 requête avec modules+leçons ---
+final formationDetailProvider = FutureProvider.family<Formation?, String>((ref, String formationId) async {
+  final client = ref.watch(supabaseClientProvider);
+  final res = await client.from('formations').select('''
+    id,title,description,image_url,price,currency,is_free,level,duration,instructor_name,
+    category:categories(id,name),
+    modules(id,title,order_index, lessons(id,title,duration,order_index,type,module_id))
+  ''').eq('id', formationId).maybeSingle();
+  return res == null ? null : Formation.fromJson(res);
+});
+
+// --- PROGRESS / ENROLLMENT ---
+final enrollmentProvider = FutureProvider.family<dynamic, ({String userId, String formationId})>((ref, params) async {
+  final client = ref.watch(supabaseClientProvider);
+  final res = await client.from('enrollments')
+   .select('id,progress,formation_id,user_id')
+   .eq('user_id', params.userId)
+   .eq('formation_id', params.formationId)
+   .maybeSingle();
+  return res;
+});
+
+class EnrollNotifier extends AsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+  Future<bool> enroll({required String userId, required String formationId}) async {
+    state = const AsyncLoading();
+    try {
+      final client = ref.read(supabaseClientProvider);
+      await client.from('enrollments').insert({'user_id': userId, 'formation_id': formationId, 'progress': 0});
+      ref.invalidate(enrollmentProvider((userId: userId, formationId: formationId)));
+      state = const AsyncData(null);
+      return true;
+    } catch (e) {
+      state = AsyncError(e, StackTrace.current);
+      return false;
+    }
+  }
+}
+final enrollProvider = AsyncNotifierProvider<EnrollNotifier, void>(EnrollNotifier.new);
+
 // --- RECHERCHE SCALABLE 1M+ : debounce + ilike + limit ---
 class SearchFormationsNotifier extends AsyncNotifier<PaginatedFormations> {
   static const _limit = 20;
