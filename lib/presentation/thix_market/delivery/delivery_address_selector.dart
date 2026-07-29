@@ -1,10 +1,8 @@
 // lib/presentation/thix_market/delivery/pages/client/delivery_address_selector.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'delivery_provider.dart';
-
-// Déclaration du provider Riverpod pour le DeliveryProvider
-final deliveryProvider = ChangeNotifierProvider<DeliveryProvider>((ref) => DeliveryProvider());
+// Importe le bon chemin vers ton delivery_provider.dart
+import '../../providers/delivery_provider.dart'; 
 
 class DeliveryAddressSelector extends ConsumerWidget {
   final Function(Map<String, dynamic>)? onAddressSelected;
@@ -16,6 +14,7 @@ class DeliveryAddressSelector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Écoute réactive du provider
     final provider = ref.watch(deliveryProvider);
 
     if (provider.isLoadingAddresses) {
