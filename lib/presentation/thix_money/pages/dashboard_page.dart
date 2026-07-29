@@ -1,13 +1,9 @@
 // lib/presentation/thix_money/pages/dashboard_page.dart
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/nav.dart';
-import '../providers/wallet_provider.dart';
-import '../services/wallet_service.dart';
-import '../widgets/balance_card.dart';
 import '../widgets/service_grid.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
@@ -17,456 +13,383 @@ class DashboardPage extends ConsumerStatefulWidget {
 }
 
 class _DashboardPageState extends ConsumerState<DashboardPage> {
-  // Palette "Grandeur Fintech" : Luxueuse, institutionnelle et moderne
-  static const premiumDark = Color(0xFF0F172A);
-  static const premiumBlue = Color(0xFF1E3A8A);
-  static const premiumGold = Color(0xFFD4AF37);
-  static const bgScaffold = Color(0xFFF4F6F9);
-  static const surfaceWhite = Colors.white;
+  // Palette THIX MONEY — identique au mockup HTML V2
+  static const navyDeep = Color(0xFF0A1F44);
+  static const navy = Color(0xFF123B7A);
+  static const blue = Color(0xFF2D6CDF);
+  static const gold = Color(0xFFE3B23C);
+  static const ivory = Color(0xFFF6F7FB);
+  static const textDark = Color(0xFF1B2A4A);
+  static const textGrey = Color(0xFF8A93A6);
+  static const lineColor = Color(0xFFE4E8F1);
+
+  int _currentDot = 0;
+  int _bottomIndex = 0;
 
   Future<Map<String, String>> _getProfile() async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return {'name': '', 'initial': 'T'};
+    if (user == null) return {'name': 'Bienvenue', 'phone': ''};
     final r = await Supabase.instance.client
         .from('profiles')
-        .select('first_name, full_name')
+        .select('full_name, phone')
         .eq('id', user.id)
         .maybeSingle();
-    final full = (r?['first_name'] ?? r?['full_name'] ?? user.email?.split('@').first ?? 'THIX').toString();
-    final first = full.split(' ').first;
-    return {'name': first, 'initial': first.isNotEmpty ? first[0].toUpperCase() : 'T'};
+    final name = (r?['full_name'] ?? user.email?.split('@').first ?? 'Utilisateur').toString();
+    final phone = (r?['phone'] ?? '').toString();
+    return {'name': name, 'phone': phone};
+  }
+
+  String _formatBalance(double value) {
+    final str = value.toStringAsFixed(0);
+    final buffer = StringBuffer();
+    for (int i = 0; i < str.length; i++) {
+      if (i != 0 && (str.length - i) % 3 == 0) buffer.write(' ');
+      buffer.write(str[i]);
+    }
+    return buffer.toString();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgScaffold,
+      backgroundColor: Colors.white,
       extendBody: true,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-        slivers: [
-          SliverToBoxAdapter(child: _header()),
-
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 16),
-              child: const BalanceCard(),
-            ),
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 120),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _header(),
+              const ServiceGrid(),
+              _divider(),
+              _promoBanner(),
+              const SizedBox(height: 12),
+              _dots(),
+              const SizedBox(height: 24),
+              _sectionTitle('Accès rapide'),
+              const SizedBox(height: 6),
+              _quickAccessRow(),
+            ],
           ),
-
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _quickActionsBand(), // Bande premium — Envoyer/Recharger/Scanner/Retrait
-                const SizedBox(height: 22),
-
-                _sectionTitle('Services Financiers', showAction: false),
-                const SizedBox(height: 10),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: ServiceGrid(),
-                ),
-
-                const SizedBox(height: 22),
-                _promoCardPremium(),
-
-                const SizedBox(height: 22),
-                _sectionTitle('Opérations Récentes', showAction: true),
-                const SizedBox(height: 10),
-                _transactionsList(),
-
-                const SizedBox(height: 110),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
-      bottomNavigationBar: _premiumNav(),
+      bottomNavigationBar: _bottomNav(),
     );
   }
 
   // ==========================================
-  // HEADER
+  // HEADER — dégradé clair, logo centré, solde
   // ==========================================
-  Widget _header() => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 56, 20, 14),
-        child: FutureBuilder<Map<String, String>>(
-          future: _getProfile(),
-          builder: (c, s) {
-            final name = s.data?['name'] ?? '';
-            final initial = s.data?['initial'] ?? 'T';
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: surfaceWhite,
-                        border: Border.all(color: premiumGold.withOpacity(0.5), width: 1.5),
-                        boxShadow: [
-                          BoxShadow(color: premiumDark.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(initial,
-                            style: const TextStyle(color: premiumDark, fontWeight: FontWeight.w800, fontSize: 19)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name.isEmpty ? 'Bienvenue' : 'Bonjour, $name',
-                          style: const TextStyle(color: premiumDark, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.5),
-                        ),
-                        const SizedBox(height: 2),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: premiumBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                          child: const Text('Compte Personnel',
-                              style: TextStyle(color: premiumBlue, fontSize: 10.5, fontWeight: FontWeight.w700)),
-                        )
-                      ],
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    _actionPill(Icons.qr_code_scanner_rounded, () => context.push(AppRoutes.thixMoneyScanner)),
-                    const SizedBox(width: 8),
-                    _actionPill(Icons.notifications_outlined, () {}, dot: true),
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
-      );
-
-  Widget _actionPill(IconData i, VoidCallback t, {bool dot = false}) => InkWell(
-        onTap: t,
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(11),
-              decoration: BoxDecoration(
-                color: surfaceWhite,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.black.withOpacity(0.03)),
-                boxShadow: [BoxShadow(color: premiumDark.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
-              ),
-              child: Icon(i, color: premiumDark, size: 21),
-            ),
-            if (dot)
-              Positioned(
-                top: -2,
-                right: -2,
-                child: Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE11D48),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: surfaceWhite, width: 2),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-
-  // ==========================================
-  // BANDE ACTIONS RAPIDES — mise en évidence forte
-  // Fond dégradé navy/or, distinct du reste (blanc/gris)
-  // ==========================================
-  Widget _quickActionsBand() {
-    final items = [
-      {'l': 'Envoyer', 'i': Icons.north_east_rounded, 'r': AppRoutes.thixMoneySend},
-      {'l': 'Recharger', 'i': Icons.add_card_rounded, 'r': AppRoutes.thixMoneyRecharge},
-      {'l': 'Scanner', 'i': Icons.qr_code_scanner_rounded, 'r': AppRoutes.thixMoneyScanner},
-      {'l': 'Retrait', 'i': Icons.south_west_rounded, 'r': null},
-    ];
+  Widget _header() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [premiumDark, premiumBlue],
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFDCE3F0), Color(0xFFF6F7FB)],
         ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(color: premiumBlue.withOpacity(0.28), blurRadius: 22, offset: const Offset(0, 10)),
-        ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: items.map((a) {
-          final route = a['r'] as String?;
-          return InkWell(
-            onTap: () {
-              if (route != null && route.isNotEmpty) {
-                context.push(route);
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${a['l']} sera bientôt disponible !'),
-                    duration: const Duration(seconds: 2),
-                    backgroundColor: premiumDark,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                );
-              }
-            },
-            borderRadius: BorderRadius.circular(16),
-            child: Column(
-              children: [
-                Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(17),
-                    border: Border.all(color: premiumGold.withOpacity(0.35), width: 1),
-                  ),
-                  child: Icon(a['i'] as IconData, color: premiumGold, size: 23),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  a['l'] as String,
-                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: -0.2),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(String t, {bool showAction = false}) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(t, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: premiumDark, letterSpacing: -0.4)),
-            if (showAction)
-              Text('Voir tout', style: TextStyle(fontSize: 13, color: premiumBlue, fontWeight: FontWeight.w700)),
-          ],
-        ),
-      );
-
-  // ==========================================
-  // CARTE PROMO "BLACK METAL"
-  // ==========================================
-  Widget _promoCardPremium() => Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20),
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: premiumDark,
-          boxShadow: [BoxShadow(color: premiumDark.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: FutureBuilder<Map<String, String>>(
+        future: _getProfile(),
+        builder: (context, snap) {
+          final name = snap.data?['name'] ?? '';
+          final phone = snap.data?['phone'] ?? '';
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  InkWell(
+                    onTap: () => Scaffold.of(context).openDrawer(),
+                    child: const Icon(Icons.menu_rounded, color: navyDeep, size: 26),
+                  ),
                   Row(
                     children: [
-                      Icon(Icons.stars_rounded, color: premiumGold, size: 16),
-                      const SizedBox(width: 6),
-                      const Text('THIX PRESTIGE',
-                          style: TextStyle(color: premiumGold, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.0)),
+                      _topIconBtn(Icons.search_rounded, () => context.push('/money/search')),
+                      const SizedBox(width: 16),
+                      _topIconBtn(Icons.notifications_outlined, () => context.push('/money/notifications')),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  const Text('Ligne de Crédit',
-                      style: TextStyle(color: surfaceWhite, fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-                  const SizedBox(height: 6),
-                  Text('Accédez jusqu\'à 500 000 FC instantanément.\nSans paperasse.',
-                      style: TextStyle(color: surfaceWhite.withOpacity(0.7), fontSize: 12, height: 1.4)),
                 ],
               ),
-            ),
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: premiumGold,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: premiumGold.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4))],
+              const SizedBox(height: 18),
+              const Text(
+                'Bienvenue,',
+                style: TextStyle(color: textGrey, fontSize: 13, fontWeight: FontWeight.w600),
               ),
-              child: const Icon(Icons.arrow_forward_rounded, size: 23, color: premiumDark),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                name.isEmpty ? 'Chargement...' : name,
+                style: const TextStyle(color: navyDeep, fontSize: 20, fontWeight: FontWeight.w800),
+              ),
+              if (phone.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      phone,
+                      style: const TextStyle(color: blue, fontSize: 13.5, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 5),
+                    const Icon(Icons.keyboard_arrow_down_rounded, color: blue, size: 16),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 26),
+              Center(
+                child: Column(
+                  children: [
+                    RichText(
+                      text: const TextSpan(
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 30, letterSpacing: -0.5, fontFamily: 'SpaceGrotesk'),
+                        children: [
+                          TextSpan(text: 'THIX', style: TextStyle(color: navyDeep)),
+                          TextSpan(text: 'MONEY', style: TextStyle(color: gold)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Solde disponible',
+                      style: TextStyle(color: textGrey, fontSize: 13.5, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${_formatBalance(1250000)} FC',
+                      style: const TextStyle(color: navy, fontSize: 15, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _topIconBtn(IconData icon, VoidCallback onTap) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.10), blurRadius: 10, offset: const Offset(0, 4))],
+          ),
+          child: Icon(icon, color: navy, size: 17),
         ),
       );
 
-  // ==========================================
-  // TRANSACTIONS RÉCENTES
-  // ==========================================
-  Widget _transactionsList() => FutureBuilder<String>(
-        future: ref.read(walletServiceProvider).getVerifiedThixId(),
-        builder: (c, s) {
-          if (!s.hasData) return const SizedBox();
-          return FutureBuilder(
-            future: Supabase.instance.client
-                .from('thix_transactions')
-                .select()
-                .eq('thix_id', s.data!)
-                .order('created_at', ascending: false)
-                .limit(4),
-            builder: (c, snap) {
-              final list = (snap.data as List?) ?? [];
-              if (list.isEmpty) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(color: surfaceWhite, borderRadius: BorderRadius.circular(20)),
-                  child: const Center(child: Text('Aucune opération récente', style: TextStyle(fontSize: 13, color: Colors.grey))),
-                );
-              }
+  Widget _divider() => Container(
+        height: 1,
+        margin: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+        color: lineColor,
+      );
 
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                decoration: BoxDecoration(
-                  color: surfaceWhite,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: premiumDark.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))],
+  // ==========================================
+  // BANNIÈRE PROMO — dégradé navy
+  // ==========================================
+  Widget _promoBanner() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 22),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => context.push(AppRoutes.thixMoneyTontines),
+        child: Container(
+          height: 150,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [navyDeep, navy],
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Row(
+              children: [
+                Container(
+                  width: 130,
+                  height: double.infinity,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [blue, navy],
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Ma Tontine',
+                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                 ),
-                child: Column(
-                  children: list.asMap().entries.map((entry) {
-                    int idx = entry.key;
-                    var t = entry.value;
-                    bool isDeposit = (t['type'] == 'reception' || t['type'] == 'Deposit');
-
-                    return Column(
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 11),
-                          child: Row(
+                        RichText(
+                          text: TextSpan(
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, height: 1.4, color: Colors.white),
                             children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: isDeposit ? const Color(0xFF10B981).withOpacity(0.1) : premiumDark.withOpacity(0.06),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  isDeposit ? Icons.south_west_rounded : Icons.north_east_rounded,
-                                  size: 19,
-                                  color: isDeposit ? const Color(0xFF10B981) : premiumDark,
-                                ),
-                              ),
-                              const SizedBox(width: 13),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(t['type'] ?? 'Opération',
-                                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: premiumDark)),
-                                    const SizedBox(height: 2),
-                                    Text(t['ref_transa'] ?? 'Détails indisponibles', style: const TextStyle(fontSize: 11, color: Colors.black45)),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                '${isDeposit ? '+' : '-'} ${t['montant']} ${t['devise']}',
-                                style: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.5,
-                                  color: isDeposit ? const Color(0xFF10B981) : premiumDark,
-                                ),
-                              ),
+                              const TextSpan(text: 'Épargnez '),
+                              TextSpan(text: 'ensemble', style: TextStyle(color: gold)),
                             ],
                           ),
                         ),
-                        if (idx < list.length - 1) Divider(height: 1, color: Colors.black.withOpacity(0.04)),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Créez votre cercle en 2 minutes',
+                          style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
                       ],
-                    );
-                  }).toList(),
-                ),
-              );
-            },
-          );
-        },
-      );
-
-  // ==========================================
-  // BOTTOM NAV
-  // ==========================================
-  Widget _premiumNav() => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-          child: Container(
-            height: 70,
-            decoration: BoxDecoration(
-              color: premiumDark,
-              borderRadius: BorderRadius.circular(36),
-              boxShadow: [BoxShadow(color: premiumDark.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                const _NavIcon(icon: Icons.grid_view_rounded, isActive: true),
-                const _NavIcon(icon: Icons.insert_chart_outlined),
-                Transform.translate(
-                  offset: const Offset(0, -12),
-                  child: GestureDetector(
-                    onTap: () => context.push(AppRoutes.thixMoneyScanner),
-                    child: Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: premiumGold,
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: premiumGold.withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 6))],
-                        border: Border.all(color: surfaceWhite, width: 3),
-                      ),
-                      child: const Icon(Icons.compare_arrows_rounded, color: premiumDark, size: 27),
                     ),
                   ),
                 ),
-                const _NavIcon(icon: Icons.account_balance_wallet_outlined),
-                const _NavIcon(icon: Icons.person_outline_rounded),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _dots() => Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(3, (i) {
+          final active = i == _currentDot;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            margin: const EdgeInsets.symmetric(horizontal: 2.5),
+            width: active ? 16 : 5,
+            height: 5,
+            decoration: BoxDecoration(
+              color: active ? gold : lineColor,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          );
+        }),
       );
-}
 
-class _NavIcon extends StatelessWidget {
-  final IconData icon;
-  final bool isActive;
-  const _NavIcon({required this.icon, this.isActive = false});
+  Widget _sectionTitle(String t) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        child: Text(
+          t,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: navyDeep),
+        ),
+      );
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: isActive ? Colors.white : Colors.white54, size: 25),
-        if (isActive) ...[
+  // ==========================================
+  // ACCÈS RAPIDE — cercles horizontaux
+  // ==========================================
+  Widget _quickAccessRow() {
+    final items = [
+      {'l': 'Recharger', 'i': Icons.add_card_outlined, 'r': AppRoutes.thixMoneyRecharge},
+      {'l': 'Crédit', 'i': Icons.bolt_outlined, 'r': AppRoutes.thixMoneyLoans},
+      {'l': 'Tontine', 'i': Icons.groups_outlined, 'r': AppRoutes.thixMoneyTontines},
+      {'l': 'Investir', 'i': Icons.trending_up_rounded, 'r': AppRoutes.thixMoneyInvestments},
+    ];
+
+    return SizedBox(
+      height: 100,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 18),
+        itemBuilder: (_, i) {
+          final item = items[i];
+          return InkWell(
+            onTap: () => context.push(item['r'] as String),
+            borderRadius: BorderRadius.circular(32),
+            child: SizedBox(
+              width: 66,
+              child: Column(
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: const BoxDecoration(color: ivory, shape: BoxShape.circle),
+                    child: Icon(item['i'] as IconData, color: navy, size: 24),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    item['l'] as String,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: navyDeep, height: 1.25),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ==========================================
+  // BOTTOM NAV — bouton scan flottant doré
+  // ==========================================
+  Widget _bottomNav() => Container(
+        padding: const EdgeInsets.only(top: 14, bottom: 24, left: 10, right: 10),
+        decoration: const BoxDecoration(color: navyDeep),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            _navItem(Icons.home_rounded, 'Accueil', 0),
+            _navItem(Icons.grid_view_rounded, 'Services', 1),
+            GestureDetector(
+              onTap: () => context.push(AppRoutes.thixMoneyScanner),
+              child: Transform.translate(
+                offset: const Offset(0, -22),
+                child: Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(colors: [gold, Color(0xFFB8871F)]),
+                    border: Border.all(color: navyDeep, width: 5),
+                    boxShadow: [BoxShadow(color: gold.withOpacity(0.6), blurRadius: 20, offset: const Offset(0, 10))],
+                  ),
+                  child: const Icon(Icons.qr_code_scanner_rounded, color: navyDeep, size: 24),
+                ),
+              ),
+            ),
+            _navItem(Icons.receipt_long_outlined, 'Historique', 3),
+            _navItem(Icons.person_outline_rounded, 'Profil', 4),
+          ],
+        ),
+      );
+
+  Widget _navItem(IconData icon, String label, int index) {
+    final active = _bottomIndex == index;
+    return InkWell(
+      onTap: () => setState(() => _bottomIndex = index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 20, color: active ? gold : Colors.white.withOpacity(0.45)),
           const SizedBox(height: 5),
-          Container(width: 4, height: 4, decoration: const BoxDecoration(color: Color(0xFFD4AF37), shape: BoxShape.circle)),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: active ? gold : Colors.white.withOpacity(0.45)),
+          ),
         ],
-      ],
+      ),
     );
   }
 }
