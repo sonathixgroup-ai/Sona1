@@ -1,4 +1,4 @@
-// lib/presentation/chat/widgets/chat_message_bubble.dart - COMPLET & INTERACTIF
+// lib/presentation/chat/widgets/chat_message_bubble.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -9,7 +9,6 @@ import 'chat_code_snippet.dart';
 import 'chat_ephemeral_timer.dart';
 import 'package:thix_id/models/chat/sentiment.dart';
 import 'package:thix_id/presentation/chat/widgets/sentiment_indicator.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class _C {
   static const bg = Colors.white;
@@ -169,7 +168,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                 CircleAvatar(
                   radius: 14,
                   backgroundColor: _C.searchBg,
-                  backgroundImage: msg.senderAvatar != null ? CachedNetworkImageProvider(msg.senderAvatar!) : null,
+                  backgroundImage: msg.senderAvatar != null ? NetworkImage(msg.senderAvatar!) : null,
                   child: msg.senderAvatar == null ? Text(msg.senderName.isNotEmpty ? msg.senderName[0].toUpperCase() : '?', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _C.textMuted)) : null,
                 ),
                 const SizedBox(width: 8),
@@ -256,7 +255,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                     Container(width: 1, height: 18, color: _C.border, margin: const EdgeInsets.symmetric(horizontal: 6)),
                     _iconBtn(Icons.emoji_emotions_outlined, 'Stickers', _showStickerPicker),
                     _iconBtn(Icons.flag_outlined, 'Drapeaux', _showFlagPicker),
-                    _iconBtn(Icons.sticky_note_2_outlined, 'Sticker', _showStickerPicker),
                     _iconBtn(Icons.reply_rounded, 'Répondre', () => widget.onReply?.call()),
                     if (isOwn) _iconBtn(Icons.delete_outline_rounded, 'Supprimer', () => widget.onDelete?.call()),
                   ],
@@ -384,6 +382,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     );
   }
 
+  // LA CORRECTION DU BUG D'AFFICHAGE EST ICI
   Widget _media() {
     final url = widget.message.mediaUrl;
     if (url == null || url.isEmpty) return Text(widget.message.content, style: TextStyle(color: widget.isOwn ? Colors.white : _C.textMain, fontSize: 13));
@@ -395,7 +394,32 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
           tag: widget.message.id,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, memCacheWidth: 600, placeholder: (_, __) => Container(height: 130, width: 190, color: _C.searchBg, child: const Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 2))), errorWidget: (_, __, ___) => Container(height: 100, width: 180, color: _C.searchBg, child: const Icon(Icons.broken_image_outlined, color: _C.textMuted))),
+            // CONSTRAINEDBOX : Empêche la ligne bleue infinie !
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxHeight: 250, // Limite absolue pour la hauteur
+                maxWidth: 250,  // Limite absolue pour la largeur
+              ),
+              child: Image.network(
+                url,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    height: 150, 
+                    width: 200, 
+                    color: _C.searchBg, 
+                    child: const Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 2))
+                  );
+                },
+                errorBuilder: (_, __, ___) => Container(
+                  height: 120, 
+                  width: 180, 
+                  color: _C.searchBg, 
+                  child: const Icon(Icons.broken_image_outlined, color: _C.textMuted, size: 30)
+                ),
+              ),
+            ),
           ),
         ),
       );
@@ -416,8 +440,22 @@ class FullScreenImagePage extends StatelessWidget {
   final String imageUrl;
   final String tag;
   const FullScreenImagePage({super.key, required this.imageUrl, required this.tag});
+  
   @override
   Widget build(BuildContext context) {
-    return Scaffold(backgroundColor: Colors.black, appBar: AppBar(backgroundColor: Colors.black, iconTheme: const IconThemeData(color: Colors.white)), body: Center(child: InteractiveViewer(minScale: 0.5, maxScale: 4, child: Hero(tag: tag, child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.contain)))));
+    return Scaffold(
+      backgroundColor: Colors.black, 
+      appBar: AppBar(backgroundColor: Colors.black, iconTheme: const IconThemeData(color: Colors.white)), 
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.5, 
+          maxScale: 4, 
+          child: Hero(
+            tag: tag, 
+            child: Image.network(imageUrl, fit: BoxFit.contain)
+          )
+        )
+      )
+    );
   }
 }
