@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/education_providers.dart';
+
+// ✅ CORRIGÉ : Import explicite depuis la racine du projet
+import 'package:thix_id/presentation/education/providers/education_provider.dart'; 
 import '../widgets/common/education_empty_state.dart';
 import '../widgets/common/education_loading_shimmer.dart';
 import '../widgets/common/formation_card.dart';
@@ -23,7 +25,6 @@ class _EducationMyLearningState extends ConsumerState<EducationMyLearning> {
   }
 
   void _onScroll() {
-    // Scalable : charge 20 de plus quand on arrive en bas
     if (_scrollController.position.pixels > _scrollController.position.maxScrollExtent - 300) {
       final userId = ref.read(currentUserIdProvider);
       if (userId != null) {
