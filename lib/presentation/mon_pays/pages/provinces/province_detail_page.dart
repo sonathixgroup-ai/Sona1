@@ -1,6 +1,6 @@
 // ============================================================
-// FICHIER - province_detail_page.dart (EXPERT EDITION v4)
-// Classement demandé : Identité > Cartographie > Galerie > Exécutif
+// FICHIER - province_detail_page.dart (EXPERT EDITION v5 - WEB SAFE)
+// Classement : Identité > Cartographie > Galerie > Exécutif
 // > Réalisations > Villes > Découpage > Tourisme > Économie
 // > Peuples/Tribus > Histoire/Climat/Infra > Urgences > Identité Visuelle
 // Charte THIX ID (navy #0A1F44 / gold #E3B23C)
@@ -8,8 +8,8 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/provinces_provider.dart';
@@ -27,49 +27,22 @@ const Color _ink = Color(0xFF10182B);
 const Color _itemBg = Color(0xFFFAFBFD);
 const Color _itemBorder = Color(0xFFEDEFF5);
 
-class ProvinceDetailPage extends ConsumerStatefulWidget {
+class ProvinceDetailPage extends HookConsumerWidget {
   final String provinceId;
   const ProvinceDetailPage({required this.provinceId, super.key});
 
   @override
-  ConsumerState<ProvinceDetailPage> createState() => _ProvinceDetailPageState();
-}
-
-class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
-  final ScrollController _scrollCtrl = ScrollController();
-  final PageController _bannerCtrl = PageController();
-  Timer? _bannerTimer;
-  int _bannerIndex = 0;
-
-  @override
-  void dispose() {
-    _bannerTimer?.cancel();
-    _bannerCtrl.dispose();
-    _scrollCtrl.dispose();
-    super.dispose();
-  }
-
-  void _startBanner(int count) {
-    if (count <= 1) return;
-    _bannerTimer?.cancel();
-    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted || !_bannerCtrl.hasClients) return;
-      _bannerIndex = (_bannerIndex + 1) % count;
-      _bannerCtrl.animateToPage(_bannerIndex, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provinceAsync = ref.watch(provinceWithAllRelationsProvider(widget.provinceId));
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provinceAsync = ref.watch(provinceWithAllRelationsProvider(provinceId));
+    final scrollCtrl = useScrollController();
 
     return Scaffold(
       backgroundColor: _ivory,
       body: provinceAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: _navy)),
-        error: (e, _) => _ErrorView(onRetry: () => ref.invalidate(provinceWithAllRelationsProvider(widget.provinceId))),
+        error: (e, _) => _ErrorView(onRetry: () => ref.invalidate(provinceWithAllRelationsProvider(provinceId))),
         data: (province) => CustomScrollView(
-          controller: _scrollCtrl,
+          controller: scrollCtrl,
           slivers: [
             _ProvinceHeader(province: province),
             SliverPadding(
@@ -89,11 +62,11 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                   const SizedBox(height: 16),
                 ],
 
-                // 3. GALERIE (AUTO-SCROLLING)
+                // 3. GALERIE (AUTO-SCROLLING Géré via Hooks)
                 if (province.galleryMedia != null && province.galleryMedia!.isNotEmpty) ...[
                   _SectionCard(
                     icon: Icons.perm_media, color: _navy, title: 'Galerie Média Globale (Photos & Vidéos)', count: province.galleryMedia!.length,
-                    children: [_GalleryBanner(media: province.galleryMedia!, controller: _bannerCtrl, onReady: _startBanner, provinceName: province.name)],
+                    children: [_GalleryBanner(media: province.galleryMedia!, provinceName: province.name)],
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -150,7 +123,7 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                   const SizedBox(height: 16),
                 ],
 
-                // 10. PEUPLES & TRIBUS (+ langues, ressources, description)
+                // 10. PEUPLES & TRIBUS
                 if (_hasCultureData(province)) ...[
                   _SectionCard(
                     icon: Icons.people, color: _navy, title: 'Culture, Langues & Peuples / Tribus',
@@ -159,7 +132,7 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                   const SizedBox(height: 16),
                 ],
 
-                // 11. ...ET LES AUTRES : HISTOIRE, CLIMAT & INFRASTRUCTURES
+                // 11. HISTOIRE, CLIMAT & INFRASTRUCTURES
                 if (_hasInstitutionalData(province)) ...[
                   _SectionCard(
                     icon: Icons.history_edu, color: _navy, title: 'Histoire, Climat & Infrastructures',
@@ -168,7 +141,7 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                   const SizedBox(height: 16),
                 ],
 
-                // 12. ...ET LES AUTRES : URGENCES & CONTACTS UTILES
+                // 12. URGENCES & CONTACTS UTILES
                 if (province.emergencyContacts.isNotEmpty) ...[
                   _SectionCard(
                     icon: Icons.emergency, color: const Color(0xFFD32F2F), title: 'Urgences & Contacts Utiles', count: province.emergencyContacts.length,
@@ -177,7 +150,7 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                   const SizedBox(height: 16),
                 ],
 
-                // 13. ...ET LES AUTRES : IDENTITÉ VISUELLE OFFICIELLE
+                // 13. IDENTITÉ VISUELLE OFFICIELLE
                 _SectionCard(
                   icon: Icons.image, color: _navy, title: 'Identité Visuelle Officielle',
                   children: [_VisualIdentityContent(province: province)],
@@ -207,7 +180,7 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
 }
 
 // ============================================================
-// UTILITAIRES PARTAGÉS
+// UTILITAIRES PARTAGÉS (WEB-SAFE)
 // ============================================================
 Future<void> _launchUrlSafe(String rawUrl) async {
   var u = rawUrl.trim();
@@ -220,8 +193,29 @@ Future<void> _launchUrlSafe(String rawUrl) async {
 
 String _fmtNumber(num n) => n.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
 
+/// Image loader web-safe global
+Widget _buildWebSafeImage(String url, {BoxFit fit = BoxFit.cover, double? width, double? height}) {
+  return Image.network(
+    url,
+    width: width,
+    height: height,
+    fit: fit,
+    loadingBuilder: (context, child, progress) {
+      if (progress == null) return child;
+      return Container(
+        width: width, height: height, color: Colors.grey.shade200,
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: _gold)),
+      );
+    },
+    errorBuilder: (_, __, ___) => Container(
+      width: width, height: height, color: Colors.grey.shade200,
+      child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+    ),
+  );
+}
+
 // ============================================================
-// LA "BELLE CARTE" DE CATÉGORIE — miroir de _buildSectionCard du form
+// LA "BELLE CARTE" DE CATÉGORIE
 // ============================================================
 class _SectionCard extends StatelessWidget {
   final IconData icon;
@@ -264,14 +258,13 @@ class _SectionCard extends StatelessWidget {
 }
 
 // ============================================================
-// GALERIE MÉDIA PLEIN ÉCRAN (photos + vidéos)
+// GALERIE MÉDIA PLEIN ÉCRAN & GRILLE (WEB SAFE via Hooks)
 // ============================================================
 void _openMediaGallery(BuildContext context, List<Map<String, dynamic>> media, {int initialIndex = 0, String title = 'Galerie'}) {
   if (media.isEmpty) return;
   Navigator.of(context).push(
     PageRouteBuilder(
-      opaque: false,
-      barrierColor: Colors.black,
+      opaque: false, barrierColor: Colors.black,
       pageBuilder: (_, __, ___) => _MediaGalleryPage(media: media, initialIndex: initialIndex, title: title),
       transitionsBuilder: (_, anim, __, child) => FadeTransition(opacity: anim, child: child),
     ),
@@ -283,47 +276,30 @@ void _openMediaGrid(BuildContext context, List<Map<String, dynamic>> media, {Str
   Navigator.of(context).push(MaterialPageRoute(builder: (_) => _MediaGridPage(media: media, title: title)));
 }
 
-class _MediaGalleryPage extends StatefulWidget {
+class _MediaGalleryPage extends HookWidget {
   final List<Map<String, dynamic>> media;
   final int initialIndex;
   final String title;
   const _MediaGalleryPage({required this.media, required this.title, this.initialIndex = 0});
 
   @override
-  State<_MediaGalleryPage> createState() => _MediaGalleryPageState();
-}
-
-class _MediaGalleryPageState extends State<_MediaGalleryPage> {
-  late final PageController _pageCtrl;
-  late int _index;
-
-  @override
-  void initState() {
-    super.initState();
-    _index = widget.initialIndex;
-    _pageCtrl = PageController(initialPage: _index);
-  }
-
-  @override
-  void dispose() {
-    _pageCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final pageCtrl = usePageController(initialPage: initialIndex);
+    final currentIndex = useState(initialIndex);
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
           PageView.builder(
-            controller: _pageCtrl,
-            itemCount: widget.media.length,
-            onPageChanged: (i) => setState(() => _index = i),
+            controller: pageCtrl,
+            itemCount: media.length,
+            onPageChanged: (i) => currentIndex.value = i,
             itemBuilder: (_, i) {
-              final item = widget.media[i];
+              final item = media[i];
               final url = item['url']?.toString() ?? '';
               final isVideo = item['type'] == 'video';
+              
               if (isVideo) {
                 return Center(
                   child: Column(
@@ -349,10 +325,10 @@ class _MediaGalleryPageState extends State<_MediaGalleryPage> {
               }
               return InteractiveViewer(
                 panEnabled: true, minScale: 1.0, maxScale: 4.0,
-                child: CachedNetworkImage(
-                  imageUrl: url, fit: BoxFit.contain,
-                  placeholder: (_, __) => const Center(child: CircularProgressIndicator(color: Colors.white)),
-                  errorWidget: (_, __, ___) => const Center(child: Icon(Icons.error_outline, color: Colors.white, size: 50)),
+                child: Image.network(
+                  url, fit: BoxFit.contain,
+                  loadingBuilder: (_, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator(color: Colors.white)),
+                  errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.error_outline, color: Colors.white, size: 50)),
                 ),
               );
             },
@@ -366,14 +342,14 @@ class _MediaGalleryPageState extends State<_MediaGalleryPage> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
-                  child: Text('${_index + 1} / ${widget.media.length}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+                  child: Text('${currentIndex.value + 1} / ${media.length}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
                 ),
               ],
             ),
           ),
           Positioned(
             bottom: 32, left: 0, right: 0,
-            child: Text(widget.title, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+            child: Text(title, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -382,16 +358,13 @@ class _MediaGalleryPageState extends State<_MediaGalleryPage> {
 }
 
 class _RoundIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
+  final IconData icon; final VoidCallback onTap;
   const _RoundIconButton({required this.icon, required this.onTap});
   @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap, customBorder: const CircleBorder(),
-      child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle), child: Icon(icon, color: Colors.white, size: 22)),
-    );
-  }
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap, customBorder: const CircleBorder(),
+        child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle), child: Icon(icon, color: Colors.white, size: 22)),
+      );
 }
 
 class _MediaGridPage extends StatelessWidget {
@@ -421,7 +394,7 @@ class _MediaGridPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 child: isVideo
                     ? Container(color: _navyDeep, child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 30))
-                    : CachedNetworkImage(imageUrl: item['url']?.toString() ?? '', fit: BoxFit.cover, placeholder: (_, __) => Container(color: Colors.grey.shade200), errorWidget: (_, __, ___) => Container(color: Colors.grey.shade200, child: const Icon(Icons.broken_image, color: Colors.grey))),
+                    : _buildWebSafeImage(item['url']?.toString() ?? ''),
               ),
             );
           },
@@ -431,7 +404,6 @@ class _MediaGridPage extends StatelessWidget {
   }
 }
 
-// Bande de miniatures utilisée dans les cartes d'items
 class _MediaStrip extends StatelessWidget {
   final List<Map<String, dynamic>> media;
   final void Function(int index) onTapItem;
@@ -454,11 +426,7 @@ class _MediaStrip extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     child: shown[i]['type'] == 'video'
                         ? Container(width: 56, height: 56, color: _navyDeep, child: const Icon(Icons.play_arrow_rounded, color: Colors.white))
-                        : CachedNetworkImage(
-                            imageUrl: shown[i]['url']?.toString() ?? '', width: 56, height: 56, fit: BoxFit.cover,
-                            placeholder: (_, __) => Container(width: 56, height: 56, color: Colors.grey.shade200),
-                            errorWidget: (_, __, ___) => Container(width: 56, height: 56, color: Colors.grey.shade200, child: const Icon(Icons.broken_image, size: 16, color: Colors.grey)),
-                          ),
+                        : _buildWebSafeImage(shown[i]['url']?.toString() ?? '', width: 56, height: 56),
                   ),
                   if (i == shown.length - 1 && remaining > 0)
                     Positioned.fill(
@@ -476,6 +444,75 @@ class _MediaStrip extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ============================================================
+// GALERIE BANNER (Logique métier Hook)
+// ============================================================
+class _GalleryBanner extends HookWidget {
+  final List<Map<String, dynamic>> media;
+  final String provinceName;
+  const _GalleryBanner({required this.media, required this.provinceName});
+
+  @override
+  Widget build(BuildContext context) {
+    final photos = media.where((m) => m['type'] != 'video').toList();
+    final display = photos.isNotEmpty ? photos : media;
+    if (display.isEmpty) return const SizedBox.shrink();
+
+    final pageCtrl = usePageController();
+    final currentIndex = useState(0);
+    final count = display.length;
+
+    // Timer propre, se coupe au demontage
+    useEffect(() {
+      if (count <= 1) return null;
+      final timer = Timer.periodic(const Duration(seconds: 4), (_) {
+        if (pageCtrl.hasClients) {
+          currentIndex.value = (currentIndex.value + 1) % count;
+          pageCtrl.animateToPage(currentIndex.value, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
+        }
+      });
+      return timer.cancel;
+    }, [count]);
+
+    return Column(children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: SizedBox(
+          height: 180,
+          child: PageView.builder(
+            controller: pageCtrl, itemCount: display.length,
+            onPageChanged: (i) => currentIndex.value = i,
+            itemBuilder: (_, i) {
+              final item = display[i];
+              final url = item['url']?.toString() ?? '';
+              final isVideo = item['type'] == 'video';
+              return GestureDetector(
+                onTap: () => _openMediaGallery(context, display, initialIndex: i, title: provinceName),
+                child: Stack(fit: StackFit.expand, children: [
+                  isVideo
+                      ? Container(color: _navyDeep, child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 44))
+                      : _buildWebSafeImage(url),
+                  Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.5), Colors.transparent]))),
+                ]),
+              );
+            },
+          ),
+        ),
+      ),
+      const SizedBox(height: 10),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton.icon(
+          onPressed: () => _openMediaGrid(context, media, title: provinceName),
+          icon: const Icon(Icons.grid_view_rounded, size: 16),
+          label: Text('Voir toute la galerie (${media.length})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+          style: TextButton.styleFrom(foregroundColor: _navy),
+        ),
+      ),
+    ]);
   }
 }
 
@@ -523,7 +560,7 @@ void _showDetailSheet(
                         Container(
                           width: 60, height: 60,
                           decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: 2)),
-                          child: ClipOval(child: CachedNetworkImage(imageUrl: headerPhotoUrl, fit: BoxFit.cover)),
+                          child: ClipOval(child: _buildWebSafeImage(headerPhotoUrl)),
                         )
                       else
                         Container(width: 52, height: 52, decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: color, size: 26)),
@@ -580,7 +617,7 @@ void _showDetailSheet(
                             borderRadius: BorderRadius.circular(10),
                             child: isVideo
                                 ? Container(color: _navyDeep, child: const Icon(Icons.play_arrow_rounded, color: Colors.white))
-                                : CachedNetworkImage(imageUrl: m['url']?.toString() ?? '', fit: BoxFit.cover, placeholder: (_, __) => Container(color: Colors.grey.shade200), errorWidget: (_, __, ___) => Container(color: Colors.grey.shade200)),
+                                : _buildWebSafeImage(m['url']?.toString() ?? ''),
                           ),
                         );
                       },
@@ -613,7 +650,7 @@ Widget _metaChip(IconData icon, String text, {Color color = _navy}) {
 }
 
 // ============================================================
-// CARTE GÉNÉRIQUE D'ITEM (nichée dans une _SectionCard, cliquable)
+// CARTE GÉNÉRIQUE D'ITEM (ciblée)
 // ============================================================
 class _EntityCard extends StatelessWidget {
   final IconData icon;
@@ -702,7 +739,7 @@ class _ProvinceHeader extends StatelessWidget {
                 ? () => _openMediaGallery(context, [{'url': province.coverImageUrl, 'type': 'photo'}], title: province.name)
                 : null,
             child: province.coverImageUrl != null && province.coverImageUrl!.isNotEmpty
-                ? CachedNetworkImage(imageUrl: province.coverImageUrl!, fit: BoxFit.cover, placeholder: (_, __) => Container(color: Colors.grey.shade800), errorWidget: (_, __, ___) => Container(color: _navyDeep))
+                ? _buildWebSafeImage(province.coverImageUrl!)
                 : Container(color: _navyDeep),
           ),
           Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, _navyDeep.withOpacity(0.95)], stops: const [0.3, 1]))),
@@ -731,7 +768,7 @@ class _ProvinceIdentityCard extends StatelessWidget {
             child: Container(
               width: 64, height: 64, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _hairline), color: _ivory),
               child: province.coatOfArmsUrl != null && province.coatOfArmsUrl!.isNotEmpty
-                  ? ClipOval(child: CachedNetworkImage(imageUrl: province.coatOfArmsUrl!, fit: BoxFit.contain))
+                  ? ClipOval(child: _buildWebSafeImage(province.coatOfArmsUrl!, fit: BoxFit.contain))
                   : const Icon(Icons.shield, color: _navyDeep),
             ),
           ),
@@ -788,7 +825,7 @@ class _MapContent extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: Stack(children: [
-          CachedNetworkImage(imageUrl: url, height: 200, width: double.infinity, fit: BoxFit.cover, placeholder: (_, __) => Container(height: 200, color: Colors.grey.shade200), errorWidget: (_, __, ___) => Container(height: 200, color: Colors.grey.shade200, child: const Icon(Icons.map_outlined, color: Colors.grey))),
+          _buildWebSafeImage(url, height: 200, width: double.infinity),
           Positioned(right: 10, bottom: 10, child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.zoom_in, color: Colors.white, size: 18))),
         ]),
       ),
@@ -796,7 +833,7 @@ class _MapContent extends StatelessWidget {
   }
 }
 
-// ==================== 4. GOUVERNANCE & EXÉCUTIF PROVINCIAL ====================
+// ==================== 4. GOUVERNANCE & EXÉCUTIF ====================
 class _GovernanceContent extends StatelessWidget {
   final Province province;
   const _GovernanceContent({required this.province});
@@ -841,7 +878,12 @@ class _GovernanceContent extends StatelessWidget {
                 decoration: BoxDecoration(color: _itemBg, borderRadius: BorderRadius.circular(14), border: Border.all(color: _itemBorder)),
                 padding: const EdgeInsets.all(10),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  CircleAvatar(radius: 26, backgroundColor: Colors.white, backgroundImage: hasPhoto ? CachedNetworkImageProvider(photo) : null, child: !hasPhoto ? const Icon(Icons.person, size: 20, color: _muted) : null),
+                  CircleAvatar(
+                    radius: 26, backgroundColor: Colors.white,
+                    backgroundImage: hasPhoto ? NetworkImage(photo) : null,
+                    onBackgroundImageError: (_, __) {},
+                    child: !hasPhoto ? const Icon(Icons.person, size: 20, color: _muted) : null,
+                  ),
                   const SizedBox(height: 8),
                   Text(role, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, color: _muted, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
@@ -874,7 +916,12 @@ class _ExecutiveCard extends StatelessWidget {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Container(
             padding: const EdgeInsets.all(3), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: 2.5)),
-            child: CircleAvatar(radius: 34, backgroundColor: Colors.white, backgroundImage: hasPhoto ? CachedNetworkImageProvider(photoUrl!) : null, child: !hasPhoto ? const Icon(Icons.person, size: 32, color: _muted) : null),
+            child: CircleAvatar(
+              radius: 34, backgroundColor: Colors.white,
+              backgroundImage: hasPhoto ? NetworkImage(photoUrl!) : null,
+              onBackgroundImageError: (_, __) {},
+              child: !hasPhoto ? const Icon(Icons.person, size: 32, color: _muted) : null,
+            ),
           ),
           const SizedBox(height: 10),
           Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(6)), child: Text(role.toUpperCase(), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: isGov ? const Color(0xFF8A6B00) : _navy))),
@@ -886,7 +933,7 @@ class _ExecutiveCard extends StatelessWidget {
   }
 }
 
-// ==================== 5. RÉALISATIONS & PROJETS MAJEURS ====================
+// ==================== 5. RÉALISATIONS ====================
 class _AchievementsSection extends StatelessWidget {
   final List<Map<String, dynamic>> achievements;
   const _AchievementsSection({required this.achievements});
@@ -984,9 +1031,7 @@ class _AdministrativeSection extends StatelessWidget {
         String administrator = '';
         try { administrator = dyn.administrator?.toString() ?? ''; } catch (_) {}
         List<Map<String, dynamic>> media = [];
-        try {
-          if (dyn.media != null) media = List<Map<String, dynamic>>.from(dyn.media);
-        } catch (_) {}
+        try { if (dyn.media != null) media = List<Map<String, dynamic>>.from(dyn.media); } catch (_) {}
 
         final meta = <Widget>[
           if (capital.isNotEmpty) _metaChip(Icons.star, 'Chef-lieu : $capital'),
@@ -1009,7 +1054,7 @@ class _AdministrativeSection extends StatelessWidget {
   }
 }
 
-// ==================== 8. TOURISME & SITES REMARQUABLES ====================
+// ==================== 8. TOURISME ====================
 class _TourismSection extends StatelessWidget {
   final List<dynamic> sites;
   const _TourismSection({required this.sites});
@@ -1023,13 +1068,9 @@ class _TourismSection extends StatelessWidget {
         final type = dyn.type?.toString() ?? 'Lieu';
         final desc = dyn.description?.toString() ?? '';
         List<Map<String, dynamic>> media = [];
-        try {
-          if (dyn.media != null) media = List<Map<String, dynamic>>.from(dyn.media);
-        } catch (_) {}
+        try { if (dyn.media != null) media = List<Map<String, dynamic>>.from(dyn.media); } catch (_) {}
         if (media.isEmpty) {
-          try {
-            if (dyn.imageUrl != null && dyn.imageUrl.toString().isNotEmpty) media = [{'url': dyn.imageUrl, 'type': 'photo'}];
-          } catch (_) {}
+          try { if (dyn.imageUrl != null && dyn.imageUrl.toString().isNotEmpty) media = [{'url': dyn.imageUrl, 'type': 'photo'}]; } catch (_) {}
         }
         return _EntityCard(
           icon: Icons.landscape, color: const Color(0xFF1565C0), title: name, badge: type.isNotEmpty ? type : null, preview: desc, media: media,
@@ -1041,7 +1082,7 @@ class _TourismSection extends StatelessWidget {
   }
 }
 
-// ==================== 9. ÉCONOMIE & SECTEURS CLÉS ====================
+// ==================== 9. ÉCONOMIE ====================
 class _EconomySection extends StatelessWidget {
   final List<dynamic> resources;
   const _EconomySection({required this.resources});
@@ -1054,13 +1095,9 @@ class _EconomySection extends StatelessWidget {
         final name = dyn.name?.toString() ?? 'Secteur';
         final desc = dyn.description?.toString() ?? '';
         List<Map<String, dynamic>> media = [];
-        try {
-          if (dyn.media != null) media = List<Map<String, dynamic>>.from(dyn.media);
-        } catch (_) {}
+        try { if (dyn.media != null) media = List<Map<String, dynamic>>.from(dyn.media); } catch (_) {}
         if (media.isEmpty) {
-          try {
-            if (dyn.imageUrl != null && dyn.imageUrl.toString().isNotEmpty) media = [{'url': dyn.imageUrl, 'type': 'photo'}];
-          } catch (_) {}
+          try { if (dyn.imageUrl != null && dyn.imageUrl.toString().isNotEmpty) media = [{'url': dyn.imageUrl, 'type': 'photo'}]; } catch (_) {}
         }
         return _EntityCard(
           icon: Icons.monetization_on, color: const Color(0xFF2E7D32), title: name, preview: desc, media: media,
@@ -1072,7 +1109,7 @@ class _EconomySection extends StatelessWidget {
   }
 }
 
-// ==================== 10. CULTURE, LANGUES & PEUPLES / TRIBUS ====================
+// ==================== 10. CULTURE, LANGUES & PEUPLES ====================
 class _CultureAndTribesContent extends StatelessWidget {
   final Province province;
   const _CultureAndTribesContent({required this.province});
@@ -1124,7 +1161,7 @@ class _CultureAndTribesContent extends StatelessWidget {
   }
 }
 
-// ==================== 11. HISTOIRE, CLIMAT & INFRASTRUCTURES ====================
+// ==================== 11. HISTOIRE, CLIMAT & INFRA ====================
 class _MonographyContent extends StatelessWidget {
   final Province province;
   const _MonographyContent({required this.province});
@@ -1163,7 +1200,7 @@ class _MonographyContent extends StatelessWidget {
   }
 }
 
-// ==================== 12. URGENCES & CONTACTS UTILES ====================
+// ==================== 12. URGENCES ====================
 class _EmergencySection extends StatelessWidget {
   final List<dynamic> contacts;
   const _EmergencySection({required this.contacts});
@@ -1191,60 +1228,7 @@ class _EmergencySection extends StatelessWidget {
   }
 }
 
-// ==================== 3. GALERIE MÉDIA GLOBALE (AUTO-SCROLLING) ====================
-class _GalleryBanner extends StatelessWidget {
-  final List<Map<String, dynamic>> media;
-  final PageController controller;
-  final void Function(int) onReady;
-  final String provinceName;
-  const _GalleryBanner({required this.media, required this.controller, required this.onReady, required this.provinceName});
-
-  @override
-  Widget build(BuildContext context) {
-    final photos = media.where((m) => m['type'] != 'video').toList();
-    final display = photos.isNotEmpty ? photos : media;
-    if (display.isEmpty) return const SizedBox.shrink();
-    WidgetsBinding.instance.addPostFrameCallback((_) => onReady(display.length));
-
-    return Column(children: [
-      ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: SizedBox(
-          height: 180,
-          child: PageView.builder(
-            controller: controller, itemCount: display.length,
-            itemBuilder: (_, i) {
-              final item = display[i];
-              final url = item['url']?.toString() ?? '';
-              final isVideo = item['type'] == 'video';
-              return GestureDetector(
-                onTap: () => _openMediaGallery(context, display, initialIndex: i, title: provinceName),
-                child: Stack(fit: StackFit.expand, children: [
-                  isVideo
-                      ? Container(color: _navyDeep, child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 44))
-                      : CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, placeholder: (_, __) => Container(color: Colors.grey.shade200)),
-                  Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.5), Colors.transparent]))),
-                ]),
-              );
-            },
-          ),
-        ),
-      ),
-      const SizedBox(height: 10),
-      Align(
-        alignment: Alignment.centerRight,
-        child: TextButton.icon(
-          onPressed: () => _openMediaGrid(context, media, title: provinceName),
-          icon: const Icon(Icons.grid_view_rounded, size: 16),
-          label: Text('Voir toute la galerie (${media.length})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-          style: TextButton.styleFrom(foregroundColor: _navy),
-        ),
-      ),
-    ]);
-  }
-}
-
-// ==================== 13. IDENTITÉ VISUELLE OFFICIELLE ====================
+// ==================== 13. IDENTITÉ VISUELLE ====================
 class _VisualIdentityContent extends StatelessWidget {
   final Province province;
   const _VisualIdentityContent({required this.province});
@@ -1289,7 +1273,7 @@ class _VisualIdentityContent extends StatelessWidget {
           height: 74, width: double.infinity,
           decoration: BoxDecoration(color: _itemBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _itemBorder)),
           child: hasImg
-              ? ClipRRect(borderRadius: BorderRadius.circular(12), child: CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, placeholder: (_, __) => Container(color: Colors.grey.shade100), errorWidget: (_, __, ___) => Icon(fallbackIcon, color: Colors.grey)))
+              ? ClipRRect(borderRadius: BorderRadius.circular(12), child: _buildWebSafeImage(url, fit: BoxFit.cover))
               : Icon(fallbackIcon, color: Colors.grey.shade400),
         ),
         const SizedBox(height: 6),
@@ -1297,16 +1281,4 @@ class _VisualIdentityContent extends StatelessWidget {
       ]),
     );
   }
-}
-
-// ==================== DIVERS ====================
-class _ErrorView extends StatelessWidget {
-  final VoidCallback onRetry;
-  const _ErrorView({required this.onRetry});
-  @override
-  Widget build(BuildContext context) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        const Icon(Icons.error_outline_rounded, size: 48, color: Colors.red), const SizedBox(height: 12),
-        const Text('Impossible de charger'), const SizedBox(height: 12),
-        ElevatedButton(onPressed: onRetry, style: ElevatedButton.styleFrom(backgroundColor: _navy), child: const Text('Réessayer', style: TextStyle(color: Colors.white))),
-      ]));
 }
