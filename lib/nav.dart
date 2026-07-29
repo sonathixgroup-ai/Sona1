@@ -10,7 +10,7 @@ class AppRoutes {
   static const String payment = '/payment';
   static const String activationReceipt = '/activation-receipt';
   static const String publicProfile = '/public-profile';
-  static const String userDashboard = '/user-dashboard';
+  static const String userDashboard = '/dashboard';
   static const String enterpriseDashboard = '/enterprise-dashboard';
   static const String enterprisePortalBasePath = '/company';
 
