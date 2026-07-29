@@ -34,7 +34,10 @@ class NetworkProHome extends ConsumerStatefulWidget {
 class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<bool> _navVisible = ValueNotifier(true);
-  String _feedType = 'network';
+  
+  // 🌟 MODIFICATION : 'all' devient le flux par défaut à l'ouverture
+  String _feedType = 'all'; 
+  
   List<NetworkStory> _stories = [];
   bool _loadingStories = true;
   List<dynamic> _suggestions = [];
@@ -238,7 +241,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   }
 
   Widget _buildFilters() {
+    // 🌟 MODIFICATION : Ajout du filtre "Tous" (clé: 'all')
     final filters = {
+      'all': ('Tous', Icons.public_rounded),
       'network': ('Pour vous', Icons.auto_awesome_rounded),
       'popular': ('Tendance', Icons.local_fire_department_rounded),
       'recent': ('Réseau', Icons.people_alt_rounded),
@@ -361,6 +366,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   void _showShareSheet(post) => showModalBottomSheet(context: context, builder: (_) => SafeArea(child: Wrap(children: [ListTile(leading: const Icon(Icons.link), title: const Text('Copier lien'), onTap: () => Navigator.pop(context)), ListTile(leading: const Icon(Icons.share), title: const Text('Partager'), onTap: () => Navigator.pop(context))])));
 }
 
+// ... Les widgets _MyStoryItem et _StoryItem restent inchangés
 class _MyStoryItem extends StatelessWidget {
   final bool hasStory;
   final String? avatarUrl;
