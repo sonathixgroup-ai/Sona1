@@ -1,9 +1,8 @@
-// lib/presentation/thix_info/admin/admin_article_form_page.dart
-
+// lib/presentation/admin/admin_article_form_page.dart
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';       // 👈 INDISPENSABLE POUR LES HOOKS
+import 'package:hooks_riverpod/hooks_riverpod.dart';   // 👈 INDISPENSABLE POUR RIVERPOD
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/news_provider.dart';
@@ -20,7 +19,7 @@ class AdminArticleFormPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ─── 1. CONTRÔLEURS ET ÉTATS LOCAUX (HOOKS) ───────────────────
+    // ─── CONTRÔLEURS & ÉTATS LOCAUX (HOOKS) ──────────────────────
     final formKey = useMemoized(() => GlobalKey<FormState>());
     
     final titleCtrl = useTextEditingController();
@@ -44,12 +43,12 @@ class AdminArticleFormPage extends HookConsumerWidget {
 
     final cats = ['politique', 'economie', 'societe', 'tech', 'sport', 'culture', 'international'];
 
-    // ─── 2. CHARGEMENT INITIAL (SI ÉDITION) ──────────────────────
+    // ─── CHARGEMENT INITIAL (SI ÉDITION) ────────────────────────
     useEffect(() {
       if (articleId != null) {
         Future.microtask(() async {
           loadingState.value = true;
-          final a = await ref.read(newsProvider.notifier).fetchArticleById(articleId!);
+          final a = await ref.read(newsProvider).fetchArticleById(articleId!);
           if (a != null && context.mounted) {
             editArticleState.value = a;
             titleCtrl.text = a.title;
@@ -68,7 +67,7 @@ class AdminArticleFormPage extends HookConsumerWidget {
       return null;
     }, [articleId]);
 
-    // ─── 3. SÉLECTION MÉDIA ───────────────────────────────────────
+    // ─── SÉLECTION MÉDIA ────────────────────────────────────────
     Future<void> pickImage() async {
       final f = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 75);
       if (f != null) {
@@ -87,18 +86,17 @@ class AdminArticleFormPage extends HookConsumerWidget {
       }
     }
 
-    // ─── 4. SAUVEGARDE / PUBLICATION ─────────────────────────────
+    // ─── SAUVEGARDE / PUBLICATION ───────────────────────────────
     Future<void> save() async {
       if (!formKey.currentState!.validate()) return;
       loadingState.value = true;
       
-      final prov = ref.read(newsProvider.notifier);
+      final prov = ref.read(newsProvider);
       
       try {
         String? finalImg = imageUrlState.value;
         String? finalVideo = videoUrlCtrl.text.trim().isNotEmpty ? videoUrlCtrl.text.trim() : videoUrlState.value;
 
-        // Upload web-safe en bytes
         if (imgBytesState.value != null && pickedImageState.value != null) {
           finalImg = await prov.uploadImageBytes(imgBytesState.value!, pickedImageState.value!.name);
         }
@@ -152,7 +150,6 @@ class AdminArticleFormPage extends HookConsumerWidget {
       }
     }
 
-    // Helper pour les inputs
     InputDecoration inputDecor(String label) => InputDecoration(
       labelText: label,
       isDense: true,
@@ -163,7 +160,6 @@ class AdminArticleFormPage extends HookConsumerWidget {
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _kBorder)),
     );
 
-    // ─── 5. UI PRINCIPALE ────────────────────────────────────────
     return Scaffold(
       backgroundColor: _kBg,
       appBar: AppBar(
