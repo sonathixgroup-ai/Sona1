@@ -5,6 +5,10 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/activity_provider.dart';
 
+// ✅ CORRECTION ICI : Déclaration globale du provider Riverpod
+// Il va encapsuler ton ancienne classe ActivityProvider pour la rendre compatible
+final activityProvider = ChangeNotifierProvider<ActivityProvider>((ref) => ActivityProvider());
+
 class MyActivityPage extends ConsumerStatefulWidget {
   const MyActivityPage({super.key});
 
@@ -22,8 +26,6 @@ class _MyActivityPageState extends ConsumerState<MyActivityPage> with SingleTick
     
     // Chargement initial via Riverpod
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // NOTE: Si ton ActivityProvider a été migré en StateNotifier/Notifier, 
-      // utilise ref.read(activityProvider.notifier).loadPurchases()
       final provider = ref.read(activityProvider);
       provider.loadPurchases();
       provider.loadSales();
@@ -76,7 +78,7 @@ class _MyActivityPageState extends ConsumerState<MyActivityPage> with SingleTick
     );
   }
 
-  Widget _buildPurchasesTab(dynamic provider, ThemeData theme) {
+  Widget _buildPurchasesTab(ActivityProvider provider, ThemeData theme) {
     if (provider.isLoadingPurchases) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFFE5592F)));
     }
@@ -99,7 +101,7 @@ class _MyActivityPageState extends ConsumerState<MyActivityPage> with SingleTick
     );
   }
 
-  Widget _buildSalesTab(dynamic provider, ThemeData theme) {
+  Widget _buildSalesTab(ActivityProvider provider, ThemeData theme) {
     if (provider.isLoadingSales) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFFE5592F)));
     }
@@ -149,7 +151,6 @@ class _MyActivityPageState extends ConsumerState<MyActivityPage> with SingleTick
         side: BorderSide(color: Colors.grey[200]!),
       ),
       child: InkWell(
-        // Remplacement par GoRouter (Assure-toi que la route /market/order/:id existe dans ton app_router)
         onTap: () => context.push('/market/order/${order['id']}'),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -191,7 +192,6 @@ class _MyActivityPageState extends ConsumerState<MyActivityPage> with SingleTick
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      // Remplacement de CachedNetworkImage
                       child: Image.network(
                         item['image_url'] ?? '',
                         width: 50,
@@ -289,7 +289,7 @@ class _MyActivityPageState extends ConsumerState<MyActivityPage> with SingleTick
     );
   }
 
-  Widget _buildRatingsTab(dynamic provider, ThemeData theme) {
+  Widget _buildRatingsTab(ActivityProvider provider, ThemeData theme) {
     final stats = provider.ratingStats;
     
     return Column(
@@ -437,7 +437,6 @@ class _MyActivityPageState extends ConsumerState<MyActivityPage> with SingleTick
           children: [
             Row(
               children: [
-                // Remplacement de CachedNetworkImageProvider
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: Colors.grey[200],
