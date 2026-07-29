@@ -6,7 +6,8 @@ import 'package:flutter/foundation.dart';
 final feedProvider = AsyncNotifierProvider<Feed, List<NetworkPost>>(Feed.new);
 
 class Feed extends AsyncNotifier<List<NetworkPost>> {
-  String _currentType = 'recent';
+  // 🌟 MODIFICATION : 'all' devient le flux par défaut
+  String _currentType = 'all';
   bool _hasMore = true;
   bool get hasMore => _hasMore;
 
@@ -15,12 +16,21 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
     _hasMore = true;
     try {
       final service = ref.read(networkServiceProvider);
-      final posts = await service.getFeedPosts(feedType: 'recent', limit: 20, offset: 0);
-      _hasMore = posts.length >= 20;
+      // Pour 'all', on charge un plus grand nombre de posts d'un coup (100 au lieu de 20)
+      final limit = _currentType == 'all' ? 100 : 20;
+      final posts = await service.getFeedPosts(feedType: _currentType, limit: limit, offset: 0);
+      
+      _hasMore = posts.length >= limit;
+      
+      // 🌟 LE SMART MIX : On mélange la liste si on est sur l'onglet Tous
+      if (_currentType == 'all') {
+        posts.shuffle();
+      }
+      
       return posts;
     } catch (e) {
       debugPrint('🔥 Erreur dans Feed.build: $e');
-      return []; // Si erreur, on renvoie une liste vide au lieu de bloquer l'appli
+      return []; 
     }
   }
 
@@ -30,12 +40,21 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
     
     try {
       final service = ref.read(networkServiceProvider);
-      final posts = await service.getFeedPosts(feedType: _currentType, limit: 30, offset: 0);
-      _hasMore = posts.length >= 30;
-      state = AsyncData(posts); // On prévient l'interface que c'est fini et réussi !
+      // 100 posts pour le Smart Mix, 30 sinon
+      final limit = _currentType == 'all' ? 100 : 30;
+      
+      final posts = await service.getFeedPosts(feedType: _currentType, limit: limit, offset: 0);
+      _hasMore = posts.length >= limit;
+      
+      // 🌟 LE SMART MIX
+      if (_currentType == 'all') {
+        posts.shuffle();
+      }
+      
+      state = AsyncData(posts); 
     } catch (e, stack) {
       debugPrint('🔥 Erreur dans Feed.loadFeed: $e');
-      state = AsyncError(e, stack); // On prévient l'interface qu'il y a eu un problème
+      state = AsyncError(e, stack); 
     }
   }
 
@@ -49,8 +68,16 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
     final current = state.valueOrNull ?? [];
     try {
       final service = ref.read(networkServiceProvider);
-      final more = await service.getFeedPosts(feedType: _currentType, limit: 20, offset: current.length);
-      _hasMore = more.length >= 20;
+      final limit = _currentType == 'all' ? 100 : 20;
+      final more = await service.getFeedPosts(feedType: _currentType, limit: limit, offset: current.length);
+      
+      _hasMore = more.length >= limit;
+      
+      // On mélange aussi les nouveaux résultats ajoutés en bas de page
+      if (_currentType == 'all') {
+        more.shuffle();
+      }
+      
       state = AsyncData([...current, ...more]);
     } catch (e) {
       debugPrint('🔥 Erreur dans Feed.loadMore: $e');
