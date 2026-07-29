@@ -1,6 +1,6 @@
+// lib/presentation/thix_market/widgets/shops/manage_shop_widget.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:uuid/uuid.dart';
@@ -173,25 +173,25 @@ class _ManageShopWidgetState extends State<ManageShopWidget>
     return Column(
       children: [
         // Preview de la boutique
-        Container(
+        SizedBox(
           height: 200,
           child: Stack(
             children: [
-              // Cover
+              // Cover Web-Safe
               Container(
                 height: 150,
                 width: double.infinity,
                 decoration: BoxDecoration(
                   image: DecorationImage(
                     image: _newCover != null
-                        ? FileImage(_newCover!)
-                        : (_shop['cover_url'] != null
-                            ? CachedNetworkImageProvider(_shop['cover_url'])
-                            : null) as ImageProvider,
+                        ? FileImage(_newCover!) as ImageProvider
+                        : (_shop['cover_url'] != null && _shop['cover_url'].toString().isNotEmpty
+                            ? NetworkImage(_shop['cover_url'])
+                            : const AlwaysStoppedAnimation(Colors.transparent)) as ImageProvider,
                     fit: BoxFit.cover,
                   ),
                 ),
-                child: _shop['cover_url'] == null && _newCover == null
+                child: (_shop['cover_url'] == null || _shop['cover_url'].toString().isEmpty) && _newCover == null
                     ? Container(
                         color: const Color(0xFFE5592F).withOpacity(0.1),
                         child: const Center(
@@ -200,7 +200,7 @@ class _ManageShopWidgetState extends State<ManageShopWidget>
                       )
                     : null,
               ),
-              // Logo
+              // Logo Web-Safe
               Positioned(
                 bottom: 0,
                 left: 16,
@@ -221,10 +221,15 @@ class _ManageShopWidgetState extends State<ManageShopWidget>
                     borderRadius: BorderRadius.circular(16),
                     child: _newLogo != null
                         ? Image.file(_newLogo!, fit: BoxFit.cover)
-                        : (_shop['logo_url'] != null
-                            ? CachedNetworkImage(
-                                imageUrl: _shop['logo_url'],
+                        : (_shop['logo_url'] != null && _shop['logo_url'].toString().isNotEmpty
+                            ? Image.network(
+                                _shop['logo_url'],
                                 fit: BoxFit.cover,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)));
+                                },
+                                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey),
                               )
                             : Container(
                                 color: const Color(0xFFE5592F).withOpacity(0.1),
@@ -407,12 +412,17 @@ class _ManageShopWidgetState extends State<ManageShopWidget>
                       borderRadius: BorderRadius.circular(16),
                       child: Image.file(_newLogo!, fit: BoxFit.cover),
                     )
-                  : (_shop['logo_url'] != null
+                  : (_shop['logo_url'] != null && _shop['logo_url'].toString().isNotEmpty
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: CachedNetworkImage(
-                            imageUrl: _shop['logo_url'],
+                          child: Image.network(
+                            _shop['logo_url'],
                             fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)));
+                            },
+                            errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey),
                           ),
                         )
                       : Column(
@@ -446,12 +456,17 @@ class _ManageShopWidgetState extends State<ManageShopWidget>
                       borderRadius: BorderRadius.circular(16),
                       child: Image.file(_newCover!, fit: BoxFit.cover),
                     )
-                  : (_shop['cover_url'] != null
+                  : (_shop['cover_url'] != null && _shop['cover_url'].toString().isNotEmpty
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: CachedNetworkImage(
-                            imageUrl: _shop['cover_url'],
+                          child: Image.network(
+                            _shop['cover_url'],
                             fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)));
+                            },
+                            errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey),
                           ),
                         )
                       : Column(
