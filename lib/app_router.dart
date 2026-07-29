@@ -12,7 +12,8 @@ import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/services/user_service.dart';
 
-import 'presentation/home/home_page.dart';
+
+import 'package:thix_id/presentation/home/home_page.dart';
 import 'package:thix_id/presentation/auth/login_page.dart';
 import 'presentation/auth/personal_registration_page.dart';
 import 'presentation/auth/enterprise_registration_page.dart';
