@@ -17,7 +17,7 @@ class NetworkService extends ChangeNotifier {
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
   String? get _uid => _supabase.auth.currentUser?.id;
 
-  // ── FEED FIX ──
+  // ── FEED FIX & SMART MIX ──
   Future<List<NetworkPost>> getFeedPosts({int limit = 20, int offset = 0, String feedType = 'recent'}) async {
     final uid = currentUserId;
     if (uid.isEmpty) return [];
@@ -25,7 +25,8 @@ class NetworkService extends ChangeNotifier {
     final hiddenRes = await _supabase.from('hidden_posts').select('post_id').eq('user_id', uid);
     final hiddenSet = (hiddenRes as List).map((e) => e['post_id'] as String).toSet();
 
-    if (feedType == 'recent' || feedType == 'Pour vous' || feedType == 'smart' || feedType == 'Pourvous') {
+    // 🌟 AJOUT DE 'all' POUR QUE LE SMART MIX FONCTIONNE ICI AUSSI
+    if (feedType == 'all' || feedType == 'recent' || feedType == 'Pour vous' || feedType == 'smart' || feedType == 'Pourvous') {
       final res = await _supabase.from('posts_view').select().eq('is_public', true).order('created_at', ascending: false).range(offset, offset + limit - 1);
       return (res as List).map((e) => NetworkPost.fromJson(e)).where((p) => !hiddenSet.contains(p.id)).toList();
     }
@@ -129,24 +130,36 @@ class NetworkService extends ChangeNotifier {
   Future<NetworkPost?> getPinnedPost(String userId) async { final res = await _supabase.from('posts_view').select().eq('user_id', userId).eq('is_pinned', true).maybeSingle(); return res == null ? null : NetworkPost.fromJson(res); }
   Future<List<NetworkPost>> getPinnedPosts(String userId) async { final res = await _supabase.from('posts_view').select().eq('user_id', userId).eq('is_pinned', true).order('created_at', ascending: false); return (res as List).map((e) => NetworkPost.fromJson(e)).toList(); }
   
+  // 🌟 FIX LIKES : Utilisation de Upsert pour éviter les crashs de duplication
   Future<void> likePost(String id) async { 
+    if (currentUserId.isEmpty) return;
     try {
-      await _supabase.from('post_likes').insert({'post_id': id, 'user_id': currentUserId}); 
+      await _supabase.from('post_likes').upsert(
+        {'post_id': id, 'user_id': currentUserId},
+        onConflict: 'post_id,user_id', 
+        ignoreDuplicates: true
+      ); 
+      
       final owner = await _getPostOwnerId(id); 
-      if (owner != currentUserId) {
+      if (owner.isNotEmpty && owner != currentUserId) {
         unawaited(_createNotification(userId: owner, type: 'like', postId: id)); 
       }
     } catch (e) {
-      debugPrint('likePost erreur ignorée : $e');
+      debugPrint('🔥 likePost erreur : $e');
     }
     notifyListeners(); 
   }
 
+  // 🌟 FIX UNLIKE
   Future<void> unlikePost(String id) async { 
+    if (currentUserId.isEmpty) return;
     try {
-      await _supabase.from('post_likes').delete().eq('post_id', id).eq('user_id', currentUserId); 
+      await _supabase.from('post_likes')
+          .delete()
+          .eq('post_id', id)
+          .eq('user_id', currentUserId); 
     } catch (e) {
-      debugPrint('unlikePost erreur : $e');
+      debugPrint('🔥 unlikePost erreur : $e');
     }
     notifyListeners(); 
   }
@@ -164,7 +177,6 @@ class NetworkService extends ChangeNotifier {
   Future<bool> updateComment(String commentId, String newContent) async { try { await _supabase.from('comments').update({'content': newContent.trim(), 'is_edited': true}).eq('id', commentId); notifyListeners(); return true; } catch (_) { return false; } }
   Future<bool> deleteComment(String commentId) async { try { await _supabase.from('comments').delete().eq('id', commentId); notifyListeners(); return true; } catch (_) { return false; } }
   
-  // 🔴 VOICI LES DEUX FONCTIONS QUI AVAIENT ÉTÉ EFFACÉES 🔴
   Future<bool> likeComment(String commentId) async { if (_uid == null) return false; try { await _supabase.from('comment_likes').upsert({'comment_id': commentId, 'user_id': _uid}, onConflict: 'comment_id,user_id', ignoreDuplicates: true); notifyListeners(); return true; } catch (_) { return false; } }
   Future<bool> unlikeComment(String commentId) async { try { await _supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', _uid!); notifyListeners(); return true; } catch (_) { return false; } }
 
