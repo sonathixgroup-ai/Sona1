@@ -12,17 +12,17 @@ import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
 import 'settings/chat_settings_page.dart';
 
-// Palette "Enterprise SaaS" (Ajustée pour le Full White)
+// ── PALETTE ENTERPRISE ──
 class _C {
-  static const bg = Colors.white; // Fond blanc pur continu
-  static const searchBg = Color(0xFFF8FAFC); // Gris très léger pour la barre de recherche
+  static const bg = Colors.white;
+  static const surfaceAlt = Color(0xFFF8FAFC); // Gris ultra léger
+  static const searchBg = Color(0xFFF1F5F9); // Fond de recherche doux
   static const border = Color(0xFFE2E8F0);
-  static const primary = Color(0xFF1D4ED8); // Bleu Corporate
-  static const primaryLight = Color(0xFFEFF6FF);
-  static const textMain = Color(0xFF0F172A);
-  static const textMuted = Color(0xFF64748B);
-  static const unreadAccent = Color(0xFF3B82F6); 
+  static const primary = Color(0xFF2D6CDF); // Bleu Corporate (Unifié avec le chat)
+  static const textMain = Color(0xFF0F172A); // Presque noir
+  static const textMuted = Color(0xFF64748B); // Gris ardoise
   static const red = Color(0xFFEF4444);
+  static const orange = Color(0xFFF59E0B);
 }
 
 class ChatListPage extends ConsumerStatefulWidget {
@@ -34,7 +34,6 @@ class ChatListPage extends ConsumerStatefulWidget {
 class _ChatListPageState extends ConsumerState<ChatListPage> {
   final _searchCtrl = TextEditingController();
   final _scroll = ScrollController();
-  bool _showSearch = false;
   int _selectedNav = 1;
 
   @override 
@@ -54,16 +53,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     super.dispose(); 
   }
 
-  void _toggleSearch() {
-    setState(() {
-      _showSearch = !_showSearch;
-      if (!_showSearch) {
-        _searchCtrl.clear();
-        ref.read(chatListProvider.notifier).search('');
-      }
-    });
-  }
-
   void _openNotifications(int pending) {
     showModalBottomSheet(
       context: context, 
@@ -79,26 +68,26 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const SizedBox(height: 12),
           Container(width: 40, height: 5, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(3))),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 10), 
-            child: Row(children: const [
-              Icon(Icons.notifications_outlined, color: _C.textMain, size: 24), 
-              SizedBox(width: 10), 
-              Text('Notifications', style: TextStyle(color: _C.textMain, fontSize: 18, fontWeight: FontWeight.bold))
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 24, 24, 16), 
+            child: Row(children: [
+              Icon(Icons.notifications_rounded, color: _C.textMain, size: 24), 
+              SizedBox(width: 12), 
+              Text('Notifications', style: TextStyle(color: _C.textMain, fontSize: 18, fontWeight: FontWeight.w800))
             ])
           ),
           const Divider(height: 1, color: _C.border),
           Flexible(
             child: pending > 0 
               ? ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   leading: Container(width: 44, height: 44, decoration: BoxDecoration(color: _C.red.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.swap_vert_rounded, color: _C.red)),
-                  title: Text('$pending escalade(s) en attente', style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w700, fontSize: 14)),
-                  subtitle: const Text('Requiert votre attention', style: TextStyle(color: _C.textMuted, fontSize: 12)),
+                  title: Text('$pending escalade(s) en attente', style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w700, fontSize: 15)),
+                  subtitle: const Text('Nécessite une action de votre part', style: TextStyle(color: _C.textMuted, fontSize: 13)),
                   trailing: const Icon(Icons.chevron_right_rounded, color: _C.textMuted),
                   onTap: () { Navigator.pop(ctx); context.pushNamed('chatEscalationReceived'); },
                 ) 
-              : const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: Text('Aucune notification', style: TextStyle(color: _C.textMuted, fontSize: 14))))
+              : const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: Text('Aucune notification récente', style: TextStyle(color: _C.textMuted, fontSize: 14))))
           ),
           const SizedBox(height: 20),
         ]),
@@ -120,24 +109,32 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 40, height: 5, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(3))), 
           const SizedBox(height: 24), 
-          _sheetOpt(Icons.chat_bubble_outline_rounded, 'Nouvelle discussion', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage()))), 
+          _sheetOpt(Icons.chat_bubble_outline_rounded, 'Nouvelle discussion', 'Démarrer une conversation privée', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage()))), 
           const SizedBox(height: 12), 
-          _sheetOpt(Icons.group_add_outlined, 'Créer une équipe (Groupe)', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupCreatePage())))
+          _sheetOpt(Icons.group_add_outlined, 'Créer un groupe', 'Collaborer en équipe', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupCreatePage())))
         ])
       )
     );
   }
 
-  Widget _sheetOpt(IconData icon, String text, VoidCallback tap) => InkWell(
+  Widget _sheetOpt(IconData icon, String title, String subtitle, VoidCallback tap) => InkWell(
     onTap: () { Navigator.pop(context); tap(); }, 
     borderRadius: BorderRadius.circular(16), 
     child: Container(
       padding: const EdgeInsets.all(16), 
-      decoration: BoxDecoration(color: _C.bg, border: Border.all(color: _C.border), borderRadius: BorderRadius.circular(16)), 
+      decoration: BoxDecoration(color: Colors.white, border: Border.all(color: _C.border), borderRadius: BorderRadius.circular(16)), 
       child: Row(children: [
-        Container(width: 40, height: 40, decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 20, color: Colors.white)), 
+        Container(width: 48, height: 48, decoration: BoxDecoration(color: _C.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, size: 24, color: _C.primary)), 
         const SizedBox(width: 16), 
-        Text(text, style: const TextStyle(color: _C.textMain, fontSize: 15, fontWeight: FontWeight.w700))
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(color: _C.textMain, fontSize: 16, fontWeight: FontWeight.w700)),
+              Text(subtitle, style: const TextStyle(color: _C.textMuted, fontSize: 13, fontWeight: FontWeight.w500)),
+            ],
+          )
+        )
       ])
     )
   );
@@ -150,12 +147,12 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     return Scaffold(
       backgroundColor: _C.bg,
       bottomNavigationBar: _corporateBottomNav(state.totalUnread),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: _showCreateMenu,
         backgroundColor: _C.primary,
         elevation: 4,
-        icon: const Icon(Icons.edit_square, color: Colors.white, size: 20),
-        label: const Text('Nouveau', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Icon(Icons.edit_square, color: Colors.white, size: 22),
       ),
       body: state.isLoading 
         ? const Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 3)) 
@@ -169,8 +166,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               slivers: [
                 _buildCorporateAppBar(state.pendingEscalations),
                 SliverToBoxAdapter(child: _searchBar()),
-                SliverToBoxAdapter(child: _filters(state.filterIndex)),
                 if (state.pendingEscalations > 0) SliverToBoxAdapter(child: _escalationBanner(state.pendingEscalations)),
+                SliverToBoxAdapter(child: _filters(state.filterIndex)),
+                const SliverToBoxAdapter(child: Divider(height: 1, color: _C.border)),
                 _chatList(state.filtered),
                 if (state.isLoadingMore) const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 3)))),
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -182,23 +180,12 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
   Widget _buildCorporateAppBar(int pending) {
     return SliverAppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: _C.bg,
       pinned: true,
       elevation: 0,
-      scrolledUnderElevation: 2,
-      shadowColor: Colors.black.withOpacity(0.05),
-      titleSpacing: 20,
-      title: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.chat_rounded, color: Colors.white, size: 16),
-          ),
-          const SizedBox(width: 10),
-          const Text('THIX CHAT', style: TextStyle(color: _C.textMain, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-        ],
-      ),
+      scrolledUnderElevation: 0,
+      titleSpacing: 24,
+      title: const Text('Messagerie', style: TextStyle(color: _C.textMain, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
       actions: [
         Stack(
           alignment: Alignment.center,
@@ -212,108 +199,100 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               Positioned(
                 right: 8, top: 8, 
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  decoration: BoxDecoration(color: _C.red, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white, width: 1.5)),
-                  child: Text('$pending', style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(color: _C.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)),
                 )
               ),
           ],
         ),
-        IconButton(
-          icon: Icon(_showSearch ? Icons.close_rounded : Icons.search_rounded, color: _C.textMain, size: 24),
-          onPressed: _toggleSearch,
-          splashRadius: 24,
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications_outlined, color: _C.textMain, size: 26),
+              onPressed: () => _openNotifications(pending),
+              splashRadius: 24,
+            ),
+            if (pending > 0)
+              Positioned(
+                right: 10, top: 10,
+                child: Container(width: 8, height: 8, decoration: BoxDecoration(color: _C.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5))),
+              )
+          ],
         ),
-        IconButton(
-          icon: const Icon(Icons.notifications_none_rounded, color: _C.textMain, size: 24),
-          onPressed: () => _openNotifications(pending),
-          splashRadius: 24,
-        ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 12),
       ],
     );
   }
+
+  Widget _searchBar() => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+    child: Container(
+      height: 44, 
+      decoration: BoxDecoration(color: _C.searchBg, borderRadius: BorderRadius.circular(12)), 
+      child: TextField(
+        controller: _searchCtrl, 
+        onChanged: (v) => ref.read(chatListProvider.notifier).search(v), 
+        style: const TextStyle(fontSize: 15, color: _C.textMain, fontWeight: FontWeight.w500), 
+        decoration: InputDecoration(
+          hintText: 'Rechercher une conversation...', 
+          hintStyle: const TextStyle(fontSize: 15, color: _C.textMuted), 
+          prefixIcon: const Icon(Icons.search_rounded, size: 20, color: _C.textMuted), 
+          suffixIcon: _searchCtrl.text.isNotEmpty 
+            ? IconButton(icon: const Icon(Icons.close_rounded, size: 18, color: _C.textMuted), onPressed: () { _searchCtrl.clear(); ref.read(chatListProvider.notifier).search(''); }) 
+            : null,
+          border: InputBorder.none, 
+          contentPadding: const EdgeInsets.symmetric(vertical: 12)
+        )
+      )
+    ),
+  );
 
   Widget _escalationBanner(int pending) {
     return GestureDetector(
       onTap: () => context.pushNamed('chatEscalationReceived'),
       child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _C.red.withOpacity(0.3)),
-          boxShadow: [BoxShadow(color: _C.red.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]
+          color: _C.red.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _C.red.withOpacity(0.2))
         ),
         child: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: _C.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.warning_amber_rounded, color: _C.red, size: 20)
-          ),
-          const SizedBox(width: 16),
-          Expanded(child: Text('$pending escalade(s) requiert votre attention', style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w700, fontSize: 13))),
-          const Icon(Icons.arrow_forward_ios_rounded, color: _C.textMuted, size: 14)
+          const Icon(Icons.warning_rounded, color: _C.red, size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Text('$pending escalade(s) en attente', style: const TextStyle(color: _C.red, fontWeight: FontWeight.w700, fontSize: 14))),
+          const Icon(Icons.arrow_forward_ios_rounded, color: _C.red, size: 14)
         ]),
       ),
     );
   }
 
-  Widget _searchBar() => AnimatedCrossFade(
-    duration: const Duration(milliseconds: 200), 
-    crossFadeState: _showSearch ? CrossFadeState.showFirst : CrossFadeState.showSecond, 
-    firstChild: Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16), 
-      child: Container(
-        height: 44, 
-        decoration: BoxDecoration(color: _C.searchBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.border)), 
-        child: TextField(
-          controller: _searchCtrl, 
-          autofocus: true, 
-          onChanged: (v) => ref.read(chatListProvider.notifier).search(v), 
-          style: const TextStyle(fontSize: 14, color: _C.textMain, fontWeight: FontWeight.w500), 
-          decoration: const InputDecoration(
-            hintText: 'Rechercher un collègue, un ID...', 
-            hintStyle: TextStyle(fontSize: 14, color: _C.textMuted), 
-            prefixIcon: Icon(Icons.search_rounded, size: 18, color: _C.textMuted), 
-            border: InputBorder.none, 
-            contentPadding: EdgeInsets.symmetric(vertical: 13)
-          )
-        )
-      )
-    ), 
-    secondChild: const SizedBox(height: 0)
-  );
-
   Widget _filters(int selected) {
     final tabs = ['Toutes', 'Non lues', 'Équipes', 'Personnelles'];
-    return Container(
-      color: Colors.white,
-      height: 54, 
-      padding: const EdgeInsets.only(bottom: 12),
+    return SizedBox(
+      height: 48, 
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16), 
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
         scrollDirection: Axis.horizontal, 
         itemCount: tabs.length, 
         itemBuilder: (ctx, i) { 
           final sel = selected == i; 
           return Padding(
-            padding: const EdgeInsets.only(right: 8), 
+            padding: const EdgeInsets.symmetric(horizontal: 4), 
             child: InkWell(
               onTap: () => ref.read(chatListProvider.notifier).setFilter(i), 
-              borderRadius: BorderRadius.circular(10), 
+              borderRadius: BorderRadius.circular(20), 
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200), 
                 padding: const EdgeInsets.symmetric(horizontal: 16), 
                 alignment: Alignment.center, 
                 decoration: BoxDecoration(
-                  color: sel ? _C.textMain : Colors.white, 
-                  borderRadius: BorderRadius.circular(10), 
-                  border: Border.all(color: sel ? _C.textMain : _C.border)
+                  color: sel ? _C.primary.withOpacity(0.1) : Colors.transparent, 
+                  borderRadius: BorderRadius.circular(20), 
                 ), 
-                child: Text(tabs[i], style: TextStyle(fontSize: 13, fontWeight: sel ? FontWeight.bold : FontWeight.w600, color: sel ? Colors.white : _C.textMuted))
+                child: Text(tabs[i], style: TextStyle(fontSize: 14, fontWeight: sel ? FontWeight.w700 : FontWeight.w600, color: sel ? _C.primary : _C.textMuted))
               )
             )
           ); 
@@ -322,9 +301,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  // Liste Full White sans espace (séparation par de simples lignes)
   Widget _chatList(List<ChatConversation> list) {
-    if (list.isEmpty) return const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(40), child: Center(child: Text('Aucune conversation', style: TextStyle(color: _C.textMuted, fontSize: 14)))));
+    if (list.isEmpty) return const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(40), child: Center(child: Text('Aucune conversation trouvée', style: TextStyle(color: _C.textMuted, fontSize: 15)))));
     
     return SliverList(delegate: SliverChildBuilderDelegate((ctx, idx) {
       final conv = list[idx];
@@ -333,25 +311,34 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       final unread = conv.unreadCount > 0;
       
       return InkWell(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
+        // ✅ CORRECTION MAINTENUE : L'attente et le rafraîchissement silencieux
+        onTap: () async {
+          await Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv)));
+          ref.read(chatListProvider.notifier).refresh();
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: _C.border, width: 0.5)),
-          ),
           child: Row(children: [
-            // Avatar "Squircle" 
-            Container(
-              width: 50, height: 50,
-              decoration: BoxDecoration(
-                color: _C.searchBg,
-                borderRadius: BorderRadius.circular(16),
-                image: conv.displayAvatar != null ? DecorationImage(image: NetworkImage(conv.displayAvatar!), fit: BoxFit.cover) : null,
-              ),
-              child: conv.displayAvatar == null 
-                ? Center(child: Text(conv.displayName.isNotEmpty ? conv.displayName[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold, color: _C.textMuted, fontSize: 18)))
-                : null,
+            // Avatar Modernisé
+            Stack(
+              children: [
+                Container(
+                  width: 52, height: 52,
+                  decoration: BoxDecoration(
+                    color: _C.searchBg,
+                    borderRadius: BorderRadius.circular(18), // Squircle plus doux
+                    image: conv.displayAvatar != null ? DecorationImage(image: NetworkImage(conv.displayAvatar!), fit: BoxFit.cover) : null,
+                  ),
+                  child: conv.displayAvatar == null 
+                    ? Center(child: Text(conv.displayName.isNotEmpty ? conv.displayName[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold, color: _C.textMuted, fontSize: 20)))
+                    : null,
+                ),
+                if (unread)
+                  Positioned(
+                    right: -2, top: -2,
+                    child: Container(width: 14, height: 14, decoration: BoxDecoration(color: _C.primary, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)))
+                  )
+              ],
             ),
             const SizedBox(width: 16),
             
@@ -363,24 +350,31 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   Expanded(
                     child: Row(
                       children: [
-                        Flexible(child: Text(conv.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _C.textMain))), 
-                        if (conv.isGroup) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.groups_rounded, size: 16, color: _C.textMuted))
+                        Flexible(child: Text(conv.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _C.textMain))), 
+                        if (conv.isGroup) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.groups_rounded, size: 18, color: _C.textMuted))
                       ]
                     )
                   ),
-                  Text(_fmt(t), style: TextStyle(fontSize: 11, fontWeight: unread ? FontWeight.bold : FontWeight.w600, color: unread ? _C.primary : _C.textMuted)),
+                  Text(_fmt(t), style: TextStyle(fontSize: 12, fontWeight: unread ? FontWeight.w700 : FontWeight.w500, color: unread ? _C.primary : _C.textMuted)),
                 ]
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Row(
                 children: [
-                  Expanded(child: Text(last?.content ?? 'Nouvelle conversation', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: unread ? FontWeight.w600 : FontWeight.w500, color: unread ? _C.textMain : _C.textMuted))),
+                  Expanded(
+                    child: Text(
+                      last?.content ?? 'Nouvelle conversation', 
+                      maxLines: 1, 
+                      overflow: TextOverflow.ellipsis, 
+                      style: TextStyle(fontSize: 14, fontWeight: unread ? FontWeight.w600 : FontWeight.w400, color: unread ? _C.textMain : _C.textMuted)
+                    )
+                  ),
                   if (unread) 
                     Container(
                       margin: const EdgeInsets.only(left: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
-                      decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(8)), 
-                      child: Text('${conv.unreadCount} NOUVEAU', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5))
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(color: _C.primary, shape: BoxShape.circle), 
+                      child: Text('${conv.unreadCount}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))
                     )
                 ]
               ),
@@ -393,9 +387,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
   Widget _corporateBottomNav(int unread) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: _C.border, width: 1)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, -4))],
       ),
       child: SafeArea(
         top: false,
@@ -414,8 +408,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           unselectedItemColor: _C.textMuted,
           selectedFontSize: 11,
           unselectedFontSize: 11,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, height: 1.5),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, height: 1.5),
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, height: 1.5),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, height: 1.5),
           items: [
             const BottomNavigationBarItem(icon: Icon(Icons.people_alt_outlined), activeIcon: Icon(Icons.people_alt), label: 'Réseau'),
             BottomNavigationBarItem(
@@ -423,14 +417,14 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 clipBehavior: Clip.none, 
                 children: [
                   const Icon(Icons.chat_bubble_outline_rounded), 
-                  if (unread > 0) Positioned(right: -4, top: -4, child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: _C.primary, shape: BoxShape.circle)))
+                  if (unread > 0) Positioned(right: -2, top: -2, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: _C.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5))))
                 ]
               ), 
               activeIcon: Stack(
                 clipBehavior: Clip.none, 
                 children: [
                   const Icon(Icons.chat_bubble_rounded), 
-                  if (unread > 0) Positioned(right: -4, top: -4, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: _C.primary, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5))))
+                  if (unread > 0) Positioned(right: -2, top: -2, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: _C.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5))))
                 ]
               ), 
               label: 'Discussions'
