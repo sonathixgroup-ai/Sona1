@@ -1,5 +1,5 @@
 // ============================================================
-// FICHIER - province_detail_page.dart (EXPERT EDITION v5 - WEB SAFE)
+// FICHIER - province_detail_page.dart (EXPERT EDITION v6 - WEB SAFE & HOOKS)
 // Classement : Identité > Cartographie > Galerie > Exécutif
 // > Réalisations > Villes > Découpage > Tourisme > Économie
 // > Peuples/Tribus > Histoire/Climat/Infra > Urgences > Identité Visuelle
@@ -157,7 +157,7 @@ class ProvinceDetailPage extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 40),
               ]),
-            ),
+            ],
           ],
         ),
       ),
@@ -258,7 +258,7 @@ class _SectionCard extends StatelessWidget {
 }
 
 // ============================================================
-// GALERIE MÉDIA PLEIN ÉCRAN & GRILLE (WEB SAFE via Hooks)
+// GALERIE MÉDIA PLEIN ÉCRAN & GRILLE (WEB SAFE via HookWidget)
 // ============================================================
 void _openMediaGallery(BuildContext context, List<Map<String, dynamic>> media, {int initialIndex = 0, String title = 'Galerie'}) {
   if (media.isEmpty) return;
@@ -448,7 +448,7 @@ class _MediaStrip extends StatelessWidget {
 }
 
 // ============================================================
-// GALERIE BANNER (Logique métier Hook)
+// GALERIE BANNER (Logique métier HookWidget)
 // ============================================================
 class _GalleryBanner extends HookWidget {
   final List<Map<String, dynamic>> media;
@@ -465,7 +465,6 @@ class _GalleryBanner extends HookWidget {
     final currentIndex = useState(0);
     final count = display.length;
 
-    // Timer propre, se coupe au demontage
     useEffect(() {
       if (count <= 1) return null;
       final timer = Timer.periodic(const Duration(seconds: 4), (_) {
@@ -650,7 +649,7 @@ Widget _metaChip(IconData icon, String text, {Color color = _navy}) {
 }
 
 // ============================================================
-// CARTE GÉNÉRIQUE D'ITEM (ciblée)
+// CARTE GÉNÉRIQUE D'ITEM
 // ============================================================
 class _EntityCard extends StatelessWidget {
   final IconData icon;
@@ -1281,4 +1280,16 @@ class _VisualIdentityContent extends StatelessWidget {
       ]),
     );
   }
+}
+
+// ==================== DIVERS ====================
+class _ErrorView extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _ErrorView({required this.onRetry});
+  @override
+  Widget build(BuildContext context) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const Icon(Icons.error_outline_rounded, size: 48, color: Colors.red), const SizedBox(height: 12),
+        const Text('Impossible de charger'), const SizedBox(height: 12),
+        ElevatedButton(onPressed: onRetry, style: ElevatedButton.styleFrom(backgroundColor: _navy), child: const Text('Réessayer', style: TextStyle(color: Colors.white))),
+      ]));
 }
