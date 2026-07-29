@@ -26,12 +26,19 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
     super.initState();
     _scroll.addListener(_onScroll);
   }
+  
   void _onScroll(){
     if(_scroll.position.pixels > _scroll.position.maxScrollExtent - 700){
       ref.read(forYouProvider.notifier).loadMore();
     }
   }
-  @override void dispose(){ _scroll.dispose(); _bannerCtrl.dispose(); _timer?.cancel(); super.dispose(); }
+  
+  @override void dispose(){ 
+    _scroll.dispose(); 
+    _bannerCtrl.dispose(); 
+    _timer?.cancel(); 
+    super.dispose(); 
+  }
 
   void _safeNavigate(String name, String path){
     try{ context.pushNamed(name); }catch(_){ try{ context.push(path); }catch(_){} }
@@ -102,7 +109,12 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
       backgroundColor: MarketColors.lightBg,
       body: RefreshIndicator(
         color: MarketColors.red,
-        onRefresh: () async { ref.invalidate(bannersProvider); ref.invalidate(flashSalesProvider); ref.invalidate(featuredShopsProvider); await ref.read(forYouProvider.notifier).refresh(); },
+        onRefresh: () async { 
+          ref.invalidate(bannersProvider); 
+          ref.invalidate(flashSalesProvider); 
+          ref.invalidate(featuredShopsProvider); 
+          await ref.read(forYouProvider.notifier).refresh(); 
+        },
         child: CustomScrollView(
           controller: _scroll,
           slivers: [
@@ -154,14 +166,14 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
 
   Widget _buildHero(AsyncValue<List<Map<String,dynamic>>> async){
     return async.when(
-      loading: ()=> const SizedBox(height:230, child: Center(child: CircularProgressIndicator())),
+      loading: ()=> const SizedBox(height:230, child: Center(child: CircularProgressIndicator(color: MarketColors.red))),
       error: (_,__)=> _buildHeroContent([null]),
       data: (b)=> _buildHeroContent(b),
     );
   }
 
   Widget _buildHeroContent(List<dynamic> banners){
-    final slides = banners.isEmpty? [null] : banners;
+    final slides = banners.isEmpty ? [null] : banners;
     return Column(children: [
       SizedBox(
         height: 230,
@@ -171,27 +183,66 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
           onPageChanged: (i)=> setState(()=> _currentBanner=i),
           itemBuilder: (_, index){
             final b = slides[index] as Map<String,dynamic>?;
+            
+            // Récupération des données du formulaire/produit pour le Hero Banner
+            final imageUrl = b?['image_url'] ?? (b?['images'] is List && (b!['images'] as List).isNotEmpty ? b['images'][0] : null);
+            final title = b?['title'] ?? 'Votre marketplace\npremium et sécurisée';
+            final subtitle = b?['description'] ?? b?['subtitle'] ?? 'Des milliers de produits, des vendeurs vérifiés, une expérience unique.';
+            final productId = b?['id'];
+
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal:6),
               child: GestureDetector(
-                onTap: ()=> context.push('/market/flash-sales'),
+                onTap: () {
+                  if (productId != null) {
+                    context.push('/market/product/$productId');
+                  } else {
+                    context.push('/market/flash-sales');
+                  }
+                },
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(22,22,16,22),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(24),
-                    gradient: const LinearGradient(colors: [MarketColors.redDark, MarketColors.red]),
+                    color: MarketColors.redDark,
+                    // Si une image est fournie, on l'affiche avec un filtre noir transparent pour que le texte reste lisible
+                    image: imageUrl != null 
+                        ? DecorationImage(
+                            image: NetworkImage(imageUrl), 
+                            fit: BoxFit.cover, 
+                            colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.55), BlendMode.darken)
+                          )
+                        : null,
+                    gradient: imageUrl == null ? const LinearGradient(colors: [MarketColors.redDark, MarketColors.red]) : null,
                   ),
                   child: Stack(children: [
-                    const Positioned(right:-10,bottom:-10, child: Opacity(opacity:0.18, child: Icon(Icons.shopping_cart_rounded, size:140, color: Colors.white))),
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                      if(index==0) Text('Bonjour, ${_greetingName()} 👋', style: const TextStyle(color: Colors.white, fontSize:13, fontWeight: FontWeight.w600)),
-                      const SizedBox(height:8),
-                      Text(b?['title']??'Votre marketplace\npremium et sécurisée', style: const TextStyle(color: Colors.white, fontSize:22, fontWeight: FontWeight.w900, height:1.2)),
-                      const SizedBox(height:8),
-                      SizedBox(width:210, child: Text(b?['subtitle']??'Des milliers de produits, des vendeurs vérifiés, une expérience unique.', style: const TextStyle(color: Colors.white70, fontSize:12))),
-                      const SizedBox(height:16),
-                      Container(padding: const EdgeInsets.symmetric(horizontal:18,vertical:12), decoration: BoxDecoration(color: MarketColors.gold, borderRadius: BorderRadius.circular(14)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.search_rounded, size:16, color: MarketColors.redDark), SizedBox(width:8), Text('Explorer le marché', style: TextStyle(color: MarketColors.redDark, fontWeight: FontWeight.w800, fontSize:12.5))])),
-                    ]),
+                    if (imageUrl == null)
+                      const Positioned(right:-10,bottom:-10, child: Opacity(opacity:0.18, child: Icon(Icons.shopping_cart_rounded, size:140, color: Colors.white))),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start, 
+                      mainAxisAlignment: MainAxisAlignment.center, 
+                      children: [
+                        if(index==0 && imageUrl == null) 
+                          Text('Bonjour, ${_greetingName()} 👋', style: const TextStyle(color: Colors.white, fontSize:13, fontWeight: FontWeight.w600)),
+                        const SizedBox(height:8),
+                        Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize:22, fontWeight: FontWeight.w900, height:1.2)),
+                        const SizedBox(height:8),
+                        SizedBox(width:210, child: Text(subtitle, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize:12))),
+                        const SizedBox(height:16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal:18,vertical:12), 
+                          decoration: BoxDecoration(color: MarketColors.gold, borderRadius: BorderRadius.circular(14)), 
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min, 
+                            children: [
+                              Icon(productId != null ? Icons.visibility_rounded : Icons.search_rounded, size:16, color: MarketColors.redDark), 
+                              const SizedBox(width:8), 
+                              Text(productId != null ? 'Voir le produit' : 'Explorer le marché', style: const TextStyle(color: MarketColors.redDark, fontWeight: FontWeight.w800, fontSize:12.5))
+                            ]
+                          )
+                        ),
+                      ]
+                    ),
                   ]),
                 ),
               ),
@@ -240,7 +291,7 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Supermarchés à domicile', style: TextStyle(fontWeight: FontWeight.w900, fontSize:16)), GestureDetector(onTap: ()=> _safeNavigate('marketShops','/market/shops'), child: const Text('Tout voir', style: TextStyle(color: MarketColors.red, fontSize:12, fontWeight: FontWeight.w800)))]),
         const SizedBox(height:16),
         shopsAsync.when(
-          loading: ()=> const SizedBox(height:64, child: Center(child: CircularProgressIndicator())),
+          loading: ()=> const SizedBox(height:64, child: Center(child: CircularProgressIndicator(color: MarketColors.red))),
           error: (_,__)=> const SizedBox.shrink(),
           data: (shops){
             if(shops.isEmpty) return const Text('Aucun supermarché', style: TextStyle(color: MarketColors.mutedText, fontSize:12));
@@ -293,8 +344,34 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
       error: (_,__)=> const SizedBox.shrink(),
       data: (list){
         if(list.isEmpty) return const SizedBox.shrink();
+
+        // 1. Calcul dynamique du temps d'expiration de la vente flash la plus proche
+        DateTime? timerEnd;
+        for (var p in list) {
+          if (p['expires_at'] != null) {
+            final dt = DateTime.tryParse(p['expires_at'].toString());
+            if (dt != null && dt.isAfter(DateTime.now())) {
+              if (timerEnd == null || dt.isBefore(timerEnd)) {
+                timerEnd = dt;
+              }
+            }
+          }
+        }
+        
+        // S'il n'y a pas de expires_at valide, on fixe un temps par défaut visuel (2h45)
+        timerEnd ??= DateTime.now().add(const Duration(hours: 2, minutes: 45));
+
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Padding(padding: const EdgeInsets.symmetric(horizontal:16), child: Row(children: [const Icon(Icons.bolt_rounded, color: MarketColors.gold, size:22), const SizedBox(width:6), const Text('Offres flash', style: TextStyle(fontWeight: FontWeight.w900, fontSize:18)), const Spacer(), FlashSaleTimer(endTime: DateTime.now().add(const Duration(hours:2, minutes:45)))])),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal:16), 
+            child: Row(children: [
+              const Icon(Icons.bolt_rounded, color: MarketColors.gold, size:22), 
+              const SizedBox(width:6), 
+              const Text('Offres flash', style: TextStyle(fontWeight: FontWeight.w900, fontSize:18)), 
+              const Spacer(), 
+              FlashSaleTimer(endTime: timerEnd)
+            ])
+          ),
           const SizedBox(height:12),
           SizedBox(height:245, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal:16), scrollDirection: Axis.horizontal, itemCount: list.length, separatorBuilder: (_,__)=> const SizedBox(width:12), itemBuilder: (_,i)=> _buildProductHorizontalCard(list[i]))),
         ]);
@@ -330,13 +407,13 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
 
   Widget _buildGrid(AsyncValue<List<Map<String,dynamic>>> forYouAsync, List<Map<String,dynamic>> all, bool hasMore){
     return forYouAsync.when(
-      loading: ()=> const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(60), child: Center(child: CircularProgressIndicator()))),
+      loading: ()=> const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(60), child: Center(child: CircularProgressIndicator(color: MarketColors.red)))),
       error: (e,_ )=> SliverToBoxAdapter(child: Center(child: Text('Erreur $e'))),
       data: (_)=> SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal:16),
         sliver: SliverGrid(
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:2, crossAxisSpacing:12, mainAxisSpacing:12, childAspectRatio:0.62),
-          delegate: SliverChildBuilderDelegate((_,i){ if(i>=all.length) return const Center(child: CircularProgressIndicator()); return _buildProductCard(all[i]); }, childCount: all.length + (hasMore?1:0)),
+          delegate: SliverChildBuilderDelegate((_,i){ if(i>=all.length) return const Center(child: CircularProgressIndicator(color: MarketColors.red)); return _buildProductCard(all[i]); }, childCount: all.length + (hasMore?1:0)),
         ),
       ),
     );
