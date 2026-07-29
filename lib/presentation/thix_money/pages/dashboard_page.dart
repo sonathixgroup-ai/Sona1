@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/nav.dart';
 import '../services/wallet_service.dart';
+import '../widgets/service_grid.dart'; // Importation de ta grille de services
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -80,10 +81,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeader(data['name'], data['balance']),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
                       
-                      // Grille principale (2 lignes de 4 icônes sans cercles)
-                      _buildMainServicesGrid(),
+                      // 🌟 Grille de services complète et colorée
+                      const ServiceGrid(),
                       const SizedBox(height: 24),
                       
                       // Bannière bleue
@@ -182,66 +183,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  Widget _buildMainServicesGrid() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _mainIconNode(Icons.send_outlined, 'Envoi\nArgent', AppRoutes.thixMoneySend),
-              _mainIconNode(Icons.payments_outlined, 'Retrait\nCash', AppRoutes.thixMoneyRecharge),
-              _mainIconNode(Icons.qr_code_2_rounded, 'Lipa Kwa\nSimu', AppRoutes.thixMoneyScanner),
-              _mainIconNode(Icons.receipt_long_outlined, 'Payer\nFactures', AppRoutes.thixMoneyLoans),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _mainIconNode(Icons.account_balance_outlined, 'Paiements\nÉtat', ''),
-              _mainIconNode(Icons.account_balance_wallet_outlined, 'Prêts &\nCrédits', ''),
-              _mainIconNode(Icons.storefront_outlined, 'Boutique\nMobile', ''),
-              _mainIconNode(Icons.more_horiz_rounded, 'Voir\nTout', ''),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _mainIconNode(IconData icon, String label, String route) {
-    return InkWell(
-      onTap: () {
-        if (route.isNotEmpty) context.push(route);
-      },
-      child: SizedBox(
-        width: 70,
-        child: Column(
-          children: [
-            Icon(icon, color: primaryBlue, size: 28), // Taille d'icône fine et petite
-            const SizedBox(height: 8),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: primaryBlue, height: 1.2),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildPromoBanner() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       height: 100,
       decoration: BoxDecoration(
         color: primaryBlue,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
@@ -254,7 +202,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 children: [
                   RichText(
                     text: const TextSpan(
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, height: 1.2),
+                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700, height: 1.2),
                       children: [
                         TextSpan(text: 'Achetez des forfaits et du crédit pour '),
                         TextSpan(text: 'vous', style: TextStyle(color: accentYellow)),
@@ -266,14 +214,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               ),
             ),
           ),
-          // Image décorative (remplacée par un conteneur stylisé pour l'instant)
           Container(
-            width: 100,
+            width: 90,
             decoration: const BoxDecoration(
               color: Color(0xFF002B66),
-              borderRadius: BorderRadius.horizontal(right: Radius.circular(16)),
+              borderRadius: BorderRadius.horizontal(right: Radius.circular(20)),
             ),
-            child: const Center(child: Icon(Icons.people_alt_rounded, color: Colors.white24, size: 50)),
+            child: const Center(child: Icon(Icons.people_alt_rounded, color: Colors.white24, size: 45)),
           ),
         ],
       ),
@@ -331,7 +278,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   // ==========================================
-  // LOGIQUE DE TRANSACTIONS RÉELLES (Ancien fichier)
+  // LOGIQUE DE TRANSACTIONS RÉELLES (Supabase)
   // ==========================================
   Widget _buildRealTransactions(String thixId) {
     if (thixId.isEmpty) {
@@ -354,7 +301,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         
         if (list.isEmpty) {
           return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
             child: const Center(child: Text('Aucune opération récente', style: TextStyle(fontSize: 13, color: textGrey))),
@@ -362,7 +309,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         }
 
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
