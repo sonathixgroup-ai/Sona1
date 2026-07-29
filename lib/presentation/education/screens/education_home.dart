@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../providers/education_providers.dart';
+
+// ✅ CORRIGÉ : Imports relatifs exacts
+import '../providers/education_provider.dart' hide certificatesProvider;
+import '../providers/certificate_provider.dart';
+
 import '../widgets/common/education_category_chip.dart';
 import '../widgets/common/formation_card.dart';
 import '../widgets/common/edu_image.dart';
@@ -116,8 +120,17 @@ class _MyLearningPage extends ConsumerWidget {
     return enrollAsync.when(loading: ()=>const Center(child: CircularProgressIndicator()), error: (e,_ )=>Center(child: Text('$e')), data: (list){
       if(list.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Container(width:84,height:84,decoration: const BoxDecoration(color:_EduColors.softBlue,shape:BoxShape.circle), child: Icon(Icons.book_rounded,size:36,color:_EduColors.navy.withOpacity(0.5))), const SizedBox(height:16), const Text('Aucune formation en cours', style: TextStyle(fontWeight:FontWeight.w800))]));
       return ListView.builder(padding: const EdgeInsets.all(16), itemCount: list.length, itemBuilder: (c,i){
-        final enrollment = list[i]; final formation = enrollment['formation']; if(formation==null) return const SizedBox();
-        return Padding(padding: const EdgeInsets.only(bottom:12), child: FormationCard(formation: Formation.fromJson(formation), onTap: ()=>context.push('/education/formation/${formation['id']}'), progress: (enrollment['progress'] as num?)?.toDouble()));
+        final enrollment = list[i]; 
+        final formation = enrollment.formation; 
+        if(formation == null) return const SizedBox();
+        return Padding(
+          padding: const EdgeInsets.only(bottom:12), 
+          child: FormationCard(
+            formation: formation, 
+            onTap: ()=>context.push('/education/formation/${formation.id}'), 
+            progress: enrollment.progress?.toDouble(),
+          )
+        );
       });
     });
   }
