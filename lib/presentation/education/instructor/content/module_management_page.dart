@@ -1,4 +1,4 @@
-// lib/presentation/education/instructor/module_management_page.dart
+// lib/presentation/education/instructor/content/module_management_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,9 +7,6 @@ import 'package:thix_id/presentation/education/models/module.dart';
 import 'package:thix_id/presentation/education/models/lesson.dart';
 import 'package:thix_id/presentation/education/instructor/content/lesson_management_page.dart';
 
-// ============================================================
-// CONSTANTES UI
-// ============================================================
 class _C {
   static const bg = Color(0xFFF8FAFC);
   static const surface = Colors.white;
@@ -23,7 +20,7 @@ class _C {
 
 class ModuleManagementPage extends ConsumerStatefulWidget {
   final Module? module;
-  final String? courseId; // ID de la formation parente
+  final String? courseId;
 
   const ModuleManagementPage({super.key, this.module, this.courseId});
 
@@ -38,10 +35,12 @@ class _ModuleManagementPageState extends ConsumerState<ModuleManagementPage> {
   
   bool _isLoading = false;
   List<Lesson> _lessons = [];
+  String? _currentModuleId; // Garde l'ID en mémoire après sauvegarde
 
   @override
   void initState() {
     super.initState();
+    _currentModuleId = widget.module?.id;
     _titleController = TextEditingController(text: widget.module?.title ?? '');
     _descriptionController = TextEditingController(text: widget.module?.description ?? '');
     _lessons = List.from(widget.module?.lessons ?? []);
@@ -54,21 +53,30 @@ class _ModuleManagementPageState extends ConsumerState<ModuleManagementPage> {
     super.dispose();
   }
 
-  // ============================================================
-  // LOGIQUE PERSISTANCE SUPABASE
-  // ============================================================
+  // Permet de renvoyer le module mis à jour à la page parente quand on quitte
+  void _goBack() {
+    if (_currentModuleId != null) {
+      final savedModule = Module(
+        id: _currentModuleId!,
+        formationId: widget.courseId ?? widget.module?.formationId ?? '',
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        order: widget.module?.order ?? 0,
+        lessons: _lessons,
+      );
+      context.pop(savedModule);
+    } else {
+      context.pop();
+    }
+  }
+
   Future<void> _saveModule() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) throw Exception('Utilisateur non connecté.');
-
       final targetFormationId = widget.courseId ?? widget.module?.formationId;
-      if (targetFormationId == null || targetFormationId.isEmpty) {
-        throw Exception('Formation parente introuvable.');
-      }
+      if (targetFormationId == null) throw Exception('Formation parente introuvable.');
 
       final moduleData = {
         'formation_id': targetFormationId,
@@ -78,38 +86,20 @@ class _ModuleManagementPageState extends ConsumerState<ModuleManagementPage> {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      String moduleId = widget.module?.id ?? '';
-
-      if (widget.module == null) {
-        // Mode Création
+      if (_currentModuleId == null) {
+        // Mode Création : on insère et on garde la page ouverte
         moduleData['created_at'] = DateTime.now().toIso8601String();
-        final res = await Supabase.instance.client
-            .from('modules')
-            .insert(moduleData)
-            .select()
-            .single();
-        moduleId = res['id'];
+        final res = await Supabase.instance.client.from('modules').insert(moduleData).select().single();
+        
+        setState(() {
+          _currentModuleId = res['id'];
+        });
+        _showSnackBar('Module sauvegardé ! Le bouton "Ajouter une leçon" est débloqué.', isError: false);
       } else {
         // Mode Édition
-        await Supabase.instance.client
-            .from('modules')
-            .update(moduleData)
-            .eq('id', moduleId);
+        await Supabase.instance.client.from('modules').update(moduleData).eq('id', _currentModuleId!);
+        _showSnackBar('Module mis à jour avec succès !', isError: false);
       }
-
-      // Construction de l'objet Module final à retourner au parent
-      final savedModule = Module(
-        id: moduleId,
-        formationId: targetFormationId,
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim(),
-        order: widget.module?.order ?? 0,
-        lessons: _lessons,
-      );
-
-      if (!mounted) return;
-      _showSnackBar('Module sauvegardé avec succès !', isError: false);
-      context.pop(savedModule);
     } catch (e) {
       _showSnackBar('Erreur : $e', isError: true);
     } finally {
@@ -117,14 +107,13 @@ class _ModuleManagementPageState extends ConsumerState<ModuleManagementPage> {
     }
   }
 
-  // ============================================================
-  // GESTION DES LEÇONS LOCALES
-  // ============================================================
   void _addLesson() async {
+    if (_currentModuleId == null) return; // Sécurité supplémentaire
+
     final newLesson = await Navigator.push<Lesson>(
       context,
       MaterialPageRoute(
-        builder: (_) => LessonManagementPage(moduleId: widget.module?.id),
+        builder: (_) => LessonManagementPage(moduleId: _currentModuleId!),
       ),
     );
     if (newLesson != null) {
@@ -136,19 +125,13 @@ class _ModuleManagementPageState extends ConsumerState<ModuleManagementPage> {
     final updated = await Navigator.push<Lesson>(
       context,
       MaterialPageRoute(
-        builder: (_) => LessonManagementPage(lesson: lesson, moduleId: widget.module?.id),
+        builder: (_) => LessonManagementPage(lesson: lesson, moduleId: _currentModuleId),
       ),
     );
     if (updated != null) {
       final index = _lessons.indexOf(lesson);
-      if (index != -1) {
-        setState(() => _lessons[index] = updated);
-      }
+      if (index != -1) setState(() => _lessons[index] = updated);
     }
-  }
-
-  void _deleteLesson(Lesson lesson) {
-    setState(() => _lessons.remove(lesson));
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -157,183 +140,127 @@ class _ModuleManagementPageState extends ConsumerState<ModuleManagementPage> {
         content: Text(message, style: const TextStyle(fontWeight: FontWeight.w600)),
         backgroundColor: isError ? _C.red : _C.green,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
 
-  // ============================================================
-  // CONSTRUCTION UI
-  // ============================================================
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.module != null;
+    final isSaved = _currentModuleId != null;
 
-    return Scaffold(
-      backgroundColor: _C.bg,
-      appBar: AppBar(
-        title: Text(
-          isEditing ? 'Modifier le module' : 'Ajouter un module',
-          style: const TextStyle(fontWeight: FontWeight.w800, color: _C.textMain, fontSize: 18),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) _goBack();
+      },
+      child: Scaffold(
+        backgroundColor: _C.bg,
+        appBar: AppBar(
+          title: Text(isSaved ? 'Modifier le module' : 'Ajouter un module', style: const TextStyle(fontWeight: FontWeight.w800, color: _C.textMain, fontSize: 18)),
+          backgroundColor: _C.surface,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain), onPressed: _goBack),
+          actions: [
+            IconButton(
+              icon: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_rounded, color: _C.primary),
+              onPressed: _isLoading ? null : _saveModule,
+              tooltip: 'Enregistrer',
+            ),
+          ],
         ),
-        backgroundColor: _C.surface,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: _isLoading
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.save_rounded, color: _C.primary),
-            onPressed: _isLoading ? null : _saveModule,
-            tooltip: 'Enregistrer',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: _C.primary))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Formulaire du module
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: _C.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _C.border),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                      ],
-                    ),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Informations du module', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _titleController,
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                            decoration: _inputDecoration('Titre du module*', Icons.title_rounded),
-                            validator: (v) => v == null || v.trim().isEmpty ? 'Le titre est requis' : null,
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _descriptionController,
-                            maxLines: 3,
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                            decoration: _inputDecoration('Description', Icons.description_outlined),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // En-tête de la liste des leçons
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Leçons (${_lessons.length})',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain),
+                      const Text('Informations du module', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _titleController,
+                        decoration: InputDecoration(labelText: 'Titre du module*', prefixIcon: const Icon(Icons.title_rounded), filled: true, fillColor: _C.bg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+                        validator: (v) => v == null || v.trim().isEmpty ? 'Requis' : null,
                       ),
-                      ElevatedButton.icon(
-                        onPressed: _addLesson,
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('Ajouter une leçon', style: TextStyle(fontWeight: FontWeight.w700)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _C.green,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _descriptionController,
+                        maxLines: 3,
+                        decoration: InputDecoration(labelText: 'Description', prefixIcon: const Icon(Icons.description_outlined), filled: true, fillColor: _C.bg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                ),
+              ),
+              const SizedBox(height: 24),
 
-                  // Liste des leçons ou état vide
-                  _lessons.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Column(
-                              children: [
-                                Icon(Icons.menu_book_rounded, size: 48, color: _C.textMuted.withOpacity(0.4)),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'Aucune leçon pour l\'instant.',
-                                  style: TextStyle(color: _C.textMuted, fontWeight: FontWeight.w600),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      : ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _lessons.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                            final lesson = _lessons[index];
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: _C.surface,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: _C.border),
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                                leading: CircleAvatar(
-                                  backgroundColor: _C.green.withOpacity(0.12),
-                                  child: Text('${index + 1}', style: const TextStyle(color: _C.green, fontWeight: FontWeight.w800)),
-                                ),
-                                title: Text(lesson.title, style: const TextStyle(fontWeight: FontWeight.w700, color: _C.textMain)),
-                                subtitle: Text('Type : ${lesson.type}', style: const TextStyle(color: _C.textMuted, fontSize: 12)),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_rounded, color: _C.primary, size: 20),
-                                      onPressed: () => _editLesson(lesson),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_rounded, color: _C.red, size: 20),
-                                      onPressed: () => _deleteLesson(lesson),
-                                    ),
-                                  ],
-                                ),
-                                onTap: () => _editLesson(lesson),
-                              ),
-                            );
-                          },
-                        ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Leçons (${_lessons.length})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
+                  
+                  ElevatedButton.icon(
+                    onPressed: !isSaved 
+                        ? () => _showSnackBar('Sauvegardez d\'abord le module (en haut à droite) pour pouvoir y ajouter des leçons.', isError: true) 
+                        : _addLesson,
+                    icon: Icon(!isSaved ? Icons.lock_rounded : Icons.add_rounded, size: 18),
+                    label: Text(!isSaved ? 'Sauvegarder d\'abord' : 'Ajouter une leçon', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: !isSaved ? _C.textMuted : _C.green,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
                 ],
               ),
-            ),
-    );
-  }
+              const SizedBox(height: 12),
 
-  InputDecoration _inputDecoration(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(color: _C.textMuted, fontWeight: FontWeight.w500),
-      prefixIcon: Icon(icon, color: _C.textMuted, size: 20),
-      filled: true,
-      fillColor: _C.bg,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.transparent)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.primary, width: 1.5)),
-      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.red, width: 1.0)),
+              _lessons.isEmpty
+                  ? Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border, style: BorderStyle.solid)),
+                      child: Column(
+                        children: [
+                          Icon(!isSaved ? Icons.lock_outline_rounded : Icons.menu_book_rounded, size: 48, color: _C.textMuted.withOpacity(0.4)),
+                          const SizedBox(height: 12),
+                          Text(
+                            !isSaved ? 'Leçons verrouillées avant sauvegarde.' : 'Aucune leçon pour l\'instant.',
+                            style: const TextStyle(color: _C.textMuted, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _lessons.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final lesson = _lessons[index];
+                        return Container(
+                          decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.border)),
+                          child: ListTile(
+                            title: Text(lesson.title, style: const TextStyle(fontWeight: FontWeight.w700, color: _C.textMain)),
+                            subtitle: Text('Type : ${lesson.type}', style: const TextStyle(color: _C.textMuted, fontSize: 12)),
+                            trailing: IconButton(icon: const Icon(Icons.edit_rounded, color: _C.primary, size: 20), onPressed: () => _editLesson(lesson)),
+                            onTap: () => _editLesson(lesson),
+                          ),
+                        );
+                      },
+                    ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
