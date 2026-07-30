@@ -32,13 +32,12 @@ import 'package:thix_id/models/chat/call_status.dart';
 import 'package:thix_id/presentation/chat/call/call_page.dart';
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 
-// ── THEME WHITE ENTREPRISE ──
 class _C {
   static const bg = Color(0xFFF0F2F5);
   static const surface = Colors.white;
   static const surfaceAlt = Color(0xFFF8FAFC);
   static const border = Color(0xFFE2E8F0);
-  static const primary = Color(0xFF1D4ED8); // Bleu
+  static const primary = Color(0xFF1D4ED8); 
   static const primaryLight = Color(0xFFEFF6FF);
   static const textMain = Color(0xFF0F172A);
   static const textMuted = Color(0xFF64748B);
@@ -49,7 +48,6 @@ class _C {
   static const ivory = Color(0xFFF3F5FA);
 }
 
-// ── Providers Riverpod & CallProvider global ──
 final chatServiceProvider = Provider((ref) => ChatService(Supabase.instance.client));
 final presenceServiceProvider = Provider((ref) => PresenceService(Supabase.instance.client));
 final audioServiceProvider = Provider((ref) => AudioService(Supabase.instance.client));
@@ -62,7 +60,6 @@ final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<
   return ChatMsgNotifier(ref.read(chatServiceProvider), conversationId);
 });
 
-// ── LOGIQUE DES MESSAGES CORRIGÉE (DESCENDING STRICT) ──
 class ChatMsgNotifier extends StateNotifier<List<ChatMessage>> {
   final ChatService svc;
   final String convId;
@@ -77,10 +74,8 @@ class ChatMsgNotifier extends StateNotifier<List<ChatMessage>> {
 
   Future<void> loadInitial() async {
     page = 0;
-    // On suppose que svc.getMessages renvoie les plus récents en premier.
     final msgs = await svc.getMessages(convId, limit: pageSize, offset: 0);
     hasMore = msgs.length >= pageSize;
-    // On trie pour être 100% sûr : les plus récents à l'index 0
     msgs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     state = msgs;
   }
@@ -92,7 +87,6 @@ class ChatMsgNotifier extends StateNotifier<List<ChatMessage>> {
     final msgs = await svc.getMessages(convId, limit: pageSize, offset: page * pageSize);
     hasMore = msgs.length >= pageSize;
     
-    // On ajoute les anciens messages à la fin de la liste
     var current = [...state, ...msgs];
     final seen = <String>{};
     current = current.where((m) => seen.add(m.id)).toList();
@@ -109,21 +103,15 @@ class ChatMsgNotifier extends StateNotifier<List<ChatMessage>> {
     for (var msg in updated) {
       final idx = current.indexWhere((m) => m.id == msg.id);
       if (idx != -1) {
-        if (msg.isDeleted) {
-          current.removeAt(idx);
-        } else {
-          current[idx] = msg; // Mise à jour (ex: "Vu", réactions)
-        }
+        current[idx] = msg; 
         changed = true;
       } else if (!msg.isDeleted) {
-        // Nouveau message entrant, on l'insère au début
         current.insert(0, msg);
         changed = true;
       }
     }
 
     if (changed) {
-      // Le tri strict garantit l'affichage parfait et force Riverpod à refresh l'UI (statuts vu)
       current.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       state = current;
     }
@@ -131,7 +119,7 @@ class ChatMsgNotifier extends StateNotifier<List<ChatMessage>> {
 
   void addLocal(ChatMessage msg) {
     if (!state.any((m) => m.id == msg.id)) {
-      var current = [msg, ...state]; // Nouveau message en premier
+      var current = [msg, ...state];
       current.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       state = current;
     }
@@ -175,14 +163,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   bool _isInternalNoteMode = false;
   StreamSubscription<List<ChatMessage>>? _messageSub;
 
-  // ── AJOUT DES DRAPEAUX DU MONDE & CORRECTION EMOJI ──
   static const List<String> _stickers = [
     '😀','😃','😄','😁','😆','😅','😂','🤣','🥲','🥹','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','🤩','🥳','🤗','🤔','🤭','🤫','🤥','😏','😒','🙄','😬','😮‍💨','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','😵','🤯','🥴','😵‍💫','🤠','🥸',
     '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💝','💘','💌','💋','💟','❤️‍🔥','❤️‍🩹','💯','🔥','⭐','🌟','💫','✨','💥','💫','🎉','🎊','🎈','🎁','🏆','🥇','🥈','🥉','🏅',
     '👍','👎','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐️','🖖','👋','✍️','🙏','💪','🦾','👂','👀','👁️','👅','👄','🧠','🫀',
     '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐽','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🐈','🐓','🦃','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦦','🦥','🐁','🐀','🐿️','🦔',
     '🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🌮','🌯','🥗','🥘','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','☕','🍵','🧃','🥤','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🍾',
-    // NOUVEAUX DRAPEAUX DU MONDE:
     '🏁','🚩','🎌','🏴','🏳️','🏳️‍🌈','🏳️‍⚧️','🏴‍☠️','🇦🇫','🇿🇦','🇦🇱','🇩🇿','🇩🇪','🇦🇩','🇦🇴','🇦🇮','🇦🇶','🇦🇬','🇸🇦','🇦🇷','🇦🇲','🇦🇼','🇦🇺','🇦🇹','🇦🇿','🇧🇸','🇧🇭','🇧🇩','🇧🇧','🇧🇪','🇧🇿','🇧🇯','🇧🇲','🇧🇹','🇧🇾','🇲🇲','🇧🇴','🇧🇦','🇧🇼','🇧🇷','🇧🇳','🇧🇬','🇧🇫','🇧🇮','🇰🇭','🇨🇲','🇨🇦','🇨🇻','🇨🇱','🇨🇳','🇨🇾','🇨🇴','🇰🇲','🇨🇬','🇨🇩','🇰🇵','🇰🇷','🇨🇷','🇨🇮','🇭🇷','🇨🇺','🇩🇰','🇩🇯','🇩🇲','🇪🇬','🇸🇻','🇦🇪','🇪🇨','🇪🇷','🇪🇸','🇪🇪','🇺🇸','🇪🇹','🇫🇯','🇫🇮','🇫🇷','🇬🇦','🇬🇲','🇬🇪','🇬🇭','🇬🇮','🇬🇷','🇬🇩','🇬🇱','🇬🇹','🇬🇳','🇬🇶','🇬🇼','🇬🇾','🇭🇹','🇭🇳','🇭🇰','🇭🇺','🇮🇳','🇮🇩','🇮🇷','🇮🇶','🇮🇪','🇮🇸','🇮🇱','🇮🇹','🇯🇲','🇯🇵','🇯🇴','🇰🇿','🇰🇪','🇰🇬','🇰🇮','🇽🇰','🇰🇼','🇱🇦','🇱🇸','🇱🇻','🇱🇧','🇱🇷','🇱🇾','🇱🇮','🇱🇹','🇱🇺','🇲🇴','🇲🇰','🇲🇬','🇲🇾','🇲🇼','🇲🇻','🇲🇱','🇲🇹','🇲🇦','🇲🇺','🇲🇷','🇲🇽','🇫🇲','🇲🇩','🇲🇨','🇲🇳','🇲🇪','🇲🇿','🇳🇦','🇳🇷','🇳🇵','🇳🇮','🇳🇪','🇳🇬','🇳🇺','🇳🇴','🇳🇿','🇴🇲','🇺🇬','🇺🇿','🇵🇰','🇵🇼','🇵🇸','🇵🇦','🇵🇬','🇵🇾','🇳🇱','🇵🇪','🇵🇭','🇵🇱','🇵🇷','🇵🇹','🇶🇦','🇨🇫','🇩🇴','🇷🇴','🇬🇧','🇷🇺','🇷🇼','🇸🇳','🇷🇸','🇸🇨','🇸🇱','🇸🇬','🇸🇰','🇸🇮','🇸🇴','🇸🇩','🇸🇸','🇱🇰','🇸🇪','🇨🇭','🇸🇷','🇸🇾','🇹🇯','🇹🇼','🇹🇿','🇹🇩','🇨🇿','🇹🇭','🇹🇱','🇹🇬','🇹🇴','🇹🇹','🇹🇳','🇹🇲','🇹🇷','🇹🇻','🇺🇦','🇺🇾','🇻🇺','🇻🇦','🇻🇪','🇻🇳','🇾🇪','🇿🇲','🇿🇼'
   ];
 
@@ -190,6 +176,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    
+    // Forcer le statut à "En ligne" pour l'utilisateur actuel
+    ref.read(chatServiceProvider).updatePresence('online');
+
     _loadUserRole();
     _getParticipantInfo();
     _markAsRead();
@@ -226,6 +216,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   @override
   void dispose() {
+    // Passer hors ligne lors de la fermeture
+    ref.read(chatServiceProvider).updatePresence('offline');
+    
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     _inputController.dispose();
@@ -269,7 +262,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   void _subscribeToRealtime() {
     _messageSub = ref.read(chatServiceProvider).subscribeToMessages(widget.conversationId).listen((updated) {
       ref.read(chatMessagesProvider(widget.conversationId).notifier).upsertRealtime(updated);
-      _markAsRead(); // Marquer comme lu immédiatement à la réception
+      _markAsRead(); 
     });
   }
 
@@ -418,11 +411,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                   child: Center(
                     child: Text(
                       _stickers[i], 
-                      style: const TextStyle(
-                        fontSize: 26,
-                        // Assure le rendu des émojis en couleurs natives (Corrige le problème du Noir & Blanc)
-                        fontFamilyFallback: ['Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'EmojiOne Color'],
-                      )
+                      // Suppression du fontFamilyFallback qui bloquait les émojis en N&B
+                      style: const TextStyle(fontSize: 26)
                     )
                   )
                 )
@@ -689,7 +679,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         titleSpacing: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain), 
-          onPressed: () => context.pop()
+          onPressed: () {
+            // Effacement sécurisé et immédiat du badge au retour
+            _markAsRead();
+            context.pop();
+          }
         ),
         title: Row(
           children: [
@@ -770,13 +764,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 children: [
                   ListView.builder(
                     controller: _scrollController,
-                    reverse: true, // Le plus bas = Index 0 = le plus récent
+                    reverse: true, 
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     itemCount: messages.length + (msgNotifier.loadingMore ? 1 : 0),
                     itemBuilder: (ctx, i) {
                       if (i == messages.length) return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary)));
                       
-                      // ── CORRECTION AFFICHAGE : L'index correspond directement au message car l'ordre est parfait
                       final msg = messages[i];
                       final isOwn = msg.senderId == ref.read(chatServiceProvider).currentUserId;
                       
