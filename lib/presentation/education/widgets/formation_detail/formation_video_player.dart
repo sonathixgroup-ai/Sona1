@@ -10,14 +10,13 @@ class _C {
 }
 
 class FormationVideoPlayer extends StatefulWidget {
-  // Changed from 'Video' object to a direct URL string
   final String videoUrl; 
   final Function(double)? onProgress;
   final VoidCallback? onComplete;
 
   const FormationVideoPlayer({
     super.key,
-    required this.videoUrl, // Updated parameter name
+    required this.videoUrl,
     this.onProgress,
     this.onComplete,
   });
@@ -57,7 +56,6 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
 
   Future<void> _initPlayer() async {
     try {
-      // Using the videoUrl string directly
       final uri = Uri.tryParse(widget.videoUrl);
       if (uri == null) throw Exception('URL de la vidéo invalide');
 
@@ -256,11 +254,12 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
   }
 
   Widget _buildLoadingState() {
-    return const AspectRatio(
+    // ✅ CORRECTION: 'const' retiré ici
+    return AspectRatio(
       aspectRatio: 16 / 9,
       child: Container(
         color: _C.bgDark,
-        child: Center(
+        child: const Center(
           child: CircularProgressIndicator(color: _C.primary),
         ),
       ),
@@ -268,11 +267,12 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
   }
 
   Widget _buildErrorState() {
-    return const AspectRatio(
+    // ✅ CORRECTION: 'const' retiré ici
+    return AspectRatio(
       aspectRatio: 16 / 9,
       child: Container(
         color: _C.bgDark,
-        child: Center(
+        child: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
