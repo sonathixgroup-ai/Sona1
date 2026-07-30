@@ -116,14 +116,14 @@ class EducationService {
             return lesson;
           }).toList();
           
-          // Tri local pour ne pas surcharger la base de données
-          lessonsList.sort((a, b) => (a.orderIndex ?? 0).compareTo(b.orderIndex ?? 0));
+          // Tri local utilisant 'order' au lieu de 'orderIndex'
+          lessonsList.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
           module.lessons = lessonsList;
         }
         return module;
       }).toList();
       
-      modulesList.sort((a, b) => (a.orderIndex ?? 0).compareTo(b.orderIndex ?? 0));
+      modulesList.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
       formation.modules = modulesList;
     }
 
@@ -151,7 +151,7 @@ class EducationService {
     await _supabase.from('formations').delete().eq('id', id);
   }
 
-  // ─── MODULES ────────────────────────────────────────────────────
+  // ─── MODULES ────────────────────────────────────────────────    
   Future<Module> createModule(Module module) async {
     final json = await _supabase.from('modules').insert(module.toJson()).select().single();
     return Module.fromJson(json);
@@ -231,7 +231,6 @@ class EducationService {
   }
 
   Future<List<UserProgress>> getUserProgress(String userId, String formationId) async {
-    // Jointure inversée pour récupérer la progression en 1 seule requête
     final response = await _supabase
         .from('user_progress')
         .select('*, lessons!inner(module_id, modules!inner(formation_id))')
