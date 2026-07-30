@@ -1,120 +1,338 @@
 // lib/presentation/education/instructor/create_book_page.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class CreateBookPage extends StatefulWidget {
+// ============================================================
+// CONSTANTES UI
+// ============================================================
+class _C {
+  static const bg = Color(0xFFF8FAFC);
+  static const surface = Colors.white;
+  static const primary = Color(0xFF2D6CDF);
+  static const textMain = Color(0xFF1E293B);
+  static const textMuted = Color(0xFF7386A8);
+  static const border = Color(0xFFE2E8F0);
+  static const red = Color(0xFFEF4444);
+  static const green = Color(0xFF2ECC71);
+}
+
+class CreateBookPage extends ConsumerStatefulWidget {
   final String? bookId;
   const CreateBookPage({super.key, this.bookId});
 
   @override
-  State<CreateBookPage> createState() => _CreateBookPageState();
+  ConsumerState<CreateBookPage> createState() => _CreateBookPageState();
 }
 
-class _CreateBookPageState extends State<CreateBookPage> {
+class _CreateBookPageState extends ConsumerState<CreateBookPage> {
   final _formKey = GlobalKey<FormState>();
+  
   final _titleController = TextEditingController();
   final _authorController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
   final _imageUrlController = TextEditingController();
   final _fileUrlController = TextEditingController();
+  
   bool _isLoading = false;
+  bool _isInitLoading = false; // Pour le chargement initial (Mode Édition)
 
   @override
   void initState() {
     super.initState();
     if (widget.bookId != null) {
-      // TODO: charger les données du livre existant
+      _loadExistingBook();
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _authorController.dispose();
+    _descriptionController.dispose();
+    _priceController.dispose();
+    _imageUrlController.dispose();
+    _fileUrlController.dispose();
+    super.dispose();
+  }
+
+  // ============================================================
+  // LOGIQUE SUPABASE
+  // ============================================================
+  Future<void> _loadExistingBook() async {
+    setState(() => _isInitLoading = true);
+    try {
+      final data = await Supabase.instance.client
+          .from('books')
+          .select()
+          .eq('id', widget.bookId!)
+          .single();
+
+      if (mounted) {
+        _titleController.text = data['title']?.toString() ?? '';
+        _authorController.text = data['author']?.toString() ?? '';
+        _descriptionController.text = data['description']?.toString() ?? '';
+        _priceController.text = data['price']?.toString() ?? '0';
+        _imageUrlController.text = data['image_url']?.toString() ?? '';
+        _fileUrlController.text = data['file_url']?.toString() ?? '';
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur chargement livre : $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de charger le livre.'), backgroundColor: _C.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isInitLoading = false);
     }
   }
 
   Future<void> _saveBook() async {
     if (!_formKey.currentState!.validate()) return;
+    
     setState(() => _isLoading = true);
+    
     try {
-      // TODO: sauvegarder dans Supabase
-      await Future.delayed(const Duration(seconds: 1));
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté.');
+
+      // Préparation du payload sécurisé
+      final payload = {
+        'title': _titleController.text.trim(),
+        'author': _authorController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'price': double.tryParse(_priceController.text.trim()) ?? 0.0,
+        'currency': 'FC', // Fixé ou modifiable selon vos besoins
+        'image_url': _imageUrlController.text.trim().isEmpty ? null : _imageUrlController.text.trim(),
+        'file_url': _fileUrlController.text.trim().isEmpty ? null : _fileUrlController.text.trim(),
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      if (widget.bookId == null) {
+        // Mode Création
+        payload['instructor_id'] = userId;
+        payload['created_at'] = DateTime.now().toIso8601String();
+        await Supabase.instance.client.from('books').insert(payload);
+      } else {
+        // Mode Édition
+        await Supabase.instance.client.from('books').update(payload).eq('id', widget.bookId!);
+      }
+
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(widget.bookId == null ? 'Livre publié avec succès !' : 'Livre mis à jour !'),
+            ],
+          ),
+          backgroundColor: _C.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      
+      context.pop(); // Retourne à la liste qui se rafraîchira automatiquement
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Livre sauvegardé !')),
-      );
-      context.pop();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e')),
+        SnackBar(content: Text('Erreur : $e'), backgroundColor: _C.red),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // ============================================================
+  // WIDGET UI
+  // ============================================================
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.bookId != null;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: _C.bg,
       appBar: AppBar(
-        title: Text(widget.bookId == null ? 'Ajouter un livre' : 'Modifier le livre'),
-        backgroundColor: Colors.white,
+        title: Text(isEditing ? 'Modifier le livre' : 'Ajouter un livre', style: const TextStyle(fontWeight: FontWeight.w800, color: _C.textMain, fontSize: 18)),
+        backgroundColor: _C.surface,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain),
           onPressed: () => context.pop(),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save_rounded),
-            onPressed: _saveBook,
-          ),
-        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Titre*'),
-                validator: (v) => v!.isEmpty ? 'Requis' : null,
-              ),
-              TextFormField(
-                controller: _authorController,
-                decoration: const InputDecoration(labelText: 'Auteur*'),
-                validator: (v) => v!.isEmpty ? 'Requis' : null,
-              ),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 4,
-              ),
-              TextFormField(
-                controller: _priceController,
-                decoration: const InputDecoration(labelText: 'Prix (FC)'),
-                keyboardType: TextInputType.number,
-              ),
-              TextFormField(
-                controller: _imageUrlController,
-                decoration: const InputDecoration(labelText: 'URL de la couverture'),
-              ),
-              TextFormField(
-                controller: _fileUrlController,
-                decoration: const InputDecoration(labelText: 'URL du fichier (PDF)'),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _saveBook,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2D6CDF),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+      body: _isInitLoading
+          ? const Center(child: CircularProgressIndicator(color: _C.primary))
+          : GestureDetector(
+              onTap: () => FocusScope.of(context).unfocus(), // Ferme le clavier au clic
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: _C.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _C.border),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Informations générales', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
+                          const SizedBox(height: 16),
+                          
+                          _buildTextField(
+                            controller: _titleController,
+                            label: 'Titre du livre',
+                            icon: Icons.title_rounded,
+                            validator: (v) => v!.trim().isEmpty ? 'Le titre est requis' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          _buildTextField(
+                            controller: _authorController,
+                            label: 'Auteur',
+                            icon: Icons.person_outline_rounded,
+                            validator: (v) => v!.trim().isEmpty ? 'L\'auteur est requis' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          _buildTextField(
+                            controller: _descriptionController,
+                            label: 'Description',
+                            icon: Icons.description_outlined,
+                            maxLines: 4,
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          _buildTextField(
+                            controller: _priceController,
+                            label: 'Prix (FC)',
+                            icon: Icons.payments_outlined,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            hintText: 'Mettre 0 si gratuit',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: _C.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _C.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Médias & Fichiers', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
+                          const SizedBox(height: 16),
+                          
+                          _buildTextField(
+                            controller: _imageUrlController,
+                            label: 'Lien de la couverture (URL Image)',
+                            icon: Icons.image_outlined,
+                            hintText: 'https://...',
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          _buildTextField(
+                            controller: _fileUrlController,
+                            label: 'Lien du fichier (URL PDF/EPUB)',
+                            icon: Icons.picture_as_pdf_outlined,
+                            hintText: 'https://...',
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _saveBook,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _C.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : Text(isEditing ? 'Mettre à jour le livre' : 'Publier le livre', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Enregistrer'),
               ),
-            ],
-          ),
+            ),
+    );
+  }
+
+  // Widget Helper pour générer des TextFields premium et harmonisés
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    int maxLines = 1,
+    TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+    String? hintText,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      validator: validator,
+      style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        labelStyle: const TextStyle(color: _C.textMuted, fontWeight: FontWeight.w500),
+        hintStyle: TextStyle(color: _C.textMuted.withOpacity(0.5)),
+        prefixIcon: maxLines == 1 ? Icon(icon, color: _C.textMuted, size: 20) : null, // Pas d'icône pour les blocs de texte multilingnes
+        filled: true,
+        fillColor: _C.bg,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.transparent),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _C.primary, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _C.red, width: 1.0),
         ),
       ),
     );
