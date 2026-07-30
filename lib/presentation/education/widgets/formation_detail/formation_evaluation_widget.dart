@@ -291,7 +291,7 @@ class FormationEvaluationWidget extends ConsumerWidget {
   List<Widget> _buildOptions(Question question, String? selected, bool isSubmitted, Function(String) onSelect) {
     final options = question.type == 'true_false' ? ['Vrai', 'Faux'] : question.options;
 
-    return options.map((option) {
+    return (options ?? []).map((option) {
       final isSelected = selected == option;
       final isCorrect = option == question.correctAnswer;
       
