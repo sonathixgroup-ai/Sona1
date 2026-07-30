@@ -2,6 +2,17 @@ import 'category.dart';
 import 'module.dart';
 import 'enrollment.dart';
 
+// ✅ Fonction utilitaire qui empêche le crash de l'écran "Apprendre"
+DateTime _safeParseDate(dynamic value) {
+  if (value == null || value.toString().trim().isEmpty) return DateTime.now();
+  if (value is DateTime) return value;
+  try {
+    return DateTime.parse(value.toString());
+  } catch (_) {
+    return DateTime.now(); // Date de secours en cas de format invalide
+  }
+}
+
 class Formation {
   final String id;
   final String title;
@@ -54,25 +65,29 @@ class Formation {
   });
 
   factory Formation.fromJson(Map<String, dynamic> json) => Formation(
-        id: json['id'],
-        title: json['title'],
-        description: json['description'] ?? '',
-        categoryId: json['category_id'] ?? '',
-        instructorId: json['instructor_id'] ?? '',
-        instructorName: json['instructor_name'],
-        level: json['level'] ?? 'beginner',
-        duration: json['duration'] ?? 0,
+        id: json['id']?.toString() ?? '',
+        title: json['title']?.toString() ?? 'Sans titre',
+        description: json['description']?.toString() ?? '',
+        categoryId: json['category_id']?.toString() ?? '',
+        instructorId: json['instructor_id']?.toString() ?? '',
+        instructorName: json['instructor_name']?.toString(),
+        level: json['level']?.toString() ?? 'beginner',
+        duration: int.tryParse(json['duration']?.toString() ?? '0') ?? json['duration'] ?? 0,
         price: (json['price'] as num?)?.toDouble() ?? 0.0,
-        currency: json['currency'] ?? 'USD',
+        currency: json['currency']?.toString() ?? 'USD',
         rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
         reviewsCount: json['reviews_count'] ?? 0,
-        imageUrl: json['image_url'],
-        isFree: json['is_free'] ?? false,
-        isCertifying: json['is_certifying'] ?? false,
-        status: json['status'] ?? 'draft',
-        tags: List<String>.from(json['tags'] ?? []),
-        createdAt: DateTime.parse(json['created_at']),
-        updatedAt: DateTime.parse(json['updated_at']),
+        imageUrl: json['image_url']?.toString(),
+        // Robustesse pour les booléens (au cas où Supabase renvoie une string 'true' ou 'false')
+        isFree: json['is_free'] == true || json['is_free'] == 'true',
+        isCertifying: json['is_certifying'] == true || json['is_certifying'] == 'true',
+        status: json['status']?.toString() ?? 'draft',
+        tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+        
+        // ✅ CORRECTION DES DATES APPLIQUÉE ICI
+        createdAt: _safeParseDate(json['created_at']),
+        updatedAt: _safeParseDate(json['updated_at']),
+        
         category: json['category'] != null ? Category.fromJson(json['category']) : null,
         modules: json['modules'] != null
             ? (json['modules'] as List).map((m) => Module.fromJson(m)).toList()
