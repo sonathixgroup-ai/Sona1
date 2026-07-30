@@ -34,7 +34,7 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
   final _imageUrlController = TextEditingController();
   final _fileUrlController = TextEditingController();
   
-  String _selectedCurrency = 'FC'; // ✅ Devise par défaut
+  String _selectedCurrency = 'FC';
   bool _isLoading = false;
   bool _isInitLoading = false;
 
@@ -71,7 +71,7 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
         _authorController.text = data['author']?.toString() ?? '';
         _descriptionController.text = data['description']?.toString() ?? '';
         _priceController.text = data['price']?.toString() ?? '0';
-        _selectedCurrency = data['currency']?.toString() ?? 'FC'; // ✅ Chargement de la devise
+        _selectedCurrency = data['currency']?.toString() ?? 'FC';
         _imageUrlController.text = data['image_url']?.toString() ?? '';
         _fileUrlController.text = data['file_url']?.toString() ?? '';
       }
@@ -96,7 +96,7 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
         'author': _authorController.text.trim(),
         'description': _descriptionController.text.trim(),
         'price': double.tryParse(_priceController.text.trim()) ?? 0.0,
-        'currency': _selectedCurrency, // ✅ Enregistrement de la devise choisie
+        'currency': _selectedCurrency,
         'image_url': _imageUrlController.text.trim().isEmpty ? null : _imageUrlController.text.trim(),
         'file_url': _fileUrlController.text.trim().isEmpty ? null : _fileUrlController.text.trim(),
         'updated_at': DateTime.now().toIso8601String(),
@@ -219,7 +219,8 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
                                     DropdownMenuItem(value: 'EUR', child: Text('EUR')),
                                   ],
                                   onChanged: (v) => setState(() => _selectedCurrency = v!),
-                                  decoration: _inputDecoration('Devise', Icons.货币_exchange_outlined), // ou autre icône adaptée
+                                  // ✅ Icône corrigée ici (remplacement des caractères non-ASCII)
+                                  decoration: _inputDecoration('Devise', Icons.currency_exchange_rounded),
                                 ),
                               ),
                             ],
