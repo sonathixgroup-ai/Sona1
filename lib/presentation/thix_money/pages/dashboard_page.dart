@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:thix_id/nav.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -10,8 +11,16 @@ class DashboardPage extends ConsumerStatefulWidget {
   ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
+class _Service {
+  final String label;
+  final Color color;
+  final IconData icon;
+  final String? route;
+  const _Service({required this.label, required this.color, required this.icon, this.route});
+}
+
 class _DashboardPageState extends ConsumerState<DashboardPage> {
-  // ─── PALETTE (Charte du nouveau design) ───
+  // ─── PALETTE (Charte du design de référence) ───
   static const Color gradientTop = Color(0xFF6D28D9);
   static const Color gradientBottom = Color(0xFF3B0764);
   static const Color accentPurple = Color(0xFF7C3AED);
@@ -24,10 +33,26 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   final PageController _promoController = PageController(viewportFraction: 0.86);
   bool _balanceVisible = true;
 
+  // ─── TES VRAIS SERVICES (inchangés) ───
+  static const List<_Service> _services = [
+    _Service(label: 'Crédit', color: Color(0xFF1E3A8A), icon: Icons.bolt_outlined, route: AppRoutes.thixMoneyLoans),
+    _Service(label: 'Assurance', color: Color(0xFF0F766E), icon: Icons.security_outlined, route: null),
+    _Service(label: 'Épargne', color: Color(0xFFB45309), icon: Icons.savings_outlined, route: AppRoutes.thixMoneySavings),
+    _Service(label: 'Change', color: Color(0xFF6D28D9), icon: Icons.currency_exchange_outlined, route: null),
+    _Service(label: 'Marchand', color: Color(0xFFC2410C), icon: Icons.storefront_outlined, route: AppRoutes.thixMarket),
+    _Service(label: 'Dons', color: Color(0xFFBE123C), icon: Icons.favorite_border_rounded, route: null),
+    _Service(label: 'Tontine', color: Color(0xFF0369A1), icon: Icons.groups_outlined, route: AppRoutes.thixMoneyTontines),
+    _Service(label: 'Éducation', color: Color(0xFF0E7490), icon: Icons.school_outlined, route: AppRoutes.education),
+    _Service(label: 'Virement', color: Color(0xFF1D4ED8), icon: Icons.language_outlined, route: AppRoutes.thixMoneySend),
+    _Service(label: 'Microfinance', color: Color(0xFF15803D), icon: Icons.account_balance_outlined, route: AppRoutes.thixMoneyLoans),
+    _Service(label: 'Investir', color: Color(0xFFB45309), icon: Icons.show_chart_rounded, route: AppRoutes.thixMoneyInvestments),
+    _Service(label: 'Planifier', color: Color(0xFF0F172A), icon: Icons.calendar_month_outlined, route: AppRoutes.thixMoneySavings),
+  ];
+
   // ─── DONNÉES RÉELLES SUPABASE ───
   Future<Map<String, dynamic>> _getRealDashboardData() async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return {'name': 'Utilisateur', 'balance': 0.0, 'thix_id': ''};
+    if (user == null) return {'name': 'Utilisateur', 'balance': 0.0, 'thix_id': '', 'avatar_url': null};
 
     final profileRes = await Supabase.instance.client
         .from('profiles')
@@ -84,49 +109,57 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           final data = snapshot.data ?? {'name': '...', 'balance': 0.0, 'thix_id': '', 'avatar_url': null};
           final thixId = data['thix_id'] as String;
 
-          return Stack(
-            children: [
-              // ─── FOND DÉGRADÉ VIOLET ───
-              Container(
-                height: 340,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [gradientTop, gradientBottom],
+          return CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              // ─── EN-TÊTE VIOLET ───
+              SliverToBoxAdapter(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [gradientTop, gradientBottom],
+                    ),
+                  ),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 70),
+                      child: _buildBalanceHeader(data['name'], data['balance'], data['avatar_url']),
+                    ),
                   ),
                 ),
               ),
-              CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: SafeArea(
-                      bottom: false,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildHeader(data['name'], data['balance'], data['avatar_url']),
-                          const SizedBox(height: 14),
-                          _buildQuickActionsCard(thixId),
-                          const SizedBox(height: 28),
-                          _sectionTitle('Payment List'),
-                          const SizedBox(height: 16),
-                          _buildPaymentGrid(),
-                          const SizedBox(height: 28),
-                          _sectionTitle('Promo & Discount', trailing: 'See more'),
-                          const SizedBox(height: 14),
-                          _buildPromoCarousel(),
-                          const SizedBox(height: 28),
-                          _sectionTitle('Opérations récentes'),
-                          const SizedBox(height: 12),
-                          _buildRealTransactions(thixId),
-                          const SizedBox(height: 120),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+
+              // ─── CARTE FLOTTANTE — chevauche le violet et le fond clair ───
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: const EdgeInsets.only(top: -60),
+                  child: _buildQuickActionsCard(),
+                ),
+              ),
+
+              // ─── RESTE DU CONTENU SUR FOND CLAIR ───
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 28),
+                    _sectionTitle('Mes services'),
+                    const SizedBox(height: 16),
+                    _buildServiceGrid(),
+                    const SizedBox(height: 28),
+                    _sectionTitle('Promo & Discount', trailing: 'See more'),
+                    const SizedBox(height: 14),
+                    _buildPromoCarousel(),
+                    const SizedBox(height: 28),
+                    _sectionTitle('Opérations récentes'),
+                    const SizedBox(height: 12),
+                    _buildRealTransactions(thixId),
+                    const SizedBox(height: 120),
+                  ],
+                ),
               ),
             ],
           );
@@ -138,7 +171,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         backgroundColor: accentPurple,
         elevation: 4,
         shape: const CircleBorder(),
-        onPressed: () => context.push('/thix-money/scanner'),
+        onPressed: () => context.push(AppRoutes.thixMoneyScanner),
         child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 26),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -169,82 +202,65 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   // ==========================================
   // EN-TÊTE (Solde disponible)
   // ==========================================
-  Widget _buildHeader(String name, double balance, String? avatarUrl) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: Colors.white24,
-                backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
-                    ? NetworkImage(avatarUrl)
-                    : null,
-                child: (avatarUrl == null || avatarUrl.isEmpty)
-                    ? const Icon(Icons.person, color: Colors.white)
-                    : null,
+  Widget _buildBalanceHeader(String name, double balance, String? avatarUrl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: Colors.white24,
+              backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) ? NetworkImage(avatarUrl) : null,
+              child: (avatarUrl == null || avatarUrl.isEmpty)
+                  ? const Icon(Icons.person, color: Colors.white)
+                  : null,
+            ),
+            InkWell(
+              onTap: () => context.push('/thix-money/notifications'),
+              borderRadius: BorderRadius.circular(24),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white38)),
+                child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 22),
               ),
-              InkWell(
-                onTap: () => context.push('/thix-money/notifications'),
-                borderRadius: BorderRadius.circular(24),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white38),
-                  ),
-                  child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 22),
-                ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 22),
+        const Text('Solde disponible', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _balanceVisible ? '${_formatBalance(balance)} FC' : '•••••• FC',
+              style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+            ),
+            const SizedBox(width: 10),
+            InkWell(
+              onTap: () => setState(() => _balanceVisible = !_balanceVisible),
+              child: Icon(
+                _balanceVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                color: Colors.white70,
+                size: 20,
               ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          const Text(
-            'Solde disponible',
-            style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _balanceVisible ? '${_formatBalance(balance)} FC' : '•••••• FC',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 34,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(width: 10),
-              InkWell(
-                onTap: () => setState(() => _balanceVisible = !_balanceVisible),
-                child: Icon(
-                  _balanceVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                  color: Colors.white70,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 26),
-        ],
-      ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   // ==========================================
   // CARTE FLOTTANTE — ACTIONS RAPIDES
   // ==========================================
-  Widget _buildQuickActionsCard(String thixId) {
+  Widget _buildQuickActionsCard() {
     final actions = [
       {'label': 'Top Up', 'icon': Icons.account_balance_wallet_outlined, 'route': '/thix-money/topup'},
-      {'label': 'Envoyer', 'icon': Icons.arrow_upward_rounded, 'route': '/thix-money/send'},
+      {'label': 'Envoyer', 'icon': Icons.arrow_upward_rounded, 'route': AppRoutes.thixMoneySend},
       {'label': 'Demander', 'icon': Icons.arrow_downward_rounded, 'route': '/thix-money/request'},
       {'label': 'Historique', 'icon': Icons.history_rounded, 'route': '/thix-money/history'},
     ];
@@ -256,9 +272,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 8)),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 24, offset: const Offset(0, 10))],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -272,17 +286,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   Container(
                     width: 48,
                     height: 48,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF1EAFE),
-                      shape: BoxShape.circle,
-                    ),
+                    decoration: const BoxDecoration(color: Color(0xFFF1EAFE), shape: BoxShape.circle),
                     child: Icon(a['icon'] as IconData, color: accentPurple, size: 22),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    a['label'] as String,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textDark),
-                  ),
+                  Text(a['label'] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textDark)),
                 ],
               ),
             );
@@ -298,17 +306,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: textDark),
-          ),
+          Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: textDark)),
           if (trailing != null)
             InkWell(
               onTap: () => context.push('/thix-money/promos'),
-              child: Text(
-                trailing,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: accentPurple),
-              ),
+              child: Text(trailing, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: accentPurple)),
             ),
         ],
       ),
@@ -316,74 +318,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   // ==========================================
-  // GRILLE DES SERVICES (Payment List)
+  // GRILLE DE TES SERVICES RÉELS
+  // — même conteneur/tailles/emplacement que la photo,
+  //   mais couleur pleine par service (icône + fond teinté)
   // ==========================================
-  Widget _buildPaymentGrid() {
-    final services = [
-      {
-        'label': 'Internet',
-        'icon': Icons.wifi_rounded,
-        'bg': const Color(0xFFFFE5E5),
-        'fg': const Color(0xFFFF5A5A),
-        'route': '/thix-money/internet',
-      },
-      {
-        'label': 'Électricité',
-        'icon': Icons.bolt_rounded,
-        'bg': const Color(0xFFFFF1D6),
-        'fg': const Color(0xFFFFA726),
-        'route': '/thix-money/electricity',
-      },
-      {
-        'label': 'Voucher',
-        'icon': Icons.confirmation_number_outlined,
-        'bg': const Color(0xFFE3F7E8),
-        'fg': const Color(0xFF34C759),
-        'route': '/thix-money/voucher',
-      },
-      {
-        'label': 'Assurance',
-        'icon': Icons.health_and_safety_outlined,
-        'bg': const Color(0xFFDFF6F6),
-        'fg': const Color(0xFF17A2A2),
-        'route': '/thix-money/insurance',
-      },
-      {
-        'label': 'M Card',
-        'icon': Icons.credit_card_rounded,
-        'bg': const Color(0xFFEDE4FB),
-        'fg': accentPurple,
-        'route': '/thix-money/mcard',
-      },
-      {
-        'label': 'Facture',
-        'icon': Icons.receipt_long_rounded,
-        'bg': const Color(0xFFE1EBFB),
-        'fg': const Color(0xFF2D6CDF),
-        'route': '/thix-money/bill',
-      },
-      {
-        'label': 'Marchand',
-        'icon': Icons.storefront_rounded,
-        'bg': const Color(0xFFFCE4F1),
-        'fg': const Color(0xFFE91E8C),
-        'route': '/thix-money/merchant',
-      },
-      {
-        'label': 'Plus',
-        'icon': Icons.apps_rounded,
-        'bg': const Color(0xFFEDE4FB),
-        'fg': accentPurple,
-        'route': '/thix-money/more',
-      },
-    ];
-
+  Widget _buildServiceGrid() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: services.length,
+        itemCount: _services.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 4,
           mainAxisSpacing: 18,
@@ -391,25 +336,33 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           childAspectRatio: 0.78,
         ),
         itemBuilder: (context, index) {
-          final s = services[index];
+          final s = _services[index];
+          final bool enabled = s.route != null;
           return InkWell(
-            onTap: () => context.push(s['route'] as String),
+            onTap: enabled
+                ? () => context.push(s.route!)
+                : () => ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${s.label} — bientôt disponible')),
+                    ),
             borderRadius: BorderRadius.circular(18),
-            child: Column(
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(color: s['bg'] as Color, shape: BoxShape.circle),
-                  child: Icon(s['icon'] as IconData, color: s['fg'] as Color, size: 24),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  s['label'] as String,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textDark, height: 1.2),
-                ),
-              ],
+            child: Opacity(
+              opacity: enabled ? 1.0 : 0.55,
+              child: Column(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(color: s.color.withOpacity(0.12), shape: BoxShape.circle),
+                    child: Icon(s.icon, color: s.color, size: 24),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    s.label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textDark, height: 1.2),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -473,12 +426,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                             children: [
                               Text(
                                 p['title'] ?? '',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.2,
-                                ),
+                                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800, height: 1.2),
                               ),
                               const SizedBox(height: 8),
                               Text(
