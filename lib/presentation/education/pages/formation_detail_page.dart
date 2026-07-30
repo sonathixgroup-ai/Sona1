@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/formation.dart';
 import '../models/lesson.dart';
-import '../providers/education_providers.dart';
+import 'package:thix_id/presentation/education/providers/education_provider.dart'; // ✅ VRAI (sans le "s")
 import '../widgets/common/education_empty_state.dart';
 import '../widgets/common/education_loading_shimmer.dart';
 import '../widgets/formation_detail/formation_module_list.dart';
