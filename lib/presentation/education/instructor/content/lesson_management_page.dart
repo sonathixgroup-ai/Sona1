@@ -27,7 +27,7 @@ class _C {
 class LessonManagementPage extends ConsumerStatefulWidget {
   final Lesson? lesson;
   final String? moduleId; 
-  final String? formationId; // Optionnel pour charger les modules si moduleId est absent
+  final String? formationId; 
 
   const LessonManagementPage({
     super.key,
@@ -84,15 +84,26 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
     setState(() => _isLoadingModules = true);
     try {
       var query = Supabase.instance.client.from('modules').select('id, title, formation_id');
+      
+      // Si on connait la formation parente, on filtre, sinon on charge tout
       if (widget.formationId != null) {
         query = query.eq('formation_id', widget.formationId!);
       }
+      
       final res = await query;
+      
       if (mounted) {
         setState(() {
           _availableModules = List<Map<String, dynamic>>.from(res);
-          if (_availableModules.isNotEmpty && _selectedModuleId == null) {
-            _selectedModuleId = _availableModules.first['id'];
+          
+          if (_availableModules.isNotEmpty) {
+            // Vérifier si le module sélectionné existe bien dans la liste
+            bool exists = _availableModules.any((m) => m['id'].toString() == _selectedModuleId);
+            if (!exists) {
+              _selectedModuleId = _availableModules.first['id'].toString();
+            }
+          } else {
+            _selectedModuleId = null;
           }
         });
       }
@@ -281,24 +292,45 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
                     const Text('Informations principales', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
                     const SizedBox(height: 16),
                     
-                    // Sélecteur de module si non fourni par le parent
+                    // Sélecteur de module dynamique : Gestion propre si la liste est vide
                     if (widget.moduleId == null && widget.lesson?.moduleId == null) ...[
                       _isLoadingModules
                           ? const Center(child: LinearProgressIndicator(color: _C.primary))
-                          : DropdownButtonFormField<String>(
-                              value: _selectedModuleId,
-                              dropdownColor: _C.surface,
-                              style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w600),
-                              items: _availableModules.map((m) {
-                                return DropdownMenuItem<String>(
-                                  value: m['id'].toString(),
-                                  child: Text(m['title']?.toString() ?? 'Module sans titre'),
-                                );
-                              }).toList(),
-                              onChanged: (v) => setState(() => _selectedModuleId = v),
-                              decoration: _inputDecoration('Module parent*', Icons.folder_open_rounded),
-                              validator: (v) => v == null || v.isEmpty ? 'Veuillez sélectionner un module' : null,
-                            ),
+                          : _availableModules.isEmpty
+                              ? Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: _C.red.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: _C.red.withOpacity(0.3)),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.warning_amber_rounded, color: _C.red),
+                                      SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          'Aucun module trouvé. Veuillez d\'abord créer un module avant d\'y ajouter une leçon.',
+                                          style: TextStyle(color: _C.red, fontWeight: FontWeight.w600, fontSize: 13),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : DropdownButtonFormField<String>(
+                                  value: _selectedModuleId,
+                                  dropdownColor: _C.surface,
+                                  style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w600),
+                                  items: _availableModules.map((m) {
+                                    return DropdownMenuItem<String>(
+                                      value: m['id'].toString(),
+                                      child: Text(m['title']?.toString() ?? 'Module sans titre'),
+                                    );
+                                  }).toList(),
+                                  onChanged: (v) => setState(() => _selectedModuleId = v),
+                                  decoration: _inputDecoration('Module parent*', Icons.folder_open_rounded),
+                                  validator: (v) => v == null || v.isEmpty ? 'Veuillez sélectionner un module' : null,
+                                ),
                       const SizedBox(height: 16),
                     ],
 
