@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:thix_id/presentation/education/providers/education_provider.dart';
 import 'package:thix_id/presentation/education/models/formation.dart';
 import 'package:thix_id/presentation/education/models/module.dart';
+import 'package:thix_id/presentation/education/models/lesson.dart';
 import 'package:thix_id/presentation/education/instructor/content/module_management_page.dart';
 
 class _C {
@@ -40,10 +41,11 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
   
   String _level = 'beginner';
   String? _categoryId;
-  String _currency = 'USD';
+  String _currency = 'FC';
   bool _isFree = false;
   bool _isCertifying = false;
   bool _isLoading = false;
+  bool _isInitLoading = false;
   List<Module> _modules = [];
 
   final List<String> _prerequisites = [];
@@ -60,8 +62,55 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
     }
   }
 
+  // ✅ CORRIGÉ : Implémentation du chargement pour la MODIFICATION
   Future<void> _loadCourse() async {
-    // Logique de chargement pour l'édition à intégrer ici plus tard
+    setState(() => _isInitLoading = true);
+    try {
+      // On récupère le cours AVEC ses modules ET ses leçons
+      final data = await Supabase.instance.client
+          .from('formations')
+          .select('*, modules(*, lessons(*))')
+          .eq('id', widget.courseId!)
+          .single();
+
+      if (mounted) {
+        setState(() {
+          _titleController.text = data['title'] ?? '';
+          _descriptionController.text = data['description'] ?? '';
+          _instructorController.text = data['instructor_name'] ?? '';
+          _priceController.text = (data['price'] ?? 0).toString();
+          _categoryId = data['category_id'];
+          _level = data['level'] ?? 'beginner';
+          _currency = data['currency'] ?? 'FC';
+          _imageUrlController.text = data['image_url'] ?? '';
+          _isFree = data['is_free'] ?? false;
+          _isCertifying = data['is_certifying'] ?? false;
+          
+          if (data['tags'] != null && data['tags'] is List) {
+            _tagsController.text = (data['tags'] as List).join(', ');
+          }
+
+          if (data['modules'] != null) {
+            _modules = (data['modules'] as List).map((mJson) {
+              final module = Module.fromJson(mJson);
+              if (mJson['lessons'] != null) {
+                module.lessons = (mJson['lessons'] as List).map((lJson) => Lesson.fromJson(lJson)).toList();
+                module.lessons!.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
+              }
+              return module;
+            }).toList();
+            _modules.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur de chargement pour édition : $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Impossible de charger le cours: $e'), backgroundColor: _C.red));
+      }
+    } finally {
+      if (mounted) setState(() => _isInitLoading = false);
+    }
   }
 
   Future<void> _pickAndUploadImage() async {
@@ -150,7 +199,7 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
         'title': _titleController.text,
         'description': _descriptionController.text,
         'category_id': (_categoryId != null && _categoryId!.isNotEmpty) ? _categoryId : null,
-        'instructor_id': userId, // Uniquement instructor_id pour correspondre à la table SQL
+        'instructor_id': userId,
         'instructor_name': _instructorController.text,
         'level': _level,
         'duration': totalDuration,
@@ -160,11 +209,10 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
         'tags': _tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
         'is_free': _isFree,
         'is_certifying': _isCertifying,
-        'status': 'draft',
+        'status': 'published', // On le passe à published ou draft selon votre logique
       };
 
       if (widget.courseId == null) {
-        // CREATION : On insère et on récupère le nouvel ID
         final res = await Supabase.instance.client.from('formations').insert(formationData).select('id').single();
         if (!mounted) return;
         
@@ -172,10 +220,8 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
           const SnackBar(content: Text('Cours sauvegardé ! Vous pouvez maintenant ajouter des modules.', style: TextStyle(color: Colors.white)), backgroundColor: Color(0xFF10B981)),
         );
         
-        // Redirection vers le mode édition de ce même cours pour débloquer les modules
         context.pushReplacement('/instructor/courses/edit/${res['id']}');
       } else {
-        // MISE À JOUR
         await Supabase.instance.client.from('formations').update(formationData).eq('id', widget.courseId!);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -253,7 +299,7 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: ElevatedButton.icon(
-              onPressed: _isLoading ? null : _saveCourse,
+              onPressed: _isLoading || _isInitLoading ? null : _saveCourse,
               icon: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save_rounded, size: 18),
               label: Text(_isLoading ? 'Sauvegarde...' : 'Enregistrer', style: const TextStyle(fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(backgroundColor: _C.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
@@ -261,7 +307,9 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
           )
         ],
       ),
-      body: SingleChildScrollView(
+      body: _isInitLoading 
+        ? const Center(child: CircularProgressIndicator(color: _C.primary))
+        : SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
@@ -322,12 +370,16 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: categoriesAsync.when(
-                            data: (cats) => DropdownButtonFormField<String>(
-                              value: _categoryId,
-                              items: cats.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis))).toList(),
-                              onChanged: (v) => setState(() => _categoryId = v),
-                              decoration: _inputDeco('Catégorie'),
-                            ),
+                            data: (cats) {
+                              // Sécurité : vérifier si _categoryId existe dans la liste chargée
+                              final catExists = cats.any((c) => c.id == _categoryId);
+                              return DropdownButtonFormField<String>(
+                                value: catExists ? _categoryId : null,
+                                items: cats.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis))).toList(),
+                                onChanged: (v) => setState(() => _categoryId = v),
+                                decoration: _inputDeco('Catégorie'),
+                              );
+                            },
                             loading: () => const Center(child: CircularProgressIndicator()),
                             error: (e, _) => const Text('Erreur DB', style: TextStyle(color: _C.red)),
                           ),
