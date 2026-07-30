@@ -41,7 +41,7 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
   
   String _level = 'beginner';
   String? _categoryId;
-  String _currency = 'FC';
+  String _currency = 'USD';
   bool _isFree = false;
   bool _isCertifying = false;
   bool _isLoading = false;
@@ -59,14 +59,18 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
     super.initState();
     if (widget.courseId != null) {
       _loadCourse();
+    } else {
+      // Pré-remplir le nom du formateur si possible
+      final userName = Supabase.instance.client.auth.currentUser?.userMetadata?['name'];
+      if (userName != null) {
+        _instructorController.text = userName;
+      }
     }
   }
 
-  // ✅ CORRIGÉ : Implémentation du chargement pour la MODIFICATION
   Future<void> _loadCourse() async {
     setState(() => _isInitLoading = true);
     try {
-      // On récupère le cours AVEC ses modules ET ses leçons
       final data = await Supabase.instance.client
           .from('formations')
           .select('*, modules(*, lessons(*))')
@@ -81,7 +85,7 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
           _priceController.text = (data['price'] ?? 0).toString();
           _categoryId = data['category_id'];
           _level = data['level'] ?? 'beginner';
-          _currency = data['currency'] ?? 'FC';
+          _currency = data['currency'] ?? 'USD';
           _imageUrlController.text = data['image_url'] ?? '';
           _isFree = data['is_free'] ?? false;
           _isCertifying = data['is_certifying'] ?? false;
@@ -188,7 +192,7 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
     
     try {
       final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) return;
+      if (userId == null) throw Exception('Utilisateur non connecté.');
 
       final totalDuration = _modules.fold<int>(0, (sum, m) {
         final lessons = m.lessons ?? [];
@@ -199,7 +203,11 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
         'title': _titleController.text,
         'description': _descriptionController.text,
         'category_id': (_categoryId != null && _categoryId!.isNotEmpty) ? _categoryId : null,
+        
+        // ✅ CORRECTION VITALE : On inclut 'user_id' pour satisfaire la contrainte SQL
+        'user_id': userId, 
         'instructor_id': userId,
+        
         'instructor_name': _instructorController.text,
         'level': _level,
         'duration': totalDuration,
@@ -209,7 +217,7 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
         'tags': _tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
         'is_free': _isFree,
         'is_certifying': _isCertifying,
-        'status': 'published', // On le passe à published ou draft selon votre logique
+        'status': 'draft',
       };
 
       if (widget.courseId == null) {
@@ -371,7 +379,6 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
                         Expanded(
                           child: categoriesAsync.when(
                             data: (cats) {
-                              // Sécurité : vérifier si _categoryId existe dans la liste chargée
                               final catExists = cats.any((c) => c.id == _categoryId);
                               return DropdownButtonFormField<String>(
                                 value: catExists ? _categoryId : null,
