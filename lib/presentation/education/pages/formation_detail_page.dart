@@ -1,3 +1,4 @@
+// lib/presentation/education/pages/formation_detail_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -48,7 +49,6 @@ class FormationDetailPage extends ConsumerWidget {
 
         return Scaffold(
           backgroundColor: _C.bg,
-          // 🚀 UI ENTREPRISE : Utilisation de CustomScrollView pour l'image d'en-tête
           body: CustomScrollView(
             slivers: [
               SliverAppBar(
@@ -68,7 +68,6 @@ class FormationDetailPage extends ConsumerWidget {
                   background: Stack(
                     fit: StackFit.expand,
                     children: [
-                      // Affichage de la photo de la formation
                       if (formation.imageUrl != null && formation.imageUrl!.isNotEmpty)
                         Image.network(
                           formation.imageUrl!,
@@ -78,7 +77,6 @@ class FormationDetailPage extends ConsumerWidget {
                       else
                         _buildPlaceholderImage(),
                       
-                      // Dégradé sombre pour la lisibilité
                       const DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -100,7 +98,6 @@ class FormationDetailPage extends ConsumerWidget {
                 ),
               ),
               
-              // Contenu de la page
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -227,7 +224,6 @@ class FormationDetailPage extends ConsumerWidget {
     );
   }
 
-  // 🚀 LOGIQUE DU BOUTON (Continuer ou S'inscrire via THIX ID)
   Widget _buildEnrollmentSection(BuildContext context, WidgetRef ref, Formation formation, bool isEnrolled, AsyncValue? enrollmentAsync, String? userId) {
     if (isEnrolled) {
       final progress = ((enrollmentAsync?.value?['progress'] ?? 0) * 100).toInt();
@@ -379,11 +375,10 @@ class _ThixIdVerificationWidgetState extends State<_ThixIdVerificationWidget> {
     });
 
     try {
-      // 1. VÉRIFICATION DANS SUPABASE
       final response = await Supabase.instance.client
           .from('profiles')
           .select('id')
-          .eq('thix_id', thixIdInput) // ✅ La bonne colonne
+          .eq('thix_id', thixIdInput) 
           .eq('id', widget.userId)           
           .maybeSingle();
 
@@ -395,7 +390,6 @@ class _ThixIdVerificationWidgetState extends State<_ThixIdVerificationWidget> {
         return;
       }
 
-      // 2. INSCRIPTION AVEC FALLBACK ROBUSTE
       bool isSuccess = false;
       
       try {
@@ -416,11 +410,20 @@ class _ThixIdVerificationWidgetState extends State<_ThixIdVerificationWidget> {
       }
       
       if (mounted) {
-        context.pop(); 
+        context.pop(); // Fermeture de la modale
         
         if (isSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vérification réussie. Inscription validée !'), backgroundColor: _C.green));
+          
+          // 1. Invalidation de l'état pour que la page actuelle se mette à jour
           widget.ref.invalidate(enrollmentProvider((userId: widget.userId, formationId: widget.formationId)));
+          
+          // 2. Redirection automatique vers "Mes cours" après une légère pause pour laisser le temps de lire le message de succès
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            if (context.mounted) {
+              context.go('/education/my-learning');
+            }
+          });
         }
       }
     } catch (e) {
@@ -429,6 +432,13 @@ class _ThixIdVerificationWidgetState extends State<_ThixIdVerificationWidget> {
         if (e.toString().contains('duplicate key')) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Identité vérifiée. Vous êtes déjà inscrit à ce cours.'), backgroundColor: _C.primary));
           widget.ref.invalidate(enrollmentProvider((userId: widget.userId, formationId: widget.formationId)));
+          
+          // Redirection également si l'utilisateur était déjà inscrit
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            if (context.mounted) {
+              context.go('/education/my-learning');
+            }
+          });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur détaillée : $e'), backgroundColor: _C.red));
         }
