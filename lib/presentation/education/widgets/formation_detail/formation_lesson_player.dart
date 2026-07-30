@@ -141,7 +141,6 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
 // WIDGET UI (ConsumerWidget)
 // ============================================================
 class FormationLessonPlayer extends ConsumerWidget {
-  // ✅ CORRECTION DU CONSTRUCTEUR POUR MATCHER LE ROUTEUR
   final String lessonId;
   final String? formationId;
   final String? moduleId;
@@ -223,12 +222,12 @@ class FormationLessonPlayer extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Description
-                  if (safeLesson.description.isNotEmpty)
+                  // ✅ CORRECTION 1: Sécurité anti-null sur la description
+                  if (safeLesson.description != null && safeLesson.description!.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 24),
                       child: Text(
-                        safeLesson.description,
+                        safeLesson.description!, // ✅ Utilisation du ! après vérification
                         style: const TextStyle(fontSize: 15, color: Color(0xFF475569), height: 1.6),
                       ),
                     ),
@@ -291,7 +290,8 @@ class FormationLessonPlayer extends ConsumerWidget {
   }
 
   Widget _buildLessonContent(BuildContext context, Lesson currentLesson, LessonProgressState state, LessonProgressNotifier notifier) {
-    if (currentLesson.type == 'video' && currentLesson.video != null) {
+    // ✅ CORRECTION 2: On vérifie le type et le contenu (l'URL) de la vidéo
+    if (currentLesson.type == 'video' && currentLesson.content != null && currentLesson.content!.isNotEmpty) {
       return Container(
         clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
@@ -299,7 +299,7 @@ class FormationLessonPlayer extends ConsumerWidget {
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)],
         ),
         child: FormationVideoPlayer(
-          video: currentLesson.video!,
+          videoUrl: currentLesson.content!, // ✅ Passage de l'URL direct avec `videoUrl`
           onProgress: (progress) => notifier.updateProgress(progress),
           onComplete: () async {
             final success = await notifier.markAsCompleted();
@@ -337,9 +337,9 @@ class FormationLessonPlayer extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: const Text(
-        'Contenu texte de la leçon (à intégrer depuis Supabase)',
-        style: TextStyle(color: Color(0xFF1E293B), fontSize: 15, height: 1.6),
+      child: Text(
+        currentLesson.content ?? 'Contenu texte de la leçon (à intégrer depuis Supabase)',
+        style: const TextStyle(color: Color(0xFF1E293B), fontSize: 15, height: 1.6),
       ),
     );
   }
