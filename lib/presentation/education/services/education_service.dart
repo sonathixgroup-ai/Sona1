@@ -1,3 +1,5 @@
+// lib/services/education/education_service.dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/formation.dart';
 import '../models/module.dart';
@@ -16,8 +18,15 @@ import '../models/submission.dart';
 import '../models/virtual_class.dart';
 import '../models/calendar_event.dart';
 import '../models/book.dart';
-import '../models/recommendation.dart'; // ✅ IMPORT AJOUTÉ
-import '../models/category.dart';      // ✅ IMPORT AJOUTÉ (pour getCategories)
+import '../models/recommendation.dart';
+import '../models/category.dart';
+
+// ============================================================
+// PROVIDER GLOBAL DU SERVICE
+// ============================================================
+final educationServiceProvider = Provider<EducationService>((ref) {
+  return EducationService(Supabase.instance.client);
+});
 
 class EducationService {
   final SupabaseClient _supabase;
@@ -43,8 +52,9 @@ class EducationService {
     if (status != null) query = query.eq('status', status);
     if (categoryId != null) query = query.eq('category_id', categoryId);
     if (level != null) query = query.eq('level', level);
-    if (search != null && search.isNotEmpty) {
-      query = query.or('title.ilike.%$search%,description.ilike.%$search%');
+    if (search != null && search.trim().isNotEmpty) {
+      final safeSearch = search.replaceAll('%', '').replaceAll('_', '');
+      query = query.or('title.ilike.%$safeSearch%,description.ilike.%$safeSearch%');
     }
     final response = await query
         .order('created_at', ascending: false)
@@ -53,46 +63,70 @@ class EducationService {
   }
 
   Future<Formation> getFormationDetails(String formationId) async {
+    // 🔥 OPTIMISATION SCALABLE : 1 SEULE REQUÊTE AU LIEU DE 50+
+    // Récupération de l'arbre complet (Formation > Modules > Leçons > Vidéos/Évaluations > Questions)
     final json = await _supabase
         .from('formations')
-        .select('*, categories(*)')
+        .select('''
+          *, 
+          categories(*),
+          modules(
+            *,
+            lessons(
+              *,
+              videos(*),
+              evaluations(
+                *,
+                questions(*)
+              )
+            )
+          )
+        ''')
         .eq('id', formationId)
         .single();
+
     final formation = Formation.fromJson(json);
-    // Charger modules, lessons, videos, evaluations, questions
-    final modulesJson = await _supabase
-        .from('modules')
-        .select('*')
-        .eq('formation_id', formationId)
-        .order('order', ascending: true);
-    final modules = <Module>[];
-    for (var mJson in modulesJson) {
-      final module = Module.fromJson(mJson);
-      final lessonsJson = await _supabase
-          .from('lessons')
-          .select('*, videos(*), evaluations(*)')
-          .eq('module_id', module.id)
-          .order('order', ascending: true);
-      final lessons = <Lesson>[];
-      for (var lJson in lessonsJson) {
-        final lesson = Lesson.fromJson(lJson);
-        if (lJson['videos'] != null) lesson.video = Video.fromJson(lJson['videos']);
-        if (lJson['evaluations'] != null) {
-          final evalJson = lJson['evaluations'];
-          final evaluation = Evaluation.fromJson(evalJson);
-          final questionsJson = await _supabase
-              .from('questions')
-              .select('*')
-              .eq('evaluation_id', evaluation.id);
-          evaluation.questions = questionsJson.map((q) => Question.fromJson(q)).toList();
-          lesson.evaluation = evaluation;
+
+    // Mapping de l'arbre relationnel (car fromJson simple ne gère souvent pas 4 niveaux de profondeur)
+    if (json['modules'] != null) {
+      final modulesList = (json['modules'] as List).map((mJson) {
+        final module = Module.fromJson(mJson);
+        
+        if (mJson['lessons'] != null) {
+          final lessonsList = (mJson['lessons'] as List).map((lJson) {
+            final lesson = Lesson.fromJson(lJson);
+            
+            // Gestion de la vidéo (relation un-à-un ou tableau)
+            if (lJson['videos'] != null) {
+              final vData = lJson['videos'] is List ? (lJson['videos'] as List).firstOrNull : lJson['videos'];
+              if (vData != null) lesson.video = Video.fromJson(vData);
+            }
+            
+            // Gestion de l'évaluation
+            if (lJson['evaluations'] != null) {
+              final eData = lJson['evaluations'] is List ? (lJson['evaluations'] as List).firstOrNull : lJson['evaluations'];
+              if (eData != null) {
+                final evaluation = Evaluation.fromJson(eData);
+                if (eData['questions'] != null) {
+                  evaluation.questions = (eData['questions'] as List).map((q) => Question.fromJson(q)).toList();
+                }
+                lesson.evaluation = evaluation;
+              }
+            }
+            return lesson;
+          }).toList();
+          
+          // Tri local pour ne pas surcharger la base de données
+          lessonsList.sort((a, b) => (a.orderIndex ?? 0).compareTo(b.orderIndex ?? 0));
+          module.lessons = lessonsList;
         }
-        lessons.add(lesson);
-      }
-      module.lessons = lessons;
-      modules.add(module);
+        return module;
+      }).toList();
+      
+      modulesList.sort((a, b) => (a.orderIndex ?? 0).compareTo(b.orderIndex ?? 0));
+      formation.modules = modulesList;
     }
-    formation.modules = modules;
+
     return formation;
   }
 
@@ -192,81 +226,43 @@ class EducationService {
   }
 
   // ─── PROGRESSION PAR LEÇON ────────────────────────────────────
-  // Alias pour getUserProgress (nom différent dans le provider)
   Future<List<UserProgress>> getUserProgressForFormation(String userId, String formationId) async {
     return getUserProgress(userId, formationId);
   }
 
   Future<List<UserProgress>> getUserProgress(String userId, String formationId) async {
-    // Récupérer tous les IDs de leçons de la formation
-    final modules = await _supabase
-        .from('modules')
-        .select('id, lessons!inner(id)')
-        .eq('formation_id', formationId);
-    final lessonIds = modules.expand((m) {
-      final lessons = m['lessons'] as List;
-      return lessons.map((l) => l['id'] as String);
-    }).toList();
-    if (lessonIds.isEmpty) return [];
+    // Jointure inversée pour récupérer la progression en 1 seule requête
     final response = await _supabase
         .from('user_progress')
-        .select('*')
+        .select('*, lessons!inner(module_id, modules!inner(formation_id))')
         .eq('user_id', userId)
-        .inFilter('lesson_id', lessonIds);
+        .eq('lessons.modules.formation_id', formationId);
+        
     return response.map((json) => UserProgress.fromJson(json)).toList();
   }
 
   Future<void> completeLesson(String userId, String lessonId) async {
     final now = DateTime.now().toIso8601String();
-    final existing = await _supabase
-        .from('user_progress')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('lesson_id', lessonId)
-        .maybeSingle();
-    if (existing != null) {
-      await _supabase.from('user_progress').update({
-        'status': 'completed',
-        'progress': 1.0,
-        'completed_at': now,
-      }).eq('id', existing['id']);
-    } else {
-      await _supabase.from('user_progress').insert({
-        'user_id': userId,
-        'lesson_id': lessonId,
-        'status': 'completed',
-        'progress': 1.0,
-        'completed_at': now,
-        'last_accessed_at': now,
-      });
-    }
+    await _supabase.from('user_progress').upsert({
+      'user_id': userId,
+      'lesson_id': lessonId,
+      'status': 'completed',
+      'progress': 1.0,
+      'completed_at': now,
+      'last_accessed_at': now,
+    }, onConflict: 'user_id, lesson_id');
   }
 
-  // ✅ NOUVELLE MÉTHODE : mise à jour de la progression d'une leçon
   Future<void> updateLessonProgress(String userId, String lessonId, String status, double progress) async {
     final now = DateTime.now().toIso8601String();
-    final existing = await _supabase
-        .from('user_progress')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('lesson_id', lessonId)
-        .maybeSingle();
-    if (existing != null) {
-      await _supabase.from('user_progress').update({
-        'status': status,
-        'progress': progress,
-        'last_accessed_at': now,
-        'completed_at': status == 'completed' ? now : null,
-      }).eq('id', existing['id']);
-    } else {
-      await _supabase.from('user_progress').insert({
-        'user_id': userId,
-        'lesson_id': lessonId,
-        'status': status,
-        'progress': progress,
-        'last_accessed_at': now,
-      });
-    }
+    await _supabase.from('user_progress').upsert({
+      'user_id': userId,
+      'lesson_id': lessonId,
+      'status': status,
+      'progress': progress,
+      'last_accessed_at': now,
+      if (status == 'completed') 'completed_at': now,
+    }, onConflict: 'user_id, lesson_id');
   }
 
   // ─── CERTIFICATS ───────────────────────────────────────────────
@@ -298,7 +294,6 @@ class EducationService {
   }
 
   // ─── RECOMMANDATIONS ────────────────────────────────────────────
-  // ✅ NOUVELLE MÉTHODE
   Future<List<Recommendation>> getRecommendations(String userId) async {
     final response = await _supabase
         .from('recommendations')
