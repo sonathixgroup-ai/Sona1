@@ -3,11 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/models/book.dart'; // Ajustez le chemin si nécessaire
+import '../models/book.dart'; // ✅ Import corrigé selon l'arborescence
 
-// ============================================================
-// CONSTANTES UI
-// ============================================================
 class _C {
   static const bg = Color(0xFFF8FAFC);
   static const surface = Colors.white;
@@ -18,9 +15,6 @@ class _C {
   static const red = Color(0xFFEF4444);
 }
 
-// ============================================================
-// PROVIDER (Logique métier et accès Supabase)
-// ============================================================
 final instructorBooksProvider = AsyncNotifierProvider<InstructorBooksNotifier, List<Book>>(
   InstructorBooksNotifier.new,
 );
@@ -36,7 +30,6 @@ class InstructorBooksNotifier extends AsyncNotifier<List<Book>> {
     if (userId == null) return [];
 
     try {
-      // On récupère uniquement les livres créés par l'instructeur connecté
       final res = await Supabase.instance.client
           .from('books')
           .select('*')
@@ -50,18 +43,14 @@ class InstructorBooksNotifier extends AsyncNotifier<List<Book>> {
     }
   }
 
-  // Permet de rafraîchir la liste manuellement (ex: après un retour de la page de création)
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() => _fetchMyBooks());
   }
 
-  // Suppression avec mise à jour optimiste de l'UI
   Future<bool> deleteBook(String bookId) async {
     try {
       await Supabase.instance.client.from('books').delete().eq('id', bookId);
-      
-      // Mise à jour immédiate de la liste locale sans refaire d'appel réseau
       if (state.value != null) {
         state = AsyncData(state.value!.where((b) => b.id != bookId).toList());
       }
@@ -73,15 +62,11 @@ class InstructorBooksNotifier extends AsyncNotifier<List<Book>> {
   }
 }
 
-// ============================================================
-// WIDGET UI (ConsumerWidget)
-// ============================================================
 class BookManagementPage extends ConsumerWidget {
   const BookManagementPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Écoute de l'état de nos livres
     final booksAsync = ref.watch(instructorBooksProvider);
     final notifier = ref.read(instructorBooksProvider.notifier);
 
@@ -100,7 +85,6 @@ class BookManagementPage extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.add_circle_outline_rounded, color: _C.primary),
             onPressed: () async {
-              // On attend le retour de la page de création, puis on rafraîchit
               await context.push('/instructor/books/create');
               notifier.refresh();
             },
@@ -116,7 +100,7 @@ class BookManagementPage extends ConsumerWidget {
             children: [
               const Icon(Icons.error_outline_rounded, color: _C.red, size: 48),
               const SizedBox(height: 16),
-              Text('Erreur de chargement', style: const TextStyle(fontWeight: FontWeight.w700, color: _C.textMain)),
+              const Text('Erreur de chargement', style: TextStyle(fontWeight: FontWeight.w700, color: _C.textMain)),
               TextButton(
                 onPressed: () => notifier.refresh(),
                 child: const Text('Réessayer'),
@@ -168,7 +152,7 @@ class BookManagementPage extends ConsumerWidget {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              'Ajoutez votre premier livre (ex: Sois un modèle, ou sois un témoin...) pour commencer à le distribuer.',
+              'Ajoutez votre premier livre pour commencer à le distribuer.',
               textAlign: TextAlign.center,
               style: TextStyle(color: _C.textMuted, height: 1.5),
             ),
@@ -219,7 +203,6 @@ class BookManagementPage extends ConsumerWidget {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                // Couverture du livre
                 Container(
                   width: 60,
                   height: 90,
@@ -235,8 +218,6 @@ class BookManagementPage extends ConsumerWidget {
                       : null,
                 ),
                 const SizedBox(width: 16),
-                
-                // Informations
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,7 +236,6 @@ class BookManagementPage extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
-                      // Badge de statut (optionnel, selon votre modèle)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
@@ -270,8 +250,6 @@ class BookManagementPage extends ConsumerWidget {
                     ],
                   ),
                 ),
-                
-                // Actions
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert_rounded, color: _C.textMuted),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
