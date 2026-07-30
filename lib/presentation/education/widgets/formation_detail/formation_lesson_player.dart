@@ -1,12 +1,149 @@
 // lib/presentation/education/widgets/formation_detail/formation_lesson_player.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../../models/lesson.dart';
-import '../../../providers/progress_provider.dart';
 import 'formation_video_player.dart';
 import 'formation_evaluation_widget.dart';
 
-class FormationLessonPlayer extends StatefulWidget {
+// ============================================================
+// ÉTAT DE LA LEÇON (Immuable)
+// ============================================================
+class LessonProgressState {
+  final bool isCompleted;
+  final double progress;
+  final bool isLoading;
+  final bool isUpdating;
+  final String? error;
+
+  const LessonProgressState({
+    this.isCompleted = false,
+    this.progress = 0.0,
+    this.isLoading = true,
+    this.isUpdating = false,
+    this.error,
+  });
+
+  LessonProgressState copyWith({
+    bool? isCompleted,
+    double? progress,
+    bool? isLoading,
+    bool? isUpdating,
+    String? error,
+  }) {
+    return LessonProgressState(
+      isCompleted: isCompleted ?? this.isCompleted,
+      progress: progress ?? this.progress,
+      isLoading: isLoading ?? this.isLoading,
+      isUpdating: isUpdating ?? this.isUpdating,
+      error: error, // On l'écrase pour pouvoir le réinitialiser à null
+    );
+  }
+}
+
+// ============================================================
+// PROVIDER & NOTIFIER (Logique Métier Séparée)
+// ============================================================
+// On utilise .family pour gérer l'état de CHAQUE leçon indépendamment via son ID
+final lessonProgressProvider = AutoDisposeNotifierProviderFamily<LessonProgressNotifier, LessonProgressState, String>(
+  LessonProgressNotifier.new,
+);
+
+class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressState, String> {
+  @override
+  LessonProgressState build(String arg) {
+    // Dès la construction, on va chercher l'état actuel dans la base de données
+    _fetchInitialProgress();
+    return const LessonProgressState(isLoading: true);
+  }
+
+  Future<void> _fetchInitialProgress() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) {
+        state = state.copyWith(isLoading: false, error: 'Utilisateur non connecté');
+        return;
+      }
+
+      // TODO: Adapter 'lesson_progress' au nom exact de votre table de progression
+      final res = await Supabase.instance.client
+          .from('lesson_progress')
+          .select('status, progress')
+          .eq('user_id', userId)
+          .eq('lesson_id', arg)
+          .maybeSingle();
+
+      if (res != null) {
+        state = state.copyWith(
+          isLoading: false,
+          isCompleted: res['status'] == 'completed',
+          progress: (res['progress'] as num?)?.toDouble() ?? 0.0,
+        );
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: 'Impossible de charger la progression.');
+    }
+  }
+
+  Future<void> updateProgress(double newProgress) async {
+    if (state.isCompleted) return; // Inutile de mettre à jour si déjà fini
+
+    final isDone = newProgress >= 1.0;
+    state = state.copyWith(progress: newProgress, isCompleted: isDone);
+
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+
+      await Supabase.instance.client.from('lesson_progress').upsert({
+        'user_id': userId,
+        'lesson_id': arg,
+        'status': isDone ? 'completed' : 'in_progress',
+        'progress': newProgress,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('Erreur lors de la mise à jour de la progression: $e');
+    }
+  }
+
+  Future<bool> markAsCompleted() async {
+    if (state.isCompleted || state.isUpdating) return false;
+
+    state = state.copyWith(isUpdating: true, error: null);
+
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) {
+        state = state.copyWith(isUpdating: false, error: 'Veuillez vous connecter pour valider la leçon.');
+        return false;
+      }
+
+      await Supabase.instance.client.from('lesson_progress').upsert({
+        'user_id': userId,
+        'lesson_id': arg,
+        'status': 'completed',
+        'progress': 1.0,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      state = state.copyWith(isUpdating: false, isCompleted: true, progress: 1.0);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isUpdating: false, error: 'Impossible de marquer la leçon comme terminée.');
+      return false;
+    }
+  }
+}
+
+// ============================================================
+// WIDGET UI (ConsumerWidget)
+// ============================================================
+class FormationLessonPlayer extends ConsumerWidget {
   final Lesson lesson;
   final String formationId;
   final String moduleId;
@@ -21,187 +158,179 @@ class FormationLessonPlayer extends StatefulWidget {
   });
 
   @override
-  State<FormationLessonPlayer> createState() => _FormationLessonPlayerState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    // On écoute l'état spécifique de CETTE leçon
+    final state = ref.watch(lessonProgressProvider(lesson.id));
+    final notifier = ref.read(lessonProgressProvider(lesson.id).notifier);
 
-class _FormationLessonPlayerState extends State<FormationLessonPlayer> {
-  bool _isCompleted = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Vérifier si la leçon est déjà complétée
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final progressProvider = context.read<ProgressProvider>();
-      final prog = progressProvider.getLessonProgress(widget.lesson.id);
-      if (prog != null && prog.status == 'completed') {
-        setState(() => _isCompleted = true);
+    // Écouteur pour les erreurs (Snackbars)
+    ref.listen<LessonProgressState>(lessonProgressProvider(lesson.id), (previous, next) {
+      if (next.error != null && (previous?.error != next.error)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.error!), backgroundColor: const Color(0xFFFF5B3D)),
+        );
       }
     });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final lesson = widget.lesson;
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
           lesson.title,
-          style: const TextStyle(fontWeight: FontWeight.w800),
+          style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E), fontSize: 16),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF1A1A2E)),
           onPressed: () => context.pop(),
         ),
         actions: [
-          IconButton(
-            icon: Icon(
-              _isCompleted
-                  ? Icons.check_circle_rounded
-                  : Icons.circle_outlined,
-              color: _isCompleted ? const Color(0xFF2ECC71) : const Color(0xFF7386A8),
+          if (state.isLoading)
+            const Padding(
+              padding: EdgeInsets.only(right: 20),
+              child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+            )
+          else
+            IconButton(
+              icon: Icon(
+                state.isCompleted ? Icons.check_circle_rounded : Icons.circle_outlined,
+                color: state.isCompleted ? const Color(0xFF2ECC71) : const Color(0xFF7386A8),
+              ),
+              onPressed: state.isCompleted
+                  ? null
+                  : () async {
+                      final success = await notifier.markAsCompleted();
+                      if (success && onComplete != null) onComplete!();
+                    },
             ),
-            onPressed: () {
-              // Marquer comme terminé manuellement
-              _markAsCompleted();
-            },
-          ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Description de la leçon
-            if (lesson.description.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Text(
-                  lesson.description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF1A1A2E),
-                    height: 1.5,
-                  ),
-                ),
-              ),
-            // Contenu selon le type
-            if (lesson.type == 'video' && lesson.video != null)
-              FormationVideoPlayer(
-                video: lesson.video!,
-                onProgress: (progress) {
-                  _updateProgress(progress);
-                },
-                onComplete: () {
-                  _markAsCompleted();
-                },
-              )
-            else if (lesson.type == 'quiz' && lesson.evaluation != null)
-              FormationEvaluationWidget(
-                evaluation: lesson.evaluation!,
-                onComplete: (score, total) {
-                  _markAsCompleted();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Quiz terminé ! Score : $score/$total'),
-                      backgroundColor: const Color(0xFF2ECC71),
-                    ),
-                  );
-                },
-              )
-            else if (lesson.type == 'text')
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0F7FF),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'Contenu texte de la leçon (à intégrer depuis Supabase)',
-                  style: const TextStyle(color: Color(0xFF1A1A2E)),
-                ),
-              ),
-            const SizedBox(height: 16),
-            // Bouton marquer comme terminé
-            if (!_isCompleted && lesson.type != 'video' && lesson.type != 'quiz')
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: _markAsCompleted,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2D6CDF),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text(
-                    'Marquer comme terminé',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-            if (_isCompleted)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2ECC71).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.check_circle_rounded, color: Color(0xFF2ECC71)),
-                    SizedBox(width: 8),
-                    Text(
-                      'Leçon terminée ! 🎉',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF2ECC71),
+      body: state.isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2D6CDF)))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Description
+                  if (lesson.description.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: Text(
+                        lesson.description,
+                        style: const TextStyle(fontSize: 15, color: Color(0xFF475569), height: 1.6),
                       ),
                     ),
-                  ],
-                ),
+                  
+                  // Contenu dynamique
+                  _buildLessonContent(context, state, notifier),
+
+                  const SizedBox(height: 24),
+
+                  // Bouton de validation (Uniquement pour Texte/Documents)
+                  if (!state.isCompleted && lesson.type != 'video' && lesson.type != 'quiz')
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: state.isUpdating
+                            ? null
+                            : () async {
+                                final success = await notifier.markAsCompleted();
+                                if (success && onComplete != null) onComplete!();
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2D6CDF),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        child: state.isUpdating
+                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Text('Marquer comme terminé', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      ),
+                    ),
+
+                  // Message de succès
+                  if (state.isCompleted)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2ECC71).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF2ECC71).withOpacity(0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF2ECC71)),
+                          SizedBox(width: 8),
+                          Text(
+                            'Leçon terminée ! 🎉',
+                            style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF2ECC71), fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
-          ],
+            ),
+    );
+  }
+
+  Widget _buildLessonContent(BuildContext context, LessonProgressState state, LessonProgressNotifier notifier) {
+    if (lesson.type == 'video' && lesson.video != null) {
+      return Container(
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)],
         ),
+        child: FormationVideoPlayer(
+          video: lesson.video!,
+          onProgress: (progress) => notifier.updateProgress(progress),
+          onComplete: () async {
+            final success = await notifier.markAsCompleted();
+            if (success && onComplete != null) onComplete!();
+          },
+        ),
+      );
+    } 
+    
+    if (lesson.type == 'quiz' && lesson.evaluation != null) {
+      return FormationEvaluationWidget(
+        evaluation: lesson.evaluation!,
+        onComplete: (score, total) async {
+          final success = await notifier.markAsCompleted();
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Quiz terminé ! Score : $score/$total'),
+                backgroundColor: const Color(0xFF2ECC71),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            if (onComplete != null) onComplete!();
+          }
+        },
+      );
+    } 
+    
+    // Fallback Texte par défaut
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: const Text(
+        'Contenu texte de la leçon (à intégrer depuis Supabase)',
+        style: TextStyle(color: Color(0xFF1E293B), fontSize: 15, height: 1.6),
       ),
     );
-  }
-
-  void _updateProgress(double progress) {
-    final progressProvider = context.read<ProgressProvider>();
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-
-    final status = progress >= 1.0 ? 'completed' : 'in_progress';
-    progressProvider.updateLessonProgress(
-      userId,
-      widget.lesson.id,
-      status,
-      progress,
-    );
-  }
-
-  void _markAsCompleted() async {
-    if (_isCompleted) return;
-
-    final progressProvider = context.read<ProgressProvider>();
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez vous connecter')),
-      );
-      return;
-    }
-
-    setState(() => _isCompleted = true);
-    await progressProvider.completeLesson(userId, widget.lesson.id);
-    widget.onComplete?.call();
   }
 }
