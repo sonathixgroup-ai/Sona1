@@ -1,8 +1,9 @@
 // lib/presentation/education/widgets/formation_detail/formation_evaluation_widget.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../models/evaluation.dart';
-import '../../../models/question.dart';
+import 'package:thix_id/presentation/education/models/evaluation.dart';
+import 'package:thix_id/presentation/education/models/question.dart'; 
+
 
 // ============================================================
 // ÉTAT DE L'ÉVALUATION (Immuable)
