@@ -9,35 +9,27 @@ import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'package:thix_id/models/chat/chat_message.dart';
 import 'package:thix_id/models/chat/user_status.dart';
 
-// Assure-toi que ces classes (Story, Space, ChatStats) sont bien dans ce fichier.
-// Sinon, modifie cet import pour pointer vers le bon fichier.
-
 class ChatProvider extends ChangeNotifier {
   final ChatService _chatService;
 
-  // États principaux utilisant les VRAIS modèles du service
   List<ChatConversation> _conversations = [];
   List<ChatConversation> _archivedConversations = [];
   List<ChatMessage> _messages = [];
   
-  // Modèles secondaires (Assure-toi qu'ils existent dans chat_models.dart)
-  List<dynamic> _stories = []; // Remplacer dynamic par Story si le modèle existe
-  List<dynamic> _spaces = [];  // Remplacer dynamic par Space si le modèle existe
-  dynamic _stats;              // Remplacer dynamic par ChatStats() si le modèle existe
+  List<dynamic> _stories = []; 
+  List<dynamic> _spaces = [];  
+  dynamic _stats;              
 
   bool _isLoading = false;
   String? _error;
 
-  // Pagination Conversations
   bool _isLoadingMore = false;
   bool _hasMoreConversations = true;
   final int _pageSize = 20;
 
-  // Pagination Messages
   bool _isLoadingMoreMessages = false;
   bool _hasMoreMessages = true;
 
-  // Getters
   List<ChatConversation> get conversations => _conversations;
   List<ChatConversation> get archivedConversations => _archivedConversations;
   List<ChatMessage> get messages => _messages;
@@ -54,15 +46,10 @@ class ChatProvider extends ChangeNotifier {
 
   ChatProvider(this._chatService);
 
-  // ============================================================
-  // CONVERSATIONS
-  // ============================================================
-
   Future<void> loadConversations() async {
     _setLoading(true);
     _hasMoreConversations = true;
     try {
-      // Plus besoin de mapper, on utilise directement ChatConversation !
       final serviceConvs = await _chatService.getConversations(limit: _pageSize, offset: 0);
       _conversations = serviceConvs;
       
@@ -103,10 +90,6 @@ class ChatProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  // ============================================================
-  // MESSAGES
-  // ============================================================
 
   Future<void> loadMessages(String conversationId) async {
     _setLoading(true);
@@ -171,7 +154,6 @@ class ChatProvider extends ChangeNotifier {
       final index = _conversations.indexWhere((c) => c.id == conversationId);
       if (index != -1) {
         final conv = _conversations[index];
-        // ✅ On réinstancie le bon modèle pour forcer la mise à jour UI
         _conversations[index] = ChatConversation(
           id: conv.id,
           isGroup: conv.isGroup,
@@ -181,11 +163,11 @@ class ChatProvider extends ChangeNotifier {
           otherParticipantName: conv.otherParticipantName,
           otherParticipantAvatar: conv.otherParticipantAvatar,
           lastMessage: conv.lastMessage,
-          unreadCount: 0, // Remise à zéro locale
+          unreadCount: 0, // Force la remise à zéro instantanée pour la liste
           updatedAt: conv.updatedAt,
           isPinned: conv.isPinned,
         );
-        notifyListeners();
+        notifyListeners(); // Rafraîchit l'UI immédiatement
       }
     } catch (e) {
       _error = e.toString();
@@ -212,10 +194,6 @@ class ChatProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  // ============================================================
-  // UTILITAIRES
-  // ============================================================
 
   void _setLoading(bool loading) {
     _isLoading = loading;
