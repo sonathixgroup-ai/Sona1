@@ -38,7 +38,7 @@ class LessonProgressState {
       progress: progress ?? this.progress,
       isLoading: isLoading ?? this.isLoading,
       isUpdating: isUpdating ?? this.isUpdating,
-      error: error, // On l'écrase pour pouvoir le réinitialiser à null
+      error: error, 
     );
   }
 }
@@ -46,7 +46,6 @@ class LessonProgressState {
 // ============================================================
 // PROVIDER & NOTIFIER (Logique Métier Séparée)
 // ============================================================
-// On utilise .family pour gérer l'état de CHAQUE leçon indépendamment via son ID
 final lessonProgressProvider = AutoDisposeNotifierProviderFamily<LessonProgressNotifier, LessonProgressState, String>(
   LessonProgressNotifier.new,
 );
@@ -54,7 +53,6 @@ final lessonProgressProvider = AutoDisposeNotifierProviderFamily<LessonProgressN
 class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressState, String> {
   @override
   LessonProgressState build(String arg) {
-    // Dès la construction, on va chercher l'état actuel dans la base de données
     _fetchInitialProgress();
     return const LessonProgressState(isLoading: true);
   }
@@ -67,7 +65,6 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
         return;
       }
 
-      // TODO: Adapter 'lesson_progress' au nom exact de votre table de progression
       final res = await Supabase.instance.client
           .from('lesson_progress')
           .select('status, progress')
@@ -90,7 +87,7 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
   }
 
   Future<void> updateProgress(double newProgress) async {
-    if (state.isCompleted) return; // Inutile de mettre à jour si déjà fini
+    if (state.isCompleted) return; 
 
     final isDone = newProgress >= 1.0;
     state = state.copyWith(progress: newProgress, isCompleted: isDone);
@@ -144,27 +141,40 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
 // WIDGET UI (ConsumerWidget)
 // ============================================================
 class FormationLessonPlayer extends ConsumerWidget {
-  final Lesson lesson;
-  final String formationId;
-  final String moduleId;
+  // ✅ CORRECTION DU CONSTRUCTEUR POUR MATCHER LE ROUTEUR
+  final String lessonId;
+  final String? formationId;
+  final String? moduleId;
+  final Lesson? lesson;
   final VoidCallback? onComplete;
 
   const FormationLessonPlayer({
     super.key,
-    required this.lesson,
-    required this.formationId,
-    required this.moduleId,
+    required this.lessonId,
+    this.formationId,
+    this.moduleId,
+    this.lesson,
     this.onComplete,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Sécurité si on accède à la page sans passer l'objet leçon complet
+    if (lesson == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Erreur'), leading: const BackButton()),
+        body: const Center(child: Text('Détails de la leçon introuvables.')),
+      );
+    }
+
+    final safeLesson = lesson!;
+    
     // On écoute l'état spécifique de CETTE leçon
-    final state = ref.watch(lessonProgressProvider(lesson.id));
-    final notifier = ref.read(lessonProgressProvider(lesson.id).notifier);
+    final state = ref.watch(lessonProgressProvider(lessonId));
+    final notifier = ref.read(lessonProgressProvider(lessonId).notifier);
 
     // Écouteur pour les erreurs (Snackbars)
-    ref.listen<LessonProgressState>(lessonProgressProvider(lesson.id), (previous, next) {
+    ref.listen<LessonProgressState>(lessonProgressProvider(lessonId), (previous, next) {
       if (next.error != null && (previous?.error != next.error)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(next.error!), backgroundColor: const Color(0xFFFF5B3D)),
@@ -176,7 +186,7 @@ class FormationLessonPlayer extends ConsumerWidget {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
-          lesson.title,
+          safeLesson.title,
           style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E), fontSize: 16),
         ),
         backgroundColor: Colors.white,
@@ -214,22 +224,22 @@ class FormationLessonPlayer extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Description
-                  if (lesson.description.isNotEmpty)
+                  if (safeLesson.description.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 24),
                       child: Text(
-                        lesson.description,
+                        safeLesson.description,
                         style: const TextStyle(fontSize: 15, color: Color(0xFF475569), height: 1.6),
                       ),
                     ),
                   
                   // Contenu dynamique
-                  _buildLessonContent(context, state, notifier),
+                  _buildLessonContent(context, safeLesson, state, notifier),
 
                   const SizedBox(height: 24),
 
                   // Bouton de validation (Uniquement pour Texte/Documents)
-                  if (!state.isCompleted && lesson.type != 'video' && lesson.type != 'quiz')
+                  if (!state.isCompleted && safeLesson.type != 'video' && safeLesson.type != 'quiz')
                     SizedBox(
                       width: double.infinity,
                       height: 52,
@@ -280,8 +290,8 @@ class FormationLessonPlayer extends ConsumerWidget {
     );
   }
 
-  Widget _buildLessonContent(BuildContext context, LessonProgressState state, LessonProgressNotifier notifier) {
-    if (lesson.type == 'video' && lesson.video != null) {
+  Widget _buildLessonContent(BuildContext context, Lesson currentLesson, LessonProgressState state, LessonProgressNotifier notifier) {
+    if (currentLesson.type == 'video' && currentLesson.video != null) {
       return Container(
         clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
@@ -289,7 +299,7 @@ class FormationLessonPlayer extends ConsumerWidget {
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)],
         ),
         child: FormationVideoPlayer(
-          video: lesson.video!,
+          video: currentLesson.video!,
           onProgress: (progress) => notifier.updateProgress(progress),
           onComplete: () async {
             final success = await notifier.markAsCompleted();
@@ -299,9 +309,9 @@ class FormationLessonPlayer extends ConsumerWidget {
       );
     } 
     
-    if (lesson.type == 'quiz' && lesson.evaluation != null) {
+    if (currentLesson.type == 'quiz' && currentLesson.evaluation != null) {
       return FormationEvaluationWidget(
-        evaluation: lesson.evaluation!,
+        evaluation: currentLesson.evaluation!,
         onComplete: (score, total) async {
           final success = await notifier.markAsCompleted();
           if (success) {
