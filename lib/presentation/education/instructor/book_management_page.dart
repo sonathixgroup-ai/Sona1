@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/book.dart'; // ✅ Import corrigé selon l'arborescence
+import '../models/book.dart';
 
+// ============================================================
+// CONSTANTES UI
+// ============================================================
 class _C {
   static const bg = Color(0xFFF8FAFC);
   static const surface = Colors.white;
@@ -15,6 +18,9 @@ class _C {
   static const red = Color(0xFFEF4444);
 }
 
+// ============================================================
+// PROVIDER (Logique métier et accès Supabase)
+// ============================================================
 final instructorBooksProvider = AsyncNotifierProvider<InstructorBooksNotifier, List<Book>>(
   InstructorBooksNotifier.new,
 );
@@ -62,6 +68,9 @@ class InstructorBooksNotifier extends AsyncNotifier<List<Book>> {
   }
 }
 
+// ============================================================
+// WIDGET UI (ConsumerWidget)
+// ============================================================
 class BookManagementPage extends ConsumerWidget {
   const BookManagementPage({super.key});
 
@@ -230,7 +239,7 @@ class BookManagementPage extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        book.author ?? 'Auteur inconnu',
+                        book.author,
                         style: const TextStyle(fontSize: 13, color: _C.textMuted),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -243,7 +252,7 @@ class BookManagementPage extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          '${book.price == 0 ? 'Gratuit' : '${book.price} ${book.currency}'}',
+                          book.price == 0 ? 'Gratuit' : '${book.price} ${book.currency}',
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _C.primary),
                         ),
                       ),
