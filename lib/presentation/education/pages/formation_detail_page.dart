@@ -226,14 +226,15 @@ class _ThixIdVerificationWidgetState extends State<_ThixIdVerificationWidget> {
     });
 
     try {
-      // 1. VÉRIFICATION DANS SUPABASE
-      // ⚠️ IMPORTANT : Adaptez 'profiles' et 'thix_id_number' aux vrais noms de vos tables/colonnes
+            // 1. VÉRIFICATION DANS SUPABASE
       final response = await Supabase.instance.client
           .from('profiles')
           .select('id')
-          .eq('thix_id_number', thixIdInput) // Colonne contenant le numéro THIX ID
-          .eq('id', widget.userId)           // S'assure que cet ID appartient bien à l'utilisateur connecté
+          // ✅ CORRECTION : Utilisation du nom exact de votre colonne 'thix_id'
+          .eq('thix_id', thixIdInput) 
+          .eq('id', widget.userId)           
           .maybeSingle();
+
 
       if (response == null) {
         // Le numéro n'existe pas ou n'appartient pas à cet utilisateur
