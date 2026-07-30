@@ -1,6 +1,5 @@
-// lib/presentation/education/instructor/lesson_management_page.dart
+// lib/presentation/education/instructor/content/lesson_management_page.dart
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,13 +67,15 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
     _contentController = TextEditingController(text: widget.lesson?.content ?? '');
     _durationController = TextEditingController(text: widget.lesson?.durationMinutes.toString() ?? '0');
     
-    _type = widget.lesson?.type ?? 'video';
+    _type = widget.lesson?.type ?? 'text';
     _duration = widget.lesson?.durationMinutes ?? 0;
     _video = widget.lesson?.video;
     _evaluation = widget.lesson?.evaluation;
     
+    // Assignation prioritaire
     _selectedModuleId = widget.moduleId ?? widget.lesson?.moduleId;
 
+    // Si on a VRAIMENT aucun ID (ce qui ne devrait plus arriver avec le nouveau flux)
     if (_selectedModuleId == null) {
       _loadModules();
     }
@@ -84,26 +85,15 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
     setState(() => _isLoadingModules = true);
     try {
       var query = Supabase.instance.client.from('modules').select('id, title, formation_id');
-      
-      // Si on connait la formation parente, on filtre, sinon on charge tout
-      if (widget.formationId != null) {
-        query = query.eq('formation_id', widget.formationId!);
-      }
+      if (widget.formationId != null) query = query.eq('formation_id', widget.formationId!);
       
       final res = await query;
       
       if (mounted) {
         setState(() {
           _availableModules = List<Map<String, dynamic>>.from(res);
-          
           if (_availableModules.isNotEmpty) {
-            // Vérifier si le module sélectionné existe bien dans la liste
-            bool exists = _availableModules.any((m) => m['id'].toString() == _selectedModuleId);
-            if (!exists) {
-              _selectedModuleId = _availableModules.first['id'].toString();
-            }
-          } else {
-            _selectedModuleId = null;
+            _selectedModuleId = _availableModules.first['id'].toString();
           }
         });
       }
@@ -136,8 +126,7 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
       setState(() => _isUploading = true);
       
       final file = result.files.first;
-      final bytes = file.bytes ?? (file.path != null ? await File(file.path!).readAsBytes() : null);
-      
+      final bytes = file.bytes;
       if (bytes == null) throw Exception('Impossible de lire le fichier.');
 
       final bucket = _type == 'video' ? 'videos' : 'documents';
@@ -146,28 +135,18 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
       final path = 'lessons/$fileName';
 
       await Supabase.instance.client.storage.from(bucket).uploadBinary(
-        path,
-        bytes,
-        fileOptions: FileOptions(upsert: true, contentType: file.identifier),
+        path, bytes, fileOptions: FileOptions(upsert: true, contentType: file.identifier),
       );
 
       final publicUrl = Supabase.instance.client.storage.from(bucket).getPublicUrl(path);
 
-      setState(() {
-        _contentController.text = publicUrl;
-      });
+      setState(() { _contentController.text = publicUrl; });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Fichier téléchargé avec succès !'), backgroundColor: _C.green),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fichier téléchargé avec succès !'), backgroundColor: _C.green));
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de l\'upload : $e'), backgroundColor: _C.red),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e'), backgroundColor: _C.red));
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -178,7 +157,7 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
 
     if (_selectedModuleId == null || _selectedModuleId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erreur : Aucun module parent sélectionné.'), backgroundColor: _C.red),
+        const SnackBar(content: Text('Erreur critique : Aucun module parent fourni.'), backgroundColor: _C.red),
       );
       return;
     }
@@ -203,17 +182,10 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
 
       if (widget.lesson == null) {
         lessonData['created_at'] = DateTime.now().toIso8601String();
-        final res = await Supabase.instance.client
-            .from('lessons')
-            .insert(lessonData)
-            .select()
-            .single();
+        final res = await Supabase.instance.client.from('lessons').insert(lessonData).select().single();
         lessonId = res['id'];
       } else {
-        await Supabase.instance.client
-            .from('lessons')
-            .update(lessonData)
-            .eq('id', lessonId);
+        await Supabase.instance.client.from('lessons').update(lessonData).eq('id', lessonId);
       }
 
       final resultLesson = Lesson(
@@ -233,9 +205,7 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
       context.pop(resultLesson);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: _C.red),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e'), backgroundColor: _C.red));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -248,22 +218,14 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
     return Scaffold(
       backgroundColor: _C.bg,
       appBar: AppBar(
-        title: Text(
-          isEditing ? 'Modifier la leçon' : 'Ajouter une leçon',
-          style: const TextStyle(fontWeight: FontWeight.w800, color: _C.textMain, fontSize: 18),
-        ),
+        title: Text(isEditing ? 'Modifier la leçon' : 'Ajouter une leçon', style: const TextStyle(fontWeight: FontWeight.w800, color: _C.textMain, fontSize: 18)),
         backgroundColor: _C.surface,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain),
-          onPressed: () => context.pop(),
-        ),
+        leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain), onPressed: () => context.pop()),
         actions: [
           IconButton(
-            icon: _isLoading
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.save_rounded, color: _C.primary),
+            icon: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_rounded, color: _C.primary),
             onPressed: _isLoading ? null : _saveLesson,
             tooltip: 'Enregistrer',
           ),
@@ -278,61 +240,47 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
             children: [
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: _C.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _C.border),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                  ],
-                ),
+                decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Informations principales', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
                     const SizedBox(height: 16),
                     
-                    // Sélecteur de module dynamique : Gestion propre si la liste est vide
-                    if (widget.moduleId == null && widget.lesson?.moduleId == null) ...[
+                    // ✅ AFFICHE UN MESSAGE DE SUCCÈS AU LIEU DU DROPDOWN QUAND TOUT VA BIEN
+                    if (widget.moduleId != null)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: _C.green.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.green.withOpacity(0.3))),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.check_circle_rounded, color: _C.green, size: 20),
+                            SizedBox(width: 10),
+                            Text('Leçon correctement liée au module', style: TextStyle(color: _C.green, fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      )
+                    else if (widget.moduleId == null && widget.lesson?.moduleId == null) ...[
+                      // S'affiche UNIQUEMENT en dernier recours (en cas d'erreur de route)
                       _isLoadingModules
                           ? const Center(child: LinearProgressIndicator(color: _C.primary))
                           : _availableModules.isEmpty
                               ? Container(
                                   padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: _C.red.withOpacity(0.05),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: _C.red.withOpacity(0.3)),
-                                  ),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.warning_amber_rounded, color: _C.red),
-                                      SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          'Aucun module trouvé. Veuillez d\'abord créer un module avant d\'y ajouter une leçon.',
-                                          style: TextStyle(color: _C.red, fontWeight: FontWeight.w600, fontSize: 13),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                  decoration: BoxDecoration(color: _C.red.withOpacity(0.05), borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.red.withOpacity(0.3))),
+                                  child: const Text('Aucun module trouvé en base de données.', style: TextStyle(color: _C.red, fontWeight: FontWeight.w600, fontSize: 13)),
                                 )
                               : DropdownButtonFormField<String>(
                                   value: _selectedModuleId,
                                   dropdownColor: _C.surface,
                                   style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w600),
-                                  items: _availableModules.map((m) {
-                                    return DropdownMenuItem<String>(
-                                      value: m['id'].toString(),
-                                      child: Text(m['title']?.toString() ?? 'Module sans titre'),
-                                    );
-                                  }).toList(),
+                                  items: _availableModules.map((m) => DropdownMenuItem<String>(value: m['id'].toString(), child: Text(m['title']?.toString() ?? 'Sans titre'))).toList(),
                                   onChanged: (v) => setState(() => _selectedModuleId = v),
                                   decoration: _inputDecoration('Module parent*', Icons.folder_open_rounded),
-                                  validator: (v) => v == null || v.isEmpty ? 'Veuillez sélectionner un module' : null,
+                                  validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
                                 ),
-                      const SizedBox(height: 16),
                     ],
+                    const SizedBox(height: 16),
 
                     TextFormField(
                       controller: _titleController,
@@ -374,20 +322,14 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
                             child: TextFormField(
                               controller: _contentController,
                               style: const TextStyle(fontWeight: FontWeight.w500),
-                              decoration: _inputDecoration(
-                                _type == 'video' ? 'URL de la vidéo' : 'URL du document',
-                                Icons.link_rounded,
-                              ),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Ce champ est requis' : null,
+                              decoration: _inputDecoration(_type == 'video' ? 'URL de la vidéo' : 'URL du document', Icons.link_rounded),
+                              validator: (v) => v == null || v.trim().isEmpty ? 'Requis' : null,
                             ),
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            icon: _isUploading
-                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                                : const Icon(Icons.upload_rounded, color: _C.primary),
+                            icon: _isUploading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload_rounded, color: _C.primary),
                             onPressed: _isUploading ? null : _uploadFile,
-                            tooltip: 'Télécharger un fichier',
                           ),
                         ],
                       )
@@ -396,13 +338,13 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
                         controller: _contentController,
                         maxLines: 5,
                         style: const TextStyle(fontWeight: FontWeight.w500),
-                        decoration: _inputDecoration('Contenu textuel de la leçon', Icons.article_outlined),
+                        decoration: _inputDecoration('Contenu textuel', Icons.article_outlined),
                       )
                     else
                       TextFormField(
                         controller: _contentController,
                         style: const TextStyle(fontWeight: FontWeight.w500),
-                        decoration: _inputDecoration('ID de l\'évaluation ou consignes', Icons.assignment_outlined),
+                        decoration: _inputDecoration('Consignes ou ID de l\'évaluation', Icons.assignment_outlined),
                       ),
                     const SizedBox(height: 16),
 
@@ -416,34 +358,6 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
-
-              if (_type == 'quiz' || _type == 'evaluation')
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    onPressed: widget.lesson?.id == null
-                        ? () => ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Veuillez d\'abord enregistrer la leçon pour configurer ses questions.')),
-                            )
-                        : () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => QuestionManagementPage(evaluationId: widget.lesson!.id),
-                              ),
-                            );
-                          },
-                    icon: const Icon(Icons.quiz_rounded, color: Colors.white),
-                    label: const Text('Gérer les questions du Quiz', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _C.primary,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
@@ -460,7 +374,6 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
       fillColor: _C.bg,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.transparent)),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.primary, width: 1.5)),
       errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.red, width: 1.0)),
     );
