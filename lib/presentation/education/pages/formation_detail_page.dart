@@ -259,7 +259,6 @@ class _FormationDetailPageState extends ConsumerState<FormationDetailPage> {
     setState(() => _isEnrolling = true);
 
     try {
-      // ✅ 1. Tentative d'utilisation du provider d'inscription
       bool success = false;
       try {
         success = await ref.read(enrollProvider.notifier).enroll(userId: userId, formationId: formationId);
@@ -267,10 +266,9 @@ class _FormationDetailPageState extends ConsumerState<FormationDetailPage> {
         success = false;
       }
 
-      // ✅ 2. SOLUTION DE SECOURS DIRECTE EN BASE SI LE PROVIDER ECHOUE
       if (!success) {
         await Supabase.instance.client.from('enrollments').insert({
-          'user_id': userId,
+          'uid': userId, // ✅ CORRIGÉ (uid)
           'formation_id': formationId,
           'status': 'active',
           'progress': 0.0,
@@ -282,7 +280,6 @@ class _FormationDetailPageState extends ConsumerState<FormationDetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Inscription réussie ! Bon apprentissage.'), backgroundColor: Color(0xFF10B981)),
         );
-        // On force le rafraîchissement pour afficher le bouton "Déjà inscrit"
         ref.invalidate(enrollmentProvider((userId: userId, formationId: formationId)));
       }
     } catch (e) {
