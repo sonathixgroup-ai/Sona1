@@ -129,7 +129,10 @@ final recommendationsProvider = FutureProvider.family<List<Formation>, String>((
 
 final formationDetailProvider = FutureProvider.family<Formation?, String>((ref, String formationId) async {
   final client = ref.watch(supabaseClientProvider);
-  final res = await client.from('formations').select('*, category:categories(id,name), modules(id,title,order_index, lessons(id,title,duration,order_index,type,module_id))').eq('id', formationId).maybeSingle();
+  
+  // ✅ CORRECTION APPLIQUÉE ICI : 'duration' est devenu 'duration_minutes'
+  final res = await client.from('formations').select('*, category:categories(id,name), modules(id,title,order_index, lessons(id,title,duration_minutes,order_index,type,module_id))').eq('id', formationId).maybeSingle();
+  
   return res == null ? null : Formation.fromJson(res);
 });
 
