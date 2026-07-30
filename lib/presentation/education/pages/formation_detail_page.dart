@@ -1,424 +1,328 @@
-// lib/presentation/education/pages/formation_detail_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/formation.dart';
+import '../models/lesson.dart';
+import '../providers/education_providers.dart';
+import '../widgets/common/education_empty_state.dart';
+import '../widgets/common/education_loading_shimmer.dart';
+import '../widgets/formation_detail/formation_module_list.dart';
 
-import 'package:thix_id/presentation/education/models/formation.dart';
-import 'package:thix_id/presentation/education/models/lesson.dart';
-import 'package:thix_id/presentation/education/providers/education_provider.dart';
-import 'package:thix_id/presentation/education/widgets/common/education_empty_state.dart';
-import 'package:thix_id/presentation/education/widgets/common/education_loading_shimmer.dart';
-import 'package:thix_id/presentation/education/widgets/formation_detail/formation_module_list.dart';
-
-class _C {
-  static const bg = Color(0xFFF8FAFC);
-  static const surface = Colors.white;
-  static const primary = Color(0xFF2D6CDF);
-  static const green = Color(0xFF10B981);
-  static const textMain = Color(0xFF1E293B);
-  static const textMuted = Color(0xFF7386A8);
-  static const border = Color(0xFFE2E8F0);
-  static const red = Color(0xFFEF4444); // ✅ La couleur manquante ajoutée ici
-}
-
-
-class FormationDetailPage extends ConsumerStatefulWidget {
+class FormationDetailPage extends ConsumerWidget {
   final String formationId;
   const FormationDetailPage({super.key, required this.formationId});
 
   @override
-  ConsumerState<FormationDetailPage> createState() => _FormationDetailPageState();
-}
-
-class _FormationDetailPageState extends ConsumerState<FormationDetailPage> {
-  bool _isEnrolling = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final formationAsync = ref.watch(formationDetailProvider(widget.formationId));
+  Widget build(BuildContext context, WidgetRef ref) {
+    final formationAsync = ref.watch(formationDetailProvider(formationId));
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    
-    final enrollmentAsync = userId == null 
-        ? null 
-        : ref.watch(enrollmentProvider((userId: userId, formationId: widget.formationId)));
+    final enrollmentAsync = userId == null ? null : ref.watch(enrollmentProvider((userId: userId, formationId: formationId)));
 
     return formationAsync.when(
       loading: () => const Scaffold(body: EducationLoadingShimmer()),
-      error: (err, stack) => Scaffold(
-        body: Center(
-          child: Text('Erreur de chargement : $err', style: const TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.w600)),
-        ),
-      ),
+      error: (e, _) => Scaffold(body: Center(child: Text('Erreur: $e', style: const TextStyle(color: Colors.redAccent)))),
       data: (formation) {
         if (formation == null) {
-          return Scaffold(
-            body: EducationEmptyState(
-              title: 'Formation introuvable',
-              subtitle: 'Cette formation n\'existe pas ou a été supprimée.',
-              icon: Icons.school_rounded,
-              buttonText: 'Retourner à la liste',
-              onButtonPressed: () => context.pop(),
-            ),
-          );
+          return Scaffold(body: EducationEmptyState(title: 'Formation introuvable', subtitle: 'Cette formation n\'existe pas ou a été supprimée.', icon: Icons.school_rounded, buttonText: 'Retourner à la liste', onButtonPressed: () => context.pop()));
         }
-
-        final isEnrolled = enrollmentAsync?.value != null;
-
         return Scaffold(
-          backgroundColor: _C.bg,
-          // 🚀 UI ENTREPRISE : Utilisation de CustomScrollView et SliverAppBar pour l'image
-          body: CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                expandedHeight: 250.0,
-                pinned: true,
-                backgroundColor: _C.surface,
-                elevation: 0,
-                leading: Container(
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.black26, shape: BoxShape.circle),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), 
-                    onPressed: () => context.pop()
-                  ),
-                ),
-                actions: [
-                  Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: Colors.black26, shape: BoxShape.circle),
-                    child: IconButton(
-                      icon: const Icon(Icons.bookmark_border_rounded, color: Colors.white), 
-                      onPressed: () {}
-                    ),
-                  ),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Affichage de l'image de couverture
-                      if (formation.imageUrl != null && formation.imageUrl!.isNotEmpty)
-                        Image.network(
-                          formation.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
-                        )
-                      else
-                        _buildPlaceholderImage(),
-                      
-                      // Dégradé sombre pour que le texte et les icônes ressortent
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.black54, Colors.transparent, Colors.black87],
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 16,
-                        left: 20,
-                        right: 20,
-                        child: Text(
-                          formation.title,
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              // Contenu de la page
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildAuthorAndMeta(formation),
-                      const SizedBox(height: 24),
-                      _buildEnrollmentSection(formation, isEnrolled, enrollmentAsync, userId),
-                      const SizedBox(height: 24),
-                      _buildInfoRow(formation),
-                      const SizedBox(height: 24),
-                      _buildDescription(formation),
-                      const SizedBox(height: 32),
-                      
-                      const Text('Programme du cours', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _C.textMain)),
-                      const SizedBox(height: 16),
-                      FormationModuleList(
-                        formation: formation,
-                        // Si l'utilisateur n'est pas inscrit, on peut bloquer l'accès aux leçons
-                        onLessonTap: (lesson) {
-                          if (isEnrolled) {
-                            _openLesson(lesson, formation);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Veuillez vous inscrire pour accéder au contenu.'), behavior: SnackBarBehavior.floating),
-                            );
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 40),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          backgroundColor: Colors.grey[50],
+          appBar: AppBar(
+            title: Text(formation.title, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))), 
+            backgroundColor: Colors.white, 
+            elevation: 0, 
+            leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF1A1A2E)), onPressed: () => context.pop())
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16), 
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, 
+              children: [
+                _buildHeader(formation),
+                const SizedBox(height: 16),
+                _buildDescription(formation),
+                const SizedBox(height: 16),
+                _buildInfoRow(formation),
+                const SizedBox(height: 24),
+                
+                // Bouton d'inscription ou de continuation
+                _buildEnrollButton(context, ref, formation, enrollmentAsync, userId),
+                
+                const SizedBox(height: 24),
+                FormationModuleList(formation: formation, onLessonTap: (lesson) => _openLesson(context, lesson, enrollmentAsync)),
+                const SizedBox(height: 32),
+              ]
+            )
           ),
         );
       },
     );
   }
 
-  Widget _buildPlaceholderImage() {
+  Widget _buildHeader(Formation formation) {
     return Container(
-      color: _C.primary.withOpacity(0.1),
-      child: const Center(
-        child: Icon(Icons.school_rounded, size: 64, color: _C.primary),
+      width: double.infinity, 
+      padding: const EdgeInsets.all(16), 
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF0A1F44).withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))]), 
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, 
+        children: [
+          Text(formation.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1A1A2E))),
+          const SizedBox(height: 12),
+          if (formation.instructorName != null && formation.instructorName!.isNotEmpty) 
+            Row(children: [const Icon(Icons.person_outline_rounded, size: 16, color: Color(0xFF7386A8)), const SizedBox(width: 6), Text(formation.instructorName!, style: const TextStyle(color: Color(0xFF7386A8), fontSize: 14, fontWeight: FontWeight.w600))]),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.school_rounded, size: 16, color: Color(0xFF7386A8)), 
+              const SizedBox(width: 6), 
+              Text(formation.category?.name ?? 'Non catégorisé', style: const TextStyle(color: Color(0xFF7386A8), fontSize: 14, fontWeight: FontWeight.w500)), 
+              const Spacer(), 
+              if (formation.level.isNotEmpty) 
+                Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF2D6CDF).withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Text(formation.level == 'beginner'? 'Débutant' : formation.level == 'intermediate'? 'Intermédiaire' : 'Avancé', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF2D6CDF))))
+            ]
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.access_time_rounded, size: 16, color: Color(0xFF7386A8)), 
+              const SizedBox(width: 6), 
+              Text('${formation.duration ~/ 60}h ${formation.duration % 60}min', style: const TextStyle(color: Color(0xFF7386A8), fontSize: 14, fontWeight: FontWeight.w500)), 
+              const Spacer(), 
+              if (formation.price > 0) 
+                Text('${formation.price.toInt()} ${formation.currency}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF2D6CDF))) 
+              else 
+                Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Text('Gratuit', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF10B981))))
+            ]
+          ),
+        ]
+      )
+    );
+  }
+
+  Widget _buildDescription(Formation f) => Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF0A1F44).withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))]), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Description', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))), const SizedBox(height: 8), Text(f.description, style: const TextStyle(fontSize: 14, height: 1.6, color: Color(0xFF475569)))]));
+  
+  Widget _buildInfoRow(Formation f) {
+    final totalLessons = f.modules?.fold<int>(0, (sum, m) => sum + (m.lessons?.length ?? 0)) ?? 0;
+    return Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF0A1F44).withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))]), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+      _info(Icons.people_rounded, '${f.enrollments?.length ?? 0}', 'Élèves'),
+      _info(Icons.video_library_rounded, '$totalLessons', 'Leçons'),
+      _info(Icons.star_rounded, f.rating.toStringAsFixed(1), 'Note'),
+    ]));
+  }
+  
+  Widget _info(IconData i, String v, String l) => Column(children: [Icon(i, color: const Color(0xFF2D6CDF)), const SizedBox(height: 6), Text(v, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF1A1A2E))), Text(l, style: const TextStyle(fontSize: 12, color: Color(0xFF7386A8), fontWeight: FontWeight.w500))]);
+
+  Widget _buildEnrollButton(BuildContext context, WidgetRef ref, Formation formation, AsyncValue? enrollmentAsync, String? userId) {
+    final isEnrolled = enrollmentAsync?.value != null;
+    final progress = enrollmentAsync?.value?['progress'] ?? 0.0;
+    
+    if (isEnrolled) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16), 
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))), 
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Votre progression', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
+                Text('${(progress * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF2D6CDF))),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: (progress as num).toDouble(), backgroundColor: const Color(0xFFF1F5F9), color: const Color(0xFF2D6CDF), borderRadius: BorderRadius.circular(4), minHeight: 8),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity, height: 48, 
+              child: ElevatedButton.icon(
+                onPressed: () {
+                   // Logique pour lancer la dernière leçon en cours (ou ouvrir le premier module)
+                },
+                icon: const Icon(Icons.play_circle_fill_rounded),
+                label: const Text('Continuer l\'apprentissage', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2D6CDF), foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              )
+            )
+          ]
+        )
+      );
+    }
+    
+    // Cas : L'utilisateur n'est pas encore inscrit
+    return SizedBox(
+      width: double.infinity, 
+      height: 52, 
+      child: ElevatedButton(
+        onPressed: () {
+          if (userId == null) { 
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous connecter pour vous inscrire.'))); 
+            return; 
+          }
+          // Lancement de la procédure de vérification THIX ID
+          _showThixIdVerificationSheet(context, ref, userId, formation.id);
+        },
+        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2D6CDF), foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+        child: const Text('S\'inscrire à cette formation', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+      )
+    );
+  }
+
+  void _openLesson(BuildContext context, Lesson lesson, AsyncValue? enrollmentAsync) {
+    final isEnrolled = enrollmentAsync?.value != null;
+    if (!isEnrolled) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous inscrire pour accéder au contenu.')));
+      return;
+    }
+    context.push('/education/lesson/${lesson.id}', extra: {'formationId': formationId, 'moduleId': lesson.moduleId, 'lesson': lesson});
+  }
+
+  // ============================================================================
+  // LOGIQUE DE SÉCURITÉ : VÉRIFICATION THIX ID
+  // ============================================================================
+  void _showThixIdVerificationSheet(BuildContext context, WidgetRef ref, String userId, String formationId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: _ThixIdVerificationWidget(userId: userId, formationId: formationId, ref: ref),
       ),
     );
   }
+}
 
-  Widget _buildAuthorAndMeta(Formation formation) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (formation.instructorName != null && formation.instructorName!.isNotEmpty)
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: _C.primary.withOpacity(0.2),
-                child: const Icon(Icons.person, size: 16, color: _C.primary),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                formation.instructorName!,
-                style: const TextStyle(color: _C.textMain, fontSize: 15, fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(color: _C.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-              child: Text(
-                formation.category?.name ?? 'Non catégorisé',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _C.primary),
-              ),
-            ),
-            const SizedBox(width: 10),
-            if (formation.level.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(8)),
-                child: Text(
-                  formation.level == 'beginner' ? 'Débutant' : formation.level == 'intermediate' ? 'Intermédiaire' : 'Avancé',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _C.textMain),
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
+// Widget Stateful pour gérer la saisie et le chargement de la vérification
+class _ThixIdVerificationWidget extends StatefulWidget {
+  final String userId;
+  final String formationId;
+  final WidgetRef ref;
+
+  const _ThixIdVerificationWidget({required this.userId, required this.formationId, required this.ref});
+
+  @override
+  State<_ThixIdVerificationWidget> createState() => _ThixIdVerificationWidgetState();
+}
+
+class _ThixIdVerificationWidgetState extends State<_ThixIdVerificationWidget> {
+  final _thixIdController = TextEditingController();
+  bool _isVerifying = false;
+  String? _errorMessage;
+
+  Future<void> _verifyAndEnroll() async {
+    final thixIdInput = _thixIdController.text.trim();
+    if (thixIdInput.isEmpty) {
+      setState(() => _errorMessage = "Veuillez entrer votre numéro THIX ID.");
+      return;
+    }
+
+    setState(() {
+      _isVerifying = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // 1. VÉRIFICATION DANS SUPABASE
+      // ⚠️ IMPORTANT : Adaptez 'profiles' et 'thix_id_number' aux vrais noms de vos tables/colonnes
+      final response = await Supabase.instance.client
+          .from('profiles')
+          .select('id')
+          .eq('thix_id_number', thixIdInput) // Colonne contenant le numéro THIX ID
+          .eq('id', widget.userId)           // S'assure que cet ID appartient bien à l'utilisateur connecté
+          .maybeSingle();
+
+      if (response == null) {
+        // Le numéro n'existe pas ou n'appartient pas à cet utilisateur
+        setState(() {
+          _errorMessage = "Échec de l'authentification : Le numéro THIX ID est invalide ou ne correspond pas à votre compte.";
+          _isVerifying = false;
+        });
+        return;
+      }
+
+      // 2. INSCRIPTION SI LE THIX ID EST VALIDE
+      final ok = await widget.ref.read(enrollProvider.notifier).enroll(userId: widget.userId, formationId: widget.formationId);
+      
+      if (mounted) {
+        context.pop(); // Ferme le BottomSheet
+        if (ok) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vérification réussie. Inscription validée !'), backgroundColor: Color(0xFF10B981)));
+          // Force le rafraîchissement des données d'inscription
+          widget.ref.invalidate(enrollmentProvider((userId: widget.userId, formationId: widget.formationId)));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l\'inscription à la formation.'), backgroundColor: Colors.redAccent));
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = "Erreur de connexion au réseau d'identité. Veuillez réessayer.";
+        _isVerifying = false;
+      });
+    }
   }
 
-  // 🚀 UX DYNAMIQUE : Le bloc d'inscription s'adapte automatiquement
-  Widget _buildEnrollmentSection(Formation formation, bool isEnrolled, AsyncValue? enrollmentAsync, String? userId) {
-    if (isEnrolled) {
-      final progress = ((enrollmentAsync?.value?['progress'] ?? 0) * 100).toInt();
-      return Column(
+  @override
+  void dispose() {
+    _thixIdController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Votre progression', style: TextStyle(fontWeight: FontWeight.w700, color: _C.textMain)),
-              Text('$progress%', style: const TextStyle(fontWeight: FontWeight.w800, color: _C.primary)),
+              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF2D6CDF).withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.security_rounded, color: Color(0xFF2D6CDF))),
+              const SizedBox(width: 12),
+              const Text('Passerelle de sécurité', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1A1A2E))),
             ],
           ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: progress / 100,
-            backgroundColor: _C.border,
-            color: _C.primary,
-            minHeight: 8,
-            borderRadius: BorderRadius.circular(4),
-          ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: () => _startOrContinueLearning(formation),
-              icon: const Icon(Icons.play_circle_fill_rounded, color: Colors.white),
-              label: const Text('Continuer l\'apprentissage', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _C.primary,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
+          const Text('Veuillez confirmer votre identité en saisissant votre numéro THIX ID avant de finaliser votre inscription.', style: TextStyle(color: Color(0xFF475569), fontSize: 14, height: 1.5)),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _thixIdController,
+            decoration: InputDecoration(
+              labelText: 'Numéro THIX ID',
+              prefixIcon: const Icon(Icons.badge_rounded, color: Color(0xFF7386A8)),
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF2D6CDF), width: 1.5)),
+              errorText: _errorMessage,
             ),
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _verifyAndEnroll(),
           ),
-        ],
-      );
-    }
-
-    // Vue si non inscrit
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _C.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _C.primary.withOpacity(0.2)),
-        boxShadow: [BoxShadow(color: _C.primary.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Prix du cours', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _C.textMuted)),
-              if (formation.price > 0)
-                Text('${formation.price.toInt()} ${formation.currency}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: _C.textMain))
-              else
-                const Text('Gratuit', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: _C.green)),
-            ],
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: _isEnrolling ? null : () => _enrollUser(userId, formation),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _C.primary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: _isEnrolling
+              onPressed: _isVerifying ? null : _verifyAndEnroll,
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A1A2E), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+              child: _isVerifying 
                   ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Commencer ce cours', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                  : const Text('Vérifier et S\'inscrire', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
             ),
           ),
+          const SizedBox(height: 8),
         ],
       ),
-    );
-  }
-
-  // 🚀 REDIRECTION INTELLIGENTE APRÈS INSCRIPTION
-  Future<void> _enrollUser(String? userId, Formation formation) async {
-    if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous connecter.')));
-      return;
-    }
-
-    setState(() => _isEnrolling = true);
-
-    try {
-      bool success = false;
-      try {
-        success = await ref.read(enrollProvider.notifier).enroll(userId: userId, formationId: formation.id);
-      } catch (_) {
-        success = false;
-      }
-
-      if (!success) {
-        await Supabase.instance.client.from('enrollments').insert({
-          'uid': userId,
-          'formation_id': formation.id,
-          'status': 'active',
-          'progress': 0.0,
-          'created_at': DateTime.now().toIso8601String(),
-        });
-      }
-
-      if (mounted) {
-        // 1. Rafraîchir les états pour que le cours apparaisse dans "Mes cours"
-        ref.invalidate(enrollmentProvider((userId: userId, formationId: formation.id)));
-        
-        // 2. Lancer la première leçon immédiatement ou rediriger vers l'espace Apprendre
-        _startOrContinueLearning(formation);
-      }
-    } catch (e) {
-      if (mounted) {
-        final msg = e.toString().contains('duplicate key') ? 'Vous êtes déjà inscrit.' : 'Erreur: $e';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: _C.red));
-      }
-    } finally {
-      if (mounted) setState(() => _isEnrolling = false);
-    }
-  }
-
-  void _startOrContinueLearning(Formation formation) {
-    // Cherche la première leçon disponible dans les modules
-    if (formation.modules != null && formation.modules!.isNotEmpty) {
-      for (var module in formation.modules!) {
-        if (module.lessons != null && module.lessons!.isNotEmpty) {
-          final firstLesson = module.lessons!.first;
-          _openLesson(firstLesson, formation);
-          return; // On arrête dès qu'on a trouvé la leçon
-        }
-      }
-    }
-    
-    // Si le cours est vide (aucune leçon), on redirige vers le tableau de bord Apprendre
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Le contenu arrive bientôt ! Redirection vers vos cours.'), backgroundColor: _C.green),
-    );
-    // ⚠️ Ajustez ce chemin '/apprendre' selon la configuration exacte de votre GoRouter pour l'onglet "Mes cours"
-    context.go('/apprendre'); 
-  }
-
-  void _openLesson(Lesson lesson, Formation formation) {
-    context.push(
-      '/education/lesson/${lesson.id}',
-      extra: {'formationId': formation.id, 'moduleId': lesson.moduleId, 'lesson': lesson},
-    );
-  }
-
-  Widget _buildDescription(Formation formation) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('À propos de ce cours', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _C.textMain)),
-        const SizedBox(height: 12),
-        Text(formation.description, style: const TextStyle(fontSize: 14, height: 1.6, color: _C.textMuted)),
-      ],
-    );
-  }
-
-  Widget _buildInfoRow(Formation formation) {
-    final totalLessons = formation.modules?.fold<int>(0, (sum, m) => sum + (m.lessons?.length ?? 0)) ?? 0;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _buildInfoItem(Icons.people_rounded, '${formation.enrollments?.length ?? 0}', 'Élèves'),
-        _buildInfoItem(Icons.video_library_rounded, '$totalLessons', 'Leçons'),
-        _buildInfoItem(Icons.timer_rounded, '${formation.duration ~/ 60}h', 'Durée'),
-      ],
-    );
-  }
-
-  Widget _buildInfoItem(IconData icon, String value, String label) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: _C.surface, shape: BoxShape.circle, border: Border.all(color: _C.border)),
-          child: Icon(icon, color: _C.primary, size: 24),
-        ),
-        const SizedBox(height: 8),
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
-        Text(label, style: const TextStyle(fontSize: 12, color: _C.textMuted, fontWeight: FontWeight.w500)),
-      ],
     );
   }
 }
