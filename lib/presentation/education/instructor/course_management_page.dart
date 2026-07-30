@@ -31,7 +31,6 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     _loadMyCourses();
   }
 
-  // ✅ CORRIGÉ : Récupération ciblée uniquement des cours du formateur connecté
   Future<void> _loadMyCourses() async {
     setState(() => _loading = true);
     try {
@@ -41,11 +40,11 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         return;
       }
 
-      // Requête directe filtrée par user_id ou instructor_id
+      // ✅ CORRIGÉ : On cherche 'instructor_id' (et non 'user_id') comme défini en SQL
       final response = await Supabase.instance.client
           .from('formations')
-          .select('*')
-          .eq('user_id', userId)
+          .select('*, categories(*)') // On inclut la catégorie pour l'affichage
+          .eq('instructor_id', userId)
           .order('created_at', ascending: false);
 
       final loadedCourses = (response as List)
@@ -78,12 +77,11 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           onPressed: () => context.pop(),
         ),
         actions: [
-          // ✅ CORRIGÉ : Au retour de la création (await push), on recharge la liste instantanément
           IconButton(
             icon: const Icon(Icons.add_rounded, color: _C.primary),
             onPressed: () async {
               await context.push('/instructor/courses/create');
-              _loadMyCourses(); // Rafraîchit la liste des cours dès le retour
+              _loadMyCourses(); 
             },
           ),
         ],
@@ -124,12 +122,16 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         final course = _courses[index];
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: FormationCard(
-                            formation: course,
+                          // ✅ Pour modifier : on clique sur la carte et on va vers l'édition
+                          child: GestureDetector(
                             onTap: () async {
                               await context.push('/instructor/courses/edit/${course.id}');
-                              _loadMyCourses(); // Rafraîchit aussi au retour d'une modification
+                              _loadMyCourses(); // Rafraîchit après modification
                             },
+                            child: AbsorbPointer(
+                              // AbsorbPointer évite que les clics internes de FormationCard ne bloquent notre GestureDetector
+                              child: FormationCard(formation: course, onTap: () {}),
+                            ),
                           ),
                         );
                       },
