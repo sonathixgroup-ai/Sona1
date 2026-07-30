@@ -26,7 +26,8 @@ class FormationVideoPlayer extends StatefulWidget {
   State<FormationVideoPlayer> createState() => _FormationVideoPlayerState();
 }
 
-class _FormationVideoPlayerState extends State<FormationVideoPlayer> {
+// Ajout de WidgetsBindingObserver pour gérer le cycle de vie de l'app
+class _FormationVideoPlayerState extends State<FormationVideoPlayer> with WidgetsBindingObserver {
   late VideoPlayerController _controller;
   
   bool _isInitialized = false;
@@ -43,18 +44,33 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Écoute la mise en arrière-plan
     _initPlayer();
+  }
+
+  // Met la vidéo en pause si l'utilisateur quitte l'application
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      if (_isInitialized && _controller.value.isPlaying) {
+        _controller.pause();
+        setState(() => _showControls = true);
+      }
+    }
   }
 
   Future<void> _initPlayer() async {
     try {
-      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.video.url));
+      // Sécurisation du parsing de l'URL
+      final uri = Uri.tryParse(widget.video.url);
+      if (uri == null) throw Exception('URL de la vidéo invalide');
+
+      _controller = VideoPlayerController.networkUrl(uri);
       await _controller.initialize();
       
       if (mounted) {
         setState(() => _isInitialized = true);
         _startHideTimer();
-
         _controller.addListener(_videoListener);
       }
     } catch (e) {
@@ -78,9 +94,7 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> {
         widget.onComplete?.call();
       }
 
-      // 2. Throttle (Limiteur) pour la base de données :
-      // On n'informe le parent (qui fait un appel DB) que tous les 5% de progression.
-      // Cela évite de tuer votre base de données Supabase si vous avez 1 million d'utilisateurs.
+      // 2. Throttle (Limiteur) pour la base de données : 5% de progression minimum
       if ((progress - _lastReportedProgress).abs() > 0.05 || progress >= 0.95) {
         _lastReportedProgress = progress;
         widget.onProgress?.call(progress.clamp(0.0, 1.0));
@@ -90,6 +104,7 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _hideTimer?.cancel();
     _controller.removeListener(_videoListener);
     _controller.dispose();
@@ -182,7 +197,7 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> {
               ),
             ),
 
-            // 4. Barre de contrôles inférieure (Optimisée avec ValueListenableBuilder)
+            // 4. Barre de contrôles inférieure
             Positioned(
               bottom: 0, left: 0, right: 0,
               child: AnimatedOpacity(
@@ -204,21 +219,44 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> {
                         children: [
                           Text(_formatDuration(value.position), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
                           const SizedBox(width: 12),
+                          
+                          // Slider personnalisé pour un meilleur contrôle tactile
                           Expanded(
-                            child: SizedBox(
-                              height: 20,
-                              child: VideoProgressIndicator(
-                                _controller,
-                                allowScrubbing: true,
-                                colors: VideoProgressColors(
-                                  playedColor: _C.primary,
-                                  bufferedColor: Colors.white.withOpacity(0.3),
-                                  backgroundColor: Colors.white.withOpacity(0.1),
-                                ),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                trackHeight: 4.0,
+                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                                activeTrackColor: _C.primary,
+                                inactiveTrackColor: Colors.white.withOpacity(0.2),
+                                thumbColor: _C.primary,
+                                overlayColor: _C.primary.withOpacity(0.2),
+                              ),
+                              child: Slider(
+                                min: 0.0,
+                                max: value.duration.inMilliseconds > 0 
+                                    ? value.duration.inMilliseconds.toDouble() 
+                                    : 1.0,
+                                value: value.position.inMilliseconds.toDouble().clamp(
+                                      0.0,
+                                      value.duration.inMilliseconds > 0 
+                                          ? value.duration.inMilliseconds.toDouble() 
+                                          : 1.0,
+                                    ),
+                                onChangeStart: (_) {
+                                  _hideTimer?.cancel();
+                                  setState(() => _showControls = true);
+                                },
+                                onChanged: (newPosition) {
+                                  _controller.seekTo(Duration(milliseconds: newPosition.toInt()));
+                                },
+                                onChangeEnd: (_) {
+                                  _startHideTimer();
+                                },
                               ),
                             ),
                           ),
+                          
                           const SizedBox(width: 12),
                           Text(_formatDuration(value.duration), style: const TextStyle(color: Colors.white70, fontSize: 13)),
                           const SizedBox(width: 8),
