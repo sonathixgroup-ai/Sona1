@@ -19,7 +19,9 @@ class _C {
   static const textMain = Color(0xFF1E293B);
   static const textMuted = Color(0xFF7386A8);
   static const border = Color(0xFFE2E8F0);
+  static const red = Color(0xFFEF4444); // ✅ La couleur manquante ajoutée ici
 }
+
 
 class FormationDetailPage extends ConsumerStatefulWidget {
   final String formationId;
