@@ -35,7 +35,7 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
   final _descriptionController = TextEditingController();
   final _instructorController = TextEditingController();
   final _priceController = TextEditingController();
-  final _imageUrlController = TextEditingController(); // Stockera l'URL finale Supabase
+  final _imageUrlController = TextEditingController(); 
   final _tagsController = TextEditingController();
   
   String _level = 'beginner';
@@ -49,7 +49,7 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
   final List<String> _prerequisites = [];
   final TextEditingController _prereqController = TextEditingController();
 
-  // ✅ Variables pour la prévisualisation et l'upload de l'image
+  // Variables pour la prévisualisation et l'upload de l'image
   Uint8List? _coverImageBytes;
   bool _isUploadingImage = false;
 
@@ -63,10 +63,9 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
 
   Future<void> _loadCourse() async {}
 
-  // ✅ CORRIGÉ : Logique d'upload réel et de prévisualisation pour le Web
+  // Logique d'upload réel et de prévisualisation pour le Web
   Future<void> _pickAndUploadImage() async {
     try {
-      // Sur le web, il est crucial d'utiliser withData: true
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image, 
         allowMultiple: false,
@@ -80,27 +79,24 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
         if (bytes == null) return;
 
         setState(() {
-          _coverImageBytes = bytes; // Affiche la prévisualisation instantanément
+          _coverImageBytes = bytes; 
           _isUploadingImage = true;
         });
 
-        // Générer un nom de fichier unique
         final ext = file.extension ?? 'jpg';
         final fileName = 'cover_${DateTime.now().millisecondsSinceEpoch}.$ext';
         final filePath = 'courses/covers/$fileName';
 
-        // Upload vers le Storage Supabase (Assurez-vous que le bucket "course-media" existe)
         await Supabase.instance.client.storage
             .from('course-media')
             .uploadBinary(filePath, bytes);
 
-        // Récupérer l'URL publique
         final publicUrl = Supabase.instance.client.storage
             .from('course-media')
             .getPublicUrl(filePath);
 
         setState(() {
-          _imageUrlController.text = publicUrl; // Sauvegarde l'URL pour la BDD
+          _imageUrlController.text = publicUrl; 
           _isUploadingImage = false;
         });
 
@@ -134,7 +130,6 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
   Future<void> _saveCourse() async {
     if (!_formKey.currentState!.validate()) return;
     
-    // Vérifier si l'image est encore en cours d'upload
     if (_isUploadingImage) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez patienter, l\'image est en cours d\'upload.')));
       return;
@@ -155,7 +150,11 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
         'title': _titleController.text,
         'description': _descriptionController.text,
         'category_id': (_categoryId != null && _categoryId!.isNotEmpty) ? _categoryId : null,
+        
+        // ✅ CORRECTION APPLIQUÉE ICI POUR ÉVITER LE CRASH SQL "user_id violates not-null"
+        'user_id': userId,
         'instructor_id': userId,
+        
         'instructor_name': _instructorController.text,
         'level': _level,
         'duration': totalDuration,
@@ -327,7 +326,7 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
                     ),
                     const SizedBox(height: 16),
                     
-                    // ✅ ZONE DE PRÉVISUALISATION ET D'UPLOAD DE L'IMAGE
+                    // ZONE DE PRÉVISUALISATION ET D'UPLOAD DE L'IMAGE
                     const Text('Image de couverture', style: TextStyle(fontWeight: FontWeight.w600, color: _C.textMuted)),
                     const SizedBox(height: 8),
                     GestureDetector(
