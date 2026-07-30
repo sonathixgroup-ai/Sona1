@@ -5,9 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ============================================================
-// CONSTANTES UI
-// ============================================================
 class _C {
   static const bg = Color(0xFFF8FAFC);
   static const surface = Colors.white;
@@ -37,8 +34,9 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
   final _imageUrlController = TextEditingController();
   final _fileUrlController = TextEditingController();
   
+  String _selectedCurrency = 'FC'; // ✅ Devise par défaut
   bool _isLoading = false;
-  bool _isInitLoading = false; // Pour le chargement initial (Mode Édition)
+  bool _isInitLoading = false;
 
   @override
   void initState() {
@@ -59,9 +57,6 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
     super.dispose();
   }
 
-  // ============================================================
-  // LOGIQUE SUPABASE
-  // ============================================================
   Future<void> _loadExistingBook() async {
     setState(() => _isInitLoading = true);
     try {
@@ -76,16 +71,12 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
         _authorController.text = data['author']?.toString() ?? '';
         _descriptionController.text = data['description']?.toString() ?? '';
         _priceController.text = data['price']?.toString() ?? '0';
+        _selectedCurrency = data['currency']?.toString() ?? 'FC'; // ✅ Chargement de la devise
         _imageUrlController.text = data['image_url']?.toString() ?? '';
         _fileUrlController.text = data['file_url']?.toString() ?? '';
       }
     } catch (e) {
       debugPrint('❌ Erreur chargement livre : $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible de charger le livre.'), backgroundColor: _C.red),
-        );
-      }
     } finally {
       if (mounted) setState(() => _isInitLoading = false);
     }
@@ -100,25 +91,22 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) throw Exception('Utilisateur non connecté.');
 
-      // Préparation du payload sécurisé
       final payload = {
         'title': _titleController.text.trim(),
         'author': _authorController.text.trim(),
         'description': _descriptionController.text.trim(),
         'price': double.tryParse(_priceController.text.trim()) ?? 0.0,
-        'currency': 'FC', // Fixé ou modifiable selon vos besoins
+        'currency': _selectedCurrency, // ✅ Enregistrement de la devise choisie
         'image_url': _imageUrlController.text.trim().isEmpty ? null : _imageUrlController.text.trim(),
         'file_url': _fileUrlController.text.trim().isEmpty ? null : _fileUrlController.text.trim(),
         'updated_at': DateTime.now().toIso8601String(),
       };
 
       if (widget.bookId == null) {
-        // Mode Création
         payload['instructor_id'] = userId;
         payload['created_at'] = DateTime.now().toIso8601String();
         await Supabase.instance.client.from('books').insert(payload);
       } else {
-        // Mode Édition
         await Supabase.instance.client.from('books').update(payload).eq('id', widget.bookId!);
       }
 
@@ -126,19 +114,13 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white),
-              const SizedBox(width: 8),
-              Text(widget.bookId == null ? 'Livre publié avec succès !' : 'Livre mis à jour !'),
-            ],
-          ),
+          content: Text(widget.bookId == null ? 'Livre publié avec succès !' : 'Livre mis à jour !'),
           backgroundColor: _C.green,
           behavior: SnackBarBehavior.floating,
         ),
       );
       
-      context.pop(); // Retourne à la liste qui se rafraîchira automatiquement
+      context.pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -149,9 +131,6 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
     }
   }
 
-  // ============================================================
-  // WIDGET UI
-  // ============================================================
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.bookId != null;
@@ -170,12 +149,11 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
       ),
       body: _isInitLoading
           ? const Center(child: CircularProgressIndicator(color: _C.primary))
-          : GestureDetector(
-              onTap: () => FocusScope.of(context).unfocus(), // Ferme le clavier au clic
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
               child: Form(
                 key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsets.all(20),
+                child: Column(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(20),
@@ -183,13 +161,6 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
                         color: _C.surface,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: _C.border),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.02),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          )
-                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,7 +172,7 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
                             controller: _titleController,
                             label: 'Titre du livre',
                             icon: Icons.title_rounded,
-                            validator: (v) => v!.trim().isEmpty ? 'Le titre est requis' : null,
+                            validator: (v) => v!.trim().isEmpty ? 'Requis' : null,
                           ),
                           const SizedBox(height: 16),
                           
@@ -209,7 +180,7 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
                             controller: _authorController,
                             label: 'Auteur',
                             icon: Icons.person_outline_rounded,
-                            validator: (v) => v!.trim().isEmpty ? 'L\'auteur est requis' : null,
+                            validator: (v) => v!.trim().isEmpty ? 'Requis' : null,
                           ),
                           const SizedBox(height: 16),
                           
@@ -221,13 +192,37 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
                           ),
                           const SizedBox(height: 16),
                           
-                          _buildTextField(
-                            controller: _priceController,
-                            label: 'Prix (FC)',
-                            icon: Icons.payments_outlined,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            hintText: 'Mettre 0 si gratuit',
+                          // Ligne Prix et Devise dynamique
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: _buildTextField(
+                                  controller: _priceController,
+                                  label: 'Prix',
+                                  icon: Icons.payments_outlined,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  hintText: '0',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 1,
+                                child: DropdownButtonFormField<String>(
+                                  value: _selectedCurrency,
+                                  dropdownColor: _C.surface,
+                                  style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w600),
+                                  items: const [
+                                    DropdownMenuItem(value: 'FC', child: Text('FC')),
+                                    DropdownMenuItem(value: 'USD', child: Text('USD')),
+                                    DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                                  ],
+                                  onChanged: (v) => setState(() => _selectedCurrency = v!),
+                                  decoration: _inputDecoration('Devise', Icons.货币_exchange_outlined), // ou autre icône adaptée
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -251,15 +246,13 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
                             controller: _imageUrlController,
                             label: 'Lien de la couverture (URL Image)',
                             icon: Icons.image_outlined,
-                            hintText: 'https://...',
                           ),
                           const SizedBox(height: 16),
                           
                           _buildTextField(
                             controller: _fileUrlController,
-                            label: 'Lien du fichier (URL PDF/EPUB)',
+                            label: 'Lien du fichier (URL PDF)',
                             icon: Icons.picture_as_pdf_outlined,
-                            hintText: 'https://...',
                           ),
                         ],
                       ),
@@ -280,10 +273,9 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
                         ),
                         child: _isLoading
                             ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : Text(isEditing ? 'Mettre à jour le livre' : 'Publier le livre', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                            : Text(isEditing ? 'Mettre à jour' : 'Publier le livre', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                       ),
                     ),
-                    const SizedBox(height: 24),
                   ],
                 ),
               ),
@@ -291,7 +283,6 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
     );
   }
 
-  // Widget Helper pour générer des TextFields premium et harmonisés
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -309,32 +300,23 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
       inputFormatters: inputFormatters,
       validator: validator,
       style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w500),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hintText,
-        labelStyle: const TextStyle(color: _C.textMuted, fontWeight: FontWeight.w500),
-        hintStyle: TextStyle(color: _C.textMuted.withOpacity(0.5)),
-        prefixIcon: maxLines == 1 ? Icon(icon, color: _C.textMuted, size: 20) : null, // Pas d'icône pour les blocs de texte multilingnes
-        filled: true,
-        fillColor: _C.bg,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.transparent),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _C.primary, width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _C.red, width: 1.0),
-        ),
-      ),
+      decoration: _inputDecoration(label, icon, hintText: hintText),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon, {String? hintText}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hintText,
+      labelStyle: const TextStyle(color: _C.textMuted, fontWeight: FontWeight.w500),
+      prefixIcon: Icon(icon, color: _C.textMuted, size: 20),
+      filled: true,
+      fillColor: _C.bg,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.transparent)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.primary, width: 1.5)),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.red, width: 1.0)),
     );
   }
 }
