@@ -63,8 +63,6 @@ class EducationService {
   }
 
   Future<Formation> getFormationDetails(String formationId) async {
-    // 🔥 OPTIMISATION SCALABLE : 1 SEULE REQUÊTE AU LIEU DE 50+
-    // Récupération de l'arbre complet (Formation > Modules > Leçons > Vidéos/Évaluations > Questions)
     final json = await _supabase
         .from('formations')
         .select('''
@@ -87,7 +85,6 @@ class EducationService {
 
     final formation = Formation.fromJson(json);
 
-    // Mapping de l'arbre relationnel (car fromJson simple ne gère souvent pas 4 niveaux de profondeur)
     if (json['modules'] != null) {
       final modulesList = (json['modules'] as List).map((mJson) {
         final module = Module.fromJson(mJson);
@@ -96,13 +93,11 @@ class EducationService {
           final lessonsList = (mJson['lessons'] as List).map((lJson) {
             final lesson = Lesson.fromJson(lJson);
             
-            // Gestion de la vidéo (relation un-à-un ou tableau)
             if (lJson['videos'] != null) {
               final vData = lJson['videos'] is List ? (lJson['videos'] as List).firstOrNull : lJson['videos'];
               if (vData != null) lesson.video = Video.fromJson(vData);
             }
             
-            // Gestion de l'évaluation
             if (lJson['evaluations'] != null) {
               final eData = lJson['evaluations'] is List ? (lJson['evaluations'] as List).firstOrNull : lJson['evaluations'];
               if (eData != null) {
@@ -116,7 +111,6 @@ class EducationService {
             return lesson;
           }).toList();
           
-          // Tri local utilisant 'order' au lieu de 'orderIndex'
           lessonsList.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
           module.lessons = lessonsList;
         }
@@ -134,7 +128,7 @@ class EducationService {
     final enrollments = await _supabase
         .from('enrollments')
         .select('formation_id, formations(*)')
-        .eq('user_id', userId);
+        .eq('uid', userId); // ✅ CORRIGÉ (uid)
     return enrollments.map((e) => Formation.fromJson(e['formations'])).toList();
   }
 
@@ -199,7 +193,7 @@ class EducationService {
   // ─── INSCRIPTIONS ──────────────────────────────────────────────
   Future<Enrollment> enrollUser(String userId, String formationId) async {
     final json = await _supabase.from('enrollments').insert({
-      'user_id': userId,
+      'uid': userId, // ✅ CORRIGÉ (uid)
       'formation_id': formationId,
       'status': 'active',
       'progress': 0.0,
@@ -211,7 +205,7 @@ class EducationService {
     final json = await _supabase
         .from('enrollments')
         .select('*, formations(*)')
-        .eq('user_id', userId)
+        .eq('uid', userId) // ✅ CORRIGÉ (uid)
         .eq('formation_id', formationId)
         .maybeSingle();
     return json != null ? Enrollment.fromJson(json) : null;
