@@ -1,9 +1,11 @@
+// lib/presentation/education/models/book.dart (ou l'emplacement de votre modèle Book)
 class Book {
   final String id;
   final String title;
   final String author;
   final String? description;
   final double price;
+  final String currency; // ✅ Ajout du champ currency
   final String? imageUrl;
   final String? fileUrl;
   final String? category;
@@ -17,6 +19,7 @@ class Book {
     required this.author,
     this.description,
     this.price = 0.0,
+    this.currency = 'FC', // Valeur par défaut
     this.imageUrl,
     this.fileUrl,
     this.category,
@@ -31,6 +34,7 @@ class Book {
     author: json['author'],
     description: json['description'],
     price: (json['price'] as num?)?.toDouble() ?? 0.0,
+    currency: json['currency'] ?? 'FC', // ✅ Récupération depuis Supabase
     imageUrl: json['image_url'],
     fileUrl: json['file_url'],
     category: json['category'],
@@ -45,6 +49,7 @@ class Book {
     'author': author,
     'description': description,
     'price': price,
+    'currency': currency, // ✅ Envoi vers Supabase
     'image_url': imageUrl,
     'file_url': fileUrl,
     'category': category,
