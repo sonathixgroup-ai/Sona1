@@ -1,14 +1,35 @@
-// lib/presentation/education/instructor/content/lesson_management_page.dart
+// lib/presentation/education/instructor/lesson_management_page.dart
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
+
 import 'package:thix_id/presentation/education/models/lesson.dart';
 import 'package:thix_id/presentation/education/models/video.dart';
 import 'package:thix_id/presentation/education/models/evaluation.dart';
 import 'package:thix_id/presentation/education/instructor/evaluations/question_management_page.dart';
 
-class LessonManagementPage extends StatefulWidget {
+// ============================================================
+// CONSTANTES UI
+// ============================================================
+class _C {
+  static const bg = Color(0xFFF8FAFC);
+  static const surface = Colors.white;
+  static const primary = Color(0xFF2D6CDF);
+  static const green = Color(0xFF10B981);
+  static const textMain = Color(0xFF1E293B);
+  static const textMuted = Color(0xFF7386A8);
+  static const border = Color(0xFFE2E8F0);
+  static const red = Color(0xFFEF4444);
+}
+
+class LessonManagementPage extends ConsumerStatefulWidget {
   final Lesson? lesson;
-  final String? moduleId; // ✅ Ajout du paramètre moduleId
+  final String? moduleId; 
 
   const LessonManagementPage({
     super.key,
@@ -17,31 +38,37 @@ class LessonManagementPage extends StatefulWidget {
   });
 
   @override
-  State<LessonManagementPage> createState() => _LessonManagementPageState();
+  ConsumerState<LessonManagementPage> createState() => _LessonManagementPageState();
 }
 
-class _LessonManagementPageState extends State<LessonManagementPage> {
+class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _contentController = TextEditingController();
+  
+  late final TextEditingController _titleController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _contentController;
+  late final TextEditingController _durationController;
+
   String _type = 'video';
   int _duration = 0;
   Video? _video;
   Evaluation? _evaluation;
 
+  bool _isLoading = false;
+  bool _isUploading = false;
+
   @override
   void initState() {
     super.initState();
-    if (widget.lesson != null) {
-      _titleController.text = widget.lesson!.title;
-      _descriptionController.text = widget.lesson!.description ?? '';
-      _type = widget.lesson!.type;
-      _duration = widget.lesson!.durationMinutes;
-      _contentController.text = widget.lesson!.content ?? '';
-      _video = widget.lesson!.video;
-      _evaluation = widget.lesson!.evaluation;
-    }
+    _titleController = TextEditingController(text: widget.lesson?.title ?? '');
+    _descriptionController = TextEditingController(text: widget.lesson?.description ?? '');
+    _contentController = TextEditingController(text: widget.lesson?.content ?? '');
+    _durationController = TextEditingController(text: widget.lesson?.durationMinutes.toString() ?? '0');
+    
+    _type = widget.lesson?.type ?? 'video';
+    _duration = widget.lesson?.durationMinutes ?? 0;
+    _video = widget.lesson?.video;
+    _evaluation = widget.lesson?.evaluation;
   }
 
   @override
@@ -49,147 +76,316 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
     _titleController.dispose();
     _descriptionController.dispose();
     _contentController.dispose();
+    _durationController.dispose();
     super.dispose();
   }
 
+  // ============================================================
+  // UPLOAD VERS SUPABASE STORAGE
+  // ============================================================
   Future<void> _uploadFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: _type == 'video' ? FileType.video : FileType.custom,
-      allowedExtensions: _type == 'document' ? ['pdf', 'doc', 'docx', 'ppt', 'pptx'] : null,
-    );
-    if (result != null && result.files.isNotEmpty) {
-      // Simuler l'upload (à remplacer par un vrai upload vers Supabase Storage)
-      setState(() {
-        _contentController.text = 'uploaded_file_${DateTime.now().millisecondsSinceEpoch}.${result.files.first.extension}';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fichier sélectionné ! (upload à implémenter)')),
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: _type == 'video' ? FileType.video : FileType.custom,
+        allowedExtensions: _type == 'document' ? ['pdf', 'doc', 'docx', 'ppt', 'pptx'] : null,
+        withData: true,
       );
+
+      if (result == null || result.files.isEmpty) return;
+
+      setState(() => _isUploading = true);
+      
+      final file = result.files.first;
+      final bytes = file.bytes ?? (file.path != null ? await File(file.path!).readAsBytes() : null);
+      
+      if (bytes == null) throw Exception('Impossible de lire le fichier.');
+
+      final bucket = _type == 'video' ? 'videos' : 'documents';
+      final ext = file.extension ?? 'bin';
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final path = 'lessons/$fileName';
+
+      // Upload effectif vers Supabase Storage
+      await Supabase.instance.client.storage.from(bucket).uploadBinary(
+        path,
+        bytes,
+        fileOptions: FileOptions(upsert: true, contentType: file.identifier),
+      );
+
+      // Récupération de l'URL publique
+      final publicUrl = Supabase.instance.client.storage.from(bucket).getPublicUrl(path);
+
+      setState(() {
+        _contentController.text = publicUrl;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fichier téléchargé avec succès !'), backgroundColor: _C.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'upload : $e'), backgroundColor: _C.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  // ============================================================
+  // SAUVEGARDE DANS SUPABASE
+  // ============================================================
+  Future<void> _saveLesson() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final targetModuleId = widget.moduleId ?? widget.lesson?.moduleId;
+      if (targetModuleId == null || targetModuleId.isEmpty) {
+        throw Exception('Module parent introuvable.');
+      }
+
+      final parsedDuration = int.tryParse(_durationController.text.trim()) ?? 0;
+
+      final lessonData = {
+        'module_id': targetModuleId,
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'type': _type,
+        'duration_minutes': parsedDuration,
+        'content': _contentController.text.trim(),
+        'order': widget.lesson?.order ?? 0,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      String lessonId = widget.lesson?.id ?? '';
+
+      if (widget.lesson == null) {
+        lessonData['created_at'] = DateTime.now().toIso8601String();
+        final res = await Supabase.instance.client
+            .from('lessons')
+            .insert(lessonData)
+            .select()
+            .single();
+        lessonId = res['id'];
+      } else {
+        await Supabase.instance.client
+            .from('lessons')
+            .update(lessonData)
+            .eq('id', lessonId);
+      }
+
+      final resultLesson = Lesson(
+        id: lessonId,
+        moduleId: targetModuleId,
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        type: _type,
+        durationMinutes: parsedDuration,
+        order: widget.lesson?.order ?? 0,
+        content: _contentController.text.trim(),
+        video: _video,
+        evaluation: _evaluation,
+      );
+
+      if (!mounted) return;
+      context.pop(resultLesson);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e'), backgroundColor: _C.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.lesson != null;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: _C.bg,
       appBar: AppBar(
-        title: Text(widget.lesson == null ? 'Ajouter une leçon' : 'Modifier la leçon'),
-        backgroundColor: Colors.white,
+        title: Text(
+          isEditing ? 'Modifier la leçon' : 'Ajouter une leçon',
+          style: const TextStyle(fontWeight: FontWeight.w800, color: _C.textMain, fontSize: 18),
+        ),
+        backgroundColor: _C.surface,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain),
+          onPressed: () => context.pop(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.save_rounded),
-            onPressed: () {
-              if (_formKey.currentState!.validate()) {
-                final lesson = Lesson(
-                  id: widget.lesson?.id ?? '',
-                  moduleId: widget.moduleId ?? '',
-                  title: _titleController.text,
-                  description: _descriptionController.text,
-                  type: _type,
-                  durationMinutes: _duration,
-                  order: 0,
-                  content: _contentController.text,
-                  video: _video,
-                  evaluation: _evaluation,
-                );
-                Navigator.pop(context, lesson);
-              }
-            },
+            icon: _isLoading
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.save_rounded, color: _C.primary),
+            onPressed: _isLoading ? null : _saveLesson,
+            tooltip: 'Enregistrer',
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Titre de la leçon*'),
-                validator: (v) => v!.isEmpty ? 'Requis' : null,
-              ),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 3,
-              ),
-              DropdownButtonFormField<String>(
-                value: _type,
-                items: const [
-                  DropdownMenuItem(value: 'video', child: Text('Vidéo')),
-                  DropdownMenuItem(value: 'text', child: Text('Texte')),
-                  DropdownMenuItem(value: 'quiz', child: Text('Quiz')),
-                  DropdownMenuItem(value: 'evaluation', child: Text('Évaluation')),
-                  DropdownMenuItem(value: 'document', child: Text('Document (PDF, PPT, etc.)')),
-                  DropdownMenuItem(value: 'assignment', child: Text('Devoir')),
-                ],
-                onChanged: (v) => setState(() => _type = v!),
-                decoration: const InputDecoration(labelText: 'Type de leçon'),
-              ),
-              if (_type == 'video' || _type == 'document')
-                Row(
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: _C.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _C.border),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _contentController,
-                        decoration: InputDecoration(
-                          labelText: _type == 'video' ? 'URL de la vidéo' : 'URL du document',
-                        ),
-                      ),
+                    const Text('Informations principales', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
+                    const SizedBox(height: 16),
+                    
+                    TextFormField(
+                      controller: _titleController,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                      decoration: _inputDecoration('Titre de la leçon*', Icons.title_rounded),
+                      validator: (v) => v == null || v.trim().isEmpty ? 'Le titre est requis' : null,
                     ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.upload_rounded, color: Color(0xFF2D6CDF)),
-                      onPressed: _uploadFile,
-                      tooltip: 'Télécharger un fichier',
+                    const SizedBox(height: 16),
+                    
+                    TextFormField(
+                      controller: _descriptionController,
+                      maxLines: 3,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                      decoration: _inputDecoration('Description', Icons.description_outlined),
+                    ),
+                    const SizedBox(height: 16),
+
+                    DropdownButtonFormField<String>(
+                      value: _type,
+                      dropdownColor: _C.surface,
+                      style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w600),
+                      items: const [
+                        DropdownMenuItem(value: 'video', child: Text('Vidéo')),
+                        DropdownMenuItem(value: 'text', child: Text('Texte')),
+                        DropdownMenuItem(value: 'quiz', child: Text('Quiz')),
+                        DropdownMenuItem(value: 'evaluation', child: Text('Évaluation')),
+                        DropdownMenuItem(value: 'document', child: Text('Document (PDF, PPT)')),
+                        DropdownMenuItem(value: 'assignment', child: Text('Devoir')),
+                      ],
+                      onChanged: (v) => setState(() => _type = v!),
+                      decoration: _inputDecoration('Type de leçon', Icons.category_outlined),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Gestion dynamique selon le type
+                    if (_type == 'video' || _type == 'document')
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _contentController,
+                              style: const TextStyle(fontWeight: FontWeight.w500),
+                              decoration: _inputDecoration(
+                                _type == 'video' ? 'URL de la vidéo' : 'URL du document',
+                                Icons.link_rounded,
+                              ),
+                              validator: (v) => v == null || v.trim().isEmpty ? 'Ce champ est requis' : null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: _isUploading
+                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.upload_rounded, color: _C.primary),
+                            onPressed: _isUploading ? null : _uploadFile,
+                            tooltip: 'Télécharger un fichier',
+                          ),
+                        ],
+                      )
+                    else if (_type == 'text')
+                      TextFormField(
+                        controller: _contentController,
+                        maxLines: 5,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                        decoration: _inputDecoration('Contenu textuel de la leçon', Icons.article_outlined),
+                      )
+                    else
+                      TextFormField(
+                        controller: _contentController,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                        decoration: _inputDecoration('ID de l\'évaluation ou consignes', Icons.assignment_outlined),
+                      ),
+                    const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: _durationController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                      decoration: _inputDecoration('Durée (en minutes)', Icons.timer_outlined),
                     ),
                   ],
-                )
-              else if (_type == 'text')
-                TextFormField(
-                  controller: _contentController,
-                  decoration: const InputDecoration(labelText: 'Contenu textuel'),
-                  maxLines: 5,
-                )
-              else
-                TextFormField(
-                  controller: _contentController,
-                  decoration: InputDecoration(
-                    labelText: _type == 'quiz' || _type == 'evaluation' ? 'ID de l\'évaluation' : 'Consignes',
-                  ),
                 ),
-              TextFormField(
-                initialValue: _duration.toString(),
-                decoration: const InputDecoration(labelText: 'Durée (minutes)'),
-                keyboardType: TextInputType.number,
-                onChanged: (v) => _duration = int.tryParse(v) ?? 0,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
+
+              // Bouton pour gérer les questions si c'est un Quiz / Évaluation
               if (_type == 'quiz' || _type == 'evaluation')
-                ElevatedButton(
-                  onPressed: () async {
-                    final questions = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => QuestionManagementPage(evaluationId: widget.lesson?.id ?? ''),
-                      ),
-                    );
-                    if (questions != null) {
-                      // Créer une évaluation avec les questions (à implémenter)
-                    }
-                  },
-                  child: const Text('Gérer les questions'),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: widget.lesson?.id == null
+                        ? () => ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Veuillez d\'abord enregistrer la leçon pour configurer ses questions.')),
+                            )
+                        : () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => QuestionManagementPage(evaluationId: widget.lesson!.id),
+                              ),
+                            );
+                          },
+                    icon: const Icon(Icons.quiz_rounded, color: Colors.white),
+                    label: const Text('Gérer les questions du Quiz', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _C.primary,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
                 ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: _C.textMuted, fontWeight: FontWeight.w500),
+      prefixIcon: Icon(icon, color: _C.textMuted, size: 20),
+      filled: true,
+      fillColor: _C.bg,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.transparent)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.primary, width: 1.5)),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.red, width: 1.0)),
     );
   }
 }
