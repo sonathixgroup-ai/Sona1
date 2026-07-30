@@ -2,7 +2,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import '../../../models/video.dart';
+import 'package:thix_id/presentation/education/models/video.dart';
 
 class _C {
   static const primary = Color(0xFF2D6CDF);
