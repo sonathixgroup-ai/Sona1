@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/nav.dart';
-import '../widgets/service_grid.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -13,40 +11,50 @@ class DashboardPage extends ConsumerStatefulWidget {
 }
 
 class _DashboardPageState extends ConsumerState<DashboardPage> {
-  // ─── PALETTE MIX (Style de l'image Mixx) ───
-  static const Color primaryBlue = Color(0xFF003882); // Bleu profond de Mixx
-  static const Color accentYellow = Color(0xFFFFC72C); // Doré pour le bouton
-  static const Color bgLight = Color(0xFFF8F9FB); 
-  static const Color circleBg = Color(0xFFEBF0FA); 
-  static const Color textDark = Color(0xFF1E2A4F); 
-  static const Color textGrey = Color(0xFF64748B); 
+  // ─── PALETTE (Charte du nouveau design) ───
+  static const Color gradientTop = Color(0xFF6D28D9);
+  static const Color gradientBottom = Color(0xFF3B0764);
+  static const Color accentPurple = Color(0xFF7C3AED);
+  static const Color bgLight = Color(0xFFF7F7FB);
+  static const Color textDark = Color(0xFF1E1B2E);
+  static const Color textGrey = Color(0xFF9291A5);
+  static const Color textGreyLight = Color(0xFFC9C6D6);
 
   int _bottomIndex = 0;
+  final PageController _promoController = PageController(viewportFraction: 0.86);
+  bool _balanceVisible = true;
 
-  // ─── LOGIQUE RÉELLE CONNECTÉE À SUPABASE ───
+  // ─── DONNÉES RÉELLES SUPABASE ───
   Future<Map<String, dynamic>> _getRealDashboardData() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return {'name': 'Utilisateur', 'balance': 0.0, 'thix_id': ''};
 
-    // 1. Récupérer le Profil
     final profileRes = await Supabase.instance.client
         .from('profiles')
-        .select('first_name, full_name')
+        .select('first_name, full_name, avatar_url')
         .eq('id', user.id)
         .maybeSingle();
     final name = profileRes?['first_name'] ?? profileRes?['full_name'] ?? 'Utilisateur';
+    final avatarUrl = profileRes?['avatar_url'] as String?;
 
-    // 2. Récupérer le Wallet (Solde et Thix ID)
     final walletRes = await Supabase.instance.client
         .from('wallets')
         .select('balance, thix_id')
         .eq('user_id', user.id)
         .maybeSingle();
-    
+
     final balance = (walletRes?['balance'] ?? 0.0).toDouble();
     final thixId = walletRes?['thix_id'] ?? '';
 
-    return {'name': name, 'balance': balance, 'thix_id': thixId};
+    return {'name': name, 'balance': balance, 'thix_id': thixId, 'avatar_url': avatarUrl};
+  }
+
+  Stream<List<Map<String, dynamic>>> _promoStream() {
+    return Supabase.instance.client
+        .from('thix_money_promos')
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .limit(6);
   }
 
   String _formatBalance(double value) {
@@ -60,80 +68,96 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   @override
+  void dispose() {
+    _promoController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: bgLight,
-      extendBody: true, 
+      extendBody: true,
       body: FutureBuilder<Map<String, dynamic>>(
         future: _getRealDashboardData(),
         builder: (context, snapshot) {
-          final data = snapshot.data ?? {'name': '...', 'balance': 0.0, 'thix_id': ''};
+          final data = snapshot.data ?? {'name': '...', 'balance': 0.0, 'thix_id': '', 'avatar_url': null};
           final thixId = data['thix_id'] as String;
 
-          return CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: SafeArea(
-                  bottom: false,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // En-tête simple (façon Mixx)
-                      _buildHeader(data['name'], data['balance']),
-                      const SizedBox(height: 10),
-                      
-                      // TA GRILLE DE SERVICES AVEC LES ICÔNES COLORÉES
-                      const ServiceGrid(),
-                      const SizedBox(height: 24),
-                      
-                      // Bannière bleue
-                      _buildPromoBanner(),
-                      const SizedBox(height: 32),
-                      
-                      // Section "Personnalisé pour vous"
-                      _sectionTitle('Personnalisé pour vous'),
-                      const SizedBox(height: 16),
-                      _buildPersonalisedRow(),
-                      const SizedBox(height: 32),
-
-                      // Section Transactions
-                      _sectionTitle('Opérations récentes'),
-                      const SizedBox(height: 12),
-                      _buildRealTransactions(thixId),
-                      
-                      const SizedBox(height: 120), 
-                    ],
+          return Stack(
+            children: [
+              // ─── FOND DÉGRADÉ VIOLET ───
+              Container(
+                height: 340,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [gradientTop, gradientBottom],
                   ),
                 ),
+              ),
+              CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: SafeArea(
+                      bottom: false,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeader(data['name'], data['balance'], data['avatar_url']),
+                          const SizedBox(height: 14),
+                          _buildQuickActionsCard(thixId),
+                          const SizedBox(height: 28),
+                          _sectionTitle('Payment List'),
+                          const SizedBox(height: 16),
+                          _buildPaymentGrid(),
+                          const SizedBox(height: 28),
+                          _sectionTitle('Promo & Discount', trailing: 'See more'),
+                          const SizedBox(height: 14),
+                          _buildPromoCarousel(),
+                          const SizedBox(height: 28),
+                          _sectionTitle('Opérations récentes'),
+                          const SizedBox(height: 12),
+                          _buildRealTransactions(thixId),
+                          const SizedBox(height: 120),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           );
         },
       ),
-      
-      // ─── BOTTOM NAVIGATION BAR (Style Mixx avec la barre bleue en bas) ───
+
+      // ─── BOUTON SCAN CENTRAL ───
       floatingActionButton: FloatingActionButton(
-        backgroundColor: accentYellow,
+        backgroundColor: accentPurple,
         elevation: 4,
         shape: const CircleBorder(),
-        onPressed: () => context.push(AppRoutes.thixMoneyScanner),
-        child: const Icon(Icons.qr_code_scanner_rounded, color: primaryBlue, size: 28),
+        onPressed: () => context.push('/thix-money/scanner'),
+        child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 26),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+
+      // ─── BARRE DE NAVIGATION ───
       bottomNavigationBar: BottomAppBar(
-        color: primaryBlue,
+        color: Colors.white,
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
+        elevation: 12,
         child: SizedBox(
           height: 65,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _bottomNavItem(Icons.home_filled, 'Accueil', 0),
-              _bottomNavItem(Icons.grid_view_rounded, 'Mini Apps', 1),
-              const SizedBox(width: 48), 
-              _bottomNavItem(Icons.headset_mic_rounded, 'Support', 2),
+              _bottomNavItem(Icons.home_rounded, 'Accueil', 0),
+              _bottomNavItem(Icons.show_chart_rounded, 'Activité', 1),
+              const SizedBox(width: 48),
+              _bottomNavItem(Icons.receipt_long_rounded, 'Historique', 2),
               _bottomNavItem(Icons.person_rounded, 'Compte', 3),
             ],
           ),
@@ -143,142 +167,343 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   // ==========================================
-  // WIDGETS DE L'INTERFACE
+  // EN-TÊTE (Solde disponible)
   // ==========================================
-
-  Widget _buildHeader(String name, double balance) {
+  Widget _buildHeader(String name, double balance, String? avatarUrl) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Bonjour, $name', style: const TextStyle(color: textGrey, fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        '${_formatBalance(balance)} FC', 
-                        style: const TextStyle(color: primaryBlue, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.5)
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.visibility_outlined, color: textGrey, size: 18),
-                    ],
-                  ),
-                ],
-              ),
               CircleAvatar(
-                radius: 20,
-                backgroundColor: circleBg,
-                child: const Icon(Icons.person, color: primaryBlue),
+                radius: 22,
+                backgroundColor: Colors.white24,
+                backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                    ? NetworkImage(avatarUrl)
+                    : null,
+                child: (avatarUrl == null || avatarUrl.isEmpty)
+                    ? const Icon(Icons.person, color: Colors.white)
+                    : null,
+              ),
+              InkWell(
+                onTap: () => context.push('/thix-money/notifications'),
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white38),
+                  ),
+                  child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 22),
+                ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPromoBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      height: 100,
-      decoration: BoxDecoration(
-        color: primaryBlue,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  RichText(
-                    text: const TextSpan(
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, height: 1.2),
-                      children: [
-                        TextSpan(text: 'Achetez des forfaits et du crédit pour '),
-                        TextSpan(text: 'vous', style: TextStyle(color: accentYellow)),
-                        TextSpan(text: ' ou vos proches !'),
-                      ],
-                    ),
-                  ),
-                ],
+          const SizedBox(height: 22),
+          const Text(
+            'Solde disponible',
+            style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _balanceVisible ? '${_formatBalance(balance)} FC' : '•••••• FC',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              InkWell(
+                onTap: () => setState(() => _balanceVisible = !_balanceVisible),
+                child: Icon(
+                  _balanceVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  color: Colors.white70,
+                  size: 20,
+                ),
+              ),
+            ],
           ),
-          Container(
-            width: 100,
-            decoration: const BoxDecoration(
-              color: Color(0xFF002B66),
-              borderRadius: BorderRadius.horizontal(right: Radius.circular(16)),
-            ),
-            child: const Center(child: Icon(Icons.people_alt_rounded, color: Colors.white24, size: 50)),
-          ),
+          const SizedBox(height: 26),
         ],
       ),
     );
   }
 
-  Widget _sectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: primaryBlue),
-      ),
-    );
-  }
-
-  Widget _buildPersonalisedRow() {
-    final items = [
-      {'l': 'Recharge', 'i': Icons.phone_android_rounded},
-      {'l': 'Lipa Simu', 'i': Icons.qr_code_rounded},
-      {'l': 'Loterie', 'i': Icons.casino_outlined},
-      {'l': 'Forfaits', 'i': Icons.shopping_cart_outlined},
+  // ==========================================
+  // CARTE FLOTTANTE — ACTIONS RAPIDES
+  // ==========================================
+  Widget _buildQuickActionsCard(String thixId) {
+    final actions = [
+      {'label': 'Top Up', 'icon': Icons.account_balance_wallet_outlined, 'route': '/thix-money/topup'},
+      {'label': 'Envoyer', 'icon': Icons.arrow_upward_rounded, 'route': '/thix-money/send'},
+      {'label': 'Demander', 'icon': Icons.arrow_downward_rounded, 'route': '/thix-money/request'},
+      {'label': 'Historique', 'icon': Icons.history_rounded, 'route': '/thix-money/history'},
     ];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 8)),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: actions.map((a) {
+            return InkWell(
+              onTap: () => context.push(a['route'] as String),
+              borderRadius: BorderRadius.circular(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF1EAFE),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(a['icon'] as IconData, color: accentPurple, size: 22),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    a['label'] as String,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textDark),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title, {String? trailing}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: items.map((item) {
-          return SizedBox(
-            width: 70,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: textDark),
+          ),
+          if (trailing != null)
+            InkWell(
+              onTap: () => context.push('/thix-money/promos'),
+              child: Text(
+                trailing,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: accentPurple),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // GRILLE DES SERVICES (Payment List)
+  // ==========================================
+  Widget _buildPaymentGrid() {
+    final services = [
+      {
+        'label': 'Internet',
+        'icon': Icons.wifi_rounded,
+        'bg': const Color(0xFFFFE5E5),
+        'fg': const Color(0xFFFF5A5A),
+        'route': '/thix-money/internet',
+      },
+      {
+        'label': 'Électricité',
+        'icon': Icons.bolt_rounded,
+        'bg': const Color(0xFFFFF1D6),
+        'fg': const Color(0xFFFFA726),
+        'route': '/thix-money/electricity',
+      },
+      {
+        'label': 'Voucher',
+        'icon': Icons.confirmation_number_outlined,
+        'bg': const Color(0xFFE3F7E8),
+        'fg': const Color(0xFF34C759),
+        'route': '/thix-money/voucher',
+      },
+      {
+        'label': 'Assurance',
+        'icon': Icons.health_and_safety_outlined,
+        'bg': const Color(0xFFDFF6F6),
+        'fg': const Color(0xFF17A2A2),
+        'route': '/thix-money/insurance',
+      },
+      {
+        'label': 'M Card',
+        'icon': Icons.credit_card_rounded,
+        'bg': const Color(0xFFEDE4FB),
+        'fg': accentPurple,
+        'route': '/thix-money/mcard',
+      },
+      {
+        'label': 'Facture',
+        'icon': Icons.receipt_long_rounded,
+        'bg': const Color(0xFFE1EBFB),
+        'fg': const Color(0xFF2D6CDF),
+        'route': '/thix-money/bill',
+      },
+      {
+        'label': 'Marchand',
+        'icon': Icons.storefront_rounded,
+        'bg': const Color(0xFFFCE4F1),
+        'fg': const Color(0xFFE91E8C),
+        'route': '/thix-money/merchant',
+      },
+      {
+        'label': 'Plus',
+        'icon': Icons.apps_rounded,
+        'bg': const Color(0xFFEDE4FB),
+        'fg': accentPurple,
+        'route': '/thix-money/more',
+      },
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: services.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4,
+          mainAxisSpacing: 18,
+          crossAxisSpacing: 8,
+          childAspectRatio: 0.78,
+        ),
+        itemBuilder: (context, index) {
+          final s = services[index];
+          return InkWell(
+            onTap: () => context.push(s['route'] as String),
+            borderRadius: BorderRadius.circular(18),
             child: Column(
               children: [
                 Container(
-                  width: 60,
-                  height: 60,
-                  decoration: const BoxDecoration(
-                    color: circleBg,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(item['i'] as IconData, color: primaryBlue, size: 24),
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(color: s['bg'] as Color, shape: BoxShape.circle),
+                  child: Icon(s['icon'] as IconData, color: s['fg'] as Color, size: 24),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  item['l'] as String,
+                  s['label'] as String,
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textDark, height: 1.2),
                 ),
               ],
             ),
           );
-        }).toList(),
+        },
       ),
     );
   }
 
   // ==========================================
-  // LOGIQUE DE TRANSACTIONS RÉELLES (Supabase)
+  // PROMO & DISCOUNT — CARROUSEL RÉEL (Supabase)
+  // ==========================================
+  Widget _buildPromoCarousel() {
+    return SizedBox(
+      height: 130,
+      child: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _promoStream(),
+        builder: (context, snapshot) {
+          final promos = snapshot.data ?? [];
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: accentPurple));
+          }
+
+          if (promos.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                decoration: BoxDecoration(color: gradientBottom, borderRadius: BorderRadius.circular(20)),
+                child: const Center(
+                  child: Text('Aucune offre pour le moment', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                ),
+              ),
+            );
+          }
+
+          return PageView.builder(
+            controller: _promoController,
+            padEnds: false,
+            itemCount: promos.length,
+            itemBuilder: (context, index) {
+              final p = promos[index];
+              final Color bg = index.isEven ? gradientBottom : const Color(0xFF0F766E);
+              return Padding(
+                padding: const EdgeInsets.only(left: 20, right: 10),
+                child: InkWell(
+                  onTap: () => context.push('/thix-money/promos/${p['id']}'),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          right: -10,
+                          top: -10,
+                          child: Icon(Icons.blur_circular, color: Colors.white.withOpacity(0.08), size: 90),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(18.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                p['title'] ?? '',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                p['subtitle'] ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  // ==========================================
+  // TRANSACTIONS RÉELLES (Supabase)
   // ==========================================
   Widget _buildRealTransactions(String thixId) {
     if (thixId.isEmpty) {
@@ -294,11 +519,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           .limit(5),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: primaryBlue));
+          return const Center(child: CircularProgressIndicator(color: accentPurple));
         }
-        
+
         final list = (snapshot.data as List?) ?? [];
-        
+
         if (list.isEmpty) {
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -326,7 +551,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     leading: Container(
-                      width: 40, height: 40,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: isDeposit ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
                         shape: BoxShape.circle,
@@ -356,7 +582,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   // ==========================================
-  // BOTTOM NAVIGATION ITEM
+  // NAVIGATION DU BAS
   // ==========================================
   Widget _bottomNavItem(IconData icon, String label, int index) {
     final isActive = _bottomIndex == index;
@@ -366,14 +592,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: isActive ? accentYellow : Colors.white70, size: 24),
+          Icon(icon, color: isActive ? accentPurple : textGreyLight, size: 24),
           const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
               fontSize: 10,
               fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              color: isActive ? accentYellow : Colors.white70,
+              color: isActive ? accentPurple : textGreyLight,
             ),
           ),
         ],
