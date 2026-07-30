@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import 'package:thix_id/presentation/education/models/video.dart';
 
 class _C {
   static const primary = Color(0xFF2D6CDF);
@@ -11,13 +10,14 @@ class _C {
 }
 
 class FormationVideoPlayer extends StatefulWidget {
-  final Video video;
+  // Changed from 'Video' object to a direct URL string
+  final String videoUrl; 
   final Function(double)? onProgress;
   final VoidCallback? onComplete;
 
   const FormationVideoPlayer({
     super.key,
-    required this.video,
+    required this.videoUrl, // Updated parameter name
     this.onProgress,
     this.onComplete,
   });
@@ -26,7 +26,6 @@ class FormationVideoPlayer extends StatefulWidget {
   State<FormationVideoPlayer> createState() => _FormationVideoPlayerState();
 }
 
-// Ajout de WidgetsBindingObserver pour gérer le cycle de vie de l'app
 class _FormationVideoPlayerState extends State<FormationVideoPlayer> with WidgetsBindingObserver {
   late VideoPlayerController _controller;
   
@@ -34,21 +33,18 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
   bool _hasError = false;
   bool _hasCompleted = false;
   
-  // Optimisation: Empêche de spammer Supabase
   double _lastReportedProgress = 0.0;
   
-  // UI UX: Auto-hide controls
   bool _showControls = true;
   Timer? _hideTimer;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // Écoute la mise en arrière-plan
+    WidgetsBinding.instance.addObserver(this);
     _initPlayer();
   }
 
-  // Met la vidéo en pause si l'utilisateur quitte l'application
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
@@ -61,8 +57,8 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
 
   Future<void> _initPlayer() async {
     try {
-      // Sécurisation du parsing de l'URL
-      final uri = Uri.tryParse(widget.video.url);
+      // Using the videoUrl string directly
+      final uri = Uri.tryParse(widget.videoUrl);
       if (uri == null) throw Exception('URL de la vidéo invalide');
 
       _controller = VideoPlayerController.networkUrl(uri);
@@ -88,13 +84,11 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
     if (duration > 0) {
       final progress = position / duration;
       
-      // 1. Détection de fin (à 95% pour être tolérant)
       if (progress >= 0.95 && !_hasCompleted) {
         _hasCompleted = true;
         widget.onComplete?.call();
       }
 
-      // 2. Throttle (Limiteur) pour la base de données : 5% de progression minimum
       if ((progress - _lastReportedProgress).abs() > 0.05 || progress >= 0.95) {
         _lastReportedProgress = progress;
         widget.onProgress?.call(progress.clamp(0.0, 1.0));
@@ -111,8 +105,6 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
     super.dispose();
   }
 
-  // --- GESTION DES CONTRÔLES UI ---
-
   void _togglePlayPause() {
     if (_controller.value.isPlaying) {
       _controller.pause();
@@ -122,7 +114,7 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
       _controller.play();
       _startHideTimer();
     }
-    setState(() {}); // Met à jour l'icône Play/Pause principale
+    setState(() {});
   }
 
   void _startHideTimer() {
@@ -149,17 +141,10 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
     return '$minutes:$seconds';
   }
 
-  // --- CONSTRUCTION DE L'UI ---
-
   @override
   Widget build(BuildContext context) {
-    if (_hasError) {
-      return _buildErrorState();
-    }
-
-    if (!_isInitialized) {
-      return _buildLoadingState();
-    }
+    if (_hasError) return _buildErrorState();
+    if (!_isInitialized) return _buildLoadingState();
 
     return AspectRatio(
       aspectRatio: _controller.value.aspectRatio,
@@ -169,17 +154,12 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // 1. Lecteur Vidéo
             VideoPlayer(_controller),
-
-            // 2. Calque assombri quand les contrôles sont visibles
             AnimatedOpacity(
               opacity: _showControls ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 300),
               child: Container(color: Colors.black45),
             ),
-
-            // 3. Bouton Play/Pause central
             AnimatedOpacity(
               opacity: _showControls ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 300),
@@ -196,8 +176,6 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
                 ),
               ),
             ),
-
-            // 4. Barre de contrôles inférieure
             Positioned(
               bottom: 0, left: 0, right: 0,
               child: AnimatedOpacity(
@@ -219,8 +197,6 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
                         children: [
                           Text(_formatDuration(value.position), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
                           const SizedBox(width: 12),
-                          
-                          // Slider personnalisé pour un meilleur contrôle tactile
                           Expanded(
                             child: SliderTheme(
                               data: SliderTheme.of(context).copyWith(
@@ -234,14 +210,10 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
                               ),
                               child: Slider(
                                 min: 0.0,
-                                max: value.duration.inMilliseconds > 0 
-                                    ? value.duration.inMilliseconds.toDouble() 
-                                    : 1.0,
+                                max: value.duration.inMilliseconds > 0 ? value.duration.inMilliseconds.toDouble() : 1.0,
                                 value: value.position.inMilliseconds.toDouble().clamp(
                                       0.0,
-                                      value.duration.inMilliseconds > 0 
-                                          ? value.duration.inMilliseconds.toDouble() 
-                                          : 1.0,
+                                      value.duration.inMilliseconds > 0 ? value.duration.inMilliseconds.toDouble() : 1.0,
                                     ),
                                 onChangeStart: (_) {
                                   _hideTimer?.cancel();
@@ -256,12 +228,9 @@ class _FormationVideoPlayerState extends State<FormationVideoPlayer> with Widget
                               ),
                             ),
                           ),
-                          
                           const SizedBox(width: 12),
                           Text(_formatDuration(value.duration), style: const TextStyle(color: Colors.white70, fontSize: 13)),
                           const SizedBox(width: 8),
-                          
-                          // Gestion du volume
                           GestureDetector(
                             onTap: () {
                               _controller.setVolume(value.volume == 0 ? 1.0 : 0.0);
