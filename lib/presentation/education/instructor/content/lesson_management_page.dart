@@ -13,9 +13,6 @@ import 'package:thix_id/presentation/education/models/video.dart';
 import 'package:thix_id/presentation/education/models/evaluation.dart';
 import 'package:thix_id/presentation/education/instructor/evaluations/question_management_page.dart';
 
-// ============================================================
-// CONSTANTES UI
-// ============================================================
 class _C {
   static const bg = Color(0xFFF8FAFC);
   static const surface = Colors.white;
@@ -30,11 +27,13 @@ class _C {
 class LessonManagementPage extends ConsumerStatefulWidget {
   final Lesson? lesson;
   final String? moduleId; 
+  final String? formationId; // Optionnel pour charger les modules si moduleId est absent
 
   const LessonManagementPage({
     super.key,
     this.lesson,
     this.moduleId,
+    this.formationId,
   });
 
   @override
@@ -53,9 +52,13 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
   int _duration = 0;
   Video? _video;
   Evaluation? _evaluation;
+  
+  String? _selectedModuleId;
+  List<Map<String, dynamic>> _availableModules = [];
 
   bool _isLoading = false;
   bool _isUploading = false;
+  bool _isLoadingModules = false;
 
   @override
   void initState() {
@@ -69,6 +72,35 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
     _duration = widget.lesson?.durationMinutes ?? 0;
     _video = widget.lesson?.video;
     _evaluation = widget.lesson?.evaluation;
+    
+    _selectedModuleId = widget.moduleId ?? widget.lesson?.moduleId;
+
+    if (_selectedModuleId == null) {
+      _loadModules();
+    }
+  }
+
+  Future<void> _loadModules() async {
+    setState(() => _isLoadingModules = true);
+    try {
+      var query = Supabase.instance.client.from('modules').select('id, title, formation_id');
+      if (widget.formationId != null) {
+        query = query.eq('formation_id', widget.formationId!);
+      }
+      final res = await query;
+      if (mounted) {
+        setState(() {
+          _availableModules = List<Map<String, dynamic>>.from(res);
+          if (_availableModules.isNotEmpty && _selectedModuleId == null) {
+            _selectedModuleId = _availableModules.first['id'];
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur chargement modules : $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingModules = false);
+    }
   }
 
   @override
@@ -80,9 +112,6 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
     super.dispose();
   }
 
-  // ============================================================
-  // UPLOAD VERS SUPABASE STORAGE
-  // ============================================================
   Future<void> _uploadFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -105,14 +134,12 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$ext';
       final path = 'lessons/$fileName';
 
-      // Upload effectif vers Supabase Storage
       await Supabase.instance.client.storage.from(bucket).uploadBinary(
         path,
         bytes,
         fileOptions: FileOptions(upsert: true, contentType: file.identifier),
       );
 
-      // Récupération de l'URL publique
       final publicUrl = Supabase.instance.client.storage.from(bucket).getPublicUrl(path);
 
       setState(() {
@@ -135,24 +162,23 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
     }
   }
 
-  // ============================================================
-  // SAUVEGARDE DANS SUPABASE
-  // ============================================================
   Future<void> _saveLesson() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_selectedModuleId == null || _selectedModuleId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur : Aucun module parent sélectionné.'), backgroundColor: _C.red),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
-      final targetModuleId = widget.moduleId ?? widget.lesson?.moduleId;
-      if (targetModuleId == null || targetModuleId.isEmpty) {
-        throw Exception('Module parent introuvable.');
-      }
-
       final parsedDuration = int.tryParse(_durationController.text.trim()) ?? 0;
 
       final lessonData = {
-        'module_id': targetModuleId,
+        'module_id': _selectedModuleId!,
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
         'type': _type,
@@ -181,7 +207,7 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
 
       final resultLesson = Lesson(
         id: lessonId,
-        moduleId: targetModuleId,
+        moduleId: _selectedModuleId!,
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         type: _type,
@@ -255,6 +281,27 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
                     const Text('Informations principales', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
                     const SizedBox(height: 16),
                     
+                    // Sélecteur de module si non fourni par le parent
+                    if (widget.moduleId == null && widget.lesson?.moduleId == null) ...[
+                      _isLoadingModules
+                          ? const Center(child: LinearProgressIndicator(color: _C.primary))
+                          : DropdownButtonFormField<String>(
+                              value: _selectedModuleId,
+                              dropdownColor: _C.surface,
+                              style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w600),
+                              items: _availableModules.map((m) {
+                                return DropdownMenuItem<String>(
+                                  value: m['id'].toString(),
+                                  child: Text(m['title']?.toString() ?? 'Module sans titre'),
+                                );
+                              }).toList(),
+                              onChanged: (v) => setState(() => _selectedModuleId = v),
+                              decoration: _inputDecoration('Module parent*', Icons.folder_open_rounded),
+                              validator: (v) => v == null || v.isEmpty ? 'Veuillez sélectionner un module' : null,
+                            ),
+                      const SizedBox(height: 16),
+                    ],
+
                     TextFormField(
                       controller: _titleController,
                       style: const TextStyle(fontWeight: FontWeight.w500),
@@ -288,7 +335,6 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Gestion dynamique selon le type
                     if (_type == 'video' || _type == 'document')
                       Row(
                         children: [
@@ -340,7 +386,6 @@ class _LessonManagementPageState extends ConsumerState<LessonManagementPage> {
               ),
               const SizedBox(height: 24),
 
-              // Bouton pour gérer les questions si c'est un Quiz / Évaluation
               if (_type == 'quiz' || _type == 'evaluation')
                 SizedBox(
                   width: double.infinity,
