@@ -49,7 +49,6 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
   final List<String> _prerequisites = [];
   final TextEditingController _prereqController = TextEditingController();
 
-  // Variables pour la prévisualisation et l'upload de l'image
   Uint8List? _coverImageBytes;
   bool _isUploadingImage = false;
 
@@ -61,9 +60,10 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
     }
   }
 
-  Future<void> _loadCourse() async {}
+  Future<void> _loadCourse() async {
+    // Logique de chargement pour l'édition à intégrer ici plus tard
+  }
 
-  // Logique d'upload réel et de prévisualisation pour le Web
   Future<void> _pickAndUploadImage() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -150,11 +150,7 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
         'title': _titleController.text,
         'description': _descriptionController.text,
         'category_id': (_categoryId != null && _categoryId!.isNotEmpty) ? _categoryId : null,
-        
-        // ✅ CORRECTION APPLIQUÉE ICI POUR ÉVITER LE CRASH SQL "user_id violates not-null"
-        'user_id': userId,
-        'instructor_id': userId,
-        
+        'instructor_id': userId, // Uniquement instructor_id pour correspondre à la table SQL
         'instructor_name': _instructorController.text,
         'level': _level,
         'duration': totalDuration,
@@ -167,29 +163,42 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
         'status': 'draft',
       };
 
-      await Supabase.instance.client.from('formations').insert(formationData);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cours sauvegardé avec succès !', style: TextStyle(color: Colors.white)), backgroundColor: Color(0xFF10B981)),
-      );
-      context.pop();
+      if (widget.courseId == null) {
+        // CREATION : On insère et on récupère le nouvel ID
+        final res = await Supabase.instance.client.from('formations').insert(formationData).select('id').single();
+        if (!mounted) return;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cours sauvegardé ! Vous pouvez maintenant ajouter des modules.', style: TextStyle(color: Colors.white)), backgroundColor: Color(0xFF10B981)),
+        );
+        
+        // Redirection vers le mode édition de ce même cours pour débloquer les modules
+        context.pushReplacement('/instructor/courses/edit/${res['id']}');
+      } else {
+        // MISE À JOUR
+        await Supabase.instance.client.from('formations').update(formationData).eq('id', widget.courseId!);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cours mis à jour avec succès !', style: TextStyle(color: Colors.white)), backgroundColor: Color(0xFF10B981)),
+        );
+        context.pop();
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)), backgroundColor: _C.red),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _addModule() async {
-    final newModule = await Navigator.push<Module>(context, MaterialPageRoute(builder: (_) => const ModuleManagementPage()));
+    final newModule = await Navigator.push<Module>(context, MaterialPageRoute(builder: (_) => ModuleManagementPage(courseId: widget.courseId)));
     if (newModule != null) setState(() => _modules.add(newModule));
   }
 
   void _editModule(Module module) async {
-    final updated = await Navigator.push<Module>(context, MaterialPageRoute(builder: (_) => ModuleManagementPage(module: module)));
+    final updated = await Navigator.push<Module>(context, MaterialPageRoute(builder: (_) => ModuleManagementPage(module: module, courseId: widget.courseId)));
     if (updated != null) {
       final index = _modules.indexOf(module);
       if (index != -1) setState(() => _modules[index] = updated);
@@ -230,11 +239,12 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
+    final isNewCourse = widget.courseId == null;
 
     return Scaffold(
       backgroundColor: _C.bg,
       appBar: AppBar(
-        title: Text(widget.courseId == null ? 'Créer un cours' : 'Modifier le cours', style: const TextStyle(fontWeight: FontWeight.w800, color: _C.textMain, fontSize: 18)),
+        title: Text(isNewCourse ? 'Créer un cours' : 'Modifier le cours', style: const TextStyle(fontWeight: FontWeight.w800, color: _C.textMain, fontSize: 18)),
         backgroundColor: _C.surface,
         elevation: 0,
         centerTitle: true,
@@ -378,92 +388,72 @@ class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
               ),
               const SizedBox(height: 16),
 
-              // PRÉREQUIS
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Prérequis', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: _C.textMain)),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(child: TextFormField(controller: _prereqController, decoration: _inputDeco('Ajouter un prérequis'), onFieldSubmitted: (_) => _addPrerequisite())), 
-                        const SizedBox(width: 8), 
-                        Container(
-                          decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(12)),
-                          child: IconButton(icon: const Icon(Icons.add_rounded, color: Colors.white), onPressed: _addPrerequisite)
-                        ),
-                      ],
-                    ),
-                    if (_prerequisites.isNotEmpty) const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8, runSpacing: 8, 
-                      children: _prerequisites.asMap().entries.map((entry) => Chip(
-                        label: Text(entry.value, style: const TextStyle(color: _C.textMain)), 
-                        backgroundColor: _C.bg,
-                        deleteIcon: const Icon(Icons.close_rounded, size: 16, color: _C.textMuted), 
-                        onDeleted: () => _removePrerequisite(entry.key),
-                        side: const BorderSide(color: _C.border),
-                      )).toList()
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // MODULES
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween, 
-                children: [
-                  const Text('Modules du cours', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _C.textMain)), 
-                  ElevatedButton.icon(
-                    onPressed: _addModule, 
-                    icon: const Icon(Icons.add_rounded, size: 18), 
-                    label: const Text('Ajouter'), 
-                    style: ElevatedButton.styleFrom(backgroundColor: _C.textMain, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))
-                  )
-                ]
-              ),
-              const SizedBox(height: 12),
-              
-              if (_modules.isEmpty) 
-                Container(
+              // MODULES (Masqués si le cours n'est pas encore créé)
+              if (isNewCourse)
+                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 40), 
+                  padding: const EdgeInsets.all(24), 
                   decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border, style: BorderStyle.solid)),
                   child: const Column(
                     children: [
-                      Icon(Icons.view_module_rounded, size: 40, color: _C.border),
-                      SizedBox(height: 8),
-                      Text('Aucun module. Ajoutez-en un pour commencer.', style: TextStyle(color: _C.textMuted, fontWeight: FontWeight.w500)),
+                      Icon(Icons.lock_rounded, size: 40, color: _C.textMuted),
+                      SizedBox(height: 12),
+                      Text('Sauvegardez d\'abord le cours pour pouvoir y ajouter des modules.', textAlign: TextAlign.center, style: TextStyle(color: _C.textMain, fontWeight: FontWeight.w600)),
                     ],
                   )
-                ) 
-              else 
-                ..._modules.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final module = entry.value;
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12), 
-                    decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.border)),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      leading: CircleAvatar(backgroundColor: _C.primary.withOpacity(0.1), child: Text('${index + 1}', style: const TextStyle(color: _C.primary, fontWeight: FontWeight.bold))), 
-                      title: Text(module.title, style: const TextStyle(fontWeight: FontWeight.bold, color: _C.textMain)), 
-                      subtitle: Text('${(module.lessons ?? []).length} leçon(s)', style: const TextStyle(color: _C.textMuted)), 
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min, 
-                        children: [
-                          IconButton(icon: const Icon(Icons.edit_rounded, color: _C.textMuted), onPressed: () => _editModule(module)), 
-                          IconButton(icon: const Icon(Icons.delete_outline_rounded, color: _C.red), onPressed: () => _deleteModule(module))
-                        ]
-                      ), 
-                      onTap: () => _editModule(module)
+                )
+              else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+                  children: [
+                    const Text('Modules du cours', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _C.textMain)), 
+                    ElevatedButton.icon(
+                      onPressed: _addModule, 
+                      icon: const Icon(Icons.add_rounded, size: 18), 
+                      label: const Text('Ajouter'), 
+                      style: ElevatedButton.styleFrom(backgroundColor: _C.textMain, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))
                     )
-                  );
-                }),
+                  ]
+                ),
+                const SizedBox(height: 12),
+                
+                if (_modules.isEmpty) 
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 40), 
+                    decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border, style: BorderStyle.solid)),
+                    child: const Column(
+                      children: [
+                        Icon(Icons.view_module_rounded, size: 40, color: _C.border),
+                        SizedBox(height: 8),
+                        Text('Aucun module. Ajoutez-en un pour commencer.', style: TextStyle(color: _C.textMuted, fontWeight: FontWeight.w500)),
+                      ],
+                    )
+                  ) 
+                else 
+                  ..._modules.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final module = entry.value;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12), 
+                      decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.border)),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        leading: CircleAvatar(backgroundColor: _C.primary.withOpacity(0.1), child: Text('${index + 1}', style: const TextStyle(color: _C.primary, fontWeight: FontWeight.bold))), 
+                        title: Text(module.title, style: const TextStyle(fontWeight: FontWeight.bold, color: _C.textMain)), 
+                        subtitle: Text('${(module.lessons ?? []).length} leçon(s)', style: const TextStyle(color: _C.textMuted)), 
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min, 
+                          children: [
+                            IconButton(icon: const Icon(Icons.edit_rounded, color: _C.textMuted), onPressed: () => _editModule(module)), 
+                            IconButton(icon: const Icon(Icons.delete_outline_rounded, color: _C.red), onPressed: () => _deleteModule(module))
+                          ]
+                        ), 
+                        onTap: () => _editModule(module)
+                      )
+                    );
+                  }),
+              ],
               const SizedBox(height: 40),
             ],
           ),
