@@ -299,7 +299,9 @@ class _HomePageState extends ConsumerState<_HomePage> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final formationsAsync = ref.watch(formationsProvider);
-    final userId = ref.watch(currentUserIdProvider);
+    
+    // ✅ CORRECTION 1 : Ajout de .value ici
+    final userId = ref.watch(currentUserIdProvider).value;
 
     return formationsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator(color: _EduColors.primaryBlue)),
@@ -660,7 +662,8 @@ class _MyLearningPage extends ConsumerWidget {
   const _MyLearningPage();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userId = ref.watch(currentUserIdProvider);
+    // ✅ CORRECTION 2 : Ajout de .value ici
+    final userId = ref.watch(currentUserIdProvider).value;
     if (userId == null) return const Center(child: Text('Non connecté'));
     final enrollAsync = ref.watch(myEnrollmentsProvider(userId));
     return enrollAsync.when(
@@ -715,7 +718,8 @@ class _CertificatesPage extends ConsumerWidget {
   const _CertificatesPage();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userId = ref.watch(currentUserIdProvider);
+    // ✅ CORRECTION 3 : Ajout de .value ici
+    final userId = ref.watch(currentUserIdProvider).value;
     if (userId == null) return const Center(child: Text('Non connecté'));
     final certsAsync = ref.watch(certificatesProvider(userId));
     return certsAsync.when(
