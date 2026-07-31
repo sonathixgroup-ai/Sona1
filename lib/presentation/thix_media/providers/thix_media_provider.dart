@@ -44,25 +44,31 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
     }
   }
 
-  Future<List<MediaContent>> _fetch(DateTime? cursor) async {
+    Future<List<MediaContent>> _fetch(DateTime? cursor) async {
     final cat = ref.read(selectedCategoryProvider);
     final search = ref.read(searchQueryProvider).trim();
     
+    // 1. Déclarer la requête de base (SANS order ni limit)
     var query = Supabase.instance.client
         .from('media_content')
-        .select('*, media_stats(like_count, view_count, comment_count)')
-        .order('created_at', ascending: false)
-        .limit(_limit);
+        .select('*, media_stats(like_count, view_count, comment_count)');
         
-    if (cursor != null) query = query.lt('created_at', cursor.toIso8601String());
+    // 2. Appliquer les filtres (OBLIGATOIREMENT avant order et limit)
+    if (cursor != null) {
+      query = query.lt('created_at', cursor.toIso8601String());
+    }
+    
     if (search.isNotEmpty) {
       query = query.ilike('title', '%$search%');
     } else if (cat != 'Accueil' && cat != 'Fil') {
       query = query.eq('type', cat);
     }
 
-    final res = await query;
-    final list = (res as List).map((e) {
+    // 3. Appliquer l'ordre, la limite, et exécuter la requête
+    final res = await query.order('created_at', ascending: false).limit(_limit);
+    
+    // 4. Parser la réponse en forçant le type <MediaContent> et en utilisant fromJson
+    final list = (res as List).map<MediaContent>((e) {
       final stats = e['media_stats'] as Map<String, dynamic>?;
       if (stats != null) {
         e = {
@@ -72,13 +78,14 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
           'commentCount': stats['comment_count'] ?? e['commentCount'] ?? 0
         };
       }
-      return MediaContent.fromMap(e as Map<String, dynamic>);
+      // On utilise bien fromJson ici
+      return MediaContent.fromJson(e as Map<String, dynamic>);
     }).toList();
     
     if (list.isNotEmpty) _cursor = list.last.createdAt;
     return list;
   }
-}
+
 
 final thixMediaListProvider = StateNotifierProvider<ThixMediaNotifier, AsyncValue<List<MediaContent>>>((ref) => ThixMediaNotifier(ref));
 final bannerItemsProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull?.take(5).toList() ?? []);
