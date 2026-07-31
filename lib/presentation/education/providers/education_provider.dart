@@ -180,6 +180,8 @@ final formationDetailProvider = FutureProvider.family<Formation?, String>((ref, 
       lessons(
         id,
         title,
+        description,
+        content,
         duration_minutes,
         order_index,
         type,
