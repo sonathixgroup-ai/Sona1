@@ -44,16 +44,16 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
     }
   }
 
-    Future<List<MediaContent>> _fetch(DateTime? cursor) async {
+  Future<List<MediaContent>> _fetch(DateTime? cursor) async {
     final cat = ref.read(selectedCategoryProvider);
     final search = ref.read(searchQueryProvider).trim();
     
-    // 1. Déclarer la requête de base (SANS order ni limit)
+    // 1. Déclarer la requête de base
     var query = Supabase.instance.client
         .from('media_content')
         .select('*, media_stats(like_count, view_count, comment_count)');
         
-    // 2. Appliquer les filtres (OBLIGATOIREMENT avant order et limit)
+    // 2. Appliquer les filtres
     if (cursor != null) {
       query = query.lt('created_at', cursor.toIso8601String());
     }
@@ -67,7 +67,7 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
     // 3. Appliquer l'ordre, la limite, et exécuter la requête
     final res = await query.order('created_at', ascending: false).limit(_limit);
     
-    // 4. Parser la réponse en forçant le type <MediaContent> et en utilisant fromJson
+    // 4. Parser la réponse
     final list = (res as List).map<MediaContent>((e) {
       final stats = e['media_stats'] as Map<String, dynamic>?;
       if (stats != null) {
@@ -78,20 +78,20 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
           'commentCount': stats['comment_count'] ?? e['commentCount'] ?? 0
         };
       }
-      // On utilise bien fromJson ici
       return MediaContent.fromJson(e as Map<String, dynamic>);
     }).toList();
     
     if (list.isNotEmpty) _cursor = list.last.createdAt;
     return list;
   }
-
+} // <-- L'accolade fermante manquante était ici !
 
 final thixMediaListProvider = StateNotifierProvider<ThixMediaNotifier, AsyncValue<List<MediaContent>>>((ref) => ThixMediaNotifier(ref));
 final bannerItemsProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull?.take(5).toList() ?? []);
 final recommendationsProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull ?? []);
 final newReleasesProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull ?? []);
 final trendingProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull ?? []);
+
 
 // --- PROVIDERS COMPLÉMENTAIRES (Commentaires & Admin) ---
 
