@@ -1,388 +1,414 @@
-// lib/presentation/education/instructor/courses/course_create_page.dart
-import 'dart:typed_data';
+// lib/presentation/education/instructor/content/lesson_management_page.dart
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:file_picker/file_picker.dart';
-
-import 'package:thix_id/presentation/education/providers/education_provider.dart';
-import 'package:thix_id/presentation/education/models/formation.dart';
-import 'package:thix_id/presentation/education/models/module.dart';
 import 'package:thix_id/presentation/education/models/lesson.dart';
-import 'package:thix_id/presentation/education/instructor/content/module_management_page.dart';
 
 class _C {
   static const bg = Color(0xFFF8FAFC);
   static const surface = Colors.white;
-  static const border = Color(0xFFE2E8F0);
   static const primary = Color(0xFF2D6CDF);
   static const textMain = Color(0xFF0F172A);
   static const textMuted = Color(0xFF64748B);
+  static const border = Color(0xFFE2E8F0);
+  static const green = Color(0xFF10B981);
   static const red = Color(0xFFEF4444);
 }
 
-class CourseCreatePage extends ConsumerStatefulWidget {
-  final String? courseId;
-  const CourseCreatePage({super.key, this.courseId});
+class LessonManagementPage extends StatefulWidget {
+  final String? moduleId;
+  final Lesson? lesson;
+
+  const LessonManagementPage({super.key, this.moduleId, this.lesson});
 
   @override
-  ConsumerState<CourseCreatePage> createState() => _CourseCreatePageState();
+  State<LessonManagementPage> createState() => _LessonManagementPageState();
 }
 
-class _CourseCreatePageState extends ConsumerState<CourseCreatePage> {
+class _LessonManagementPageState extends State<LessonManagementPage> {
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _instructorController = TextEditingController();
-  final _priceController = TextEditingController();
-  final _imageUrlController = TextEditingController(); 
-  final _tagsController = TextEditingController();
   
-  String _level = 'beginner';
-  String? _categoryId;
-  String _currency = 'USD';
-  bool _isFree = false;
-  bool _isCertifying = false;
-  bool _isLoading = false;
-  bool _isInitLoading = false;
-  List<Module> _modules = [];
+  late final TextEditingController _titleController;
+  late final TextEditingController _descController;
+  late final TextEditingController _durationController;
+  late final TextEditingController _contentController;
+  
+  String _selectedType = 'text';
 
-  Uint8List? _coverImageBytes;
-  bool _isUploadingImage = false;
+  // --- Outils pour le constructeur de QUIZ ---
+  List<Map<String, dynamic>> _quizQuestions = [];
+  final TextEditingController _quizQuestionController = TextEditingController();
+  final TextEditingController _quizOptionsController = TextEditingController();
+  final TextEditingController _quizAnswerController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    if (widget.courseId != null) {
-      _loadCourse();
-    } else {
-      final userName = Supabase.instance.client.auth.currentUser?.userMetadata?['name'];
-      if (userName != null) {
-        _instructorController.text = userName;
+    _titleController = TextEditingController(text: widget.lesson?.title ?? '');
+    _descController = TextEditingController(text: widget.lesson?.description ?? '');
+    _durationController = TextEditingController(text: (widget.lesson?.durationMinutes ?? 0).toString());
+    _contentController = TextEditingController(text: widget.lesson?.content ?? '');
+    _selectedType = widget.lesson?.type ?? 'text';
+
+    // Si c'est un quiz existant, on tente de décoder le JSON des questions
+    if (_selectedType == 'quiz' && widget.lesson?.content != null) {
+      try {
+        final parsed = jsonDecode(widget.lesson!.content!);
+        if (parsed is List) {
+          _quizQuestions = List<Map<String, dynamic>>.from(parsed);
+        }
+      } catch (e) {
+        debugPrint('Contenu du quiz non-JSON ou format texte brut.');
       }
     }
   }
 
-  Future<void> _loadCourse() async {
-    setState(() => _isInitLoading = true);
-    try {
-      final data = await Supabase.instance.client
-          .from('formations')
-          .select('*, modules(*, lessons(*))')
-          .eq('id', widget.courseId!)
-          .single();
-
-      if (mounted) {
-        setState(() {
-          _titleController.text = data['title'] ?? '';
-          _descriptionController.text = data['description'] ?? '';
-          _instructorController.text = data['instructor_name'] ?? '';
-          _priceController.text = (data['price'] ?? 0).toString();
-          _categoryId = data['category_id'];
-          _level = data['level'] ?? 'beginner';
-          _currency = data['currency'] ?? 'USD';
-          _imageUrlController.text = data['image_url'] ?? '';
-          _isFree = data['is_free'] ?? false;
-          _isCertifying = data['is_certifying'] ?? false;
-          
-          if (data['tags'] != null && data['tags'] is List) {
-            _tagsController.text = (data['tags'] as List).join(', ');
-          }
-
-          if (data['modules'] != null) {
-            _modules = (data['modules'] as List).map((mJson) {
-              final module = Module.fromJson(mJson);
-              if (mJson['lessons'] != null) {
-                module.lessons = (mJson['lessons'] as List).map((lJson) => Lesson.fromJson(lJson)).toList();
-                module.lessons!.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
-              }
-              return module;
-            }).toList();
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint('❌ Erreur de chargement pour édition : $e');
-    } finally {
-      if (mounted) setState(() => _isInitLoading = false);
-    }
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    _durationController.dispose();
+    _contentController.dispose();
+    _quizQuestionController.dispose();
+    _quizOptionsController.dispose();
+    _quizAnswerController.dispose();
+    super.dispose();
   }
 
-  Future<void> _pickAndUploadImage() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image, 
-        allowMultiple: false,
-        withData: true, 
-      );
-      
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        final bytes = file.bytes;
-        if (bytes == null) return;
-
-        setState(() {
-          _coverImageBytes = bytes; 
-          _isUploadingImage = true;
-        });
-
-        final ext = file.extension ?? 'jpg';
-        final fileName = 'cover_${DateTime.now().millisecondsSinceEpoch}.$ext';
-        final filePath = 'courses/covers/$fileName';
-
-        await Supabase.instance.client.storage
-            .from('course-media')
-            .uploadBinary(filePath, bytes);
-
-        final publicUrl = Supabase.instance.client.storage
-            .from('course-media')
-            .getPublicUrl(filePath);
-
-        setState(() {
-          _imageUrlController.text = publicUrl; 
-          _isUploadingImage = false;
-        });
-      }
-    } catch (e) {
-      setState(() => _isUploadingImage = false);
-    }
-  }
-
-  Future<void> _saveCourse() async {
-    if (!_formKey.currentState!.validate()) return;
-    
-    setState(() => _isLoading = true);
-    
-    try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) throw Exception('Utilisateur non connecté.');
-
-      final totalDuration = _modules.fold<int>(0, (sum, m) {
-        final lessons = m.lessons ?? [];
-        return sum + lessons.fold<int>(0, (s, l) => s + l.durationMinutes);
+  void _addQuizQuestion() {
+    if (_quizQuestionController.text.trim().isEmpty) return;
+    setState(() {
+      _quizQuestions.add({
+        'question': _quizQuestionController.text.trim(),
+        'options': _quizOptionsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+        'answer': _quizAnswerController.text.trim(),
       });
+      _quizQuestionController.clear();
+      _quizOptionsController.clear();
+      _quizAnswerController.clear();
+    });
+  }
 
-      final formationData = {
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'category_id': (_categoryId != null && _categoryId!.isNotEmpty) ? _categoryId : null,
-        'user_id': userId, 
-        'instructor_id': userId,
-        'instructor_name': _instructorController.text,
-        'level': _level,
-        'duration': totalDuration,
-        'price': double.tryParse(_priceController.text) ?? 0.0,
-        'currency': _currency,
-        'image_url': _imageUrlController.text.trim(),
-        'tags': _tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
-        'is_free': _isFree,
-        'is_certifying': _isCertifying,
-        'status': 'draft',
-      };
+  void _removeQuizQuestion(int index) {
+    setState(() => _quizQuestions.removeAt(index));
+  }
 
-      if (widget.courseId == null) {
-        final res = await Supabase.instance.client.from('formations').insert(formationData).select('id').single();
-        if (!mounted) return;
-        context.pushReplacement('/instructor/courses/edit/${res['id']}');
-      } else {
-        await Supabase.instance.client.from('formations').update(formationData).eq('id', widget.courseId!);
-        if (!mounted) return;
-        context.pop();
+  void _saveLesson() {
+    if (!_formKey.currentState!.validate()) return;
+
+    String finalContent = _contentController.text.trim();
+
+    // Si le type est Quiz, on convertit la liste des questions en JSON pour la sauvegarder proprement
+    if (_selectedType == 'quiz') {
+      if (_quizQuestions.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez ajouter au moins une question au quiz.'), backgroundColor: _C.red));
+        return;
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e'), backgroundColor: _C.red));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      finalContent = jsonEncode(_quizQuestions);
     }
+
+    final newLesson = Lesson(
+      id: widget.lesson?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      moduleId: widget.moduleId ?? widget.lesson?.moduleId ?? '',
+      title: _titleController.text.trim(),
+      description: _descController.text.trim().isNotEmpty ? _descController.text.trim() : null,
+      type: _selectedType,
+      durationMinutes: int.tryParse(_durationController.text) ?? 0,
+      order: widget.lesson?.order ?? 0,
+      content: finalContent.isNotEmpty ? finalContent : null,
+    );
+
+    // On retourne la leçon créée à la page précédente
+    Navigator.pop(context, newLesson);
   }
 
-  void _addModule() async {
-    final newModule = await Navigator.push<Module>(context, MaterialPageRoute(builder: (_) => ModuleManagementPage(courseId: widget.courseId)));
-    if (newModule != null) setState(() => _modules.add(newModule));
-  }
-
-  void _editModule(Module module) async {
-    final updated = await Navigator.push<Module>(context, MaterialPageRoute(builder: (_) => ModuleManagementPage(module: module, courseId: widget.courseId)));
-    if (updated != null) {
-      final index = _modules.indexOf(module);
-      if (index != -1) setState(() => _modules[index] = updated);
-    }
-  }
-
-  void _deleteModule(Module module) {
-    setState(() => _modules.remove(module));
-  }
-
-  InputDecoration _inputDeco(String label, {IconData? icon}) {
+  InputDecoration _inputDeco(String label, {IconData? icon, String? hint}) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: _C.textMuted),
+      hintText: hint,
+      labelStyle: const TextStyle(color: _C.textMuted, fontSize: 14),
       filled: true,
-      fillColor: _C.bg,
+      fillColor: const Color(0xFFF8FAFC),
       prefixIcon: icon != null ? Icon(icon, color: _C.textMuted, size: 20) : null,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.primary, width: 2)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.primary, width: 1.5)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final categoriesAsync = ref.watch(categoriesProvider);
-    final isNewCourse = widget.courseId == null;
+    final isEditing = widget.lesson != null;
 
     return Scaffold(
-      backgroundColor: _C.bg,
+      backgroundColor: _C.surface,
       appBar: AppBar(
-        title: Text(isNewCourse ? 'Créer un cours' : 'Modifier le cours', style: const TextStyle(fontWeight: FontWeight.w800, color: _C.textMain, fontSize: 18)),
+        title: Text(isEditing ? 'Modifier la leçon' : 'Ajouter une leçon', style: const TextStyle(fontWeight: FontWeight.w800, color: _C.textMain, fontSize: 18)),
         backgroundColor: _C.surface,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(icon: const Icon(Icons.close_rounded, color: _C.textMain), onPressed: () => context.pop()),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain),
+          onPressed: () => context.pop(),
+        ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ElevatedButton.icon(
-              onPressed: _isLoading || _isInitLoading ? null : _saveCourse,
-              icon: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save_rounded, size: 18),
-              label: Text(_isLoading ? 'Sauvegarde...' : 'Enregistrer', style: const TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(backgroundColor: _C.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            ),
-          )
+          IconButton(
+            icon: const Icon(Icons.save_rounded, color: _C.primary),
+            onPressed: _saveLesson,
+            tooltip: 'Enregistrer',
+          ),
         ],
       ),
-      body: _isInitLoading 
-        ? const Center(child: CircularProgressIndicator(color: _C.primary))
-        : SingleChildScrollView(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // --- BLOC : INFORMATIONS PRINCIPALES ---
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _C.border),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Informations Générales', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: _C.textMain)),
+                    const Text('Informations principales', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: _C.textMain)),
                     const SizedBox(height: 16),
-                    TextFormField(controller: _titleController, decoration: _inputDeco('Titre du cours *'), validator: (v) => v!.isEmpty ? 'Requis' : null),
-                    const SizedBox(height: 12),
-                    TextFormField(controller: _descriptionController, decoration: _inputDeco('Description globale'), maxLines: 4),
-                    const SizedBox(height: 12),
-                    TextFormField(controller: _instructorController, decoration: _inputDeco('Nom affiché du formateur *', icon: Icons.person_rounded), validator: (v) => v!.isEmpty ? 'Requis' : null),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Détails & Tarification', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: _C.textMain)),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(flex: 3, child: TextFormField(controller: _priceController, decoration: _inputDeco('Prix', icon: Icons.sell_rounded), keyboardType: TextInputType.number)),
-                        const SizedBox(width: 12),
-                        Expanded(flex: 2, child: DropdownButtonFormField<String>(
-                          value: _currency, 
-                          items: const [DropdownMenuItem(value: 'USD', child: Text('USD \$')), DropdownMenuItem(value: 'FC', child: Text('FC'))], 
-                          onChanged: (v) => setState(() => _currency = v!), 
-                          decoration: _inputDeco('Devise')
-                        )),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: _level, 
-                            items: const [DropdownMenuItem(value: 'beginner', child: Text('Débutant')), DropdownMenuItem(value: 'intermediate', child: Text('Intermédiaire')), DropdownMenuItem(value: 'advanced', child: Text('Avancé'))], 
-                            onChanged: (v) => setState(() => _level = v!), 
-                            decoration: _inputDeco('Niveau')
-                          )
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: categoriesAsync.when(
-                            data: (cats) {
-                              final catExists = cats.any((c) => c.id == _categoryId);
-                              return DropdownButtonFormField<String>(
-                                value: catExists ? _categoryId : null,
-                                items: cats.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis))).toList(),
-                                onChanged: (v) => setState(() => _categoryId = v),
-                                decoration: _inputDeco('Catégorie'),
-                              );
-                            },
-                            loading: () => const Center(child: CircularProgressIndicator()),
-                            error: (_, __) => const Text('Erreur DB', style: TextStyle(color: _C.red)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (isNewCourse)
-                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24), 
-                  decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
-                  child: const Column(
-                    children: [
-                      Icon(Icons.lock_rounded, size: 40, color: _C.textMuted),
-                      SizedBox(height: 12),
-                      Text('Sauvegardez d\'abord le cours pour pouvoir y ajouter des modules.', textAlign: TextAlign.center, style: TextStyle(color: _C.textMain, fontWeight: FontWeight.w600)),
-                    ],
-                  )
-                )
-              else ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween, // ✅ Corrigé ici
-                  children: [
-                    const Text('Modules du cours', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _C.textMain)), 
-                    ElevatedButton.icon(
-                      onPressed: _addModule, 
-                      icon: const Icon(Icons.add_rounded, size: 18), 
-                      label: const Text('Ajouter'), 
-                      style: ElevatedButton.styleFrom(backgroundColor: _C.textMain, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))
-                    )
-                  ]
-                ),
-                const SizedBox(height: 12),
-                ..._modules.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final module = entry.value;
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12), 
-                    decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.border)),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      leading: CircleAvatar(backgroundColor: _C.primary.withOpacity(0.1), child: Text('${index + 1}', style: const TextStyle(color: _C.primary, fontWeight: FontWeight.bold))), 
-                      title: Text(module.title, style: const TextStyle(fontWeight: FontWeight.bold, color: _C.textMain)), 
-                      subtitle: Text('${(module.lessons ?? []).length} leçon(s)', style: const TextStyle(color: _C.textMuted)), 
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min, 
+                    
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(color: _C.green.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                      child: Row(
                         children: [
-                          IconButton(icon: const Icon(Icons.edit_rounded, color: _C.textMuted), onPressed: () => _editModule(module)), 
-                          IconButton(icon: const Icon(Icons.delete_outline_rounded, color: _C.red), onPressed: () => _deleteModule(module))
-                        ]
-                      ), 
-                      onTap: () => _editModule(module)
-                    )
-                  );
-                }),
-              ],
+                          const Icon(Icons.check_circle_rounded, color: _C.green, size: 20),
+                          const SizedBox(width: 10),
+                          const Text('Leçon correctement liée au module', style: TextStyle(color: _C.green, fontWeight: FontWeight.w700, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    TextFormField(
+                      controller: _titleController,
+                      decoration: _inputDeco('Titre de la leçon*', icon: Icons.text_fields_rounded),
+                      validator: (v) => v == null || v.isEmpty ? 'Le titre est requis' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: _descController,
+                      decoration: _inputDeco('Description', icon: Icons.description_outlined),
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 16),
+
+                    DropdownButtonFormField<String>(
+                      value: _selectedType,
+                      dropdownColor: Colors.white,
+                      icon: const Icon(Icons.arrow_drop_down_rounded, color: _C.textMuted),
+                      items: const [
+                        DropdownMenuItem(value: 'text', child: Text('📖 Article / Texte')),
+                        DropdownMenuItem(value: 'video', child: Text('🎥 Vidéo')),
+                        DropdownMenuItem(value: 'quiz', child: Text('❓ Quiz / Évaluation')),
+                        DropdownMenuItem(value: 'assignment', child: Text('📝 Devoir / Travail pratique')),
+                      ],
+                      onChanged: (v) => setState(() => _selectedType = v!),
+                      decoration: _inputDeco('Type de leçon', icon: Icons.category_outlined),
+                    ),
+                    const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: _durationController,
+                      decoration: _inputDeco('Durée (en minutes)', icon: Icons.timer_outlined),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // --- BLOC DYNAMIQUE SELON LE TYPE CHOISI ---
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _buildDynamicContentFields(),
+              ),
+              
+              const SizedBox(height: 40),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Fonction qui affiche les champs appropriés selon le type de leçon
+  Widget _buildDynamicContentFields() {
+    if (_selectedType == 'video') {
+      return Container(
+        key: const ValueKey('video'),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Ressource Vidéo', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: _C.textMain)),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _contentController,
+              decoration: _inputDeco('Lien de la vidéo (URL MP4, YouTube...)', icon: Icons.link_rounded),
+              validator: (v) => _selectedType == 'video' && (v == null || v.isEmpty) ? 'Lien requis pour une vidéo' : null,
+            ),
+          ],
+        ),
+      );
+    } 
+    
+    if (_selectedType == 'quiz') {
+      return Container(
+        key: const ValueKey('quiz'),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Générateur de Quiz', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: _C.textMain)),
+            const SizedBox(height: 8),
+            const Text('Ajoutez des questions interactives pour évaluer vos apprenants.', style: TextStyle(fontSize: 13, color: _C.textMuted)),
+            const SizedBox(height: 20),
+            
+            // Formulaire d'ajout de question
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.border)),
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _quizQuestionController,
+                    decoration: _inputDeco('Intitulé de la question', icon: Icons.help_outline_rounded),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _quizOptionsController,
+                    decoration: _inputDeco('Options (séparées par des virgules)', icon: Icons.list_alt_rounded, hint: 'Ex: Paris, Lyon, Marseille'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _quizAnswerController,
+                    decoration: _inputDeco('Bonne réponse exacte', icon: Icons.check_circle_outline_rounded),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: _C.textMain, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                      onPressed: _addQuizQuestion,
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Ajouter la question', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Liste des questions ajoutées
+            if (_quizQuestions.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              const Text('Questions validées :', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: _C.textMain)),
+              const SizedBox(height: 10),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _quizQuestions.length,
+                itemBuilder: (context, i) {
+                  final q = _quizQuestions[i];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: _C.green.withOpacity(0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: _C.green.withOpacity(0.2))),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(color: _C.green, shape: BoxShape.circle),
+                          child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(q['question'], style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _C.textMain)),
+                              const SizedBox(height: 4),
+                              Text('Choix : ${(q['options'] as List).join(', ')}', style: const TextStyle(fontSize: 12, color: _C.textMuted)),
+                              Text('Rép : ${q['answer']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _C.green)),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: _C.red, size: 20),
+                          onPressed: () => _removeQuizQuestion(i),
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ],
+        ),
+      );
+    } 
+    
+    if (_selectedType == 'assignment') {
+      return Container(
+        key: const ValueKey('assignment'),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Devoir / Travail Pratique', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: _C.textMain)),
+            const SizedBox(height: 8),
+            const Text('Expliquez ce que l\'apprenant doit accomplir.', style: TextStyle(fontSize: 13, color: _C.textMuted)),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _contentController,
+              maxLines: 6,
+              decoration: _inputDeco('Consignes détaillées du devoir', icon: Icons.assignment_outlined),
+              validator: (v) => _selectedType == 'assignment' && (v == null || v.isEmpty) ? 'Les consignes sont requises' : null,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Type par défaut (Texte/Article)
+    return Container(
+      key: const ValueKey('text'),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Contenu de la leçon', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: _C.textMain)),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _contentController,
+            maxLines: 8,
+            decoration: _inputDeco('Rédigez l\'article complet ici...', icon: Icons.article_outlined),
+            validator: (v) => _selectedType == 'text' && (v == null || v.isEmpty) ? 'Le contenu de l\'article est requis' : null,
+          ),
+        ],
       ),
     );
   }
