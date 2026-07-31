@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/media_content.dart';
@@ -7,6 +8,7 @@ final searchQueryProvider = StateProvider<String>((ref) => "");
 
 class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
   ThixMediaNotifier(this.ref) : super(const AsyncValue.loading()) {
+    _sessionSeed = Random().nextInt(100000);
     _loadInitial();
     ref.listen(selectedCategoryProvider, (_, __) => refresh());
     ref.listen(searchQueryProvider, (_, __) => refresh());
@@ -16,6 +18,7 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
   DateTime? _cursor;
   bool _hasMore = true;
   bool _loadingMore = false;
+  late int _sessionSeed;
   static const _limit = 20;
 
   Future<void> _loadInitial() async => refresh();
@@ -23,6 +26,7 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
   Future<void> refresh() async {
     _cursor = null; 
     _hasMore = true;
+    _sessionSeed = Random().nextInt(100000);
     state = const AsyncValue.loading();
     try {
       final list = await _fetch(null);
@@ -44,16 +48,14 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
     }
   }
 
-    Future<List<MediaContent>> _fetch(DateTime? cursor) async {
+  Future<List<MediaContent>> _fetch(DateTime? cursor) async {
     final cat = ref.read(selectedCategoryProvider);
     final search = ref.read(searchQueryProvider).trim();
     
-    // 1. Déclarer la requête de base
     var query = Supabase.instance.client
         .from('media_content')
         .select('*, media_stats(like_count, view_count, comment_count)');
         
-    // 2. Appliquer les filtres
     if (cursor != null) {
       query = query.lt('created_at', cursor.toIso8601String());
     }
@@ -64,68 +66,80 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
       query = query.eq('type', cat);
     }
 
-    // 3. Appliquer l'ordre, la limite, et exécuter la requête
     final res = await query.order('created_at', ascending: false).limit(_limit);
     
-    // 4. CORRECTION WEB : Conversion propre des types JSON dynamiques
     final list = (res as List).map<MediaContent>((dynamic item) {
-      // On crée une vraie Map<String, dynamic> à partir du JSON brut
       final Map<String, dynamic> e = Map<String, dynamic>.from(item as Map);
-      
-      // Si les statistiques existent, on les convertit aussi proprement
       if (e['media_stats'] != null) {
         final Map<String, dynamic> stats = Map<String, dynamic>.from(e['media_stats'] as Map);
         e['likeCount'] = stats['like_count'] ?? e['likeCount'] ?? 0;
         e['viewCount'] = stats['view_count'] ?? e['viewCount'] ?? 0;
         e['commentCount'] = stats['comment_count'] ?? e['commentCount'] ?? 0;
       }
-      
       return MediaContent.fromJson(e);
     }).toList();
     
     if (list.isNotEmpty) _cursor = list.last.createdAt;
+
+    // SCALABILITY: Mélange algorithmique par lot basé sur la graine de session
+    if (cat == 'Fil' && search.isEmpty) {
+      list.shuffle(Random(_sessionSeed));
+    }
+
     return list;
   }
 }
+
 final thixMediaListProvider = StateNotifierProvider<ThixMediaNotifier, AsyncValue<List<MediaContent>>>((ref) => ThixMediaNotifier(ref));
 final bannerItemsProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull?.take(5).toList() ?? []);
 final recommendationsProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull ?? []);
 final newReleasesProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull ?? []);
 final trendingProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull ?? []);
 
-
-// --- PROVIDERS COMPLÉMENTAIRES (Commentaires & Admin) ---
+// --- MODÈLE ET PROVIDER COMMENTAIRES IMBRIQUÉS ---
 
 class CommentItem { 
   final String id, userId, userName, content; 
   final String? avatarUrl; 
+  final String? parentId;
   final DateTime createdAt;
   
-  CommentItem({required this.id, required this.userId, required this.userName, required this.content, required this.createdAt, this.avatarUrl});
+  CommentItem({
+    required this.id, 
+    required this.userId, 
+    required this.userName, 
+    required this.content, 
+    required this.createdAt, 
+    this.avatarUrl,
+    this.parentId,
+  });
   
-  factory CommentItem.fromMap(Map<String, dynamic> m) => CommentItem(
-    id: m['id'], 
-    userId: m['user_id'], 
-    userName: (m['user_name'] as String?)?.isNotEmpty == true ? m['user_name'] : 'Utilisateur', 
-    avatarUrl: m['avatar_url'], 
-    content: m['content'], 
-    createdAt: DateTime.parse(m['created_at']).toLocal()
-  );
+  factory CommentItem.fromMap(Map<String, dynamic> m) {
+    final Map<String, dynamic> map = Map<String, dynamic>.from(m);
+    return CommentItem(
+      id: map['id'] as String, 
+      userId: map['user_id'] as String, 
+      userName: (map['user_name'] as String?)?.trim().isNotEmpty == true ? map['user_name'] as String : 'Utilisateur', 
+      avatarUrl: map['avatar_url'] as String?, 
+      parentId: map['parent_id'] as String?,
+      content: map['content'] as String, 
+      createdAt: DateTime.parse(map['created_at'] as String).toLocal(),
+    );
+  }
 }
 
 final commentsListProvider = FutureProvider.autoDispose.family<List<CommentItem>, String>((ref, mediaId) async {
-  final res = await Supabase.instance.client.from('media_comments').select('id, user_id, user_name, avatar_url, content, created_at').eq('media_id', mediaId).order('created_at', ascending: false).limit(50);
+  final res = await Supabase.instance.client
+      .from('media_comments')
+      .select('id, user_id, user_name, avatar_url, parent_id, content, created_at')
+      .eq('media_id', mediaId)
+      .order('created_at', ascending: true)
+      .limit(100);
+      
   return (res as List).map((e) => CommentItem.fromMap(e as Map<String, dynamic>)).toList();
 });
 
 final commentCountProvider = FutureProvider.autoDispose.family<int, String>((ref, mediaId) async {
   final res = await Supabase.instance.client.from('media_stats').select('comment_count').eq('media_id', mediaId).maybeSingle();
   return res?['comment_count'] as int? ?? 0;
-});
-
-final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
-  final u = Supabase.instance.client.auth.currentUser; 
-  if (u == null) return false;
-  final role = u.appMetadata['role'] ?? u.userMetadata?['role']; 
-  return role == 'admin' || role == 'superadmin';
 });
