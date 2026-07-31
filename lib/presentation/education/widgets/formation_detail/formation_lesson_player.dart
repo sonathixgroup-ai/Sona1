@@ -123,7 +123,8 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
     }
   }
 
-  Future<bool> markAsCompleted() async {
+  // ✅ CORRECTION : Ajout de formationId pour mettre à jour la table globale enrollments
+  Future<bool> markAsCompleted(String? formationId) async {
     if (state.isCompleted || state.isUpdating) return false;
 
     state = state.copyWith(isUpdating: true, error: null);
@@ -149,10 +150,16 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
         'completed_at': now,
       };
 
+      // 1. Enregistre que la leçon est finie
       await Supabase.instance.client.from('user_progress').upsert(
         data, 
         onConflict: 'user_id,lesson_id'
       ); 
+
+      // ✅ 2. Synchronise le pourcentage du cours complet
+      if (formationId != null) {
+        await _syncEnrollmentProgress(userId, formationId);
+      }
 
       state = state.copyWith(isUpdating: false, isCompleted: true, progress: 1.0);
       return true;
@@ -160,6 +167,57 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
       debugPrint('Erreur Supabase lors de la complétion : $e');
       state = state.copyWith(isUpdating: false, error: 'Impossible de marquer la leçon comme terminée.');
       return false;
+    }
+  }
+
+  // ✅ NOUVELLE MÉTHODE : Calcule et sauvegarde le pourcentage total du cours
+  Future<void> _syncEnrollmentProgress(String userId, String formationId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // A. Récupérer toutes les leçons du cours
+      final formationData = await supabase.from('formations')
+          .select('modules(lessons(id))')
+          .eq('id', formationId).maybeSingle();
+
+      if (formationData == null) return;
+
+      int totalLessons = 0;
+      List<String> courseLessonIds = [];
+      
+      for (var module in formationData['modules'] ?? []) {
+        for (var lesson in module['lessons'] ?? []) {
+          totalLessons++;
+          courseLessonIds.add(lesson['id']);
+        }
+      }
+
+      if (totalLessons == 0) return;
+
+      // B. Récupérer les leçons terminées par cet utilisateur
+      final completedData = await supabase.from('user_progress')
+          .select('lesson_id')
+          .eq('user_id', userId)
+          .eq('status', 'completed');
+
+      // C. Calculer la progression exacte
+      int completedCount = 0;
+      for(var row in (completedData as List)) {
+        if (courseLessonIds.contains(row['lesson_id'])) {
+          completedCount++;
+        }
+      }
+
+      final double overallProgress = completedCount / totalLessons;
+
+      // D. Mettre à jour l'inscription globale (c'est ce qui est affiché dans Mes Cours)
+      await supabase.from('enrollments').update({
+        'progress': overallProgress,
+        'status': overallProgress >= 1.0 ? 'completed' : 'in_progress',
+      }).eq('uid', userId).eq('formation_id', formationId);
+      
+    } catch (e) {
+      debugPrint('Erreur de synchronisation globale : $e');
     }
   }
 }
@@ -233,7 +291,8 @@ class FormationLessonPlayer extends ConsumerWidget {
               onPressed: state.isCompleted
                   ? null
                   : () async {
-                      final success = await notifier.markAsCompleted();
+                      // ✅ Envoi de formationId
+                      final success = await notifier.markAsCompleted(formationId);
                       if (success && onComplete != null) onComplete!();
                     },
             ),
@@ -267,7 +326,8 @@ class FormationLessonPlayer extends ConsumerWidget {
                         onPressed: state.isUpdating
                             ? null
                             : () async {
-                                final success = await notifier.markAsCompleted();
+                                // ✅ Envoi de formationId
+                                final success = await notifier.markAsCompleted(formationId);
                                 if (success && onComplete != null) onComplete!();
                               },
                         style: ElevatedButton.styleFrom(
@@ -321,7 +381,8 @@ class FormationLessonPlayer extends ConsumerWidget {
           videoUrl: currentLesson.content!,
           onProgress: (progress) => notifier.updateProgress(progress),
           onComplete: () async {
-            final success = await notifier.markAsCompleted();
+            // ✅ Envoi de formationId
+            final success = await notifier.markAsCompleted(formationId);
             if (success && onComplete != null) onComplete!();
           },
         ),
@@ -332,7 +393,8 @@ class FormationLessonPlayer extends ConsumerWidget {
       return FormationEvaluationWidget(
         evaluation: currentLesson.evaluation!,
         onComplete: (score, total) async {
-          final success = await notifier.markAsCompleted();
+          // ✅ Envoi de formationId
+          final success = await notifier.markAsCompleted(formationId);
           if (success) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
