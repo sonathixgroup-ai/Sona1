@@ -4,11 +4,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:video_player/video_player.dart';
 import 'video_player_page.dart';
 import '../../models/media_content.dart';
 import 'providers/thix_media_provider.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
-import 'admin/thix_media_admin_page.dart'; 
+import 'admin/thix_media_admin_page.dart';
+
+// ⚠️ Ce fichier suppose que le modèle MediaContent expose désormais :
+//    - likeCount (int)     : nombre réel de likes
+//    - commentCount (int)  : nombre réel de commentaires
+//    - viewCount (int)     : nombre réel de vues (déjà présent)
+// Si ces champs n'existent pas encore dans media_content.dart, ajoutez-les.
+//
+// ⚠️ Ce fichier suppose aussi l'existence de deux tables Supabase :
+//    - media_likes(media_id, user_id) avec contrainte UNIQUE(media_id, user_id)
+//    - media_views(media_id, user_id) avec contrainte UNIQUE(media_id, user_id)
+// afin de garantir un like et une vue strictement uniques par utilisateur.
 
 const Color kBg = Color(0xFF050507);
 const Color kSurface = Color(0xFF121214);
@@ -36,6 +48,21 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   }
 });
 
+class _NavItemData {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final int index;
+  final Color? color;
+  _NavItemData({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.index,
+    this.color,
+  });
+}
+
 class ThixMediaPage extends ConsumerStatefulWidget {
   const ThixMediaPage({super.key});
   @override
@@ -52,19 +79,34 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
-  // "Fil" placé en premier pour devenir la vue par défaut
-  final List<String> _filters = ["Fil", "Accueil", "Tendances", "NOVA Originals", "Live", "Courts", "Musique", "Gaming", "Formation"];
+  // "Accueil" en premier, "Fil" en second (mais sélectionné par défaut)
+  final List<String> _filters = ["Accueil", "Fil", "Tendances", "NOVA Originals", "Live", "Courts", "Musique", "Gaming", "Formation"];
 
   // Gestion de l'état local des "Likes" pour une UI réactive
   final Set<String> _likedMediaIds = {};
+  final Set<String> _viewedMediaIds = {};
+  final Map<String, int> _likeDelta = {};
+  final Map<String, int> _viewDelta = {};
+
+  // Immersion (masquage des barres au tap dans le Fil)
+  bool _immersive = false;
+  int _currentFeedIndex = 0;
+  bool _feedBootstrapped = false;
+
+  // Lecteurs vidéo pour l'autoplay dans le Fil
+  final Map<String, VideoPlayerController> _videoControllers = {};
+
+  // Mémoïsation du feed mélangé pour ne pas re-mélanger à chaque rebuild
+  List<MediaContent> _lastSourceList = [];
+  List<MediaContent> _memoFeedList = [];
 
   @override
   void initState() {
     super.initState();
     _bannerController = PageController(viewportFraction: 1.0);
     _feedController = PageController();
-    
-    // Forcer la sélection sur "Fil" au démarrage
+
+    // Forcer la sélection sur "Fil" au démarrage (onglet par défaut)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(selectedCategoryProvider.notifier).state = "Fil";
     });
@@ -79,6 +121,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     _searchController.dispose();
     _searchFocusNode.dispose();
     _scrollController.dispose();
+    for (final c in _videoControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -124,6 +169,182 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
+  // ---------------- MÉMOÏSATION DU FEED ----------------
+  List<MediaContent> _getFeedList(List<MediaContent> source) {
+    if (!_sameIds(source, _lastSourceList)) {
+      _memoFeedList = List<MediaContent>.from(source)..shuffle();
+      _lastSourceList = source;
+    }
+    return _memoFeedList;
+  }
+
+  bool _sameIds(List<MediaContent> a, List<MediaContent> b) {
+    if (a.length != b.length) return false;
+    final idsA = a.map((e) => e.id).toSet();
+    final idsB = b.map((e) => e.id).toSet();
+    return idsA.length == idsB.length && idsA.containsAll(idsB);
+  }
+
+  // ---------------- LIKES / VUES RÉELS ----------------
+  int _realLikeCount(MediaContent item) => item.likeCount + (_likeDelta[item.id] ?? 0);
+  int _realViewCount(MediaContent item) => item.viewCount + (_viewDelta[item.id] ?? 0);
+
+  Future<void> _registerView(MediaContent item) async {
+    if (_viewedMediaIds.contains(item.id)) return;
+    _viewedMediaIds.add(item.id);
+    if (mounted) {
+      setState(() => _viewDelta[item.id] = (_viewDelta[item.id] ?? 0) + 1);
+    }
+
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    try {
+      // La contrainte UNIQUE(media_id, user_id) garantit une vue unique par utilisateur.
+      await Supabase.instance.client.from('media_views').upsert(
+        {'media_id': item.id, 'user_id': uid},
+        onConflict: 'media_id,user_id',
+        ignoreDuplicates: true,
+      );
+    } catch (_) {
+      // Échec silencieux : ne bloque jamais la lecture pour un souci de comptage
+    }
+  }
+
+  Future<void> _toggleLike(MediaContent item) async {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    final wasLiked = _likedMediaIds.contains(item.id);
+
+    setState(() {
+      if (wasLiked) {
+        _likedMediaIds.remove(item.id);
+        _likeDelta[item.id] = (_likeDelta[item.id] ?? 0) - 1;
+      } else {
+        _likedMediaIds.add(item.id);
+        _likeDelta[item.id] = (_likeDelta[item.id] ?? 0) + 1;
+      }
+    });
+
+    try {
+      if (wasLiked) {
+        await Supabase.instance.client
+            .from('media_likes')
+            .delete()
+            .eq('media_id', item.id)
+            .eq('user_id', uid);
+      } else {
+        await Supabase.instance.client.from('media_likes').upsert(
+          {'media_id': item.id, 'user_id': uid},
+          onConflict: 'media_id,user_id',
+          ignoreDuplicates: true,
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (wasLiked) {
+          _likedMediaIds.add(item.id);
+          _likeDelta[item.id] = (_likeDelta[item.id] ?? 0) + 1;
+        } else {
+          _likedMediaIds.remove(item.id);
+          _likeDelta[item.id] = (_likeDelta[item.id] ?? 0) - 1;
+        }
+      });
+    }
+  }
+
+  void _openComments(MediaContent item) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: kSurface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${item.commentCount} commentaires', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 12),
+              const Text('La liste des commentaires sera affichée ici.', style: TextStyle(color: kTextGrey)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showViewsInfo(MediaContent item) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${_realViewCount(item)} vues uniques'), backgroundColor: kSurface),
+    );
+  }
+
+  // ---------------- GESTION DES CONTRÔLEURS VIDÉO (AUTOPLAY) ----------------
+  Widget _buildFeedVideo(MediaContent item) {
+    final controller = _videoControllers[item.id];
+    if (controller != null && controller.value.isInitialized) {
+      return FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: controller.value.size.width,
+          height: controller.value.size.height,
+          child: VideoPlayer(controller),
+        ),
+      );
+    }
+    return _buildImage(item.coverUrl);
+  }
+
+  Future<void> _ensureController(MediaContent item, {required bool play}) async {
+    var controller = _videoControllers[item.id];
+    if (controller == null) {
+      controller = VideoPlayerController.networkUrl(Uri.parse(item.videoUrl));
+      _videoControllers[item.id] = controller;
+      try {
+        await controller.initialize();
+        controller.setLooping(true);
+        controller.setVolume(1.0);
+      } catch (_) {
+        _videoControllers.remove(item.id);
+        return;
+      }
+      if (!mounted) return;
+      setState(() {});
+    }
+    if (play) {
+      controller.play();
+    }
+  }
+
+  void _cleanupControllers(List<MediaContent> list, int currentIndex) {
+    final keepIds = <String>{};
+    for (int i = currentIndex - 1; i <= currentIndex + 1; i++) {
+      if (i >= 0 && i < list.length) keepIds.add(list[i].id);
+    }
+    final toRemove = _videoControllers.keys.where((id) => !keepIds.contains(id)).toList();
+    for (final id in toRemove) {
+      _videoControllers[id]?.pause();
+      _videoControllers[id]?.dispose();
+      _videoControllers.remove(id);
+    }
+  }
+
+  void _handlePageChanged(int index, List<MediaContent> list) {
+    if (index < 0 || index >= list.length) return;
+    final current = list[index];
+    for (final entry in _videoControllers.entries) {
+      if (entry.key != current.id) entry.value.pause();
+    }
+    _cleanupControllers(list, index);
+    _ensureController(current, play: true);
+    if (index + 1 < list.length) {
+      _ensureController(list[index + 1], play: false);
+    }
+    _registerView(current);
+  }
+
   @override
   Widget build(BuildContext context) {
     final asyncMedia = ref.watch(thixMediaListProvider);
@@ -140,8 +361,19 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         loading: () => const Center(child: CircularProgressIndicator(color: kRed)),
         error: (e, st) => Center(child: Text('Erreur: $e', style: const TextStyle(color: kTextWhite))),
         data: (mediaList) {
-          // Mélange intelligent pour le Feed (Simulation)
-          final feedList = List<MediaContent>.from(mediaList)..shuffle();
+          final feedList = _getFeedList(mediaList);
+          final currentItem = feedList.isNotEmpty
+              ? feedList[_currentFeedIndex.clamp(0, feedList.length - 1)]
+              : null;
+
+          if (selectedCategory == 'Fil' && feedList.isNotEmpty && !_feedBootstrapped) {
+            _feedBootstrapped = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _handlePageChanged(0, feedList);
+            });
+          }
+
+          final showBars = !(_immersive && selectedCategory == 'Fil');
 
           return Stack(
             children: [
@@ -218,21 +450,35 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   ),
                 ),
 
-              // 2. HEADER FLOTTANT ET FILTRES
+              // 2. HEADER + FILTRES (masqués en mode immersif dans le Fil)
               Positioned(
                 top: 0, left: 0, right: 0,
-                child: Column(
-                  children: [
-                    _header(),
-                    _filtersRow(selectedCategory),
-                  ],
+                child: IgnorePointer(
+                  ignoring: !showBars,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 250),
+                    opacity: showBars ? 1 : 0,
+                    child: Column(
+                      children: [
+                        _header(),
+                        _filtersRow(selectedCategory),
+                      ],
+                    ),
+                  ),
                 ),
               ),
 
-              // 3. NAVIGATION DU BAS FLOTTANTE
+              // 3. NAVIGATION DU BAS (masquée en mode immersif dans le Fil)
               Positioned(
                 bottom: 0, left: 0, right: 0,
-                child: _bottomNav(),
+                child: IgnorePointer(
+                  ignoring: !showBars,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 250),
+                    opacity: showBars ? 1 : 0,
+                    child: _bottomNav(selectedCategory, currentItem),
+                  ),
+                ),
               ),
             ],
           );
@@ -241,7 +487,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
-  // ---------------- FIL INTELLIGENT (Style TikTok) ----------------
+  // ---------------- FIL INTELLIGENT (Style TikTok, autoplay) ----------------
   Widget _buildTikTokFeed(List<MediaContent> mediaList) {
     if (mediaList.isEmpty) {
       return const Center(child: Text("Aucun contenu disponible", style: TextStyle(color: Colors.white)));
@@ -251,128 +497,72 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       controller: _feedController,
       scrollDirection: Axis.vertical,
       itemCount: mediaList.length,
+      onPageChanged: (index) {
+        setState(() => _currentFeedIndex = index);
+        _handlePageChanged(index, mediaList);
+      },
       itemBuilder: (context, index) {
         final item = mediaList[index];
-        final isLiked = _likedMediaIds.contains(item.id);
 
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            // Couverture / Background Vidéo
-            _buildImage(item.coverUrl),
-            
-            // Overlay Sombre pour lisibilité
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.95),
-                    Colors.black.withOpacity(0.3),
-                    Colors.black.withOpacity(0.5),
-                  ],
-                  stops: const [0.0, 0.4, 1.0],
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _immersive = !_immersive),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Vidéo en lecture automatique (ou couverture pendant le chargement)
+              _buildFeedVideo(item),
+
+              // Overlay sombre pour lisibilité
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.85),
+                      Colors.black.withOpacity(0.2),
+                      Colors.black.withOpacity(0.4),
+                    ],
+                    stops: const [0.0, 0.4, 1.0],
+                  ),
                 ),
               ),
-            ),
-            
-            // Bouton Play Central
-            Center(
-              child: GestureDetector(
-                onTap: () => _navigateToVideo(item),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.black.withOpacity(0.4), shape: BoxShape.circle, border: Border.all(color: Colors.white24, width: 2)),
-                  child: const Icon(Icons.play_arrow_rounded, size: 54, color: Colors.white),
-                ),
-              ),
-            ),
 
-            // Barre d'actions latérale (J'aime, Commentaires, Vues)
-            Positioned(
-              right: 16,
-              bottom: 110, // Au-dessus de la barre de navigation
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  _feedActionItem(
-                    icon: isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-                    color: isLiked ? kRed : Colors.white,
-                    label: _formatNumber(12400 + index * 43), // Mock de likes
-                    onTap: () {
-                      setState(() {
-                        if (isLiked) _likedMediaIds.remove(item.id);
-                        else _likedMediaIds.add(item.id);
-                      });
-                    }
-                  ),
-                  const SizedBox(height: 24),
-                  _feedActionItem(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    label: _formatNumber(854 + index * 12), // Mock de commentaires
-                    onTap: () {} // TODO: Ouvrir modal de commentaires
-                  ),
-                  const SizedBox(height: 24),
-                  _feedActionItem(
-                    icon: Icons.remove_red_eye_rounded,
-                    label: _formatNumber(item.viewCount), // Vrai compteur de vues (1 par utilisateur)
-                  ),
-                  const SizedBox(height: 24),
-                  _feedActionItem(
-                    icon: Icons.share_rounded,
-                    label: 'Partager',
-                  ),
-                ],
-              ),
-            ),
-
-            // Informations du Média (Bas gauche)
-            Positioned(
-              left: 20,
-              bottom: 110,
-              right: 90, // Espace pour la barre d'action
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: kTdiaBlue.withOpacity(0.2), borderRadius: BorderRadius.circular(8), border: Border.all(color: kTdiaBlue.withOpacity(0.5))),
-                    child: Text(item.type, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(item.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1.1)),
-                  const SizedBox(height: 8),
-                  if (item.subtitle != null)
-                    Text(
-                      item.subtitle!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+              // Informations du média (bas gauche)
+              Positioned(
+                left: 20,
+                bottom: 40,
+                right: 20,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: kTdiaBlue.withOpacity(0.2), borderRadius: BorderRadius.circular(8), border: Border.all(color: kTdiaBlue.withOpacity(0.5))),
+                      child: Text(item.type, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
                     ),
-                ],
+                    const SizedBox(height: 10),
+                    Text(item.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1.1)),
+                    const SizedBox(height: 8),
+                    if (item.subtitle != null)
+                      Text(
+                        item.subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
   }
 
-  Widget _feedActionItem({required IconData icon, required String label, Color color = Colors.white, VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 34),
-          const SizedBox(height: 6),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-
-  // ---------------- HEADER COMPACT ET LOGO TDIA ----------------
+  // ---------------- HEADER COMPACT ET LOGO TDIA (un seul mot) ----------------
   Widget _header() {
     final isAdminAsync = ref.watch(isMediaAdminProvider);
     final isAdmin = isAdminAsync.valueOrNull ?? false;
@@ -389,20 +579,20 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
           ),
           child: Row(
             children: [
-              // NOUVEAU LOGO TDIA
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [kTdiaBlue, Color(0xFF00E5FF)]),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text('TD', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+              // LOGO TDIA — un seul mot, pas de séparation
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [kTdiaBlue, Color(0xFF00E5FF)],
+                ).createShader(bounds),
+                child: const Text(
+                  'TDIA',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                    letterSpacing: -0.5,
                   ),
-                  const SizedBox(width: 2),
-                  const Text('IA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: -0.5)),
-                ],
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -481,6 +671,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   child: GestureDetector(
                     onTap: () {
                       ref.read(selectedCategoryProvider.notifier).state = filter;
+                      if (filter != 'Fil') {
+                        setState(() => _immersive = false);
+                      }
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
@@ -682,7 +875,41 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
-  Widget _bottomNav() {
+  // ---------------- NAVIGATION DU BAS (fonctions changent en mode "Fil") ----------------
+  Widget _bottomNav(String selectedCategory, MediaContent? currentItem) {
+    final isFil = selectedCategory == 'Fil';
+    final isLiked = currentItem != null && _likedMediaIds.contains(currentItem.id);
+
+    final List<_NavItemData> items = isFil
+        ? [
+            _NavItemData(icon: Icons.movie_filter_rounded, label: 'TDIA', selected: true, index: 0),
+            _NavItemData(
+              icon: isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+              label: currentItem != null ? _formatNumber(_realLikeCount(currentItem)) : "J'aime",
+              selected: false,
+              index: 1,
+              color: isLiked ? kRed : null,
+            ),
+            _NavItemData(
+              icon: Icons.chat_bubble_outline_rounded,
+              label: currentItem != null ? _formatNumber(currentItem.commentCount) : 'Commenter',
+              selected: false,
+              index: 2,
+            ),
+            _NavItemData(
+              icon: Icons.remove_red_eye_rounded,
+              label: currentItem != null ? _formatNumber(_realViewCount(currentItem)) : 'Vu',
+              selected: false,
+              index: 3,
+            ),
+          ]
+        : [
+            _NavItemData(icon: Icons.movie_filter_rounded, label: 'TDIA', selected: true, index: 0),
+            _NavItemData(icon: Icons.search_rounded, label: 'Recherche', selected: false, index: 1),
+            _NavItemData(icon: Icons.favorite_rounded, label: 'Favoris', selected: false, index: 2),
+            _NavItemData(icon: Icons.person_rounded, label: 'Profil', selected: false, index: 3),
+          ];
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
       child: ClipRRect(
@@ -698,12 +925,17 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _navItem(Icons.movie_filter_rounded, 'TDIA', true, 0),
-                _navItem(Icons.search_rounded, 'Recherche', false, 1),
-                _navItem(Icons.favorite_rounded, 'Favoris', false, 2),
-                _navItem(Icons.person_rounded, 'Profil', false, 3),
-              ],
+              children: items
+                  .map((data) => _navItem(
+                        data.icon,
+                        data.label,
+                        data.selected,
+                        data.index,
+                        isFil: isFil,
+                        currentItem: currentItem,
+                        color: data.color,
+                      ))
+                  .toList(),
             ),
           ),
         ),
@@ -711,7 +943,15 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
-  Widget _navItem(IconData icon, String label, bool selected, int idx) {
+  Widget _navItem(
+    IconData icon,
+    String label,
+    bool selected,
+    int idx, {
+    required bool isFil,
+    MediaContent? currentItem,
+    Color? color,
+  }) {
     return InkWell(
       onTap: () {
         if (idx == 0) {
@@ -720,16 +960,40 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
           } else {
             ref.read(selectedCategoryProvider.notifier).state = 'Fil';
           }
+          return;
         }
-        if (idx == 3) context.go(AppRoutes.userDashboard);
+
+        if (isFil) {
+          switch (idx) {
+            case 1:
+              if (currentItem != null) _toggleLike(currentItem);
+              break;
+            case 2:
+              if (currentItem != null) _openComments(currentItem);
+              break;
+            case 3:
+              if (currentItem != null) _showViewsInfo(currentItem);
+              break;
+          }
+        } else {
+          if (idx == 3) context.go(AppRoutes.userDashboard);
+          // idx == 1 (Recherche) et idx == 2 (Favoris) : à brancher vers vos routes dédiées
+        }
       },
       child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: selected ? Colors.white : Colors.white38, size: 22),
+          Icon(icon, color: color ?? (selected ? Colors.white : Colors.white38), size: 22),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: selected ? FontWeight.bold : FontWeight.w500, color: selected ? Colors.white : Colors.white38)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+              color: color ?? (selected ? Colors.white : Colors.white38),
+            ),
+          ),
         ],
       ),
     );
