@@ -22,7 +22,7 @@ class CompletedLessonsNotifier extends AsyncNotifier<Set<String>> {
 
     try {
       final res = await Supabase.instance.client
-          .from('lesson_progress')
+          .from('user_progress') // ✅ CORRECTION : La vraie table Supabase
           .select('lesson_id')
           .eq('user_id', userId)
           .eq('status', 'completed');
