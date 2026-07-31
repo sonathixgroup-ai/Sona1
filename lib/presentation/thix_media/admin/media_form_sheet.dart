@@ -68,7 +68,7 @@ class _MediaFormSheetState extends ConsumerState<MediaFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _title, _subtitle, _year;
   String _type = 'Films';
-  bool _isPublished = true, _isNew = true, _isTrending = false;
+  bool _isPublished = true, _isNew = true, _isTrending = false, _isFeedOnly = false;
   int _rank = 1;
   PlatformFile? _coverFile, _videoFile;
 
@@ -83,6 +83,9 @@ class _MediaFormSheetState extends ConsumerState<MediaFormSheet> {
     _isNew = e?.isNewRelease??true;
     _isTrending = e?.rankPosition!=null;
     _rank = e?.rankPosition??1;
+    
+    // Si vous avez ajouté isFeedOnly dans le modèle, vous pouvez faire : _isFeedOnly = e?.isFeedOnly ?? false;
+    // Pour l'instant, initialisé à false par défaut.
   }
 
   @override void dispose(){ _title.dispose(); _subtitle.dispose(); _year.dispose(); super.dispose(); }
@@ -138,9 +141,6 @@ class _MediaFormSheetState extends ConsumerState<MediaFormSheet> {
   Future<void> _save() async {
     if(!_formKey.currentState!.validate()) return;
     
-    // ✅ L'obligation des fichiers a été supprimée ici.
-    // L'utilisateur peut publier un média sans cover ni vidéo s'il le souhaite.
-
     final baseItem = MediaContent(
       id: widget.existing?.id??'',
       title: _title.text.trim(),
@@ -153,8 +153,9 @@ class _MediaFormSheetState extends ConsumerState<MediaFormSheet> {
       rankPosition: _isTrending? _rank : null,
       isTrending: _isTrending,
       isNewRelease: _isNew,
-      isRecommended: true,
+      isRecommended: !_isFeedOnly, // Si exclusif au fil, on le retire des recommandations classiques
       isPublished: _isPublished,
+      // isFeedOnly: _isFeedOnly, // ⚠️ Décommentez ceci une fois que vous avez ajouté le paramètre dans media_content.dart
       createdAt: widget.existing?.createdAt?? DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -196,10 +197,8 @@ class _MediaFormSheetState extends ConsumerState<MediaFormSheet> {
           if(upload.error!=null) Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)), child: Text(upload.error!, style: TextStyle(color: Colors.red.shade700, fontSize: 12))),
           
           Row(children: [
-            // COVER BOX
             Expanded(child: InkWell(onTap: upload.saving? null : _pickCover, child: Container(height: 110, decoration: BoxDecoration(color: const Color(0xFFF7FAFF), borderRadius: BorderRadius.circular(14), border: Border.all(color: _coverFile!=null? Colors.green : const Color(0xFFE7EEFC), width: _coverFile!=null? 2:1)), child: _coverFile!=null? Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_rounded, color: Colors.green), const SizedBox(height: 4), Text('${(_coverFile!.size/1024/1024).toStringAsFixed(1)} Mo', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700))]) : widget.existing!=null && widget.existing!.coverUrl.isNotEmpty ? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.network(widget.existing!.coverUrl, fit: BoxFit.cover, width: double.infinity)) : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.image_rounded, color: Color(0xFF2D6CDF)), SizedBox(height: 4), Text('Cover (Optionnel)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700))])))),
             const SizedBox(width: 12),
-            // VIDEO BOX
             Expanded(child: InkWell(onTap: upload.saving? null : _pickVideo, child: Container(height: 110, decoration: BoxDecoration(color: const Color(0xFFF7FAFF), borderRadius: BorderRadius.circular(14), border: Border.all(color: _videoFile!=null? Colors.green : const Color(0xFFE7EEFC), width: _videoFile!=null? 2:1)), child: _videoFile!=null? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_rounded, color: Colors.green), const SizedBox(height: 4), Text('${(_videoFile!.size/1024/1024).toStringAsFixed(1)} Mo', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700))])) : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.video_library_rounded, color: Color(0xFF2D6CDF)), SizedBox(height: 4), Text('Vidéo (Optionnel)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700))])))),
           ]),
           
@@ -214,9 +213,52 @@ class _MediaFormSheetState extends ConsumerState<MediaFormSheet> {
             Expanded(child: TextFormField(controller: _year, keyboardType: TextInputType.number, validator: (v){ final y=int.tryParse(v??''); if(y==null|| y<1900|| y>2035) return 'Année invalide'; return null; }, decoration: _dec('Année'))),
           ]),
           const SizedBox(height: 8),
-          SwitchListTile(value: _isPublished, title: const Text('Publié', style: TextStyle(fontWeight: FontWeight.w700)), activeColor: const Color(0xFF2D6CDF), onChanged: (v)=> setState(()=> _isPublished=v)),
-          SwitchListTile(value: _isNew, title: const Text('Nouveauté (Banner)', style: TextStyle(fontWeight: FontWeight.w700)), activeColor: const Color(0xFF2D6CDF), onChanged: (v)=> setState(()=> _isNew=v)),
-          SwitchListTile(value: _isTrending, title: const Text('Tendance Top 10', style: TextStyle(fontWeight: FontWeight.w700)), activeColor: const Color(0xFF2D6CDF), onChanged: (v)=> setState(()=> _isTrending=v)),
+
+          // --- OPTIONS DE PUBLICATION INTELLIGENTES ---
+          SwitchListTile(
+            value: _isPublished, 
+            title: const Text('Publié (Visible pour les utilisateurs)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)), 
+            activeColor: const Color(0xFF2D6CDF), 
+            contentPadding: EdgeInsets.zero,
+            onChanged: (v)=> setState(()=> _isPublished=v)
+          ),
+          
+          SwitchListTile(
+            value: _isFeedOnly, 
+            title: const Text('Uniquement dans le Fil (TikTok Style)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF0A1F44))), 
+            subtitle: const Text('Masquera ce contenu des carrousels de l\'accueil', style: TextStyle(fontSize: 11, color: Colors.grey)),
+            activeColor: const Color(0xFF10B981), // Vert pour différencier
+            contentPadding: EdgeInsets.zero,
+            onChanged: (v) {
+              setState(() {
+                _isFeedOnly = v;
+                // Logique intelligente : Si exclusif au fil, on désactive les banners/top10
+                if(v) {
+                  _isNew = false;
+                  _isTrending = false;
+                }
+              });
+            }
+          ),
+
+          SwitchListTile(
+            value: _isNew, 
+            title: Text('Nouveauté (Banner Accueil)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: _isFeedOnly ? Colors.grey : Colors.black)), 
+            activeColor: const Color(0xFF2D6CDF), 
+            contentPadding: EdgeInsets.zero,
+            // Désactivé si "Uniquement dans le fil" est coché
+            onChanged: _isFeedOnly ? null : (v)=> setState(()=> _isNew=v)
+          ),
+          
+          SwitchListTile(
+            value: _isTrending, 
+            title: Text('Tendance Top 10', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: _isFeedOnly ? Colors.grey : Colors.black)), 
+            activeColor: const Color(0xFF2D6CDF), 
+            contentPadding: EdgeInsets.zero,
+            // Désactivé si "Uniquement dans le fil" est coché
+            onChanged: _isFeedOnly ? null : (v)=> setState(()=> _isTrending=v)
+          ),
+          
           const SizedBox(height: 18),
           SizedBox(width: double.infinity, height: 52, child: ElevatedButton(
             onPressed: upload.saving? null : _save,
