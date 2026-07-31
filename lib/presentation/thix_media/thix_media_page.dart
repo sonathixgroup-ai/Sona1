@@ -22,6 +22,22 @@ const Color kTextGrey = Color(0xFF9CA3AF);
 const Color kBorderLight = Color(0x14FFFFFF); 
 const Color kTdiaBlue = Color(0xFF2D6CDF);
 
+// --- PROVIDER ADMIN RESTAURÉ ---
+final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
+  final uid = Supabase.instance.client.auth.currentUser?.id;
+  if (uid == null) return false;
+  try {
+    final res = await Supabase.instance.client
+        .from('profiles')
+        .select('role')
+        .eq('id', uid)
+        .maybeSingle();
+    return res != null && (res['role'] == 'admin' || res['role'] == 'superadmin');
+  } catch (_) {
+    return false;
+  }
+});
+
 class _NavItemData { 
   final IconData icon; final String label; final bool selected; final int index; final Color? color; 
   _NavItemData({required this.icon, required this.label, required this.selected, required this.index, this.color}); 
@@ -160,7 +176,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   }
 
   Future<void> _toggleLike(MediaContent item) async {
-    // CORRECTION : Alerter l'utilisateur s'il n'est pas connecté
     if (Supabase.instance.client.auth.currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous connecter pour aimer ce contenu.'), backgroundColor: kSurface));
       return;
@@ -182,11 +197,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       await _mediaService.toggleLike(item.id); 
     } catch (e) { 
       if (!mounted) return; 
-      
-      // CORRECTION : Afficher l'erreur serveur si le like échoue
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur serveur : $e'), backgroundColor: kRed));
-      
-      // Rollback UI
       setState(() { 
         if (wasLiked) { 
           _likedMediaIds.add(item.id); 
@@ -203,8 +214,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     showModalBottomSheet(context: context, backgroundColor: Colors.transparent, isScrollControlled: true, builder: (_) => _CommentsSheet(mediaId: item.id, mediaTitle: item.title))
       .then((_) => ref.invalidate(commentCountProvider(item.id))); 
   }
-
-  void _showViewsInfo(MediaContent item) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${_realViewCount(item)} vues uniques'), backgroundColor: kSurface));
 
   // --- GESTION DU SCROLL ---
   void _handlePageChanged(int index, List<MediaContent> list) { 
@@ -360,7 +369,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         switch(idx) { 
           case 1: if (currentItem != null) _toggleLike(currentItem); break; 
           case 2: if (currentItem != null) _openComments(currentItem); break; 
-          case 3: if (currentItem != null) _showViewsInfo(currentItem); break; 
+          case 3: break; // CORRECTION : Ne plus afficher de message, l'icône sert juste de compteur visuel
         } 
       } else { 
         if (idx == 3) context.go(AppRoutes.userDashboard); 
@@ -474,6 +483,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
   final FocusNode _focusNode = FocusNode(); 
   bool _sending = false; 
   
+  // CORRECTION : État pour répondre et liker des commentaires
+  CommentItem? _replyingTo;
+  final Set<String> _likedCommentIds = {};
+  
   @override 
   void dispose() { _controller.dispose(); _focusNode.dispose(); super.dispose(); } 
   
@@ -485,16 +498,47 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     if (diff.inDays < 7) return '${diff.inDays} j'; 
     return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}'; 
   } 
+
+  // --- LIKER UN COMMENTAIRE (Optimistic UI) ---
+  Future<void> _toggleCommentLike(String commentId) async {
+    final client = Supabase.instance.client; 
+    if (client.auth.currentUser == null) return;
+    
+    final wasLiked = _likedCommentIds.contains(commentId);
+    setState(() {
+      if (wasLiked) {
+        _likedCommentIds.remove(commentId);
+      } else {
+        _likedCommentIds.add(commentId);
+      }
+    });
+    
+    try {
+      // ⚠️ ASSURE-TOI DE CRÉER CETTE FONCTION RPC SUR SUPABASE POUR QUE CELA MARCHE
+      await client.rpc('toggle_comment_like', params: {'p_comment_id': commentId});
+    } catch (_) {
+      // Annuler l'UI en cas d'échec
+      if (mounted) {
+        setState(() {
+          if (wasLiked) {
+            _likedCommentIds.add(commentId);
+          } else {
+            _likedCommentIds.remove(commentId);
+          }
+        });
+      }
+    }
+  }
   
+  // --- ENVOYER UN COMMENTAIRE OU UNE RÉPONSE ---
   Future<void> _submit() async { 
     final text = _controller.text.trim(); 
     if (text.isEmpty || _sending) return; 
     
     final client = Supabase.instance.client; 
-    final uid = client.auth.currentUser?.id; 
+    final user = client.auth.currentUser; 
     
-    // CORRECTION : Alerter si l'utilisateur essaie de commenter sans être connecté
-    if (uid == null) {
+    if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous connecter pour commenter.'), backgroundColor: kSurface));
       return; 
     }
@@ -503,27 +547,47 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     try { 
       String userName = 'Utilisateur'; 
       String? avatarUrl; 
+      
+      // CORRECTION : Recherche robuste du vrai nom d'utilisateur (Métadonnées Auth -> Profiles)
+      final metadata = user.userMetadata;
+      if (metadata != null) {
+        userName = metadata['name'] ?? metadata['full_name'] ?? metadata['user_name'] ?? userName;
+        avatarUrl = metadata['avatar_url'] ?? metadata['picture'];
+      }
+      
       try { 
-        final profile = await client.from('profiles').select('username, avatar_url').eq('id', uid).maybeSingle(); 
+        final profile = await client.from('profiles').select().eq('id', user.id).maybeSingle(); 
         if (profile != null) { 
-          userName = (profile['username'] as String?)?.trim().isNotEmpty == true ? profile['username'] as String : userName; 
-          avatarUrl = profile['avatar_url'] as String?; 
+          final profileName = profile['username'] ?? profile['full_name'] ?? profile['name'];
+          if (profileName != null && profileName.toString().trim().isNotEmpty) {
+            userName = profileName.toString().trim();
+          }
+          if (profile['avatar_url'] != null && profile['avatar_url'].toString().trim().isNotEmpty) {
+            avatarUrl = profile['avatar_url'].toString().trim();
+          }
         } 
       } catch (_) {} 
       
+      // Si c'est une réponse, on intègre un tag sans casser la structure de la BDD actuelle
+      String finalContent = text;
+      if (_replyingTo != null) {
+        finalContent = '@${_replyingTo!.userName} $text';
+      }
+      
       await client.from('media_comments').insert({
         'media_id': widget.mediaId, 
-        'user_id': uid, 
+        'user_id': user.id, 
         'user_name': userName, 
         'avatar_url': avatarUrl, 
-        'content': text
+        'content': finalContent
       }); 
       
       _controller.clear(); 
+      setState(() => _replyingTo = null); // Réinitialiser la réponse après l'envoi
+      
       ref.invalidate(commentsListProvider(widget.mediaId)); 
       ref.invalidate(commentCountProvider(widget.mediaId)); 
     } catch (e) {
-      // CORRECTION : Afficher l'erreur si la base de données bloque le commentaire
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors de l\'envoi : $e'), backgroundColor: kRed));
     } finally { 
       if (mounted) setState(() => _sending = false); 
@@ -549,13 +613,13 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
             const SizedBox(height: 14), 
             commentsAsync.when(
               loading: () => const Text('Commentaires', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), 
-              error: (e, __) => Text('Erreur: $e', style: const TextStyle(color: Colors.white)), // CORRECTION UI
+              error: (e, __) => Text('Erreur', style: const TextStyle(color: Colors.white)),
               data: (l) => Text('${l.length} commentaires', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
             ), 
             const Divider(color: kBorderLight, height: 1), 
             Expanded(child: commentsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator(color: kRed)), 
-              error: (e, st) => Center(child: Text('Erreur de chargement: $e', style: const TextStyle(color: kTextGrey))), // CORRECTION UI
+              error: (e, st) => const Center(child: Text('Erreur de chargement', style: TextStyle(color: kTextGrey))),
               data: (comments) { 
                 if (comments.isEmpty) return const Center(child: Text('Aucun commentaire', style: TextStyle(color: kTextGrey))); 
                 return ListView.separated(
@@ -564,6 +628,8 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                   separatorBuilder: (_, __) => const SizedBox(height: 16), 
                   itemBuilder: (c, i) { 
                     final com = comments[i]; 
+                    final isLiked = _likedCommentIds.contains(com.id);
+                    
                     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [ 
                       CircleAvatar(
                         radius: 16, 
@@ -576,6 +642,31 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                         Row(children: [ Text(com.userName, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)), const SizedBox(width: 8), Text(_relativeTime(com.createdAt), style: const TextStyle(color: kTextGrey, fontSize: 11)), ]), 
                         const SizedBox(height: 4), 
                         Text(com.content, style: const TextStyle(color: Colors.white70, fontSize: 13.5)), 
+                        
+                        // CORRECTION : Boutons "Répondre" et "J'aime" ajoutés sous chaque commentaire
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                setState(() => _replyingTo = com);
+                                _focusNode.requestFocus();
+                              },
+                              child: const Text('Répondre', style: TextStyle(color: kTextGrey, fontSize: 12, fontWeight: FontWeight.w600)),
+                            ),
+                            const SizedBox(width: 24),
+                            GestureDetector(
+                              onTap: () => _toggleCommentLike(com.id),
+                              child: Row(
+                                children: [
+                                  Icon(isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded, size: 14, color: isLiked ? kRed : kTextGrey),
+                                  const SizedBox(width: 4),
+                                  Text('J\'aime', style: TextStyle(color: isLiked ? kRed : kTextGrey, fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
                       ])), 
                     ]); 
                   }
@@ -583,8 +674,26 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
               }
             )), 
             const Divider(color: kBorderLight, height: 1), 
+            
+            // CORRECTION : Affichage d'un indicateur de réponse au dessus du clavier
+            if (_replyingTo != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: kSurfaceLight.withOpacity(0.5),
+                child: Row(
+                  children: [
+                    Text('En réponse à @${_replyingTo!.userName}', style: const TextStyle(color: kTextGrey, fontSize: 12)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => setState(() => _replyingTo = null),
+                      child: const Icon(Icons.close_rounded, size: 16, color: kTextGrey),
+                    )
+                  ],
+                ),
+              ),
+
             Padding(padding: const EdgeInsets.fromLTRB(12, 10, 12, 10), child: Row(children: [ 
-              Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 14), decoration: BoxDecoration(color: kSurfaceLight, borderRadius: BorderRadius.circular(24)), child: TextField(controller: _controller, focusNode: _focusNode, minLines: 1, maxLines: 4, onSubmitted: (_) => _submit(), style: const TextStyle(color: Colors.white, fontSize: 13.5), decoration: const InputDecoration(hintText: 'Ajouter un commentaire...', hintStyle: TextStyle(color: kTextGrey), border: InputBorder.none, isDense: true)))), 
+              Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 14), decoration: BoxDecoration(color: kSurfaceLight, borderRadius: BorderRadius.circular(24)), child: TextField(controller: _controller, focusNode: _focusNode, minLines: 1, maxLines: 4, onSubmitted: (_) => _submit(), style: const TextStyle(color: Colors.white, fontSize: 13.5), decoration: InputDecoration(hintText: _replyingTo != null ? 'Ajouter une réponse...' : 'Ajouter un commentaire...', hintStyle: const TextStyle(color: kTextGrey), border: InputBorder.none, isDense: true)))), 
               const SizedBox(width: 8), 
               GestureDetector(onTap: _submit, child: Container(width: 42, height: 42, decoration: BoxDecoration(color: _sending ? kSurfaceLight : kRed, shape: BoxShape.circle), child: _sending ? const Padding(padding: EdgeInsets.all(11), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.send_rounded, color: Colors.white, size: 18))), 
             ])), 
