@@ -1,8 +1,10 @@
+// lib/presentation/education/pages/education_my_learning.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:thix_id/presentation/education/providers/education_provider.dart'; 
+import 'package:thix_id/presentation/education/widgets/formation_detail/formation_module_list.dart'; // Pour accéder à completedLessonsProvider
 import '../widgets/common/education_empty_state.dart';
 import '../widgets/common/education_loading_shimmer.dart';
 import '../models/formation.dart';
@@ -74,7 +76,10 @@ class _EducationMyLearningState extends ConsumerState<EducationMyLearning> {
             );
           }
           return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(myEnrollmentsProvider(userId)),
+            onRefresh: () async {
+              ref.invalidate(myEnrollmentsProvider(userId));
+              ref.invalidate(completedLessonsProvider);
+            },
             color: const Color(0xFF2D6CDF),
             child: ListView.builder(
               controller: _scrollController,
@@ -93,7 +98,7 @@ class _EducationMyLearningState extends ConsumerState<EducationMyLearning> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _CompactEnrollmentCard(
                     formation: formation,
-                    progress: enrollment.progress?.toDouble(),
+                    fallbackProgress: enrollment.progress?.toDouble(),
                     onTap: () => context.push('/education/formation/${formation.id}'),
                   ),
                 );
@@ -106,21 +111,48 @@ class _EducationMyLearningState extends ConsumerState<EducationMyLearning> {
   }
 }
 
-/// Carte compacte dédiée à la liste "Mon apprentissage" avec affichage de la progression
-class _CompactEnrollmentCard extends StatelessWidget {
+/// Carte compacte ConsumerWidget pour calculer la progression en direct depuis user_progress
+class _CompactEnrollmentCard extends ConsumerWidget {
   final Formation formation;
-  final double? progress;
+  final double? fallbackProgress;
   final VoidCallback onTap;
 
   const _CompactEnrollmentCard({
     required this.formation,
-    required this.progress,
+    required this.fallbackProgress,
     required this.onTap,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final p = (progress ?? 0.0).clamp(0.0, 1.0);
+  Widget build(BuildContext context, WidgetRef ref) {
+    // On écoute les leçons complétées en temps réel depuis user_progress
+    final completedLessonsAsync = ref.watch(completedLessonsProvider);
+
+    double calculatedProgress = fallbackProgress ?? 0.0;
+
+    completedLessonsAsync.whenData((completedIds) {
+      int totalLessons = 0;
+      int completedCount = 0;
+
+      if (formation.modules != null) {
+        for (var module in formation.modules!) {
+          if (module.lessons != null) {
+            for (var lesson in module.lessons!) {
+              totalLessons++;
+              if (completedIds.contains(lesson.id)) {
+                completedCount++;
+              }
+            }
+          }
+        }
+      }
+
+      if (totalLessons > 0) {
+        calculatedProgress = completedCount / totalLessons;
+      }
+    });
+
+    final p = calculatedProgress.clamp(0.0, 1.0);
     final percentage = (p * 100).toInt();
 
     return InkWell(
@@ -155,7 +187,7 @@ class _CompactEnrollmentCard extends StatelessWidget {
                     ),
             ),
             const SizedBox(width: 14),
-            // Informations et barre de progression
+            // Informations et barre de progression dynamique
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
