@@ -396,37 +396,32 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               behavior: HitTestBehavior.opaque,
               onTap: () => setState(() => _immersive = !_immersive),
               child: Stack(fit: StackFit.expand, children: [
+                // 1. Vidéo ultra nette (sans aucun conteneur de dégradé par-dessus)
                 FeedVideoPlayer(videoUrl: item.videoUrl, coverUrl: item.coverUrl, isPlaying: isFocused),
-                                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter, 
-                      end: Alignment.topCenter, 
-                      colors: [
-                        Colors.black.withOpacity(0.8), // 1. Sombre tout en bas (pour les textes)
-                        Colors.transparent,            // 2. Début de la zone 100% nette
-                        Colors.transparent,            // 3. Fin de la zone 100% nette
-                        Colors.black.withOpacity(0.3)  // 4. Sombre tout en haut (pour les icônes)
-                      ], 
-                      stops: const [0.0, 0.3, 0.85, 1.0] // Le centre (de 30% à 85% de l'écran) est totalement intact !
-                    ),
-                  ),
-                ),
 
+                // 2. Texte en bas avec une petite ombre dédiée uniquement au texte pour un confort de lecture parfait
                 Positioned(
                   left: 20, bottom: 40, right: 20,
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: kTdiaBlue.withOpacity(0.2), borderRadius: BorderRadius.circular(8), border: Border.all(color: kTdiaBlue.withOpacity(0.5))),
-                      child: Text(item.type, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.45), // Ombre douce uniquement sous le texte
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    const SizedBox(height: 10),
-                    Text(item.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1.1)),
-                    const SizedBox(height: 8),
-                    if (item.subtitle != null)
-                      Text(item.subtitle!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
-                  ]),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: kTdiaBlue.withOpacity(0.3), borderRadius: BorderRadius.circular(8), border: Border.all(color: kTdiaBlue.withOpacity(0.5))),
+                        child: Text(item.type, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(item.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1.1)),
+                      if (item.subtitle != null) ...[
+                        const SizedBox(height: 6),
+                        Text(item.subtitle!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
+                      ],
+                    ]),
+                  ),
                 ),
               ]),
             );
@@ -694,7 +689,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               selected: false, index: 2,
             ),
             _NavItemData(
-              // Nombre réel d'utilisateurs uniques ayant vu la vidéo, mis à jour en direct — plus jamais figé.
               icon: Icons.remove_red_eye_rounded,
               label: currentItem != null ? _formatNumber(liveCounts?.viewCount ?? currentItem.viewCount) : 'Vu',
               selected: false, index: 3,
@@ -761,7 +755,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   }
 }
 
-// ---------------- LECTEUR VIDÉO DU FIL : autoplay + pause + barre de progression + double clic ----------------
+// ---------------- LECTEUR VIDÉO DU FIL : autoplay + pause + double clic ----------------
 
 class FeedVideoPlayer extends StatefulWidget {
   final String videoUrl;
@@ -781,6 +775,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   Timer? _hideTimer;
   final ValueNotifier<Duration> _position = ValueNotifier(Duration.zero);
   Duration _duration = Duration.zero;
+  Offset? _tapPosition;
 
   @override
   void initState() {
@@ -851,7 +846,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     return '${two(d.inMinutes.remainder(60))}:${two(d.inSeconds.remainder(60))}';
   }
 
-  // --- NOUVELLE FONCTION : Gestion de l'avance/recul ---
   void _seekRelative(int seconds) {
     if (!_isInitialized) return;
     final newPos = _position.value + Duration(seconds: seconds);
@@ -886,30 +880,26 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     return GestureDetector(
-      // Un tap court sur la vidéo affiche/masque play-pause + barre de progression
+      onTapDown: (details) => _tapPosition = details.globalPosition,
       onTap: _togglePlayPause,
-      
-      // --- AJOUT : Double clic pour avancer/reculer de 10s ---
-      onDoubleTapDown: (d) {
+      onDoubleTap: () {
+        if (_tapPosition == null) return;
         final w = MediaQuery.of(context).size.width;
-        if (d.globalPosition.dx < w / 2) {
-          _seekRelative(-10); // Clic gauche = reculer
+        if (_tapPosition!.dx < w / 2) {
+          _seekRelative(-10);
         } else {
-          _seekRelative(10);  // Clic droit = avancer
+          _seekRelative(10);
         }
       },
-
       child: Stack(fit: StackFit.expand, children: [
         FittedBox(
           fit: BoxFit.cover,
           child: SizedBox(width: _controller.value.size.width, height: _controller.value.size.height, child: VideoPlayer(_controller)),
         ),
-        // Icône play centrale quand en pause
         if (_userPaused)
           const Center(
             child: Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 64),
           ),
-        // Barre de progression tap/drag pour avancer ou reculer
         AnimatedOpacity(
           duration: const Duration(milliseconds: 200),
           opacity: _showControls || _userPaused ? 1 : 0,
@@ -966,7 +956,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
 // ----------------------------------------------------------------------
 // SHEET DE COMMENTAIRES — 1 seul niveau d'imbrication, réponses repliées
-// par défaut et chargées à la demande (aucun gaspillage d'espace ni de réseau)
 // ----------------------------------------------------------------------
 
 class _CommentsSheet extends ConsumerStatefulWidget {
@@ -991,7 +980,6 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
   bool _rootHasMore = true;
   String? _rootCursor;
 
-  // Réponses chargées à la demande, par commentaire parent
   final Map<String, List<CommentItem>> _repliesByParent = {};
   final Set<String> _expandedParents = {};
   final Set<String> _loadingReplies = {};
@@ -1040,7 +1028,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       return;
     }
     setState(() => _expandedParents.add(parentId));
-    if (_repliesByParent.containsKey(parentId)) return; // déjà chargé
+    if (_repliesByParent.containsKey(parentId)) return;
     setState(() => _loadingReplies.add(parentId));
     final page = await _service.fetchReplies(parentId, limit: 15);
     if (!mounted) return;
@@ -1166,7 +1154,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
         return;
       }
 
-      final replyParentId = _replyingTo?.parentId ?? _replyingTo?.id; // toujours attaché à la racine (1 seul niveau)
+      final replyParentId = _replyingTo?.parentId ?? _replyingTo?.id;
       final newComment = await _service.postComment(widget.mediaId, text, parentId: replyParentId);
 
       if (replyParentId != null) {
@@ -1254,7 +1242,6 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                           ]),
                         ),
                       ]),
-                      // "Voir X réponses" — replié par défaut, charge à la demande (économise espace + réseau)
                       if (!isChild && com.replyCount > 0)
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
@@ -1280,7 +1267,6 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
               ],
             ),
           ),
-          // Réponses affichées à un seul niveau — jamais imbriquées davantage (économise l'espace)
           if (!isChild && isExpanded)
             Column(children: replies.map((r) => _buildCommentTile(r, isAdmin, isChild: true)).toList()),
         ],
@@ -1388,4 +1374,3 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     );
   }
 }
- 
