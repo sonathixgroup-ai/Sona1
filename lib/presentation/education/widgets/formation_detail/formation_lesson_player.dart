@@ -66,10 +66,9 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
       }
 
       final res = await Supabase.instance.client
-          .from('lesson_progress')
-          .select('status, progress')
-          // ✅ CORRECTION : Utilisation de 'uid' au lieu de 'user_id'
-          .eq('uid', userId) 
+          .from('user_progress') 
+          .select('status, progress') 
+          .eq('user_id', userId)
           .eq('lesson_id', arg)
           .maybeSingle();
 
@@ -83,7 +82,6 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
         state = state.copyWith(isLoading: false);
       }
     } catch (e) {
-      // Affichage de l'erreur dans la console pour faciliter le débogage
       debugPrint('Erreur Supabase lors du chargement de la progression : $e');
       state = state.copyWith(isLoading: false, error: 'Impossible de charger la progression.');
     }
@@ -99,14 +97,28 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) return;
 
-      await Supabase.instance.client.from('lesson_progress').upsert({
-        // ✅ CORRECTION : Utilisation de 'uid' au lieu de 'user_id'
-        'uid': userId,
+      final now = DateTime.now().toIso8601String();
+      
+      // ✅ CORRECTION : Typage explicite pour éviter l'erreur d'inférence de Dart
+      final Map<String, dynamic> data = {
+        'user_id': userId,
         'lesson_id': arg,
         'status': isDone ? 'completed' : 'in_progress',
+        'completed': isDone, 
         'progress': newProgress,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+        'progress_percentage': (newProgress * 100).toInt(),
+        'last_accessed_at': now,
+        'last_accessed': now,
+      };
+      
+      if (isDone) {
+        data['completed_at'] = now;
+      }
+
+      await Supabase.instance.client.from('user_progress').upsert(
+        data,
+        onConflict: 'user_id,lesson_id',
+      );
     } catch (e) {
       debugPrint('Erreur lors de la mise à jour de la progression: $e');
     }
@@ -124,14 +136,25 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
         return false;
       }
 
-      await Supabase.instance.client.from('lesson_progress').upsert({
-        // ✅ CORRECTION : Utilisation de 'uid' au lieu de 'user_id'
-        'uid': userId,
+      final now = DateTime.now().toIso8601String();
+
+      // ✅ CORRECTION : Typage explicite ici aussi par précaution
+      final Map<String, dynamic> data = {
+        'user_id': userId,
         'lesson_id': arg,
         'status': 'completed',
+        'completed': true,
         'progress': 1.0,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+        'progress_percentage': 100,
+        'last_accessed_at': now,
+        'last_accessed': now,
+        'completed_at': now,
+      };
+
+      await Supabase.instance.client.from('user_progress').upsert(
+        data, 
+        onConflict: 'user_id,lesson_id'
+      ); 
 
       state = state.copyWith(isUpdating: false, isCompleted: true, progress: 1.0);
       return true;
