@@ -10,6 +10,7 @@ import 'providers/thix_media_provider.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
 import 'admin/thix_media_admin_page.dart';
 import '../../services/media_service.dart';
+import 'package:go_router/go_router.dart';
 
 const Color kBg = Color(0xFF050507); 
 const Color kSurface = Color(0xFF121214); 
