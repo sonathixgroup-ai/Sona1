@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/models/media_content.dart
+import 'package:thix_id/models/media_content.dart';
 
 final selectedCategoryProvider = StateProvider<String>((ref) => "Fil");
 final searchQueryProvider = StateProvider<String>((ref) => "");
