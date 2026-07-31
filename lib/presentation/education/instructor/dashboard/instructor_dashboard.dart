@@ -4,9 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:thix_id/presentation/education/instructor/create_book_page.dart';
-import 'package:thix_id/presentation/education/instructor/book_management_page.dart';
-
 class _C {
   static const bg = Color(0xFFF8FAFC);
   static const surface = Colors.white;
@@ -133,19 +130,59 @@ class _InstructorDashboardState extends ConsumerState<InstructorDashboard> {
                     const Text('Actions rapides', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _C.textMain)),
                     const SizedBox(height: 14),
                     
-                    // Grille des actions rapides (Cours + Livres intégrés)
+                    // Grille des actions rapides (Cours + Livres intégrés avec GoRouter)
                     Wrap(
                       spacing: 12,
                       runSpacing: 12,
                       children: [
-                        _QuickAction(icon: Icons.add_rounded, label: 'Nouveau cours', onTap: () async { await context.push('/instructor/courses/create'); _loadDashboardData(); }, color: _C.primary),
-                        _QuickAction(icon: Icons.menu_book_rounded, label: 'Mes cours', onTap: () async { await context.push('/instructor/courses'); _loadDashboardData(); }, color: _C.green),
-                        _QuickAction(icon: Icons.library_add_rounded, label: 'Nouveau livre', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateBookPage())), color: _C.orange),
-                        _QuickAction(icon: Icons.collections_bookmark_rounded, label: 'Mes livres', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookManagementPage())), color: _C.purple),
-                        _QuickAction(icon: Icons.bar_chart_rounded, label: 'Performance', onTap: () => context.push('/instructor/performance'), color: _C.orange),
-                        _QuickAction(icon: Icons.announcement_rounded, label: 'Annonces', onTap: () => context.push('/instructor/announcements'), color: _C.red),
-                        _QuickAction(icon: Icons.calendar_today_rounded, label: 'Calendrier', onTap: () => context.push('/instructor/calendar'), color: const Color(0xFF0D9488)),
-                        _QuickAction(icon: Icons.flag_rounded, label: 'Bannière À la une', onTap: () => context.push('/instructor/banner'), color: _C.red),
+                        _QuickAction(
+                          icon: Icons.add_rounded, 
+                          label: 'Nouveau cours', 
+                          onTap: () async { await context.push('/instructor/courses/create'); _loadDashboardData(); }, 
+                          color: _C.primary,
+                        ),
+                        _QuickAction(
+                          icon: Icons.menu_book_rounded, 
+                          label: 'Mes cours', 
+                          onTap: () async { await context.push('/instructor/courses'); _loadDashboardData(); }, 
+                          color: _C.green,
+                        ),
+                        _QuickAction(
+                          icon: Icons.library_add_rounded, 
+                          label: 'Nouveau livre', 
+                          onTap: () async { await context.push('/instructor/books/create'); _loadDashboardData(); }, 
+                          color: _C.orange,
+                        ),
+                        _QuickAction(
+                          icon: Icons.collections_bookmark_rounded, 
+                          label: 'Mes livres', 
+                          onTap: () async { await context.push('/instructor/books'); _loadDashboardData(); }, 
+                          color: _C.purple,
+                        ),
+                        _QuickAction(
+                          icon: Icons.bar_chart_rounded, 
+                          label: 'Performance', 
+                          onTap: () => context.push('/instructor/performance'), 
+                          color: _C.orange,
+                        ),
+                        _QuickAction(
+                          icon: Icons.announcement_rounded, 
+                          label: 'Annonces', 
+                          onTap: () => context.push('/instructor/announcements'), 
+                          color: _C.red,
+                        ),
+                        _QuickAction(
+                          icon: Icons.calendar_today_rounded, 
+                          label: 'Calendrier', 
+                          onTap: () => context.push('/instructor/calendar'), 
+                          color: const Color(0xFF0D9488),
+                        ),
+                        _QuickAction(
+                          icon: Icons.flag_rounded, 
+                          label: 'Bannière À la une', 
+                          onTap: () => context.push('/instructor/banner'), 
+                          color: _C.red,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 28),
@@ -153,7 +190,7 @@ class _InstructorDashboardState extends ConsumerState<InstructorDashboard> {
                     const Text('Activités récentes (Cours créés)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _C.textMain)),
                     const SizedBox(height: 14),
                     
-                    // Liste réelle des derniers cours créés au lieu de faux éléments statiques
+                    // Liste réelle des derniers cours créés
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
