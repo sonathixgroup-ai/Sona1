@@ -1,78 +1,123 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../models/media_content.dart';
-import '../../../services/media_service.dart';
+import '../../models/media_content.dart';
 
-final mediaServiceProvider = Provider<MediaService>((ref) {
-  return MediaService(client: Supabase.instance.client, bucket: 'media');
-});
+final selectedCategoryProvider = StateProvider<String>((ref) => "Fil");
+final searchQueryProvider = StateProvider<String>((ref) => "");
 
-final thixMediaListProvider = AsyncNotifierProvider<ThixMediaNotifier, List<MediaContent>>(() => ThixMediaNotifier());
-
-class ThixMediaNotifier extends AsyncNotifier<List<MediaContent>> {
-  DateTime? _lastFetch;
-  @override
-  Future<List<MediaContent>> build() async {
-    return _fetchWithCache(force: false);
+class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
+  ThixMediaNotifier(this.ref) : super(const AsyncValue.loading()) {
+    _loadInitial();
+    ref.listen(selectedCategoryProvider, (_, __) => refresh());
+    ref.listen(searchQueryProvider, (_, __) => refresh());
   }
+  
+  final Ref ref;
+  DateTime? _cursor;
+  bool _hasMore = true;
+  bool _loadingMore = false;
+  static const _limit = 20;
 
-  Future<List<MediaContent>> _fetchWithCache({bool force = false}) async {
-    if (!force && _lastFetch!= null && DateTime.now().difference(_lastFetch!).inMinutes < 5 && state.hasValue) {
-      return state.value!;
-    }
-    final service = ref.read(mediaServiceProvider);
-    final data = await service.fetchPublishedMediaPaginated(limit: 100, offset: 0);
-    _lastFetch = DateTime.now();
-    return data;
-  }
+  Future<void> _loadInitial() async => refresh();
 
   Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() => _fetchWithCache(force: true));
+    _cursor = null; 
+    _hasMore = true;
+    state = const AsyncValue.loading();
+    try {
+      final list = await _fetch(null);
+      state = AsyncValue.data(list);
+    } catch (e, st) { 
+      state = AsyncValue.error(e, st); 
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (_loadingMore || !_hasMore || state.valueOrNull == null) return;
+    _loadingMore = true;
+    try {
+      final more = await _fetch(_cursor);
+      if (more.length < _limit) _hasMore = false;
+      state = AsyncValue.data([...state.value!, ...more]);
+    } finally { 
+      _loadingMore = false; 
+    }
+  }
+
+  Future<List<MediaContent>> _fetch(DateTime? cursor) async {
+    final cat = ref.read(selectedCategoryProvider);
+    final search = ref.read(searchQueryProvider).trim();
+    
+    var query = Supabase.instance.client
+        .from('media_content')
+        .select('*, media_stats(like_count, view_count, comment_count)')
+        .order('created_at', ascending: false)
+        .limit(_limit);
+        
+    if (cursor != null) query = query.lt('created_at', cursor.toIso8601String());
+    if (search.isNotEmpty) {
+      query = query.ilike('title', '%$search%');
+    } else if (cat != 'Accueil' && cat != 'Fil') {
+      query = query.eq('type', cat);
+    }
+
+    final res = await query;
+    final list = (res as List).map((e) {
+      final stats = e['media_stats'] as Map<String, dynamic>?;
+      if (stats != null) {
+        e = {
+          ...e, 
+          'likeCount': stats['like_count'] ?? e['likeCount'] ?? 0, 
+          'viewCount': stats['view_count'] ?? e['viewCount'] ?? 0, 
+          'commentCount': stats['comment_count'] ?? e['commentCount'] ?? 0
+        };
+      }
+      return MediaContent.fromMap(e as Map<String, dynamic>);
+    }).toList();
+    
+    if (list.isNotEmpty) _cursor = list.last.createdAt;
+    return list;
   }
 }
 
-final searchQueryProvider = StateProvider<String>((ref) => '');
-final selectedCategoryProvider = StateProvider<String>((ref) => 'Accueil');
+final thixMediaListProvider = StateNotifierProvider<ThixMediaNotifier, AsyncValue<List<MediaContent>>>((ref) => ThixMediaNotifier(ref));
+final bannerItemsProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull?.take(5).toList() ?? []);
+final recommendationsProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull ?? []);
+final newReleasesProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull ?? []);
+final trendingProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull ?? []);
 
-final filteredBaseProvider = Provider<List<MediaContent>>((ref) {
-  final all = ref.watch(thixMediaListProvider).valueOrNull?? [];
-  final q = ref.watch(searchQueryProvider).trim().toLowerCase();
-  if (q.isEmpty) return all;
-  return all.where((m) => m.title.toLowerCase().contains(q) || (m.subtitle?.toLowerCase().contains(q)?? false)).toList();
+// --- PROVIDERS COMPLÉMENTAIRES (Commentaires & Admin) ---
+
+class CommentItem { 
+  final String id, userId, userName, content; 
+  final String? avatarUrl; 
+  final DateTime createdAt;
+  
+  CommentItem({required this.id, required this.userId, required this.userName, required this.content, required this.createdAt, this.avatarUrl});
+  
+  factory CommentItem.fromMap(Map<String, dynamic> m) => CommentItem(
+    id: m['id'], 
+    userId: m['user_id'], 
+    userName: (m['user_name'] as String?)?.isNotEmpty == true ? m['user_name'] : 'Utilisateur', 
+    avatarUrl: m['avatar_url'], 
+    content: m['content'], 
+    createdAt: DateTime.parse(m['created_at']).toLocal()
+  );
+}
+
+final commentsListProvider = FutureProvider.autoDispose.family<List<CommentItem>, String>((ref, mediaId) async {
+  final res = await Supabase.instance.client.from('media_comments').select('id, user_id, user_name, avatar_url, content, created_at').eq('media_id', mediaId).order('created_at', ascending: false).limit(50);
+  return (res as List).map((e) => CommentItem.fromMap(e as Map<String, dynamic>)).toList();
 });
 
-final bannerItemsProvider = Provider<List<MediaContent>>((ref) {
-  final base = ref.watch(filteredBaseProvider);
-  var b = base.where((m) => m.isNewRelease).toList();
-  if (b.isEmpty) b = base.take(5).toList();
-  return b;
+final commentCountProvider = FutureProvider.autoDispose.family<int, String>((ref, mediaId) async {
+  final res = await Supabase.instance.client.from('media_stats').select('comment_count').eq('media_id', mediaId).maybeSingle();
+  return res?['comment_count'] as int? ?? 0;
 });
 
-final trendingProvider = Provider<List<MediaContent>>((ref) {
-  final base = ref.watch(filteredBaseProvider);
-  var t = base.where((e) => e.rankPosition!= null).toList();
-  t.sort((a, b) => (a.rankPosition?? 99).compareTo(b.rankPosition?? 99));
-  return t;
-});
-
-final recommendationsProvider = Provider<List<MediaContent>>((ref) {
-  final base = ref.watch(filteredBaseProvider);
-  final cat = ref.watch(selectedCategoryProvider);
-  var r = base.where((e) => e.rankPosition== null).toList();
-  if (cat!= 'Accueil') r = r.where((e) => e.type == cat).toList();
-  return r;
-});
-
-final newReleasesProvider = Provider<List<MediaContent>>((ref) {
-  final base = ref.watch(filteredBaseProvider);
-  final cat = ref.watch(selectedCategoryProvider);
-  var list = base.where((e) => e.isNewRelease).toList();
-  if (cat!= 'Accueil') list = list.where((e) => e.type == cat).toList();
-  return list;
-});
-
-final upcomingProvider = Provider<List<MediaContent>>((ref) {
-  final base = ref.watch(filteredBaseProvider);
-  return base.where((e) =>!e.isNewRelease).take(20).toList();
+final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
+  final u = Supabase.instance.client.auth.currentUser; 
+  if (u == null) return false;
+  final role = u.appMetadata['role'] ?? u.userMetadata?['role']; 
+  return role == 'admin' || role == 'superadmin';
 });
