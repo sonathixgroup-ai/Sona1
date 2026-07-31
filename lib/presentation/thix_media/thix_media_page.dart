@@ -397,20 +397,22 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               onTap: () => setState(() => _immersive = !_immersive),
               child: Stack(fit: StackFit.expand, children: [
                 FeedVideoPlayer(videoUrl: item.videoUrl, coverUrl: item.coverUrl, isPlaying: isFocused),
-                Container(
+                                Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.bottomCenter, 
                       end: Alignment.topCenter, 
                       colors: [
-                        Colors.black.withOpacity(0.8), // Sombre en bas pour lire le texte
-                        Colors.transparent,            // 100% transparent au milieu (PLUS DE FLOU !)
-                        Colors.black.withOpacity(0.1)  // Légèrement sombre en haut pour la barre de menu
+                        Colors.black.withOpacity(0.8), // 1. Sombre tout en bas (pour les textes)
+                        Colors.transparent,            // 2. Début de la zone 100% nette
+                        Colors.transparent,            // 3. Fin de la zone 100% nette
+                        Colors.black.withOpacity(0.3)  // 4. Sombre tout en haut (pour les icônes)
                       ], 
-                      stops: const [0.0, 0.25, 1.0]    // Le centre clair commence beaucoup plus bas
+                      stops: const [0.0, 0.3, 0.85, 1.0] // Le centre (de 30% à 85% de l'écran) est totalement intact !
                     ),
                   ),
                 ),
+
                 Positioned(
                   left: 20, bottom: 40, right: 20,
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
