@@ -99,7 +99,6 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
 
       final now = DateTime.now().toIso8601String();
       
-      // ✅ CORRECTION : Typage explicite pour éviter l'erreur d'inférence de Dart
       final Map<String, dynamic> data = {
         'user_id': userId,
         'lesson_id': arg,
@@ -138,7 +137,6 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
 
       final now = DateTime.now().toIso8601String();
 
-      // ✅ CORRECTION : Typage explicite ici aussi par précaution
       final Map<String, dynamic> data = {
         'user_id': userId,
         'lesson_id': arg,
@@ -358,7 +356,7 @@ class FormationLessonPlayer extends ConsumerWidget {
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Text(
-        currentLesson.content ?? 'Contenu texte de la leçon (à intégrer depuis Supabase)',
+        currentLesson.content ?? 'Contenu texte de la leçon non disponible.',
         style: const TextStyle(color: Color(0xFF1E293B), fontSize: 15, height: 1.6),
       ),
     );
