@@ -41,7 +41,7 @@ class _EducationMyLearningState extends ConsumerState<EducationMyLearning> {
 
   @override
   Widget build(BuildContext context) {
-    final userId = ref.watch(currentUserIdProvider);
+    final userId = ref.watch(currentUserIdProvider).value; 
 
     if (userId == null) {
       return Scaffold(
