@@ -116,7 +116,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
 
   // ---------------- FIL MÉLANGÉ : init / pagination / refresh ----------------
 
-    Future<void> _initFilFeed({bool reshuffle = false}) async {
+  Future<void> _initFilFeed({bool reshuffle = false}) async {
     if (_filLoading) return;
     setState(() => _filLoading = true);
     
@@ -170,7 +170,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       if (mounted) setState(() => _filLoading = false);
     }
   }
-
 
   Future<void> _syncLikedMedias(List<MediaContent> items) async {
     if (items.isEmpty) return;
@@ -400,7 +399,16 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                 FeedVideoPlayer(videoUrl: item.videoUrl, coverUrl: item.coverUrl, isPlaying: isFocused),
                 Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.85), Colors.black.withOpacity(0.2), Colors.black.withOpacity(0.4)], stops: const [0.0, 0.4, 1.0]),
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter, 
+                      end: Alignment.topCenter, 
+                      colors: [
+                        Colors.black.withOpacity(0.8), // Sombre en bas pour lire le texte
+                        Colors.transparent,            // 100% transparent au milieu (PLUS DE FLOU !)
+                        Colors.black.withOpacity(0.1)  // Légèrement sombre en haut pour la barre de menu
+                      ], 
+                      stops: const [0.0, 0.25, 1.0]    // Le centre clair commence beaucoup plus bas
+                    ),
                   ),
                 ),
                 Positioned(
@@ -1358,3 +1366,5 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     );
   }
 }
+ 
+quand je double click ou click le video fait play et pause. Or ici il y a pas cela dans Fil ?
