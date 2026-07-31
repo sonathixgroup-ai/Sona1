@@ -44,7 +44,7 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
     }
   }
 
-  Future<List<MediaContent>> _fetch(DateTime? cursor) async {
+    Future<List<MediaContent>> _fetch(DateTime? cursor) async {
     final cat = ref.read(selectedCategoryProvider);
     final search = ref.read(searchQueryProvider).trim();
     
@@ -67,24 +67,25 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
     // 3. Appliquer l'ordre, la limite, et exécuter la requête
     final res = await query.order('created_at', ascending: false).limit(_limit);
     
-    // 4. Parser la réponse
-    final list = (res as List).map<MediaContent>((e) {
-      final stats = e['media_stats'] as Map<String, dynamic>?;
-      if (stats != null) {
-        e = {
-          ...e, 
-          'likeCount': stats['like_count'] ?? e['likeCount'] ?? 0, 
-          'viewCount': stats['view_count'] ?? e['viewCount'] ?? 0, 
-          'commentCount': stats['comment_count'] ?? e['commentCount'] ?? 0
-        };
+    // 4. CORRECTION WEB : Conversion propre des types JSON dynamiques
+    final list = (res as List).map<MediaContent>((dynamic item) {
+      // On crée une vraie Map<String, dynamic> à partir du JSON brut
+      final Map<String, dynamic> e = Map<String, dynamic>.from(item as Map);
+      
+      // Si les statistiques existent, on les convertit aussi proprement
+      if (e['media_stats'] != null) {
+        final Map<String, dynamic> stats = Map<String, dynamic>.from(e['media_stats'] as Map);
+        e['likeCount'] = stats['like_count'] ?? e['likeCount'] ?? 0;
+        e['viewCount'] = stats['view_count'] ?? e['viewCount'] ?? 0;
+        e['commentCount'] = stats['comment_count'] ?? e['commentCount'] ?? 0;
       }
-      return MediaContent.fromJson(e as Map<String, dynamic>);
+      
+      return MediaContent.fromJson(e);
     }).toList();
     
     if (list.isNotEmpty) _cursor = list.last.createdAt;
     return list;
   }
-} // <-- L'accolade fermante manquante était ici !
 
 final thixMediaListProvider = StateNotifierProvider<ThixMediaNotifier, AsyncValue<List<MediaContent>>>((ref) => ThixMediaNotifier(ref));
 final bannerItemsProvider = Provider<List<MediaContent>>((ref) => ref.watch(thixMediaListProvider).valueOrNull?.take(5).toList() ?? []);
