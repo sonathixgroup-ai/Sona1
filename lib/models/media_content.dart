@@ -1,3 +1,4 @@
+
 class MediaContent {
   final String id;
   final String title;
@@ -7,11 +8,14 @@ class MediaContent {
   final String coverUrl;
   final String videoUrl;
   final int viewCount;
+  final int likeCount; // NOUVEAU
+  final int commentCount; // NOUVEAU
   final int? rankPosition;
   final bool isTrending;
   final bool isNewRelease;
   final bool isRecommended;
   final bool isPublished;
+  final bool isFeedOnly; // NOUVEAU
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -24,11 +28,14 @@ class MediaContent {
     required this.coverUrl,
     required this.videoUrl,
     this.viewCount = 0,
+    this.likeCount = 0,
+    this.commentCount = 0,
     this.rankPosition,
     this.isTrending = false,
     this.isNewRelease = false,
     this.isRecommended = false,
     this.isPublished = true,
+    this.isFeedOnly = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -43,11 +50,14 @@ class MediaContent {
       coverUrl: json['cover_url'] ?? '',
       videoUrl: json['video_url'] ?? '',
       viewCount: json['view_count'] ?? 0,
+      likeCount: json['like_count'] ?? 0,
+      commentCount: json['comment_count'] ?? 0,
       rankPosition: json['rank_position'],
       isTrending: json['is_trending'] ?? false,
       isNewRelease: json['is_new_release'] ?? false,
       isRecommended: json['is_recommended'] ?? false,
       isPublished: json['is_published'] ?? true,
+      isFeedOnly: json['is_feed_only'] ?? false,
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
     );
@@ -62,11 +72,14 @@ class MediaContent {
         'cover_url': coverUrl,
         'video_url': videoUrl,
         'view_count': viewCount,
+        'like_count': likeCount,
+        'comment_count': commentCount,
         'rank_position': rankPosition,
         'is_trending': isTrending,
         'is_new_release': isNewRelease,
         'is_recommended': isRecommended,
         'is_published': isPublished,
+        'is_feed_only': isFeedOnly,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       };
@@ -80,11 +93,14 @@ class MediaContent {
     String? coverUrl,
     String? videoUrl,
     int? viewCount,
+    int? likeCount,
+    int? commentCount,
     int? rankPosition,
     bool? isTrending,
     bool? isNewRelease,
     bool? isRecommended,
     bool? isPublished,
+    bool? isFeedOnly,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -97,11 +113,14 @@ class MediaContent {
       coverUrl: coverUrl ?? this.coverUrl,
       videoUrl: videoUrl ?? this.videoUrl,
       viewCount: viewCount ?? this.viewCount,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount ?? this.commentCount,
       rankPosition: rankPosition ?? this.rankPosition,
       isTrending: isTrending ?? this.isTrending,
       isNewRelease: isNewRelease ?? this.isNewRelease,
       isRecommended: isRecommended ?? this.isRecommended,
       isPublished: isPublished ?? this.isPublished,
+      isFeedOnly: isFeedOnly ?? this.isFeedOnly,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
