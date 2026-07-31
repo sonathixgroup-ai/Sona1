@@ -8,13 +8,33 @@ import '../models/enrollment.dart';
 
 // Client global - ne casse pas la DB
 final supabaseClientProvider = Provider<SupabaseClient>((ref) => Supabase.instance.client);
-final currentUserIdProvider = Provider<String?>((ref) => Supabase.instance.client.auth.currentUser?.id);
 
-// Catégories - keepAlive pour 1M users
-final categoriesProvider = FutureProvider<List<Category>>((ref) async {
+// ✅ CORRECTION 1 : Méthode native ultra-propre pour éviter les doublons d'ID au démarrage (sans RxDart)
+final currentUserIdProvider = StreamProvider<String?>((ref) async* {
+  final client = Supabase.instance.client;
+  
+  String? lastId = client.auth.currentUser?.id;
+  yield lastId;
+  
+  await for (final event in client.auth.onAuthStateChange) {
+    final newId = event.session?.user.id;
+    if (newId != lastId) {
+      lastId = newId;
+      yield lastId;
+    }
+  }
+});
+
+final categoriesProvider = FutureProvider.autoDispose<List<Category>>((ref) async {
   ref.keepAlive();
+
   final client = ref.watch(supabaseClientProvider);
-  final res = await client.from('categories').select('id,name,icon,created_at').order('name');
+
+  final res = await client
+      .from('categories')
+      .select('id,name,icon,created_at')
+      .order('name');
+
   return res.map((e) => Category.fromJson(e)).toList();
 });
 
@@ -92,24 +112,34 @@ class MyEnrollmentsNotifier extends FamilyAsyncNotifier<List<Enrollment>, String
     _offset = 0; _hasMore = true;
     final client = ref.watch(supabaseClientProvider);
     final res = await client.from('enrollments')
-     .select('id,progress,created_at,formation:formations(id,title,image_url,rating,price,currency,is_free,category_id,created_at)')
-     .eq('user_id', userId).order('created_at', ascending: false).range(0, _limit - 1);
+     .select('id,progress,status,enrolled_at,created_at,formation:formations(id,title,image_url,rating,price,currency,is_free,category_id,created_at)')
+     .eq('uid', userId)
+     .order('enrolled_at', ascending: false).range(0, _limit - 1);
+    
     _offset = res.length;
     _hasMore = res.length == _limit;
     return res.map((e) => Enrollment.fromJson(e)).toList();
   }
 
   Future<void> loadMore() async {
-    if (!_hasMore) return;
-    final client = ref.read(supabaseClientProvider);
-    final res = await client.from('enrollments')
-     .select('id,progress,created_at,formation:formations(id,title,image_url,rating,price,currency,is_free,category_id,created_at)')
-     .eq('user_id', arg).order('created_at', ascending: false).range(_offset, _offset + _limit - 1);
-    if (res.isEmpty) { _hasMore = false; return; }
-    _offset += res.length;
-    _hasMore = res.length == _limit;
-    final newItems = res.map((e) => Enrollment.fromJson(e)).toList();
-    state = AsyncData([...state.value ?? [], ...newItems]);
+    if (!_hasMore || state is AsyncLoading) return; 
+    
+    // ✅ CORRECTION 2 : Ajout du try/catch pour protéger le state en cas de coupure réseau
+    try {
+      final client = ref.read(supabaseClientProvider);
+      final res = await client.from('enrollments')
+       .select('id,progress,status,enrolled_at,created_at,formation:formations(id,title,image_url,rating,price,currency,is_free,category_id,created_at)')
+       .eq('uid', arg)
+       .order('enrolled_at', ascending: false).range(_offset, _offset + _limit - 1);
+      
+      if (res.isEmpty) { _hasMore = false; return; }
+      _offset += res.length;
+      _hasMore = res.length == _limit;
+      final newItems = res.map((e) => Enrollment.fromJson(e)).toList();
+      state = AsyncData([...state.value ?? [], ...newItems]);
+    } catch (e, st) {
+      state = AsyncError(e, st);
+    }
   }
 }
 final myEnrollmentsProvider = AsyncNotifierProvider.family<MyEnrollmentsNotifier, List<Enrollment>, String>(MyEnrollmentsNotifier.new);
@@ -130,29 +160,114 @@ final recommendationsProvider = FutureProvider.family<List<Formation>, String>((
 final formationDetailProvider = FutureProvider.family<Formation?, String>((ref, String formationId) async {
   final client = ref.watch(supabaseClientProvider);
   
-  // ✅ CORRECTION APPLIQUÉE ICI : 'duration' est devenu 'duration_minutes'
-  final res = await client.from('formations').select('*, category:categories(id,name), modules(id,title,order_index, lessons(id,title,duration_minutes,order_index,type,module_id))').eq('id', formationId).maybeSingle();
+  final res = await client.from('formations').select('''
+    id,
+    title,
+    description,
+    image_url,
+    rating,
+    price,
+    currency,
+    is_free,
+    category_id,
+    level,
+    created_at,
+    category:categories(id,name),
+    modules(
+      id,
+      title,
+      order_index,
+      lessons(
+        id,
+        title,
+        duration_minutes,
+        order_index,
+        type,
+        module_id
+      )
+    )
+  ''').eq('id', formationId).maybeSingle();
+  
+  // ✅ CORRECTION 4 : Tri explicite en mémoire des modules et des leçons
+  if (res != null && res['modules'] != null) {
+    final modulesList = res['modules'] as List;
+    modulesList.sort((a, b) => (a['order_index'] as int? ?? 0).compareTo(b['order_index'] as int? ?? 0));
+    
+    for (var module in modulesList) {
+      if (module['lessons'] != null) {
+        (module['lessons'] as List).sort((a, b) => (a['order_index'] as int? ?? 0).compareTo(b['order_index'] as int? ?? 0));
+      }
+    }
+  }
   
   return res == null ? null : Formation.fromJson(res);
 });
 
 final enrollmentProvider = FutureProvider.family<dynamic, ({String userId, String formationId})>((ref, params) async {
   final client = ref.watch(supabaseClientProvider);
-  return await client.from('enrollments').select('id,progress').eq('user_id', params.userId).eq('formation_id', params.formationId).maybeSingle();
+
+  return await client
+      .from('enrollments')
+      .select('id,progress,status')
+      .eq('uid', params.userId)
+      .eq('formation_id', params.formationId)
+      .maybeSingle();
 });
 
 class EnrollNotifier extends AsyncNotifier<void> {
-  @override Future<void> build() async {}
-  Future<bool> enroll({required String userId, required String formationId}) async {
+  @override
+  Future<void> build() async {}
+
+  Future<bool> enroll({
+    required String userId,
+    required String formationId,
+  }) async {
     state = const AsyncLoading();
+
     try {
       final client = ref.read(supabaseClientProvider);
-      await client.from('enrollments').insert({'user_id': userId, 'formation_id': formationId, 'progress': 0});
-      ref.invalidate(enrollmentProvider((userId: userId, formationId: formationId)));
+
+      final existing = await client
+          .from('enrollments')
+          .select('id')
+          .eq('uid', userId)
+          .eq('formation_id', formationId)
+          .maybeSingle();
+
+      if (existing != null) {
+        ref.invalidate(
+          enrollmentProvider(
+            (userId: userId, formationId: formationId),
+          ),
+        );
+
+        state = const AsyncData(null);
+        return true;
+      }
+
+      await client.from('enrollments').insert({
+        'uid': userId,
+        'formation_id': formationId,
+        'status': 'active',
+        'progress': 0,
+        'enrolled_at': DateTime.now().toIso8601String(),
+      });
+
+      ref.invalidate(
+        enrollmentProvider(
+          (userId: userId, formationId: formationId),
+        ),
+      );
+
+      ref.invalidate(myEnrollmentsProvider(userId));
+      
+      // ✅ CORRECTION 3 : Suppression de ref.invalidate(formationsProvider) 
+      // pour éviter de recharger le catalogue entier inutilement.
+
       state = const AsyncData(null);
       return true;
-    } catch (e) {
-      state = AsyncError(e, StackTrace.current);
+    } catch (e, st) {
+      state = AsyncError(e, st);
       return false;
     }
   }
@@ -200,8 +315,21 @@ class SearchFormationsNotifier extends AsyncNotifier<PaginatedFormations> {
   }
 
   Future<List<Formation>> _fetch(SupabaseClient client, String q, int offset) async {
-    final safeQ = q.replaceAll('%', '').replaceAll('_', '');
-    final res = await client.from('formations').select('id,title,image_url,rating,price,currency,is_free,category_id,created_at').or('title.ilike.%$safeQ%,description.ilike.%$safeQ%').order('rating', ascending: false).range(offset, offset + _limit - 1);
+    // ✅ CORRECTION 5 : Nettoyage drastique de la requête SQL
+    final safeQ = q
+        .replaceAll('%', '')
+        .replaceAll('_', '')
+        .replaceAll(',', '')
+        .replaceAll('.', '')
+        .replaceAll("'", '')
+        .replaceAll('"', '');
+        
+    final res = await client.from('formations')
+        .select('id,title,image_url,rating,price,currency,is_free,category_id,created_at')
+        .or('title.ilike.%$safeQ%,description.ilike.%$safeQ%')
+        .order('rating', ascending: false)
+        .range(offset, offset + _limit - 1);
+        
     return res.map((e) => Formation.fromJson(e)).toList();
   }
 
