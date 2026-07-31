@@ -92,25 +92,23 @@ class MediaService {
   final Uuid _uuid = const Uuid();
   final Random _random = Random.secure();
 
-  // ====== FIL MÉLANGÉ SCALABLE ======
-  double newFeedSeed() => _random.nextDouble();
-
-  Future<FeedPage> fetchShuffledFeed({required double cursor, int limit = 10}) async {
+  // ====== FIL MÉLANGÉ SCALABLE (ALGORITHME TIKTOK) ======
+  
+  // CORRECTION : On utilise la liste des IDs déjà vus au lieu d'un curseur
+  Future<FeedPage> fetchShuffledFeed({required List<String> seenIds, int limit = 10}) async {
     final data = await supabase.rpc('get_shuffled_feed', params: {
-      'p_cursor': cursor,
+      'p_seen_ids': seenIds,
       'p_limit': limit,
     }) as List;
 
     final items = data.map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
-    final nextCursor = items.isNotEmpty
-        ? ((items.last as dynamic).randomRank as double? ?? cursor)
-        : cursor;
-    return FeedPage(items: items, nextCursor: nextCursor);
+    
+    // nextCursor n'est plus utile ici car le serveur filtre automatiquement les doublons
+    return FeedPage(items: items, nextCursor: 0.0);
   }
 
   // ====== COMPTEURS LIVE (Realtime ciblé) ======
   Stream<MediaCounts> watchMediaCounts(String mediaId) {
-    // CORRECTION : On écoute 'media_stats' et non 'media_content'
     return supabase
         .from('media_stats')
         .stream(primaryKey: ['media_id'])
