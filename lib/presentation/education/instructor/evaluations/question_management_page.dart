@@ -29,11 +29,14 @@ class QuestionManagementPage extends ConsumerStatefulWidget {
 class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage> {
   final List<Map<String, dynamic>> _questions = [];
 
-  // Contrôleurs pour le formulaire de création de question
+  // Contrôleurs pour le formulaire
   final TextEditingController _questionController = TextEditingController();
   final List<TextEditingController> _optionControllers = [];
   int? _correctIndex;
-  String _questionType = 'qcm'; // qcm, vrai_faux, ouverte
+  String _questionType = 'qcm'; 
+
+  // Mode édition
+  int? _editingIndex;
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -41,6 +44,8 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
   @override
   void initState() {
     super.initState();
+    // Par défaut, un QCM commence avec 2 options
+    _optionControllers.addAll([TextEditingController(), TextEditingController()]);
     _loadExistingQuestions();
   }
 
@@ -63,7 +68,7 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
       if (mounted) {
         setState(() {
           _questions.addAll((res as List).map((q) => {
-            'id': q['id'],
+            'id': q['id'], // On garde l'ID pour pouvoir faire un UPDATE (upsert)
             'question': q['text'] ?? q['question'] ?? '',
             'type': q['type'] ?? 'qcm',
             'options': q['options'] != null ? List<String>.from(q['options']) : [],
@@ -96,15 +101,18 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
     });
   }
 
-  void _addQuestion() {
+  void _submitQuestion() {
     final questionText = _questionController.text.trim();
     if (questionText.isEmpty) {
       _showSnackBar('Veuillez saisir une question.', isError: true);
       return;
     }
 
+    List<String> options = [];
+    int finalCorrectIndex = 0;
+
     if (_questionType == 'qcm') {
-      final options = _optionControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
+      options = _optionControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
       if (options.length < 2) {
         _showSnackBar('Ajoutez au moins 2 options.', isError: true);
         return;
@@ -113,84 +121,117 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
         _showSnackBar('Sélectionnez la bonne réponse.', isError: true);
         return;
       }
-      setState(() {
-        _questions.add({
-          'question': questionText,
-          'type': 'qcm',
-          'options': options,
-          'correctIndex': _correctIndex!,
-        });
-      });
+      finalCorrectIndex = _correctIndex!;
     } else if (_questionType == 'vrai_faux') {
       if (_correctIndex == null) {
         _showSnackBar('Choisissez Vrai ou Faux.', isError: true);
         return;
       }
-      setState(() {
-        _questions.add({
-          'question': questionText,
-          'type': 'vrai_faux',
-          'options': ['Vrai', 'Faux'],
-          'correctIndex': _correctIndex!, // 0 = Vrai, 1 = Faux
-        });
-      });
-    } else {
-      // Question ouverte
-      setState(() {
-        _questions.add({
-          'question': questionText,
-          'type': 'ouverte',
-          'options': [],
-          'correctIndex': 0,
-        });
-      });
+      options = ['Vrai', 'Faux'];
+      finalCorrectIndex = _correctIndex!;
     }
 
-    // Réinitialiser le formulaire de saisie
-    _questionController.clear();
-    for (var c in _optionControllers) {
-      c.dispose();
-    }
-    _optionControllers.clear();
-    _correctIndex = null;
-    setState(() {});
-    
-    _showSnackBar('Question ajoutée à la liste locale.', isError: false);
+    final newQuestion = {
+      'id': _editingIndex != null ? _questions[_editingIndex!]['id'] : null, // Préserve l'ID si on modifie
+      'question': questionText,
+      'type': _questionType,
+      'options': options,
+      'correctIndex': finalCorrectIndex,
+    };
+
+    setState(() {
+      if (_editingIndex != null) {
+        _questions[_editingIndex!] = newQuestion;
+        _showSnackBar('Question mise à jour avec succès.', isError: false);
+      } else {
+        _questions.add(newQuestion);
+        _showSnackBar('Question ajoutée à la liste locale.', isError: false);
+      }
+      _resetForm();
+    });
+  }
+
+  void _editQuestion(int index) {
+    final q = _questions[index];
+    setState(() {
+      _editingIndex = index;
+      _questionType = q['type'];
+      _questionController.text = q['question'];
+      
+      for (var c in _optionControllers) {
+        c.dispose();
+      }
+      _optionControllers.clear();
+      
+      if (_questionType == 'qcm') {
+        for (var opt in q['options']) {
+          _optionControllers.add(TextEditingController(text: opt));
+        }
+      }
+      _correctIndex = q['correctIndex'];
+    });
   }
 
   void _removeQuestion(int index) {
     setState(() {
+      if (_editingIndex == index) _resetForm(); // Annule l'édition si on supprime la question en cours d'édition
       _questions.removeAt(index);
+    });
+  }
+
+  void _resetForm() {
+    setState(() {
+      _editingIndex = null;
+      _questionController.clear();
+      for (var c in _optionControllers) {
+        c.dispose();
+      }
+      _optionControllers.clear();
+      if (_questionType == 'qcm') {
+        _optionControllers.addAll([TextEditingController(), TextEditingController()]);
+      }
+      _correctIndex = null;
     });
   }
 
   Future<void> _saveQuestions() async {
     setState(() => _isSaving = true);
     try {
-      // Stratégie robuste : Remplacer ou synchroniser les questions dans Supabase
-      // 1. Supprimer les anciennes questions de cette évaluation
-      await Supabase.instance.client
-          .from('questions')
-          .delete()
-          .eq('evaluation_id', widget.evaluationId);
-
-      // 2. Insérer la nouvelle liste de questions actualisée
-      if (_questions.isNotEmpty) {
-        final payload = _questions.map((q) => {
-          'evaluation_id': widget.evaluationId,
-          'text': q['question'],
-          'type': q['type'],
-          'options': q['options'],
-          'correct_index': q['correctIndex'],
-          'correct_answer': q['type'] == 'qcm' && q['options'] != null && (q['options'] as List).isNotEmpty
-              ? q['options'][q['correctIndex']]
-              : q['type'] == 'vrai_faux'
-                  ? (q['correctIndex'] == 0 ? 'Vrai' : 'Faux')
-                  : null,
-          'created_at': DateTime.now().toIso8601String(),
+      if (_questions.isEmpty) {
+        // S'il n'y a plus aucune question, on vide la table pour cette évaluation
+        await Supabase.instance.client.from('questions').delete().eq('evaluation_id', widget.evaluationId);
+      } else {
+        // Préparation du payload avec les IDs existants pour faire un "Upsert" (Mise à jour ou Insertion)
+        final payload = _questions.map((q) {
+          final map = {
+            'evaluation_id': widget.evaluationId,
+            'text': q['question'],
+            'type': q['type'],
+            'options': q['options'],
+            'correct_index': q['correctIndex'],
+            'correct_answer': q['type'] == 'qcm' && q['options'] != null && (q['options'] as List).isNotEmpty
+                ? q['options'][q['correctIndex']]
+                : q['type'] == 'vrai_faux' ? (q['correctIndex'] == 0 ? 'Vrai' : 'Faux') : null,
+          };
+          if (q['id'] != null) map['id'] = q['id']; // Clé primaire pour forcer l'update
+          return map;
         }).toList();
 
-        await Supabase.instance.client.from('questions').insert(payload);
+        // 1. Upsert : Insère les nouvelles et met à jour les anciennes (Préserve les foreign keys)
+        final response = await Supabase.instance.client
+            .from('questions')
+            .upsert(payload)
+            .select('id');
+
+        // 2. Nettoyage : On supprime les questions qui étaient en base mais que le formateur a retirées
+        final validIds = (response as List).map((row) => row['id']).toList();
+        if (validIds.isNotEmpty) {
+          await Supabase.instance.client
+              .from('questions')
+              .delete()
+              .eq('evaluation_id', widget.evaluationId)
+              .not('id', 'in', validIds);
+        }
       }
 
       if (!mounted) return;
@@ -223,10 +264,7 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
         backgroundColor: _C.surface,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain),
-          onPressed: () => context.pop(),
-        ),
+        leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain), onPressed: () => context.pop()),
         actions: [
           IconButton(
             icon: _isSaving
@@ -244,24 +282,27 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Carte formulaire d'ajout
+                  // --- FORMULAIRE D'AJOUT / ÉDITION ---
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: _C.surface,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _C.border),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                      ],
+                      border: Border.all(color: _editingIndex != null ? _C.primary.withOpacity(0.5) : _C.border),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Nouvelle question', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
+                        Row(
+                          children: [
+                            Icon(_editingIndex != null ? Icons.edit_rounded : Icons.add_circle_outline_rounded, color: _editingIndex != null ? _C.primary : _C.textMain, size: 20),
+                            const SizedBox(width: 8),
+                            Text(_editingIndex != null ? 'Modifier la question' : 'Nouvelle question', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _editingIndex != null ? _C.primary : _C.textMain)),
+                          ],
+                        ),
                         const SizedBox(height: 16),
 
-                        // Sélecteur de type
                         DropdownButtonFormField<String>(
                           value: _questionType,
                           dropdownColor: _C.surface,
@@ -274,10 +315,11 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
                           onChanged: (v) {
                             setState(() {
                               _questionType = v!;
-                              for (var c in _optionControllers) {
-                                c.dispose();
-                              }
+                              for (var c in _optionControllers) { c.dispose(); }
                               _optionControllers.clear();
+                              if (_questionType == 'qcm') {
+                                _optionControllers.addAll([TextEditingController(), TextEditingController()]);
+                              }
                               _correctIndex = null;
                             });
                           },
@@ -285,7 +327,6 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
                         ),
                         const SizedBox(height: 16),
 
-                        // Champ texte de la question
                         TextFormField(
                           controller: _questionController,
                           maxLines: 3,
@@ -294,7 +335,6 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
                         ),
                         const SizedBox(height: 16),
 
-                        // Options QCM
                         if (_questionType == 'qcm') ...[
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -303,7 +343,7 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
                               TextButton.icon(
                                 onPressed: _addOptionField,
                                 icon: const Icon(Icons.add_rounded, size: 18, color: _C.primary),
-                                label: const Text('Ajouter une option', style: TextStyle(color: _C.primary, fontWeight: FontWeight.w700)),
+                                label: const Text('Ajouter', style: TextStyle(color: _C.primary, fontWeight: FontWeight.w700)),
                               ),
                             ],
                           ),
@@ -342,7 +382,6 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
                           }),
                         ],
 
-                        // Vrai / Faux
                         if (_questionType == 'vrai_faux') ...[
                           const Text('Réponse correcte :', style: TextStyle(fontWeight: FontWeight.w800, color: _C.textMain)),
                           const SizedBox(height: 8),
@@ -373,32 +412,47 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
                         ],
 
                         const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            onPressed: _addQuestion,
-                            icon: const Icon(Icons.add_rounded, color: Colors.white),
-                            label: const Text('Ajouter à la liste', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _C.primary,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        
+                        Row(
+                          children: [
+                            if (_editingIndex != null)
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 12),
+                                  child: OutlinedButton(
+                                    onPressed: _resetForm,
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      side: const BorderSide(color: _C.textMuted),
+                                    ),
+                                    child: const Text('Annuler', style: TextStyle(fontWeight: FontWeight.w700, color: _C.textMuted)),
+                                  ),
+                                ),
+                              ),
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton.icon(
+                                onPressed: _submitQuestion,
+                                icon: Icon(_editingIndex != null ? Icons.check_rounded : Icons.add_rounded, color: Colors.white),
+                                label: Text(_editingIndex != null ? 'Mettre à jour' : 'Ajouter à la liste', style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  backgroundColor: _editingIndex != null ? _C.green : _C.primary,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 24),
 
-                  // Liste des questions ajoutées
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Questions configurées (${_questions.length})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
-                    ],
-                  ),
+                  // --- LISTE DES QUESTIONS ---
+                  Text('Questions configurées (${_questions.length})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
                   const SizedBox(height: 12),
 
                   _questions.isEmpty
@@ -421,11 +475,13 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
                           separatorBuilder: (_, __) => const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final q = _questions[index];
+                            final isCurrentlyEditing = _editingIndex == index;
+                            
                             return Container(
                               decoration: BoxDecoration(
-                                color: _C.surface,
+                                color: isCurrentlyEditing ? _C.primary.withOpacity(0.05) : _C.surface,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: _C.border),
+                                border: Border.all(color: isCurrentlyEditing ? _C.primary : _C.border),
                               ),
                               child: ListTile(
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -445,10 +501,20 @@ class _QuestionManagementPageState extends ConsumerState<QuestionManagementPage>
                                     style: const TextStyle(color: _C.textMuted, fontSize: 12),
                                   ),
                                 ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete_rounded, color: _C.red, size: 20),
-                                  onPressed: () => _removeQuestion(index),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_rounded, color: _C.textMuted, size: 20),
+                                      onPressed: () => _editQuestion(index),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_rounded, color: _C.red, size: 20),
+                                      onPressed: () => _removeQuestion(index),
+                                    ),
+                                  ],
                                 ),
+                                onTap: () => _editQuestion(index),
                               ),
                             );
                           },
