@@ -39,7 +39,7 @@ final _eduTabIndexProvider = StateProvider<int>((ref) => 0);
 /// Nombre de notifications non lues — branché sur Supabase.
 /// Adapter le nom de table/colonnes si besoin.
 final _unreadNotificationsProvider = FutureProvider.autoDispose<int>((ref) async {
-  final userId = ref.watch(currentUserIdProvider);
+  final userId = ref.watch(currentUserIdProvider).value; 
   if (userId == null) return 0;
   try {
     final res = await Supabase.instance.client
