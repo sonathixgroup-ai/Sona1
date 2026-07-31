@@ -1,9 +1,11 @@
 // lib/presentation/education/instructor/create_book_page.dart
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:file_picker/file_picker.dart';
 
 class _C {
   static const bg = Color(0xFFF8FAFC);
@@ -31,18 +33,28 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
   final _authorController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
-  final _imageUrlController = TextEditingController();
-  final _fileUrlController = TextEditingController();
+  
+  String _imageUrl = '';
+  String _fileUrl = '';
+  String _fileName = '';
   
   String _selectedCurrency = 'FC';
   bool _isLoading = false;
   bool _isInitLoading = false;
+  bool _isUploadingImage = false;
+  bool _isUploadingFile = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.bookId != null) {
       _loadExistingBook();
+    } else {
+      // Pré-remplir l'auteur avec le nom de l'utilisateur connecté si disponible
+      final userMeta = Supabase.instance.client.auth.currentUser?.userMetadata;
+      if (userMeta != null && userMeta['name'] != null) {
+        _authorController.text = userMeta['name'];
+      }
     }
   }
 
@@ -52,8 +64,6 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
     _authorController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
-    _imageUrlController.dispose();
-    _fileUrlController.dispose();
     super.dispose();
   }
 
@@ -67,13 +77,18 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
           .single();
 
       if (mounted) {
-        _titleController.text = data['title']?.toString() ?? '';
-        _authorController.text = data['author']?.toString() ?? '';
-        _descriptionController.text = data['description']?.toString() ?? '';
-        _priceController.text = data['price']?.toString() ?? '0';
-        _selectedCurrency = data['currency']?.toString() ?? 'FC';
-        _imageUrlController.text = data['image_url']?.toString() ?? '';
-        _fileUrlController.text = data['file_url']?.toString() ?? '';
+        setState(() {
+          _titleController.text = data['title']?.toString() ?? '';
+          _authorController.text = data['author']?.toString() ?? '';
+          _descriptionController.text = data['description']?.toString() ?? '';
+          _priceController.text = data['price']?.toString() ?? '0';
+          _selectedCurrency = data['currency']?.toString() ?? 'FC';
+          _imageUrl = data['image_url']?.toString() ?? '';
+          _fileUrl = data['file_url']?.toString() ?? '';
+          if (_fileUrl.isNotEmpty) {
+            _fileName = _fileUrl.split('/').last;
+          }
+        });
       }
     } catch (e) {
       debugPrint('❌ Erreur chargement livre : $e');
@@ -82,9 +97,117 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
     }
   }
 
+  // Upload de l'image de couverture vers Supabase Storage
+  Future<void> _pickAndUploadCoverImage() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final bytes = file.bytes;
+        if (bytes == null) return;
+
+        setState(() => _isUploadingImage = true);
+
+        final ext = file.extension ?? 'jpg';
+        final fileName = 'book_cover_${DateTime.now().millisecondsSinceEpoch}.$ext';
+        final filePath = 'books/covers/$fileName';
+
+        await Supabase.instance.client.storage
+            .from('course-media') // Assurez-vous que ce bucket existe dans Supabase
+            .uploadBinary(filePath, bytes);
+
+        final publicUrl = Supabase.instance.client.storage
+            .from('course-media')
+            .getPublicUrl(filePath);
+
+        setState(() {
+          _imageUrl = publicUrl;
+          _isUploadingImage = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Couverture uploadée avec succès !'), backgroundColor: _C.green),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isUploadingImage = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur upload image : $e'), backgroundColor: _C.red),
+        );
+      }
+    }
+  }
+
+  // Upload du fichier PDF/EPUB vers Supabase Storage
+  Future<void> _pickAndUploadBookFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'epub', 'mobi'],
+        allowMultiple: false,
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final bytes = file.bytes;
+        if (bytes == null) return;
+
+        setState(() => _isUploadingFile = true);
+
+        final ext = file.extension ?? 'pdf';
+        final cleanName = file.name.replaceAll(RegExp(r'[^a-zA-Z0-9_\-\.]'), '_');
+        final fileName = 'book_file_${DateTime.now().millisecondsSinceEpoch}_$cleanName';
+        final filePath = 'books/files/$fileName';
+
+        await Supabase.instance.client.storage
+            .from('course-media')
+            .uploadBinary(filePath, bytes);
+
+        final publicUrl = Supabase.instance.client.storage
+            .from('course-media')
+            .getPublicUrl(filePath);
+
+        setState(() {
+          _fileUrl = publicUrl;
+          _fileName = file.name;
+          _isUploadingFile = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Fichier du livre uploadé avec succès !'), backgroundColor: _C.green),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isUploadingFile = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur upload fichier : $e'), backgroundColor: _C.red),
+        );
+      }
+    }
+  }
+
   Future<void> _saveBook() async {
     if (!_formKey.currentState!.validate()) return;
     
+    if (_isUploadingImage || _isUploadingFile) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez patienter pendant la fin des transferts de fichiers.')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     
     try {
@@ -97,8 +220,8 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
         'description': _descriptionController.text.trim(),
         'price': double.tryParse(_priceController.text.trim()) ?? 0.0,
         'currency': _selectedCurrency,
-        'image_url': _imageUrlController.text.trim().isEmpty ? null : _imageUrlController.text.trim(),
-        'file_url': _fileUrlController.text.trim().isEmpty ? null : _fileUrlController.text.trim(),
+        'image_url': _imageUrl.isEmpty ? null : _imageUrl,
+        'file_url': _fileUrl.isEmpty ? null : _fileUrl,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
@@ -120,6 +243,7 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
         ),
       );
       
+      // Retour propre sans stack accumulation
       context.pop();
     } catch (e) {
       if (!mounted) return;
@@ -155,6 +279,7 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
                 key: _formKey,
                 child: Column(
                   children: [
+                    // INFORMATIONS GÉNÉRALES
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -192,7 +317,6 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
                           ),
                           const SizedBox(height: 16),
                           
-                          // Ligne Prix et Devise dynamique
                           Row(
                             children: [
                               Expanded(
@@ -219,7 +343,6 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
                                     DropdownMenuItem(value: 'EUR', child: Text('EUR')),
                                   ],
                                   onChanged: (v) => setState(() => _selectedCurrency = v!),
-                                  // ✅ Icône corrigée ici (remplacement des caractères non-ASCII)
                                   decoration: _inputDecoration('Devise', Icons.currency_exchange_rounded),
                                 ),
                               ),
@@ -230,6 +353,7 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
                     ),
                     const SizedBox(height: 20),
                     
+                    // SECTION MÉDIAS & FICHIERS (UPLOADS NATIFS)
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -243,17 +367,87 @@ class _CreateBookPageState extends ConsumerState<CreateBookPage> {
                           const Text('Médias & Fichiers', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _C.textMain)),
                           const SizedBox(height: 16),
                           
-                          _buildTextField(
-                            controller: _imageUrlController,
-                            label: 'Lien de la couverture (URL Image)',
-                            icon: Icons.image_outlined,
+                          // UPLOAD DE LA COUVERTURE
+                          const Text('Image de couverture', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _C.textMuted)),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: _isUploadingImage ? null : _pickAndUploadCoverImage,
+                            child: Container(
+                              height: 160,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: _C.bg,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: _C.border, width: 2),
+                                image: _imageUrl.isNotEmpty
+                                    ? DecorationImage(image: NetworkImage(_imageUrl), fit: BoxFit.cover)
+                                    : null,
+                              ),
+                              child: _isUploadingImage
+                                  ? const Center(child: CircularProgressIndicator(color: _C.primary))
+                                  : (_imageUrl.isEmpty
+                                      ? const Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.add_photo_alternate_rounded, size: 40, color: _C.textMuted),
+                                            SizedBox(height: 8),
+                                            Text('Appuyer pour choisir une image', style: TextStyle(color: _C.textMuted, fontWeight: FontWeight.w600, fontSize: 13)),
+                                          ],
+                                        )
+                                      : const Align(
+                                          alignment: Alignment.topRight,
+                                          child: Padding(
+                                            padding: EdgeInsets.all(8.0),
+                                            child: CircleAvatar(backgroundColor: Colors.black54, child: Icon(Icons.edit, color: Colors.white, size: 16)),
+                                          ),
+                                        )),
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          
-                          _buildTextField(
-                            controller: _fileUrlController,
-                            label: 'Lien du fichier (URL PDF)',
-                            icon: Icons.picture_as_pdf_outlined,
+                          const SizedBox(height: 20),
+
+                          // UPLOAD DU DOCUMENT (PDF/EPUB)
+                          const Text('Fichier du livre (PDF / EPUB)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _C.textMuted)),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: _isUploadingFile ? null : _pickAndUploadBookFile,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: _C.bg,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: _C.border, width: 1.5),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(color: _C.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                                    child: const Icon(Icons.picture_as_pdf_rounded, color: _C.primary, size: 24),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _fileName.isNotEmpty ? _fileName : (_fileUrl.isNotEmpty ? 'Fichier attaché (Enregistré)' : 'Aucun fichier sélectionné'),
+                                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: _fileName.isNotEmpty || _fileUrl.isNotEmpty ? _C.textMain : _C.textMuted),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        const Text('Appuyer pour parcourir les fichiers', style: TextStyle(fontSize: 11.5, color: _C.textMuted)),
+                                      ],
+                                    ),
+                                  ),
+                                  if (_isUploadingFile)
+                                    const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary))
+                                  else
+                                    const Icon(Icons.cloud_upload_rounded, color: _C.primary),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
