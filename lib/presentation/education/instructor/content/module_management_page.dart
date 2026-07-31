@@ -4,7 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:thix_id/presentation/education/models/module.dart';
 import 'package:thix_id/presentation/education/models/lesson.dart';
-import 'package:thix_id/presentation/education/instructor/content/question_management_page.dart';
+import 'package:thix_id/presentation/education/instructor/evaluations/question_management_page.dart';
+
 
 class ModuleManagementPage extends StatefulWidget {
   final Module? module;
