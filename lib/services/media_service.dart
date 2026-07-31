@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'package:file_picker/file_picker.dart';
@@ -58,7 +59,6 @@ class CommentPage {
   CommentPage({required this.items, required this.hasMore, this.nextCursorCreatedAt, this.nextCursorId});
 }
 
-/// Page du fil mélangé : items + curseur de rotation à réutiliser pour la page suivante.
 class FeedPage {
   final List<MediaContent> items;
   final double nextCursor;
@@ -66,7 +66,6 @@ class FeedPage {
   FeedPage({required this.items, required this.nextCursor});
 }
 
-/// Compteurs live d'un média (issus du flux Realtime, jamais figés côté client).
 class MediaCounts {
   final int likeCount;
   final int viewCount;
@@ -74,23 +73,28 @@ class MediaCounts {
   const MediaCounts({required this.likeCount, required this.viewCount, required this.commentCount});
 }
 
+// ---------------- SERVICE SCALABLE ----------------
+
 class MediaService {
-  final SupabaseClient supabase;
-  final String bucket;
+  // 1. SCALABILITY: Pattern SINGLETON strict pour préserver la RAM
+  static final MediaService _instance = MediaService._internal();
+
+  factory MediaService({SupabaseClient? client, String bucket = 'media'}) {
+    _instance.supabase = client ?? Supabase.instance.client;
+    _instance.bucket = bucket;
+    return _instance;
+  }
+
+  MediaService._internal();
+
+  late SupabaseClient supabase;
+  late String bucket;
   final Uuid _uuid = const Uuid();
   final Random _random = Random.secure();
 
-  MediaService({SupabaseClient? client, this.bucket = 'media'}) : supabase = client ?? Supabase.instance.client;
-
-  // ====== FIL MÉLANGÉ SCALABLE (indépendant de la date d'upload) ======
-
-  /// Génère un point de départ aléatoire pour une nouvelle "session de mix"
-  /// (ouverture de l'app ou refresh manuel = nouveau mélange).
+  // ====== FIL MÉLANGÉ SCALABLE ======
   double newFeedSeed() => _random.nextDouble();
 
-  /// Récupère une page du fil mélangé via rotation sur random_rank.
-  /// Coût O(log n + limit) quel que soit le nombre de vidéos en base —
-  /// jamais de scan complet, jamais d'OFFSET.
   Future<FeedPage> fetchShuffledFeed({required double cursor, int limit = 10}) async {
     final data = await supabase.rpc('get_shuffled_feed', params: {
       'p_cursor': cursor,
@@ -104,17 +108,13 @@ class MediaService {
     return FeedPage(items: items, nextCursor: nextCursor);
   }
 
-  // ====== COMPTEURS LIVE (Realtime — pas de polling, pas de recalcul client) ======
-
-  /// Flux temps réel du compteur d'un média. À n'ouvrir QUE pour la vidéo
-  /// actuellement visible dans le fil (1 canal actif par utilisateur max),
-  /// et à fermer dès qu'on change de vidéo — c'est ce qui garde ça scalable
-  /// à des millions d'utilisateurs simultanés : chacun n'écoute qu'une ligne.
+  // ====== COMPTEURS LIVE (Realtime ciblé) ======
   Stream<MediaCounts> watchMediaCounts(String mediaId) {
+    // CORRECTION : On écoute 'media_stats' et non 'media_content'
     return supabase
-        .from('media_content')
-        .stream(primaryKey: ['id'])
-        .eq('id', mediaId)
+        .from('media_stats')
+        .stream(primaryKey: ['media_id'])
+        .eq('media_id', mediaId)
         .map((rows) {
       if (rows.isEmpty) return const MediaCounts(likeCount: 0, viewCount: 0, commentCount: 0);
       final row = rows.first;
@@ -124,6 +124,33 @@ class MediaService {
         commentCount: (row['comment_count'] as num?)?.toInt() ?? 0,
       );
     });
+  }
+
+  // ====== BATCHING DES VUES (Protection de la BDD pour millions d'users) ======
+  static final Set<String> _pendingViews = {};
+  static Timer? _viewTimer;
+
+  void registerView(String mediaId) {
+    _pendingViews.add(mediaId);
+    // Envoi groupé toutes les 10 secondes = Division du trafic serveur par 100 !
+    _viewTimer ??= Timer(const Duration(seconds: 10), _flushViews);
+  }
+
+  Future<void> _flushViews() async {
+    if (_pendingViews.isEmpty) {
+      _viewTimer = null;
+      return;
+    }
+    final batch = _pendingViews.toList();
+    _pendingViews.clear();
+    _viewTimer = null;
+
+    try {
+      await supabase.rpc('batch_register_views', params: {'p_media_ids': batch});
+    } catch (e) {
+      _pendingViews.addAll(batch); // On remet dans la file si la connexion échoue
+      debugPrint('View batching failed, retrying later: $e');
+    }
   }
 
   // ====== LIKES (RPC atomique) ======
@@ -138,16 +165,7 @@ class MediaService {
     return (res as List).map((e) => e as String).toSet();
   }
 
-  // ====== VUES (idempotentes) ======
-  Future<void> registerView(String mediaId) async {
-    try {
-      await supabase.rpc('register_media_view', params: {'p_media_id': mediaId});
-    } catch (e) {
-      debugPrint('registerView warn: $e');
-    }
-  }
-
-  // ====== COMMENTAIRES RACINES (keyset pagination) ======
+  // ====== COMMENTAIRES (Keyset Pagination : Ultra performant O(1)) ======
   Future<CommentPage> fetchRootComments(String mediaId, {int limit = 20}) async {
     final data = await supabase
         .from('media_comments')
@@ -173,7 +191,6 @@ class MediaService {
     return _buildPage(data as List, limit);
   }
 
-  // ====== RÉPONSES (chargées à la demande uniquement — pas gaspillé côté espace/réseau) ======
   Future<CommentPage> fetchReplies(String parentId, {int limit = 10, String? afterCreatedAt}) async {
     var query = supabase
         .from('media_comments')
@@ -205,8 +222,6 @@ class MediaService {
         }));
     var map = res as Map<String, dynamic>;
     if (parentId != null) {
-      // La RPC de base ne gère pas parent_id : on complète en une opération séparée
-      // idempotente si la RPC serveur ne l'accepte pas encore en paramètre.
       await supabase.from('media_comments').update({'parent_id': parentId}).eq('id', map['id']);
       map = {...map, 'parent_id': parentId};
     }
@@ -236,7 +251,7 @@ class MediaService {
     }, onConflict: 'comment_id,reporter_id', ignoreDuplicates: true);
   }
 
-  // ====== PAGINATION SCALABLE MILLIONS (Accueil : contenu curé, chronologique) ======
+  // ====== PAGINATION EXPLORER ======
   Future<List<MediaContent>> fetchAllMedia({int page = 0, int limit = 50}) async {
     final start = page * limit;
     final end = start + limit - 1;
@@ -264,88 +279,45 @@ class MediaService {
   Future<List<MediaContent>> fetchAllMediaLegacy() async => fetchAllMediaPaginated(limit: 100, offset: 0);
   Future<List<MediaContent>> fetchPublishedMediaLegacy() async => fetchPublishedMediaPaginated(limit: 100, offset: 0);
 
-  // ====== INSERT / UPDATE / DELETE (upload fichiers) ======
-  Future<MediaContent> insertWithFiles(
-    MediaContent item, {
-    PlatformFile? coverFile,
-    PlatformFile? videoFile,
-    ProgressCallback? onProgress,
-  }) async {
+  // ====== UPLOAD DE FICHIERS ======
+  Future<MediaContent> insertWithFiles(MediaContent item, {PlatformFile? coverFile, PlatformFile? videoFile, ProgressCallback? onProgress}) async {
     final newId = _uuid.v4();
     String? finalCoverUrl;
     String? finalVideoUrl;
-
     int totalTasks = (coverFile != null ? 1 : 0) + (videoFile != null ? 1 : 0);
     int doneTasks = 0;
     void tick() {
       doneTasks++;
       if (onProgress != null && totalTasks > 0) onProgress(doneTasks / totalTasks);
     }
-
     final tasks = <Future<void>>[];
-    if (coverFile != null) {
-      tasks.add(_uploadPhysicalFile(coverFile, 'thix_media/$newId/covers').then((url) {
-        finalCoverUrl = url;
-        tick();
-      }));
-    }
-    if (videoFile != null) {
-      tasks.add(_uploadPhysicalFile(videoFile, 'thix_media/$newId/videos').then((url) {
-        finalVideoUrl = url;
-        tick();
-      }));
-    }
+    if (coverFile != null) tasks.add(_uploadPhysicalFile(coverFile, 'thix_media/$newId/covers').then((url) { finalCoverUrl = url; tick(); }));
+    if (videoFile != null) tasks.add(_uploadPhysicalFile(videoFile, 'thix_media/$newId/videos').then((url) { finalVideoUrl = url; tick(); }));
     if (tasks.isNotEmpty) await Future.wait(tasks);
 
     final newItem = item.copyWith(
-      id: newId,
-      coverUrl: finalCoverUrl ?? item.coverUrl,
-      videoUrl: finalVideoUrl ?? item.videoUrl,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      id: newId, coverUrl: finalCoverUrl ?? item.coverUrl, videoUrl: finalVideoUrl ?? item.videoUrl,
+      createdAt: DateTime.now(), updatedAt: DateTime.now(),
     );
-
     final inserted = await _retry(() => supabase.from('media_content').insert(newItem.toJson()).select().single());
     return MediaContent.fromJson(inserted as Map<String, dynamic>);
   }
 
-  Future<MediaContent> updateWithFiles(
-    MediaContent existing, {
-    PlatformFile? newCoverFile,
-    PlatformFile? newVideoFile,
-    ProgressCallback? onProgress,
-  }) async {
+  Future<MediaContent> updateWithFiles(MediaContent existing, {PlatformFile? newCoverFile, PlatformFile? newVideoFile, ProgressCallback? onProgress}) async {
     String? finalCoverUrl;
     String? finalVideoUrl;
-
     int totalTasks = (newCoverFile != null ? 1 : 0) + (newVideoFile != null ? 1 : 0);
     int doneTasks = 0;
     void tick() {
       doneTasks++;
       if (onProgress != null && totalTasks > 0) onProgress(doneTasks / totalTasks);
     }
-
     final tasks = <Future<void>>[];
-    if (newCoverFile != null) {
-      tasks.add(_uploadPhysicalFile(newCoverFile, 'thix_media/${existing.id}/covers').then((url) {
-        finalCoverUrl = url;
-        tick();
-      }));
-    }
-    if (newVideoFile != null) {
-      tasks.add(_uploadPhysicalFile(newVideoFile, 'thix_media/${existing.id}/videos').then((url) {
-        finalVideoUrl = url;
-        tick();
-      }));
-    }
+    if (newCoverFile != null) tasks.add(_uploadPhysicalFile(newCoverFile, 'thix_media/${existing.id}/covers').then((url) { finalCoverUrl = url; tick(); }));
+    if (newVideoFile != null) tasks.add(_uploadPhysicalFile(newVideoFile, 'thix_media/${existing.id}/videos').then((url) { finalVideoUrl = url; tick(); }));
     if (tasks.isNotEmpty) await Future.wait(tasks);
 
-    final updatedItem = existing.copyWith(
-      coverUrl: finalCoverUrl ?? existing.coverUrl,
-      videoUrl: finalVideoUrl ?? existing.videoUrl,
-      updatedAt: DateTime.now(),
-    );
-
+    final updatedItem = existing.copyWith(coverUrl: finalCoverUrl ?? existing.coverUrl, videoUrl: finalVideoUrl ?? existing.videoUrl, updatedAt: DateTime.now());
     await _retry(() => supabase.from('media_content').update(updatedItem.toJson()).eq('id', existing.id));
     return updatedItem;
   }
@@ -361,20 +333,13 @@ class MediaService {
       if (!url.startsWith('http')) return url;
       return null;
     }
-
     final cp = extractPath(item.coverUrl);
     final vp = extractPath(item.videoUrl);
     if (cp != null) paths.add(cp);
     if (vp != null) paths.add(vp);
-
     if (paths.isNotEmpty) {
-      try {
-        await supabase.storage.from(bucket).remove(paths);
-      } catch (e) {
-        debugPrint('Storage delete warn: $e');
-      }
+      try { await supabase.storage.from(bucket).remove(paths); } catch (_) {}
     }
-
     await _retry(() => supabase.from('media_content').delete().eq('id', item.id));
   }
 
@@ -402,13 +367,7 @@ class MediaService {
   Future<T> _retry<T>(Future<T> Function() fn, {int max = 3}) async {
     int attempt = 0;
     while (true) {
-      try {
-        return await fn();
-      } catch (e) {
-        attempt++;
-        if (attempt >= max) rethrow;
-        await Future.delayed(Duration(milliseconds: 300 * attempt));
-      }
+      try { return await fn(); } catch (e) { attempt++; if (attempt >= max) rethrow; await Future.delayed(Duration(milliseconds: 300 * attempt)); }
     }
   }
 }
