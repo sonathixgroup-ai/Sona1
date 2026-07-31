@@ -15,13 +15,19 @@ class EducationCertificates extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userId = ref.watch(currentUserIdProvider);
+    // ✅ CORRECTION ICI : Ajout de ".value" pour extraire l'ID du StreamProvider
+    final userId = ref.watch(currentUserIdProvider).value;
     
     if (userId == null) {
       return Scaffold(
         backgroundColor: const Color(0xFFF7FAFF),
-        appBar: AppBar(title: const Text('Mes Certificats'), backgroundColor: Colors.white),
-        body: const Center(child: Text('Non connecté')),
+        appBar: AppBar(
+          title: const Text('Mes Certificats', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))), 
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF1A1A2E)), onPressed: () => context.pop()),
+        ),
+        body: const Center(child: Text('Veuillez vous connecter pour voir vos certificats.', style: TextStyle(color: Color(0xFF7386A8)))),
       );
     }
 
