@@ -759,7 +759,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   }
 }
 
-// ---------------- LECTEUR VIDÉO DU FIL : autoplay + pause + barre de progression ----------------
+// ---------------- LECTEUR VIDÉO DU FIL : autoplay + pause + barre de progression + double clic ----------------
 
 class FeedVideoPlayer extends StatefulWidget {
   final String videoUrl;
@@ -849,6 +849,17 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     return '${two(d.inMinutes.remainder(60))}:${two(d.inSeconds.remainder(60))}';
   }
 
+  // --- NOUVELLE FONCTION : Gestion de l'avance/recul ---
+  void _seekRelative(int seconds) {
+    if (!_isInitialized) return;
+    final newPos = _position.value + Duration(seconds: seconds);
+    Duration target = newPos;
+    if (target < Duration.zero) target = Duration.zero;
+    if (target > _duration) target = _duration;
+    _controller.seekTo(target);
+    _scheduleHide();
+  }
+
   @override
   void dispose() {
     _hideTimer?.cancel();
@@ -873,10 +884,19 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     return GestureDetector(
-      // Un tap court sur la vidéo affiche/masque play-pause + barre de progression,
-      // sans intercepter le tap "immersif" du parent (propagation naturelle car ce
-      // GestureDetector n'a pas de comportement opaque bloquant sur le reste du Stack).
+      // Un tap court sur la vidéo affiche/masque play-pause + barre de progression
       onTap: _togglePlayPause,
+      
+      // --- AJOUT : Double clic pour avancer/reculer de 10s ---
+      onDoubleTapDown: (d) {
+        final w = MediaQuery.of(context).size.width;
+        if (d.globalPosition.dx < w / 2) {
+          _seekRelative(-10); // Clic gauche = reculer
+        } else {
+          _seekRelative(10);  // Clic droit = avancer
+        }
+      },
+
       child: Stack(fit: StackFit.expand, children: [
         FittedBox(
           fit: BoxFit.cover,
@@ -1367,4 +1387,3 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
   }
 }
  
-quand je double click ou click le video fait play et pause. Or ici il y a pas cela dans Fil ?
