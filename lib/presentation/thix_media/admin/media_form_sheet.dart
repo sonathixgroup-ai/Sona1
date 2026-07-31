@@ -34,7 +34,7 @@ class MediaUploadNotifier extends StateNotifier<MediaUploadState> {
     try{
       final service = MediaService(client: Supabase.instance.client, bucket: 'media');
 
-      state = state.copyWith(status: 'Upload parallèle en cours...', progress: 0.2);
+      state = state.copyWith(status: 'Upload en cours...', progress: 0.2);
 
       if(isNew){
         await service.insertWithFiles(base, coverFile: coverFile, videoFile: videoFile, onProgress: (p){
@@ -88,21 +88,58 @@ class _MediaFormSheetState extends ConsumerState<MediaFormSheet> {
   @override void dispose(){ _title.dispose(); _subtitle.dispose(); _year.dispose(); super.dispose(); }
 
   Future<void> _pickCover() async {
-    final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true, withReadStream: true);
-    if(res!=null) setState(()=> _coverFile = res.files.first);
+    try {
+      final res = await FilePicker.platform.pickFiles(
+        type: FileType.image, 
+        withData: true,
+      );
+      
+      if (res != null && res.files.isNotEmpty) {
+        final file = res.files.first;
+        if (file.bytes == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('L\'image est trop lourde pour ce navigateur.'), backgroundColor: Colors.red));
+          }
+          return;
+        }
+        setState(() => _coverFile = file);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur mémoire : Fichier trop volumineux. Compressez l\'image.'), backgroundColor: Colors.red));
+      }
+    }
   }
 
   Future<void> _pickVideo() async {
-    final res = await FilePicker.platform.pickFiles(type: FileType.video, withData: false, withReadStream: true);
-    if(res!=null) setState(()=> _videoFile = res.files.first);
+    try {
+      final res = await FilePicker.platform.pickFiles(
+        type: FileType.video, 
+        withData: true, 
+      );
+      
+      if (res != null && res.files.isNotEmpty) {
+        final file = res.files.first;
+        if (file.bytes == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('La vidéo est trop lourde pour ce navigateur.'), backgroundColor: Colors.red));
+          }
+          return;
+        }
+        setState(() => _videoFile = file);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mémoire saturée : Vidéo trop lourde pour un navigateur mobile.'), backgroundColor: Colors.red, duration: Duration(seconds: 4)));
+      }
+    }
   }
 
   Future<void> _save() async {
     if(!_formKey.currentState!.validate()) return;
-    if(widget.existing==null && (_coverFile==null || _videoFile==null)){
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cover + Vidéo obligatoires'), backgroundColor: Colors.red));
-      return;
-    }
+    
+    // ✅ L'obligation des fichiers a été supprimée ici.
+    // L'utilisateur peut publier un média sans cover ni vidéo s'il le souhaite.
 
     final baseItem = MediaContent(
       id: widget.existing?.id??'',
@@ -157,11 +194,15 @@ class _MediaFormSheetState extends ConsumerState<MediaFormSheet> {
             const SizedBox(height: 14),
           ],
           if(upload.error!=null) Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)), child: Text(upload.error!, style: TextStyle(color: Colors.red.shade700, fontSize: 12))),
+          
           Row(children: [
-            Expanded(child: InkWell(onTap: upload.saving? null : _pickCover, child: Container(height: 110, decoration: BoxDecoration(color: const Color(0xFFF7FAFF), borderRadius: BorderRadius.circular(14), border: Border.all(color: _coverFile!=null? Colors.green : const Color(0xFFE7EEFC), width: _coverFile!=null? 2:1)), child: _coverFile!=null? Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_rounded, color: Colors.green), const SizedBox(height: 4), Text('${(_coverFile!.size/1024/1024).toStringAsFixed(1)} Mo', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700))]) : widget.existing!=null? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.network(widget.existing!.coverUrl, fit: BoxFit.cover, width: double.infinity)) : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.image_rounded, color: Color(0xFF2D6CDF)), Text('Cover *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700))])))),
+            // COVER BOX
+            Expanded(child: InkWell(onTap: upload.saving? null : _pickCover, child: Container(height: 110, decoration: BoxDecoration(color: const Color(0xFFF7FAFF), borderRadius: BorderRadius.circular(14), border: Border.all(color: _coverFile!=null? Colors.green : const Color(0xFFE7EEFC), width: _coverFile!=null? 2:1)), child: _coverFile!=null? Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_rounded, color: Colors.green), const SizedBox(height: 4), Text('${(_coverFile!.size/1024/1024).toStringAsFixed(1)} Mo', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700))]) : widget.existing!=null && widget.existing!.coverUrl.isNotEmpty ? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.network(widget.existing!.coverUrl, fit: BoxFit.cover, width: double.infinity)) : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.image_rounded, color: Color(0xFF2D6CDF)), SizedBox(height: 4), Text('Cover (Optionnel)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700))])))),
             const SizedBox(width: 12),
-            Expanded(child: InkWell(onTap: upload.saving? null : _pickVideo, child: Container(height: 110, decoration: BoxDecoration(color: const Color(0xFFF7FAFF), borderRadius: BorderRadius.circular(14), border: Border.all(color: _videoFile!=null? Colors.green : const Color(0xFFE7EEFC), width: _videoFile!=null? 2:1)), child: _videoFile!=null? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_rounded, color: Colors.green), Text('${(_videoFile!.size/1024/1024).toStringAsFixed(1)} Mo', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700))])) : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.video_library_rounded, color: Color(0xFF2D6CDF)), Text('Vidéo MP4 *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700))])))),
+            // VIDEO BOX
+            Expanded(child: InkWell(onTap: upload.saving? null : _pickVideo, child: Container(height: 110, decoration: BoxDecoration(color: const Color(0xFFF7FAFF), borderRadius: BorderRadius.circular(14), border: Border.all(color: _videoFile!=null? Colors.green : const Color(0xFFE7EEFC), width: _videoFile!=null? 2:1)), child: _videoFile!=null? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_rounded, color: Colors.green), const SizedBox(height: 4), Text('${(_videoFile!.size/1024/1024).toStringAsFixed(1)} Mo', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700))])) : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.video_library_rounded, color: Color(0xFF2D6CDF)), SizedBox(height: 4), Text('Vidéo (Optionnel)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700))])))),
           ]),
+          
           const SizedBox(height: 16),
           TextFormField(controller: _title, validator: (v)=> v==null||v.trim().isEmpty? 'Titre requis' : v.trim().length<3? 'Min 3 caractères' : null, decoration: _dec('Titre *'), textCapitalization: TextCapitalization.sentences),
           const SizedBox(height: 12),
@@ -180,7 +221,7 @@ class _MediaFormSheetState extends ConsumerState<MediaFormSheet> {
           SizedBox(width: double.infinity, height: 52, child: ElevatedButton(
             onPressed: upload.saving? null : _save,
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0A1F44), foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey.shade300, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-            child: upload.saving? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white, value: upload.progress>0? upload.progress : null)) : Text(widget.existing==null? 'Uploader et Publier' : 'Enregistrer', style: const TextStyle(fontWeight: FontWeight.w800)),
+            child: upload.saving? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white, value: upload.progress>0? upload.progress : null)) : Text(widget.existing==null? 'Créer le média' : 'Enregistrer', style: const TextStyle(fontWeight: FontWeight.w800)),
           )),
         ]))),
     );
