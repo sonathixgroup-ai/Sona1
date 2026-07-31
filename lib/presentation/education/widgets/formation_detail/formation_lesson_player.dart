@@ -68,7 +68,8 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
       final res = await Supabase.instance.client
           .from('lesson_progress')
           .select('status, progress')
-          .eq('user_id', userId)
+          // ✅ CORRECTION : Utilisation de 'uid' au lieu de 'user_id'
+          .eq('uid', userId) 
           .eq('lesson_id', arg)
           .maybeSingle();
 
@@ -82,6 +83,8 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
         state = state.copyWith(isLoading: false);
       }
     } catch (e) {
+      // Affichage de l'erreur dans la console pour faciliter le débogage
+      debugPrint('Erreur Supabase lors du chargement de la progression : $e');
       state = state.copyWith(isLoading: false, error: 'Impossible de charger la progression.');
     }
   }
@@ -97,7 +100,8 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
       if (userId == null) return;
 
       await Supabase.instance.client.from('lesson_progress').upsert({
-        'user_id': userId,
+        // ✅ CORRECTION : Utilisation de 'uid' au lieu de 'user_id'
+        'uid': userId,
         'lesson_id': arg,
         'status': isDone ? 'completed' : 'in_progress',
         'progress': newProgress,
@@ -121,7 +125,8 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
       }
 
       await Supabase.instance.client.from('lesson_progress').upsert({
-        'user_id': userId,
+        // ✅ CORRECTION : Utilisation de 'uid' au lieu de 'user_id'
+        'uid': userId,
         'lesson_id': arg,
         'status': 'completed',
         'progress': 1.0,
@@ -131,6 +136,7 @@ class LessonProgressNotifier extends AutoDisposeFamilyNotifier<LessonProgressSta
       state = state.copyWith(isUpdating: false, isCompleted: true, progress: 1.0);
       return true;
     } catch (e) {
+      debugPrint('Erreur Supabase lors de la complétion : $e');
       state = state.copyWith(isUpdating: false, error: 'Impossible de marquer la leçon comme terminée.');
       return false;
     }
@@ -158,7 +164,6 @@ class FormationLessonPlayer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Sécurité si on accède à la page sans passer l'objet leçon complet
     if (lesson == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Erreur'), leading: const BackButton()),
@@ -168,11 +173,9 @@ class FormationLessonPlayer extends ConsumerWidget {
 
     final safeLesson = lesson!;
     
-    // On écoute l'état spécifique de CETTE leçon
     final state = ref.watch(lessonProgressProvider(lessonId));
     final notifier = ref.read(lessonProgressProvider(lessonId).notifier);
 
-    // Écouteur pour les erreurs (Snackbars)
     ref.listen<LessonProgressState>(lessonProgressProvider(lessonId), (previous, next) {
       if (next.error != null && (previous?.error != next.error)) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -222,22 +225,19 @@ class FormationLessonPlayer extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ✅ CORRECTION 1: Sécurité anti-null sur la description
                   if (safeLesson.description != null && safeLesson.description!.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 24),
                       child: Text(
-                        safeLesson.description!, // ✅ Utilisation du ! après vérification
+                        safeLesson.description!,
                         style: const TextStyle(fontSize: 15, color: Color(0xFF475569), height: 1.6),
                       ),
                     ),
                   
-                  // Contenu dynamique
                   _buildLessonContent(context, safeLesson, state, notifier),
 
                   const SizedBox(height: 24),
 
-                  // Bouton de validation (Uniquement pour Texte/Documents)
                   if (!state.isCompleted && safeLesson.type != 'video' && safeLesson.type != 'quiz')
                     SizedBox(
                       width: double.infinity,
@@ -261,7 +261,6 @@ class FormationLessonPlayer extends ConsumerWidget {
                       ),
                     ),
 
-                  // Message de succès
                   if (state.isCompleted)
                     Container(
                       width: double.infinity,
@@ -290,7 +289,6 @@ class FormationLessonPlayer extends ConsumerWidget {
   }
 
   Widget _buildLessonContent(BuildContext context, Lesson currentLesson, LessonProgressState state, LessonProgressNotifier notifier) {
-    // ✅ CORRECTION 2: On vérifie le type et le contenu (l'URL) de la vidéo
     if (currentLesson.type == 'video' && currentLesson.content != null && currentLesson.content!.isNotEmpty) {
       return Container(
         clipBehavior: Clip.hardEdge,
@@ -299,7 +297,7 @@ class FormationLessonPlayer extends ConsumerWidget {
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)],
         ),
         child: FormationVideoPlayer(
-          videoUrl: currentLesson.content!, // ✅ Passage de l'URL direct avec `videoUrl`
+          videoUrl: currentLesson.content!,
           onProgress: (progress) => notifier.updateProgress(progress),
           onComplete: () async {
             final success = await notifier.markAsCompleted();
@@ -328,7 +326,6 @@ class FormationLessonPlayer extends ConsumerWidget {
       );
     } 
     
-    // Fallback Texte par défaut
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
