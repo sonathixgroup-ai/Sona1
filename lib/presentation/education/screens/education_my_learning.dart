@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// ✅ CORRIGÉ : Import explicite depuis la racine du projet
 import 'package:thix_id/presentation/education/providers/education_provider.dart'; 
 import '../widgets/common/education_empty_state.dart';
 import '../widgets/common/education_loading_shimmer.dart';
-import '../widgets/common/formation_card.dart';
+import '../models/formation.dart';
 
 class EducationMyLearning extends ConsumerStatefulWidget {
   const EducationMyLearning({super.key});
@@ -26,7 +25,6 @@ class _EducationMyLearningState extends ConsumerState<EducationMyLearning> {
 
   void _onScroll() {
     if (_scrollController.position.pixels > _scrollController.position.maxScrollExtent - 300) {
-      // ✅ CORRECTION ICI : Ajout de .value
       final userId = ref.read(currentUserIdProvider).value;
       if (userId != null) {
         ref.read(myEnrollmentsProvider(userId).notifier).loadMore();
@@ -42,7 +40,6 @@ class _EducationMyLearningState extends ConsumerState<EducationMyLearning> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ Vous aviez déjà bien corrigé celui-ci !
     final userId = ref.watch(currentUserIdProvider).value; 
 
     if (userId == null) {
@@ -91,18 +88,120 @@ class _EducationMyLearningState extends ConsumerState<EducationMyLearning> {
                 final enrollment = enrollments[index];
                 final formation = enrollment.formation;
                 if (formation == null) return const SizedBox();
+                
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: FormationCard(
+                  child: _CompactEnrollmentCard(
                     formation: formation,
+                    progress: enrollment.progress?.toDouble(),
                     onTap: () => context.push('/education/formation/${formation.id}'),
-                    progress: enrollment.progress,
                   ),
                 );
               },
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Carte compacte dédiée à la liste "Mon apprentissage" avec affichage de la progression
+class _CompactEnrollmentCard extends StatelessWidget {
+  final Formation formation;
+  final double? progress;
+  final VoidCallback onTap;
+
+  const _CompactEnrollmentCard({
+    required this.formation,
+    required this.progress,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = (progress ?? 0.0).clamp(0.0, 1.0);
+    final percentage = (p * 100).toInt();
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            // Miniature compacte
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: formation.imageUrl != null && formation.imageUrl!.isNotEmpty
+                  ? Image.network(formation.imageUrl!, width: 64, height: 64, fit: BoxFit.cover)
+                  : Container(
+                      width: 64,
+                      height: 64,
+                      color: const Color(0xFF2D6CDF).withOpacity(0.1),
+                      child: const Icon(Icons.school_rounded, color: Color(0xFF2D6CDF), size: 28),
+                    ),
+            ),
+            const SizedBox(width: 14),
+            // Informations et barre de progression
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    formation.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: p,
+                            backgroundColor: const Color(0xFFF1F5F9),
+                            color: p >= 1.0 ? const Color(0xFF10B981) : const Color(0xFF2D6CDF),
+                            minHeight: 6,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '$percentage%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: p >= 1.0 ? const Color(0xFF10B981) : const Color(0xFF2D6CDF),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right_rounded, color: Color(0xFF7386A8), size: 20),
+          ],
+        ),
       ),
     );
   }
