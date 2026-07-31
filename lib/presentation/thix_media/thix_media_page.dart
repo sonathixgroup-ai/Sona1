@@ -11,16 +11,13 @@ import 'providers/thix_media_provider.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
 import 'admin/thix_media_admin_page.dart';
 
-// ⚠️ Ce fichier suppose que le modèle MediaContent expose désormais :
-//    - likeCount (int)     : nombre réel de likes
-//    - commentCount (int)  : nombre réel de commentaires
-//    - viewCount (int)     : nombre réel de vues (déjà présent)
-// Si ces champs n'existent pas encore dans media_content.dart, ajoutez-les.
+// ⚠️ Ce fichier suppose que le modèle MediaContent expose :
+//    - likeCount (int), commentCount (int), viewCount (int)
 //
-// ⚠️ Ce fichier suppose aussi l'existence de deux tables Supabase :
-//    - media_likes(media_id, user_id) avec contrainte UNIQUE(media_id, user_id)
-//    - media_views(media_id, user_id) avec contrainte UNIQUE(media_id, user_id)
-// afin de garantir un like et une vue strictement uniques par utilisateur.
+// ⚠️ Tables Supabase nécessaires :
+//    - media_likes(media_id, user_id)      UNIQUE(media_id, user_id)
+//    - media_views(media_id, user_id)      UNIQUE(media_id, user_id)
+//    - media_comments(id, media_id, user_id, user_name, avatar_url, content, created_at)
 
 const Color kBg = Color(0xFF050507);
 const Color kSurface = Color(0xFF121214);
@@ -46,6 +43,58 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   } catch (_) {
     return false;
   }
+});
+
+// ---------------- MODULE COMMENTAIRES (100% réel, connecté DB) ----------------
+
+class CommentItem {
+  final String id;
+  final String userId;
+  final String userName;
+  final String? avatarUrl;
+  final String content;
+  final DateTime createdAt;
+
+  CommentItem({
+    required this.id,
+    required this.userId,
+    required this.userName,
+    required this.content,
+    required this.createdAt,
+    this.avatarUrl,
+  });
+
+  factory CommentItem.fromMap(Map<String, dynamic> map) {
+    return CommentItem(
+      id: map['id'] as String,
+      userId: map['user_id'] as String,
+      userName: (map['user_name'] as String?)?.trim().isNotEmpty == true ? map['user_name'] as String : 'Utilisateur',
+      avatarUrl: map['avatar_url'] as String?,
+      content: map['content'] as String,
+      createdAt: DateTime.parse(map['created_at'] as String).toLocal(),
+    );
+  }
+}
+
+/// Récupère la liste réelle des commentaires d'un média, triée du plus récent au plus ancien.
+final commentsListProvider = FutureProvider.autoDispose.family<List<CommentItem>, String>((ref, mediaId) async {
+  final res = await Supabase.instance.client
+      .from('media_comments')
+      .select('id, user_id, user_name, avatar_url, content, created_at')
+      .eq('media_id', mediaId)
+      .order('created_at', ascending: false)
+      .limit(300);
+  return (res as List).map((e) => CommentItem.fromMap(e as Map<String, dynamic>)).toList();
+});
+
+/// Compte réel des commentaires (utilisé dans la barre de navigation, léger côté réseau).
+final commentCountProvider = FutureProvider.autoDispose.family<int, String>((ref, mediaId) async {
+  final res = await Supabase.instance.client
+      .from('media_comments')
+      .select('id')
+      .eq('media_id', mediaId)
+      .count(CountOption.exact);
+  return res.count;
 });
 
 class _NavItemData {
@@ -256,23 +305,13 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   void _openComments(MediaContent item) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: kSurface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${item.commentCount} commentaires', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-              const Text('La liste des commentaires sera affichée ici.', style: TextStyle(color: kTextGrey)),
-            ],
-          ),
-        ),
-      ),
-    );
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _CommentsSheet(mediaId: item.id, mediaTitle: item.title),
+    ).then((_) {
+      // Rafraîchit le compteur affiché dans la barre du bas après fermeture
+      ref.invalidate(commentCountProvider(item.id));
+    });
   }
 
   void _showViewsInfo(MediaContent item) {
@@ -880,6 +919,12 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     final isFil = selectedCategory == 'Fil';
     final isLiked = currentItem != null && _likedMediaIds.contains(currentItem.id);
 
+    // Compteur réel de commentaires (issu de la table media_comments), rafraîchi après post/fermeture
+    int? realCommentCount;
+    if (isFil && currentItem != null) {
+      realCommentCount = ref.watch(commentCountProvider(currentItem.id)).valueOrNull;
+    }
+
     final List<_NavItemData> items = isFil
         ? [
             _NavItemData(icon: Icons.movie_filter_rounded, label: 'TDIA', selected: true, index: 0),
@@ -892,7 +937,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
             ),
             _NavItemData(
               icon: Icons.chat_bubble_outline_rounded,
-              label: currentItem != null ? _formatNumber(currentItem.commentCount) : 'Commenter',
+              label: currentItem != null ? _formatNumber(realCommentCount ?? currentItem.commentCount) : 'Commenter',
               selected: false,
               index: 2,
             ),
@@ -995,6 +1040,231 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------- SHEET DE COMMENTAIRES (production réelle, connectée DB) ----------------
+
+class _CommentsSheet extends ConsumerStatefulWidget {
+  final String mediaId;
+  final String mediaTitle;
+  const _CommentsSheet({required this.mediaId, required this.mediaTitle});
+
+  @override
+  ConsumerState<_CommentsSheet> createState() => _CommentsSheetState();
+}
+
+class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  String _relativeTime(DateTime d) {
+    final diff = DateTime.now().difference(d);
+    if (diff.inSeconds < 60) return "à l'instant";
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min';
+    if (diff.inHours < 24) return '${diff.inHours} h';
+    if (diff.inDays < 7) return '${diff.inDays} j';
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+
+  Future<void> _submit() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _sending) return;
+
+    final client = Supabase.instance.client;
+    final uid = client.auth.currentUser?.id;
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connectez-vous pour commenter'), backgroundColor: kSurface),
+      );
+      return;
+    }
+
+    setState(() => _sending = true);
+    try {
+      String userName = 'Utilisateur';
+      String? avatarUrl;
+      try {
+        final profile = await client.from('profiles').select('username, avatar_url').eq('id', uid).maybeSingle();
+        if (profile != null) {
+          userName = (profile['username'] as String?)?.trim().isNotEmpty == true ? profile['username'] as String : userName;
+          avatarUrl = profile['avatar_url'] as String?;
+        }
+      } catch (_) {
+        // Si la table profiles n'a pas ces colonnes, on garde les valeurs par défaut
+      }
+
+      await client.from('media_comments').insert({
+        'media_id': widget.mediaId,
+        'user_id': uid,
+        'user_name': userName,
+        'avatar_url': avatarUrl,
+        'content': text,
+      });
+
+      _controller.clear();
+      _focusNode.unfocus();
+      ref.invalidate(commentsListProvider(widget.mediaId));
+      ref.invalidate(commentCountProvider(widget.mediaId));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Échec de l\'envoi : $e'), backgroundColor: kSurface),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final commentsAsync = ref.watch(commentsListProvider(widget.mediaId));
+    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 150),
+      padding: EdgeInsets.only(bottom: viewInsets),
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: const BoxDecoration(
+          color: kSurface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(4))),
+              const SizedBox(height: 14),
+              commentsAsync.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text('Commentaires', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+                error: (_, __) => const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text('Commentaires', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+                data: (list) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text('${list.length} commentaire${list.length > 1 ? 's' : ''}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+              ),
+              const Divider(color: kBorderLight, height: 1),
+              Expanded(
+                child: commentsAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator(color: kRed, strokeWidth: 2)),
+                  error: (e, st) => Center(child: Text('Erreur de chargement', style: const TextStyle(color: kTextGrey))),
+                  data: (comments) {
+                    if (comments.isEmpty) {
+                      return const Center(
+                        child: Text('Aucun commentaire pour le moment.\nSoyez le premier à réagir !', textAlign: TextAlign.center, style: TextStyle(color: kTextGrey, fontSize: 13)),
+                      );
+                    }
+                    return ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      itemCount: comments.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 16),
+                      itemBuilder: (context, index) {
+                        final c = comments[index];
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: kSurfaceLight,
+                              backgroundImage: c.avatarUrl != null && c.avatarUrl!.isNotEmpty ? NetworkImage(c.avatarUrl!) : null,
+                              child: c.avatarUrl == null || c.avatarUrl!.isEmpty
+                                  ? const Icon(Icons.person_rounded, size: 16, color: kTextGrey)
+                                  : null,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(c.userName, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                                      const SizedBox(width: 8),
+                                      Text(_relativeTime(c.createdAt), style: const TextStyle(color: kTextGrey, fontSize: 11)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(c.content, style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.3)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              const Divider(color: kBorderLight, height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(color: kSurfaceLight, borderRadius: BorderRadius.circular(24)),
+                        child: TextField(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          minLines: 1,
+                          maxLines: 4,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _submit(),
+                          style: const TextStyle(color: Colors.white, fontSize: 13.5),
+                          decoration: const InputDecoration(
+                            hintText: 'Ajouter un commentaire...',
+                            hintStyle: TextStyle(color: kTextGrey, fontSize: 13.5),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: _submit,
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: _sending ? kSurfaceLight : kRed,
+                          shape: BoxShape.circle,
+                        ),
+                        child: _sending
+                            ? const Padding(
+                                padding: EdgeInsets.all(11),
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
