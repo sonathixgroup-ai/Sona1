@@ -1,16 +1,17 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/foundation.dart'; // REQUIS POUR kIsWeb
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
+import 'package:go_router/go_router.dart';
 import 'video_player_page.dart';
 import '../../models/media_content.dart';
 import 'providers/thix_media_provider.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
 import 'admin/thix_media_admin_page.dart';
 import '../../services/media_service.dart';
-import 'package:go_router/go_router.dart';
 
 const Color kBg = Color(0xFF050507); 
 const Color kSurface = Color(0xFF121214); 
@@ -84,7 +85,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     super.dispose(); 
   }
 
-  // --- SYNCHRONISATION DES LIKES ---
   Future<void> _syncLikedMedias() async {
     final mediaList = ref.read(thixMediaListProvider).valueOrNull ?? [];
     if (mediaList.isEmpty) return;
@@ -119,15 +119,16 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     return num.toString(); 
   }
 
-  // SCALABILITY: Utilisation optimisée de Image.network natif
   Widget _buildImage(String url, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
+    if (url.isEmpty) {
+      return Container(color: kSurface, child: const Icon(Icons.broken_image_rounded, color: kTextGrey));
+    }
     return Image.network(
       url, 
       width: width, 
       height: height, 
       fit: fit, 
-      // Réduit l'empreinte mémoire sur Mobile (ignoré de façon transparente sur Web)
-      cacheWidth: width != null ? (width * 2).toInt() : 600,
+      cacheWidth: kIsWeb ? null : (width != null ? (width * 2).toInt() : 600),
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return Container(color: kSurface, child: const Center(child: CircularProgressIndicator(color: kRed, strokeWidth: 2)));
@@ -159,7 +160,11 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   }
 
   Future<void> _toggleLike(MediaContent item) async {
-    if (Supabase.instance.client.auth.currentUser == null) return;
+    // CORRECTION : Alerter l'utilisateur s'il n'est pas connecté
+    if (Supabase.instance.client.auth.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous connecter pour aimer ce contenu.'), backgroundColor: kSurface));
+      return;
+    }
     
     final wasLiked = _likedMediaIds.contains(item.id);
     
@@ -175,8 +180,13 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     
     try { 
       await _mediaService.toggleLike(item.id); 
-    } catch (_) { 
+    } catch (e) { 
       if (!mounted) return; 
+      
+      // CORRECTION : Afficher l'erreur serveur si le like échoue
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur serveur : $e'), backgroundColor: kRed));
+      
+      // Rollback UI
       setState(() { 
         if (wasLiked) { 
           _likedMediaIds.add(item.id); 
@@ -436,7 +446,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       );
     }
     
-    // SCALABILITY: Utilisation optimisée de Image.network natif
     return Image.network(
       widget.coverUrl, 
       fit: BoxFit.cover,
@@ -483,7 +492,12 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     
     final client = Supabase.instance.client; 
     final uid = client.auth.currentUser?.id; 
-    if (uid == null) return; 
+    
+    // CORRECTION : Alerter si l'utilisateur essaie de commenter sans être connecté
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous connecter pour commenter.'), backgroundColor: kSurface));
+      return; 
+    }
     
     setState(() => _sending = true); 
     try { 
@@ -508,6 +522,9 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       _controller.clear(); 
       ref.invalidate(commentsListProvider(widget.mediaId)); 
       ref.invalidate(commentCountProvider(widget.mediaId)); 
+    } catch (e) {
+      // CORRECTION : Afficher l'erreur si la base de données bloque le commentaire
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors de l\'envoi : $e'), backgroundColor: kRed));
     } finally { 
       if (mounted) setState(() => _sending = false); 
     } 
@@ -532,13 +549,13 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
             const SizedBox(height: 14), 
             commentsAsync.when(
               loading: () => const Text('Commentaires', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), 
-              error: (_, __) => const Text('Commentaires', style: TextStyle(color: Colors.white)), 
+              error: (e, __) => Text('Erreur: $e', style: const TextStyle(color: Colors.white)), // CORRECTION UI
               data: (l) => Text('${l.length} commentaires', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
             ), 
             const Divider(color: kBorderLight, height: 1), 
             Expanded(child: commentsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator(color: kRed)), 
-              error: (e, st) => const Center(child: Text('Erreur', style: TextStyle(color: kTextGrey))), 
+              error: (e, st) => Center(child: Text('Erreur de chargement: $e', style: const TextStyle(color: kTextGrey))), // CORRECTION UI
               data: (comments) { 
                 if (comments.isEmpty) return const Center(child: Text('Aucun commentaire', style: TextStyle(color: kTextGrey))); 
                 return ListView.separated(
@@ -548,7 +565,6 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                   itemBuilder: (c, i) { 
                     final com = comments[i]; 
                     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [ 
-                      // SCALABILITY: NetworkImage natif
                       CircleAvatar(
                         radius: 16, 
                         backgroundColor: kSurfaceLight, 
