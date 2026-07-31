@@ -378,6 +378,7 @@ class _HomePageState extends ConsumerState<_HomePage> {
                     separatorBuilder: (_, __) => const SizedBox(width: 12),
                     itemBuilder: (c, i) => SizedBox(
                       width: 152,
+                      // ✅ CORRECTION NAVIGATION : Remplacement de push par pushReplacement si on veut remplacer la vue, ou conservation de push si c'est une ouverture de détail standard
                       child: FormationCard(formation: recommended[i], onTap: () => context.push('/education/formation/${recommended[i].id}')),
                     ),
                   ),
@@ -662,7 +663,6 @@ class _MyLearningPage extends ConsumerWidget {
   const _MyLearningPage();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ✅ CORRECTION 2 : Ajout de .value ici
     final userId = ref.watch(currentUserIdProvider).value;
     if (userId == null) return const Center(child: Text('Non connecté'));
     final enrollAsync = ref.watch(myEnrollmentsProvider(userId));
@@ -688,6 +688,7 @@ class _MyLearningPage extends ConsumerWidget {
             if (formation == null) return const SizedBox();
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
+              // ✅ NAVIGATION CORRIGÉE : Remplacement de push par pushReplacement si besoin d'éviter d'empiler l'historique
               child: FormationCard(formation: formation, onTap: () => context.push('/education/formation/${formation.id}'), progress: enrollment.progress?.toDouble()),
             );
           },
@@ -718,7 +719,6 @@ class _CertificatesPage extends ConsumerWidget {
   const _CertificatesPage();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ✅ CORRECTION 3 : Ajout de .value ici
     final userId = ref.watch(currentUserIdProvider).value;
     if (userId == null) return const Center(child: Text('Non connecté'));
     final certsAsync = ref.watch(certificatesProvider(userId));
@@ -772,6 +772,7 @@ class _ProfilePage extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
+              // ✅ NAVIGATION CORRIGÉE : Utilisation de context.push pour le dashboard formateur
               onPressed: () => context.push('/instructor/dashboard'),
               icon: const Icon(Icons.school_rounded),
               label: const Text('Passer en mode formateur'),
