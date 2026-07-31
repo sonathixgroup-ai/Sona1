@@ -26,7 +26,8 @@ class _EducationMyLearningState extends ConsumerState<EducationMyLearning> {
 
   void _onScroll() {
     if (_scrollController.position.pixels > _scrollController.position.maxScrollExtent - 300) {
-      final userId = ref.read(currentUserIdProvider);
+      // ✅ CORRECTION ICI : Ajout de .value
+      final userId = ref.read(currentUserIdProvider).value;
       if (userId != null) {
         ref.read(myEnrollmentsProvider(userId).notifier).loadMore();
       }
@@ -41,6 +42,7 @@ class _EducationMyLearningState extends ConsumerState<EducationMyLearning> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ Vous aviez déjà bien corrigé celui-ci !
     final userId = ref.watch(currentUserIdProvider).value; 
 
     if (userId == null) {
