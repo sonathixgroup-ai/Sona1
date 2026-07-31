@@ -116,26 +116,36 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
 
   // ---------------- FIL MÉLANGÉ : init / pagination / refresh ----------------
 
-  Future<void> _initFilFeed({bool reshuffle = false}) async {
+    Future<void> _initFilFeed({bool reshuffle = false}) async {
     if (_filLoading) return;
     setState(() => _filLoading = true);
+    
     try {
-      final seed = _mediaService.newFeedSeed(); // nouveau mélange à chaque ouverture / refresh
-      final page = await _mediaService.fetchShuffledFeed(cursor: seed, limit: 12);
+      // Si l'utilisateur tire vers le bas pour rafraîchir, on vide son historique de session
+      if (reshuffle) _viewedMediaIds.clear();
+      
+      // On utilise seenIds au lieu de cursor
+      final page = await _mediaService.fetchShuffledFeed(seenIds: _viewedMediaIds.toList(), limit: 12);
+      
       if (!mounted) return;
       setState(() {
-        _filItems
-          ..clear()
-          ..addAll(page.items);
-        _filCursor = page.nextCursor;
+        _filItems.clear();
+        _filItems.addAll(page.items);
         _filInitialized = true;
         _currentFeedIndex = 0;
       });
+      
       await _syncLikedMedias(_filItems);
       if (_filItems.isNotEmpty) _registerView(_filItems.first);
+      
       if (reshuffle && _feedController.hasClients) {
         _feedController.jumpToPage(0);
       }
+    } catch (e) {
+      if (!mounted) return;
+      // Empêche le chargement infini en cas d'erreur
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur serveur: $e'), backgroundColor: kRed));
+      setState(() => _filInitialized = true); 
     } finally {
       if (mounted) setState(() => _filLoading = false);
     }
@@ -144,21 +154,23 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   Future<void> _loadMoreFil() async {
     if (_filLoading) return;
     setState(() => _filLoading = true);
+    
     try {
-      final page = await _mediaService.fetchShuffledFeed(cursor: _filCursor, limit: 12);
+      // Pareil ici, on utilise seenIds pour charger la suite sans doublons
+      final page = await _mediaService.fetchShuffledFeed(seenIds: _viewedMediaIds.toList(), limit: 12);
       if (!mounted) return;
-      // Filtre les doublons de rotation (bord du cercle)
-      final existingIds = _filItems.map((e) => e.id).toSet();
-      final fresh = page.items.where((e) => !existingIds.contains(e.id)).toList();
+      
       setState(() {
-        _filItems.addAll(fresh);
-        _filCursor = page.nextCursor;
+        _filItems.addAll(page.items);
       });
-      await _syncLikedMedias(fresh);
+      await _syncLikedMedias(page.items);
+    } catch (e) {
+      debugPrint('Erreur lors du chargement de la suite : $e');
     } finally {
       if (mounted) setState(() => _filLoading = false);
     }
   }
+
 
   Future<void> _syncLikedMedias(List<MediaContent> items) async {
     if (items.isEmpty) return;
