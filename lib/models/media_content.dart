@@ -7,14 +7,22 @@ class MediaContent {
   final String coverUrl;
   final String videoUrl;
   final int viewCount;
-  final int likeCount; // NOUVEAU
-  final int commentCount; // NOUVEAU
+  final int likeCount; 
+  final int commentCount; 
   final int? rankPosition;
   final bool isTrending;
   final bool isNewRelease;
   final bool isRecommended;
   final bool isPublished;
-  final bool isFeedOnly; // NOUVEAU
+  final bool isFeedOnly; 
+  
+  // NOUVEAUX CHAMPS (Créateur, Monétisation, Filtres, Séries)
+  final String? userId; 
+  final bool isPaid;
+  final double price;
+  final String filterApplied;
+  final List<String> episodesUrls;
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -35,6 +43,14 @@ class MediaContent {
     this.isRecommended = false,
     this.isPublished = true,
     this.isFeedOnly = false,
+    
+    // Initialisation des nouveaux champs
+    this.userId,
+    this.isPaid = false,
+    this.price = 0.0,
+    this.filterApplied = 'Normal',
+    this.episodesUrls = const [],
+
     required this.createdAt,
     required this.updatedAt,
   });
@@ -68,15 +84,23 @@ class MediaContent {
       year: json['year'],
       coverUrl: json['cover_url'] ?? '',
       videoUrl: json['video_url'] ?? '',
-      viewCount: json['view_count'] ?? 0,
-      likeCount: json['like_count'] ?? 0,
-      commentCount: json['comment_count'] ?? 0,
-      rankPosition: json['rank_position'],
+      viewCount: (json['view_count'] as num?)?.toInt() ?? 0,
+      likeCount: (json['like_count'] as num?)?.toInt() ?? 0,
+      commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
+      rankPosition: (json['rank_position'] as num?)?.toInt(),
       isTrending: json['is_trending'] ?? false,
       isNewRelease: json['is_new_release'] ?? false,
       isRecommended: json['is_recommended'] ?? false,
       isPublished: json['is_published'] ?? true,
       isFeedOnly: json['is_feed_only'] ?? false,
+      
+      // Récupération sécurisée des nouveaux champs depuis Supabase
+      userId: json['user_id']?.toString(),
+      isPaid: json['is_paid'] ?? false,
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      filterApplied: json['filter_applied']?.toString() ?? 'Normal',
+      episodesUrls: (json['episodes_urls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+
       createdAt: parsedCreatedAt,
       updatedAt: parsedUpdatedAt,
     );
@@ -99,6 +123,14 @@ class MediaContent {
         'is_recommended': isRecommended,
         'is_published': isPublished,
         'is_feed_only': isFeedOnly,
+        
+        // Sérialisation des nouveaux champs
+        'user_id': userId,
+        'is_paid': isPaid,
+        'price': price,
+        'filter_applied': filterApplied,
+        'episodes_urls': episodesUrls,
+
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       };
@@ -120,6 +152,14 @@ class MediaContent {
     bool? isRecommended,
     bool? isPublished,
     bool? isFeedOnly,
+    
+    // Ajout au copyWith
+    String? userId,
+    bool? isPaid,
+    double? price,
+    String? filterApplied,
+    List<String>? episodesUrls,
+
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -140,6 +180,14 @@ class MediaContent {
       isRecommended: isRecommended ?? this.isRecommended,
       isPublished: isPublished ?? this.isPublished,
       isFeedOnly: isFeedOnly ?? this.isFeedOnly,
+      
+      // Remplacement si valeur fournie
+      userId: userId ?? this.userId,
+      isPaid: isPaid ?? this.isPaid,
+      price: price ?? this.price,
+      filterApplied: filterApplied ?? this.filterApplied,
+      episodesUrls: episodesUrls ?? this.episodesUrls,
+
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
