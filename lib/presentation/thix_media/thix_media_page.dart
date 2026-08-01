@@ -65,7 +65,6 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   return role == 'admin' || role == 'superadmin';
 });
 
-// Provider pour récupérer l'avatar de l'utilisateur connecté pour le rond de profil du bas
 final currentUserAvatarProvider = FutureProvider.autoDispose<String?>((ref) async {
   final uid = Supabase.instance.client.auth.currentUser?.id;
   if (uid == null) return null;
@@ -789,7 +788,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       live = ref.watch(mediaCountsStreamProvider(cur.id)).valueOrNull; 
     }
     
-    // Remplacement du bouton TDIA par le cercle de profil et ajout d'un bouton '+' pour poster
     final avatarUrl = ref.watch(currentUserAvatarProvider).valueOrNull;
 
     return Padding(
@@ -804,7 +802,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
               children: [
-                // 1. Cercle de Profil (Remplace l'ancien bouton TDIA)
                 GestureDetector(
                   onTap: () {
                     final uid = Supabase.instance.client.auth.currentUser?.id;
@@ -837,7 +834,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   ),
                 ),
 
-                // 2. Bouton J'aime / Cœur
                 _navItem(
                   isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
                   cur != null ? _formatNumber(live?.likeCount ?? cur.likeCount) : "J'aime",
@@ -847,7 +843,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   onTap: () { if (cur != null) _toggleLike(cur); }
                 ),
 
-                // 3. Bouton Commentaires
                 _navItem(
                   Icons.chat_bubble_outline_rounded,
                   cur != null ? _formatNumber(live?.commentCount ?? cur.commentCount) : 'Commenter',
@@ -856,7 +851,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   onTap: () { if (cur != null) _openComments(cur); }
                 ),
 
-                // 4. Bouton Vues
                 _navItem(
                   Icons.remove_red_eye_rounded,
                   cur != null ? _formatNumber(live?.viewCount ?? cur.viewCount) : 'Vu',
@@ -869,7 +863,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   }
                 ),
 
-                // 5. Bouton Créer un post (+) pour poster directement dans le Fil
                 GestureDetector(
                   onTap: () => context.go('/create-post'),
                   child: Column(
@@ -1244,7 +1237,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                     children: [
                       GestureDetector(
                         onTap: () => context.go('/profile/${c.userId}'),
-                        child: Text(c.userName, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                        title: Text(c.userName, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)), // Fix: corrected child property
                       ), 
                       const SizedBox(width: 8),
                       Text(_formatDate(c.createdAt), style: const TextStyle(color: kTextGrey, fontSize: 11)),
@@ -1374,7 +1367,8 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                         onSubmitted: (_) => _submit(), 
                         style: const TextStyle(color: Colors.white, fontSize: 13.5), 
                         decoration: InputDecoration(
-                          hintText: _editingComment != null ? 'Modifier le commentaire...' : (_replyingTox != null ? 'Ajouter une réponse...' : 'Ajouter un commentaire...'), 
+                          // CORRECTION DE LATYPO ICI (_replyingTox -> _replyingTo)
+                          hintText: _editingComment != null ? 'Modifier le commentaire...' : (_replyingTo != null ? 'Ajouter une réponse...' : 'Ajouter un commentaire...'), 
                           hintStyle: const TextStyle(color: kTextGrey, fontSize: 13.5), 
                           border: InputBorder.none, 
                           isDense: true
