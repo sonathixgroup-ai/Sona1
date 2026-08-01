@@ -114,7 +114,7 @@ class MediaService {
           commentCount: (r?['comment_count'] as num?)?.toInt() ?? 0,
         );
       } catch (_) {}
-      await Future.delayed(const Duration(seconds: 12)); 
+      await Future.delayed(const Duration(seconds: 12)); // Évite de saturer la base de données
     }
   }
 
@@ -187,9 +187,9 @@ class MediaService {
         .eq('user_id', userId);
 
     return {
-      'followers': followersCount,
-      'following': followingCount,
-      'posts': postsCount,
+      'followers': followersCount.count,
+      'following': followingCount.count,
+      'posts': postsCount.count,
     };
   }
 
@@ -324,15 +324,22 @@ class MediaService {
     if (videoFile != null) tasks.add(_uploadPhysicalFile(videoFile, 'thix_media/$newId/videos').then((url) { finalVideoUrl = url; tick(); }));
     if (tasks.isNotEmpty) await Future.wait(tasks);
 
-    // Utilisation d'une map pour éviter les erreurs de paramètres du modèle
-    final map = item.toJson();
-    map['id'] = newId;
-    if (uid != null) map['user_id'] = uid;
-    map['type'] = 'Fil'; // Force le post dans le fil
-    if (finalCoverUrl != null) map['coverUrl'] = finalCoverUrl;
-    if (finalVideoUrl != null) map['videoUrl'] = finalVideoUrl;
-    map['created_at'] = DateTime.now().toIso8601String();
-    map['updated_at'] = DateTime.now().toIso8601String();
+    // CORRECTION MAJEURE ICI : Construction explicite avec les noms snake_case attendus par Supabase
+    final map = {
+      'id': newId,
+      'title': item.title,
+      'type': 'Fil', // Force le post dans le fil
+      'user_id': uid,
+      'cover_url': finalCoverUrl ?? item.coverUrl,
+      'video_url': finalVideoUrl ?? item.videoUrl,
+      'is_published': true,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    if (item.subtitle != null && item.subtitle!.isNotEmpty) {
+      map['subtitle'] = item.subtitle!;
+    }
 
     final inserted = await _retry(() => supabase.from('media_content').insert(map).select().single());
     return MediaContent.fromJson(inserted as Map<String, dynamic>);
@@ -352,9 +359,20 @@ class MediaService {
     if (newVideoFile != null) tasks.add(_uploadPhysicalFile(newVideoFile, 'thix_media/${existing.id}/videos').then((url) { finalVideoUrl = url; tick(); }));
     if (tasks.isNotEmpty) await Future.wait(tasks);
 
-    final updatedItem = existing.copyWith(coverUrl: finalCoverUrl ?? existing.coverUrl, videoUrl: finalVideoUrl ?? existing.videoUrl, updatedAt: DateTime.now());
-    await _retry(() => supabase.from('media_content').update(updatedItem.toJson()).eq('id', existing.id));
-    return updatedItem;
+    // CORRECTION ICI AUSSI POUR L'UPDATE
+    final updateMap = {
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+    if (finalCoverUrl != null) updateMap['cover_url'] = finalCoverUrl;
+    if (finalVideoUrl != null) updateMap['video_url'] = finalVideoUrl;
+
+    await _retry(() => supabase.from('media_content').update(updateMap).eq('id', existing.id));
+    
+    return existing.copyWith(
+      coverUrl: finalCoverUrl ?? existing.coverUrl, 
+      videoUrl: finalVideoUrl ?? existing.videoUrl, 
+      updatedAt: DateTime.now()
+    );
   }
 
   Future<void> deleteMedia(MediaContent item) async {
