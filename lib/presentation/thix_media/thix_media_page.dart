@@ -33,6 +33,9 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   }
 });
 
+/// Flux live du compteur (likes/vues/commentaires) — n'est ouvert que pour
+/// la vidéo actuellement visible du Fil (voir _handlePageChanged), jamais
+/// pour tout le feed. C'est ce qui garde ça scalable à des millions d'utilisateurs.
 final mediaCountsStreamProvider = StreamProvider.autoDispose.family<MediaCounts, String>((ref, mediaId) {
   return MediaService().watchMediaCounts(mediaId);
 });
@@ -64,15 +67,19 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
 
   Set<String> _likedMediaIds = {};
   final Set<String> _viewedMediaIds = {};
+  final Map<String, int> _likeDelta = {};
 
   bool _immersive = false;
   int _currentFeedIndex = 0;
   final MediaService _mediaService = MediaService();
 
+  // ---- ÉTAT DU FIL MÉLANGÉ (indépendant de la date, scalable) ----
   final List<MediaContent> _filItems = [];
+  double _filCursor = 0;
   bool _filLoading = false;
   bool _filInitialized = false;
 
+  // ---- PULL-TO-REFRESH MANUEL DANS LE FIL (re-mix à chaque tirage) ----
   double _pullDistance = 0;
   bool _pullTriggering = false;
   static const double _pullThreshold = 90;
@@ -106,6 +113,8 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     _scrollController.dispose();
     super.dispose();
   }
+
+  // ---------------- FIL MÉLANGÉ : init / pagination / refresh ----------------
 
   Future<void> _initFilFeed({bool reshuffle = false}) async {
     if (_filLoading) return;
@@ -341,6 +350,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
+  // ---------------- FIL TIKTOK : mix scalable + pull-to-refresh manuel + autoplay ----------------
   Widget _buildTikTokFeed() {
     if (!_filInitialized) {
       return const Center(child: CircularProgressIndicator(color: kRed));
@@ -380,37 +390,35 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               behavior: HitTestBehavior.opaque,
               onTap: () => setState(() => _immersive = !_immersive),
               child: Stack(fit: StackFit.expand, children: [
-                // 1. Lecteur vidéo avec ajustement plein écran strict
+                // 1. Lecteur vidéo pur (Plein écran forcé, aucune couche par dessus)
                 FeedVideoPlayer(videoUrl: item.videoUrl, coverUrl: item.coverUrl, isPlaying: isFocused),
 
-                // 2. Texte de description en bas avec une pastille sombre dédiée uniquement au texte (zéro brouillard sur la vidéo)
+                // 2. Texte brut posé directement sur la vidéo, SANS AUCUN FOND NI COUCHE.
                 Positioned(
                   left: 20, bottom: 40, right: 20,
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.45),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start, 
+                    mainAxisSize: MainAxisSize.min, 
+                    children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: kTdiaBlue.withOpacity(0.3), borderRadius: BorderRadius.circular(8), border: Border.all(color: kTdiaBlue.withOpacity(0.5))),
+                        decoration: BoxDecoration(color: kTdiaBlue.withOpacity(0.2), borderRadius: BorderRadius.circular(8), border: Border.all(color: kTdiaBlue.withOpacity(0.5))),
                         child: Text(item.type, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Text(item.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1.1)),
                       if (item.subtitle != null) ...[
                         const SizedBox(height: 6),
                         Text(item.subtitle!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
                       ],
-                    ]),
+                    ]
                   ),
                 ),
               ]),
             );
           },
         ),
+        // Indicateur de tirage du pull-to-refresh
         if (_pullDistance > 0 || _filLoading)
           Positioned(
             top: 90, left: 0, right: 0,
@@ -737,7 +745,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   }
 }
 
-// ---------------- LECTEUR VIDÉO DU FIL ----------------
+// ---------------- LECTEUR VIDÉO DU FIL : autoplay + pause + double clic ----------------
 
 class FeedVideoPlayer extends StatefulWidget {
   final String videoUrl;
@@ -874,7 +882,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         }
       },
       child: Stack(fit: StackFit.expand, children: [
-        // Remplissage complet plein écran sans espace gris
+        // Remplissage complet plein écran sans espace vide
         SizedBox.expand(
           child: FittedBox(
             fit: BoxFit.cover,
