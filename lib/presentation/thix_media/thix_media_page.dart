@@ -962,7 +962,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 1.5),
-                          boxShadow: const [Shadow(color: Colors.black87, blurRadius: 6)],
+                          boxShadow: const [BoxShadow(color: Colors.black87, blurRadius: 6)],
                           image: avatar != null && avatar.isNotEmpty
                               ? DecorationImage(image: NetworkImage(avatar), fit: BoxFit.cover)
                               : null,
