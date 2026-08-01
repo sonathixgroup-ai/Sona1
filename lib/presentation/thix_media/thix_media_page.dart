@@ -1237,7 +1237,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                     children: [
                       GestureDetector(
                         onTap: () => context.go('/profile/${c.userId}'),
-                        title: Text(c.userName, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)), // Fix: corrected child property
+                        child: Text(c.userName, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
                       ), 
                       const SizedBox(width: 8),
                       Text(_formatDate(c.createdAt), style: const TextStyle(color: kTextGrey, fontSize: 11)),
@@ -1367,7 +1367,6 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                         onSubmitted: (_) => _submit(), 
                         style: const TextStyle(color: Colors.white, fontSize: 13.5), 
                         decoration: InputDecoration(
-                          // CORRECTION DE LATYPO ICI (_replyingTox -> _replyingTo)
                           hintText: _editingComment != null ? 'Modifier le commentaire...' : (_replyingTo != null ? 'Ajouter une réponse...' : 'Ajouter un commentaire...'), 
                           hintStyle: const TextStyle(color: kTextGrey, fontSize: 13.5), 
                           border: InputBorder.none, 
