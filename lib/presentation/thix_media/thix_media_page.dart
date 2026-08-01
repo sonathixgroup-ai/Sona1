@@ -118,7 +118,6 @@ class CommentItem {
   });
   
   factory CommentItem.fromMap(Map<String, dynamic> m) {
-    // 🛡️ ANTI-CRASH : Gestion robuste des dates
     DateTime parsedDate;
     try {
       parsedDate = m['created_at'] != null 
@@ -195,11 +194,13 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   final Map<String, int> _localLikeCounts = {}; 
   final Map<String, int> _localViewCounts = {}; 
   
+  // NOUVEAU : Gère les vidéos payantes débloquées localement durant la session
+  final Set<String> _unlockedPaidVideos = {}; 
+  
   bool _immersive = false;
   int _currentFeedIndex = 0;
   List<MediaContent> _filItems = [];
   
-  // 🧠 STATIQUE GLOBAL : Mémoire persistante du scroll
   static final Set<String> _globalSeenIds = {};
   
   bool _filLoading = false;
@@ -259,7 +260,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       dynamic res = await Supabase.instance.client.rpc('get_shuffled_feed', params: {'p_seen_ids': _globalSeenIds.toList(), 'p_limit': 12});
       List<MediaContent> items = (res as List).map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
       
-      // 🚀 LOOP INFINI : Reset si la base de données n'a plus de nouveau contenu
       if (items.isEmpty && _globalSeenIds.isNotEmpty) {
         _globalSeenIds.clear();
         res = await Supabase.instance.client.rpc('get_shuffled_feed', params: {'p_seen_ids': [], 'p_limit': 12});
@@ -280,7 +280,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       if (reshuffle && _feedController.hasClients) _feedController.jumpToPage(0);
       
     } catch (_) {
-      // Fallback Ultime de sécurité
       try {
         final res = await Supabase.instance.client.from('media_content').select('*, media_stats(like_count,view_count,comment_count)').order('created_at', ascending: false).limit(12);
         final items = (res as List).map((e) => _mapMedia(Map<String, dynamic>.from(e as Map))).toList();
@@ -301,7 +300,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       dynamic res = await Supabase.instance.client.rpc('get_shuffled_feed', params: {'p_seen_ids': _globalSeenIds.toList(), 'p_limit': 12});
       List<MediaContent> items = (res as List).map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
       
-      // 🚀 LOOP INFINI
       if (items.isEmpty && _globalSeenIds.isNotEmpty) {
         _globalSeenIds.clear();
         res = await Supabase.instance.client.rpc('get_shuffled_feed', params: {'p_seen_ids': [], 'p_limit': 12});
@@ -451,6 +449,105 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     _registerView(_filItems[index]);
   }
 
+  // NOUVEAU : BUILDER DYNAMIQUE (Gère Paywall + Séries + Vidéo classique)
+  Widget _buildMediaContentLayer(MediaContent item, bool isFocused) {
+    final requiresPayment = item.isPaid && !_unlockedPaidVideos.contains(item.id);
+    final allEpisodes = [item.videoUrl, ...item.episodesUrls].where((url) => url.isNotEmpty).toList();
+    final isSeries = allEpisodes.length > 1;
+
+    Widget buildVideoOrPaywall(String url, int epIndex, int totalEps) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          if (!requiresPayment)
+            FeedVideoPlayer(
+              videoUrl: url, 
+              coverUrl: item.coverUrl, 
+              isPlaying: isFocused, 
+              onPlayStateChanged: (paused) { 
+                if (paused) setState(() => _immersive = false);
+              }
+            )
+          else
+            // Écran de Verrouillage (Paywall)
+            Container(
+              decoration: BoxDecoration(
+                image: DecorationImage(image: NetworkImage(item.coverUrl), fit: BoxFit.cover),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                child: Container(
+                  color: Colors.black.withOpacity(0.65),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.lock, size: 64, color: Colors.white70),
+                      const SizedBox(height: 16),
+                      const Text('Contenu Premium', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40),
+                        child: Text(
+                          "Achetez cette vidéo pour la débloquer et soutenir le créateur.", 
+                          textAlign: TextAlign.center, 
+                          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13)
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kRed,
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))
+                        ),
+                        onPressed: () {
+                          // TODO: Intégrer l'API de Paiement ici (Stripe/Mobile Money)
+                          // Pour l'instant, on débloque en simulant un succès :
+                          setState(() => _unlockedPaidVideos.add(item.id));
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vidéo débloquée avec succès !'), backgroundColor: Colors.green));
+                        },
+                        child: Text('Débloquer pour \$${item.price}', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                      )
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Indicateur de Série
+            if (isSeries)
+              Positioned(
+                top: 100, 
+                right: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Épisode ${epIndex + 1}/$totalEps', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.swipe_left_rounded, color: Colors.white, size: 14)
+                    ],
+                  ),
+                ),
+              ),
+        ],
+      );
+    }
+
+    if (isSeries && !requiresPayment) {
+      return PageView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: allEpisodes.length,
+        itemBuilder: (context, index) => buildVideoOrPaywall(allEpisodes[index], index, allEpisodes.length),
+      );
+    } else {
+      // Cas classique (ou verrouillé, où on empêche le scroll horizontal)
+      return buildVideoOrPaywall(item.videoUrl, 0, 1);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final asyncMedia = ref.watch(thixMediaListProvider);
@@ -465,7 +562,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       backgroundColor: kBg, 
       body: asyncMedia.when(
         loading: () => const Center(child: CircularProgressIndicator(color: kRed)), 
-        // 🔴 ICI ON AFFICHE LA VRAIE ERREUR
         error: (e, st) => Center(
           child: Padding(
             padding: const EdgeInsets.all(20.0),
@@ -576,7 +672,8 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         children: [
           NotificationListener<ScrollNotification>(
             onNotification: (n) {
-              if (n is ScrollUpdateNotification || n is ScrollStartNotification) {
+              // Ignore les scrolls horizontaux (Séries) pour l'immersif
+              if (n.metrics.axis == Axis.vertical && (n is ScrollUpdateNotification || n is ScrollStartNotification)) {
                 if (!_immersive) setState(() => _immersive = true);
               }
               return false;
@@ -600,14 +697,11 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                 return Stack(
                   fit: StackFit.expand, 
                   children: [
-                    FeedVideoPlayer(
-                      videoUrl: item.videoUrl, 
-                      coverUrl: item.coverUrl, 
-                      isPlaying: isFocused, 
-                      onPlayStateChanged: (paused) { 
-                        if (paused) setState(() => _immersive = false);
-                      }
-                    ),
+                    
+                    // LECTEUR INTELLIGENT (Paywall / Série)
+                    _buildMediaContentLayer(item, isFocused),
+
+                    // METADATA (Titres, Filtres, Prix)
                     Positioned(
                       left: 20, 
                       bottom: textBottom, 
@@ -616,15 +710,36 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start, 
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), 
-                              decoration: BoxDecoration(
-                                color: kTdiaBlue.withOpacity(0.2), 
-                                borderRadius: BorderRadius.circular(8), 
-                                border: Border.all(color: kTdiaBlue.withOpacity(0.5))
-                              ), 
-                              child: Text(item.type, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700))
-                            ), 
+                            // Badges Row
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), 
+                                  decoration: BoxDecoration(
+                                    color: kTdiaBlue.withOpacity(0.2), 
+                                    borderRadius: BorderRadius.circular(8), 
+                                    border: Border.all(color: kTdiaBlue.withOpacity(0.5))
+                                  ), 
+                                  child: Text(item.type, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700))
+                                ), 
+                                if (item.filterApplied != 'Normal') ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
+                                    decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(8)), 
+                                    child: Text('✨ ${item.filterApplied}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700))
+                                  ),
+                                ],
+                                if (item.isPaid) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
+                                    decoration: BoxDecoration(color: Colors.amber.withOpacity(0.9), borderRadius: BorderRadius.circular(8)), 
+                                    child: Text('\$${item.price}', style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.w900))
+                                  ),
+                                ]
+                              ],
+                            ),
                             const SizedBox(height: 10), 
                             Text(
                               item.title, 
@@ -808,7 +923,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
 
   Widget _buildRow({required String title, required String subtitle, required ProviderListenable<List<MediaContent>> provider, required double aspectRatio, required double height, required double width, required Widget Function(MediaContent item, [int? index]) itemBuilder}) { 
     final list = ref.watch(provider); 
-    // EXCLUSION : Les vidéos du 'Fil' ne vont pas dans l'Accueil
     final filteredList = list.where((m) => m.type.toLowerCase() != 'fil').toList();
     if (filteredList.isEmpty) return const SizedBox.shrink(); 
     return Column(
@@ -919,11 +1033,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     final currentUid = Supabase.instance.client.auth.currentUser?.id;
     final isFollowing = ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true; 
 
-    // LOGIQUE OFFICIELLE TDIA (Admin)
     final creatorRole = creatorProfile?['role'] as String?;
     final creatorIsOfficial = creatorId.isEmpty || creatorRole == 'admin' || creatorRole == 'superadmin';
 
-    // Afficher le + seulement pour les vrais créateurs qu'on ne suit pas encore
     final showPlusBtn = !creatorIsOfficial 
         && creatorId.isNotEmpty 
         && creatorId != currentUid 
@@ -1160,7 +1272,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       child: Stack(
         fit: StackFit.expand, 
         children: [
-          // RESPECT DU FORMAT D'ORIGINE DE LA VIDÉO (Aspect Ratio sans zoom excessif)
           Container(
             color: Colors.black,
             child: Center(
