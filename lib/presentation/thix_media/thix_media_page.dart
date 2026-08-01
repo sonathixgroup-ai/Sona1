@@ -63,12 +63,14 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   return role == 'admin' || role == 'superadmin';
 });
 
+// Fallback Provider 1 : Va chercher l'ID du créateur si absent
 final mediaCreatorIdProvider = FutureProvider.autoDispose.family<String?, String>((ref, mediaId) async {
   if (mediaId.isEmpty) return null;
   final res = await Supabase.instance.client.from('media_content').select('user_id').eq('id', mediaId).maybeSingle();
   return res?['user_id'] as String?;
 });
 
+// Fallback Provider 2 : Va chercher le profil complet
 final userProfileProvider = FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((ref, userId) async {
   if (userId.isEmpty) return null;
   final res = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url').eq('id', userId).maybeSingle();
@@ -131,9 +133,7 @@ final mediaCountsStreamProvider = StreamProvider.autoDispose.family<MediaCounts,
       .stream(primaryKey: ['media_id'])
       .eq('media_id', mediaId)
       .map((rows) {
-    if (rows.isEmpty) {
-      return const MediaCounts(likeCount: 0, viewCount: 0, commentCount: 0);
-    }
+    if (rows.isEmpty) return const MediaCounts(likeCount: 0, viewCount: 0, commentCount: 0);
     final r = rows.first;
     return MediaCounts(
       likeCount: (r['like_count'] as num?)?.toInt() ?? 0,
@@ -204,9 +204,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final active = state == AppLifecycleState.resumed;
-    if (_appActive != active && mounted) {
-      setState(() => _appActive = active);
-    }
+    if (_appActive != active && mounted) setState(() => _appActive = active);
   }
 
   @override
@@ -223,9 +221,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
   }
 
   void _capTracking(LinkedHashSet<String> s) {
-    while (s.length > _maxTrackedIds) {
-      s.remove(s.first);
-    }
+    while (s.length > _maxTrackedIds) s.remove(s.first);
   }
 
   void _trimFeedIfNeeded() {
@@ -239,9 +235,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
       _currentFeedIndex -= removeCount;
     });
 
-    if (_feedController.hasClients) {
-      _feedController.jumpToPage(_currentFeedIndex);
-    }
+    if (_feedController.hasClients) _feedController.jumpToPage(_currentFeedIndex);
   }
 
   Future<void> _initFilFeed({bool reshuffle = false}) async {
@@ -249,10 +243,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     setState(() => _filLoading = true);
     try {
       if (reshuffle) {
-        _seenIds.clear();
-        _profiles.clear();
-        _followMap.clear();
-        _filRaw.clear();
+        _seenIds.clear(); _profiles.clear(); _followMap.clear(); _filRaw.clear();
       }
       
       final page = await MediaService().fetchEnrichedFeed(seenIds: _seenIds.toList(), limit: 12);
@@ -277,7 +268,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
           if (uid != null) {
             _profiles[uid] = {
               'username': r['username'],
-              'full_name': r['full_name'], // Ajout du full_name pour le nom étendu
+              'full_name': r['full_name'],
               'avatar_url': r['avatar_url']
             };
             _followMap[uid] = (r['is_following'] as bool?) ?? false;
@@ -371,12 +362,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     if (!mounted) return;
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: const TextStyle(color: Colors.white)),
-        backgroundColor: kSurfaceLight,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
+      SnackBar(content: Text(message, style: const TextStyle(color: Colors.white)), backgroundColor: kSurfaceLight, behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 2))
     );
   }
 
@@ -397,11 +383,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     if (_viewedMediaIds.contains(item.id)) return;
     _viewedMediaIds.add(item.id);
     _capTracking(_viewedMediaIds);
-
-    setState(() {
-      _localViewCounts[item.id] = (_localViewCounts[item.id] ?? item.viewCount) + 1;
-    });
-
+    setState(() { _localViewCounts[item.id] = (_localViewCounts[item.id] ?? item.viewCount) + 1; });
     _AnalyticsBatcher.register(item.id);
   }
 
@@ -413,7 +395,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     }
 
     final wasLiked = _likedMediaIds.contains(item.id);
-
     setState(() {
       if (wasLiked) {
         _likedMediaIds.remove(item.id);
@@ -466,12 +447,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
   @override
   Widget build(BuildContext context) {
     final asyncMedia = ref.watch(thixMediaListProvider);
-    final bannerItems = ref.watch(bannerItemsProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
-
-    ref.listen<List<MediaContent>>(bannerItemsProvider, (prev, next) {
-      if (next.isNotEmpty) _startAutoScroll(next.length);
-    });
 
     return Scaffold(
       backgroundColor: kBg,
@@ -481,6 +457,10 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
         data: (mediaList) {
           final currentItem = _filItems.isNotEmpty ? _filItems[_currentFeedIndex.clamp(0, _filItems.length - 1)] : null;
           final showTopBar = !(_immersive && selectedCategory == 'Fil');
+
+          // FILTRAGE STRICT : Les vidéos du "Fil" n'apparaissent jamais dans l'Accueil
+          final accueilMedia = mediaList.where((m) => m.type.toLowerCase() != 'fil').toList();
+          final bannerItemsList = accueilMedia.take(5).toList();
 
           return Stack(
             children: [
@@ -499,7 +479,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 100),
-                            if (bannerItems.isNotEmpty) _heroBanner(bannerItems),
+                            if (bannerItemsList.isNotEmpty) _heroBanner(bannerItemsList),
                             Transform.translate(
                               offset: const Offset(0, -40),
                               child: Container(
@@ -512,11 +492,11 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
                                 ),
                                 child: Column(
                                   children: [
-                                    _buildRow(title: 'Continuer à regarder', subtitle: 'Reprise intelligente', provider: recommendationsProvider, aspectRatio: 16 / 9, height: 180, width: 320, itemBuilder: (item, [index]) => _continueWatchingCard(item)),
+                                    _buildRow(title: 'Continuer à regarder', subtitle: 'Reprise intelligente', list: accueilMedia, aspectRatio: 16 / 9, height: 180, width: 320, itemBuilder: (item, [index]) => _continueWatchingCard(item)),
                                     const SizedBox(height: 40),
-                                    _buildRow(title: 'TDIA Originals Exclusifs', subtitle: 'Produit par TDIA Studios', provider: newReleasesProvider, aspectRatio: 2 / 3, height: 240, width: 160, itemBuilder: (item, [index]) => _originalCard(item)),
+                                    _buildRow(title: 'TDIA Originals Exclusifs', subtitle: 'Produit par TDIA Studios', list: accueilMedia, aspectRatio: 2 / 3, height: 240, width: 160, itemBuilder: (item, [index]) => _originalCard(item)),
                                     const SizedBox(height: 40),
-                                    _buildRow(title: 'Top 10 cette semaine', subtitle: 'Classement', provider: trendingProvider, aspectRatio: 16 / 9, height: 160, width: 300, itemBuilder: (item, [index]) => _top10Card(item, index ?? 0)),
+                                    _buildRow(title: 'Top 10 cette semaine', subtitle: 'Classement', list: accueilMedia, aspectRatio: 16 / 9, height: 160, width: 300, itemBuilder: (item, [index]) => _top10Card(item, index ?? 0)),
                                     const SizedBox(height: 120)
                                   ]
                                 )
@@ -808,8 +788,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     )
   );
 
-  Widget _buildRow({required String title, required String subtitle, required ProviderListenable<List<MediaContent>> provider, required double aspectRatio, required double height, required double width, required Widget Function(MediaContent item, [int? index]) itemBuilder}) {
-    final list = ref.watch(provider);
+  Widget _buildRow({required String title, required String subtitle, required List<MediaContent> list, required double aspectRatio, required double height, required double width, required Widget Function(MediaContent item, [int? index]) itemBuilder}) {
     if (list.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -900,7 +879,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     )
   );
 
-  // LA NOUVELLE BARRE DU BAS : Gestion du Vrai Nom, Image du profil et Abonnement
+  // LA NOUVELLE BARRE DU BAS : Gestion du Fallback Vrai Nom et Image
   Widget _bottomNav(String selCat, MediaContent? cur) {
     final isFil = selCat == 'Fil';
     final isLiked = cur != null && _likedMediaIds.contains(cur.id);
@@ -921,34 +900,43 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     bool showPlus = false;
 
     if (isFil && _filRaw.isNotEmpty && _currentFeedIndex < _filRaw.length) {
-      final raw = _filRaw[_currentFeedIndex];
-      creatorId = (raw['user_id'] as String?) ?? '';
+      creatorId = (_filRaw[_currentFeedIndex]['user_id'] as String?) ?? '';
+    }
+    
+    // FALLBACK ULTIME : Si la vidéo est ancienne et n'a pas été mappée dans _filRaw
+    if (creatorId.isEmpty && cur != null) {
+      creatorId = ref.watch(mediaCreatorIdProvider(cur.id)).valueOrNull ?? '';
+    }
 
-      if (creatorId.isNotEmpty) {
-        final prof = _profiles[creatorId];
-        if (prof != null) {
-          final uName = prof['username'] as String?;
-          final fName = prof['full_name'] as String?;
-          
-          if (uName != null && uName.trim().isNotEmpty) {
-            displayName = uName.trim();
-          } else if (fName != null && fName.trim().isNotEmpty) {
-            displayName = fName.trim();
-          } else {
-            displayName = 'Utilisateur';
-          }
-          avatar = prof['avatar_url'] as String?;
+    if (creatorId.isNotEmpty) {
+      // 1. Cherche dans le cache de la vue SQL
+      Map<String, dynamic>? prof = _profiles[creatorId];
+      // 2. Si non trouvé (ancienne vidéo), cherche via Riverpod
+      prof ??= ref.watch(userProfileProvider(creatorId)).valueOrNull;
+
+      if (prof != null) {
+        final uName = prof['username'] as String?;
+        final fName = prof['full_name'] as String?;
+        
+        if (uName != null && uName.trim().isNotEmpty) {
+          displayName = uName.trim();
+        } else if (fName != null && fName.trim().isNotEmpty) {
+          displayName = fName.trim();
         } else {
           displayName = 'Utilisateur';
         }
-        final isFollowing = _followMap[creatorId] ?? true;
-        showPlus = !isFollowing && !_newlyFollowedIds.contains(creatorId);
+        avatar = prof['avatar_url'] as String?;
       } else {
-        // Video système TDIA (Admin) - pas de bouton d'abonnement
-        displayName = 'TDIA';
-        showPlus = false;
-        avatar = null;
+        displayName = 'Utilisateur';
       }
+      
+      final isFollowing = _followMap[creatorId] ?? ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true;
+      showPlus = !isFollowing && !_newlyFollowedIds.contains(creatorId);
+    } else {
+      // Video système TDIA (Admin) - pas de bouton d'abonnement
+      displayName = 'TDIA';
+      showPlus = false;
+      avatar = null;
     }
 
     return Padding(
@@ -1080,6 +1068,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
   );
 }
 
+// VIDEO PLAYER COMPLET (Avec barre de progression et format Aspect Ratio respecté)
 class FeedVideoPlayer extends StatefulWidget {
   final String videoUrl, coverUrl;
   final bool isPlaying;
@@ -1155,7 +1144,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_init) return Image.network(widget.coverUrl, fit: BoxFit.cover);
+    // FORMAT DE LA COVER RESPECTÉ ICI
+    if (!_init) {
+      return Container(
+        color: Colors.black, 
+        child: Center(child: Image.network(widget.coverUrl, fit: BoxFit.contain))
+      );
+    }
 
     return GestureDetector(
       onTap: () {
@@ -1172,10 +1167,17 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          FittedBox(
-            fit: BoxFit.cover,
-            child: SizedBox(width: _c.value.size.width, height: _c.value.size.height, child: VideoPlayer(_c))
+          // FORMAT DE LA VIDÉO RESPECTÉ ICI (Sans crop, centré)
+          Container(
+            color: Colors.black,
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: _c.value.aspectRatio,
+                child: VideoPlayer(_c)
+              )
+            ),
           ),
+          
           if (_paused) const Center(child: Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 64)),
 
           AnimatedPositioned(
@@ -1229,6 +1231,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 }
 
+// COMMENTS SHEET COMPLET (Avec likes de commentaires en temps réel)
 class _CommentsSheet extends ConsumerStatefulWidget {
   final String mediaId, mediaTitle;
   const _CommentsSheet({required this.mediaId, required this.mediaTitle});
@@ -1248,7 +1251,9 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
 
   CommentItem? _replyingTo;
   CommentItem? _editingComment;
+  
   final Set<String> _likedIds = {};
+  final Map<String, int> _localCommentLikes = {};
 
   @override
   void initState() {
@@ -1269,6 +1274,19 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     );
   }
 
+  Future<void> _fetchUserLikes() async {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    try {
+      final res = await Supabase.instance.client.from('comment_likes').select('comment_id').eq('user_id', uid);
+      if (mounted) {
+        setState(() {
+          _likedIds.addAll((res as List).map((e) => e['comment_id'] as String));
+        });
+      }
+    } catch (_) {}
+  }
+
   Future<void> _fetchRoots() async {
     try {
       final res = await Supabase.instance.client
@@ -1284,6 +1302,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
           _roots = (res as List).map((e) => CommentItem.fromMap(e as Map<String, dynamic>)).toList();
           _loading = false;
         });
+        _fetchUserLikes();
       }
     } catch (_) {
       if (mounted) {
@@ -1432,6 +1451,8 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
 
   Widget _buildCommentTile(CommentItem c, {bool isReply = false}) {
     final isLiked = _likedIds.contains(c.id);
+    final currentLikes = _localCommentLikes[c.id] ?? c.likeCount;
+
     return Padding(
       padding: EdgeInsets.only(left: isReply ? 40 : 0, top: 12),
       child: Row(
@@ -1465,7 +1486,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                   ),
                   const SizedBox(height: 4),
                   Text(c.content, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       GestureDetector(
@@ -1476,15 +1497,38 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                         child: const Text('Répondre', style: TextStyle(color: kTextGrey, fontSize: 12, fontWeight: FontWeight.bold))
                       ),
                       const SizedBox(width: 24),
+                      
                       GestureDetector(
                         onTap: () async {
-                          setState(() => isLiked ? _likedIds.remove(c.id) : _likedIds.add(c.id));
+                          final uid = Supabase.instance.client.auth.currentUser?.id;
+                          if (uid == null) {
+                            _showError("Veuillez vous connecter pour aimer.");
+                            return;
+                          }
+
+                          setState(() {
+                            if (isLiked) {
+                              _likedIds.remove(c.id);
+                              _localCommentLikes[c.id] = (currentLikes - 1).clamp(0, 999999);
+                            } else {
+                              _likedIds.add(c.id);
+                              _localCommentLikes[c.id] = currentLikes + 1;
+                            }
+                          });
+
                           try {
                             await Supabase.instance.client.rpc('toggle_comment_like', params: {'p_comment_id': c.id});
                           } catch (_) {
                             if (mounted) {
-                              setState(() => isLiked ? _likedIds.add(c.id) : _likedIds.remove(c.id));
-                              _showError("Le like du commentaire a échoué.");
+                              setState(() {
+                                if (isLiked) {
+                                  _likedIds.add(c.id);
+                                  _localCommentLikes[c.id] = currentLikes;
+                                } else {
+                                  _likedIds.remove(c.id);
+                                  _localCommentLikes[c.id] = currentLikes;
+                                }
+                              });
                             }
                           }
                         },
@@ -1492,13 +1536,12 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                           children: [
                             Icon(isLiked ? Icons.favorite : Icons.favorite_border, color: isLiked ? kRed : kTextGrey, size: 14),
                             const SizedBox(width: 4),
-                            Text(c.likeCount > 0 ? '${c.likeCount}' : "J'aime", style: TextStyle(color: isLiked ? kRed : kTextGrey, fontSize: 11))
-                          ]
-                        )
-                      )
-                    ]
+                            Text(currentLikes > 0 ? '$currentLikes' : "J'aime", style: TextStyle(color: isLiked ? kRed : kTextGrey, fontSize: 11))
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-
                   if (!isReply && (c.replyCount > 0 || _replies.containsKey(c.id))) ...[
                     const SizedBox(height: 8),
                     GestureDetector(
@@ -1513,20 +1556,20 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                         children: [
                           Container(width: 24, height: 1, color: kBorderLight),
                           const SizedBox(width: 8),
-                          Text(_expanded.contains(c.id) ? 'Masquer' : 'Voir les réponses', style: const TextStyle(color: kTdiaBlue, fontSize: 12, fontWeight: FontWeight.w600))
-                        ]
-                      )
-                    )
+                          Text(_expanded.contains(c.id) ? 'Masquer' : 'Voir les réponses', style: const TextStyle(color: kTdiaBlue, fontSize: 12, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
                   ],
                   if (!isReply && _expanded.contains(c.id)) ...[
-                    ...(_replies[c.id] ?? []).map((r) => _buildCommentTile(r, isReply: true))
-                  ]
-                ]
-              )
-            )
-          )
-        ]
-      )
+                    ...(_replies[c.id] ?? []).map((r) => _buildCommentTile(r, isReply: true)),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1550,14 +1593,14 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
 
             Expanded(
               child: _loading
-                ? const Center(child: CircularProgressIndicator(color: kRed))
-                : _roots.isEmpty
-                  ? const Center(child: Text('Aucun commentaire', style: TextStyle(color: kTextGrey)))
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      itemCount: _roots.length,
-                      itemBuilder: (c, i) => _buildCommentTile(_roots[i])
-                    )
+                  ? const Center(child: CircularProgressIndicator(color: kRed))
+                  : _roots.isEmpty
+                      ? const Center(child: Text('Aucun commentaire', style: TextStyle(color: kTextGrey)))
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          itemCount: _roots.length,
+                          itemBuilder: (c, i) => _buildCommentTile(_roots[i]),
+                        ),
             ),
 
             const Divider(color: kBorderLight, height: 1),
@@ -1597,10 +1640,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                           hintText: _editingComment != null ? 'Modifier le commentaire...' : (_replyingTo != null ? 'Ajouter une réponse...' : 'Ajouter un commentaire...'),
                           hintStyle: const TextStyle(color: kTextGrey, fontSize: 13.5),
                           border: InputBorder.none,
-                          isDense: true
-                        )
-                      )
-                    )
+                          isDense: true,
+                        ),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
@@ -1610,16 +1653,16 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                       height: 42,
                       decoration: BoxDecoration(color: _sending ? kSurfaceLight : kRed, shape: BoxShape.circle),
                       child: _sending
-                        ? const Padding(padding: EdgeInsets.all(11), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.send_rounded, color: Colors.white, size: 18)
-                    )
-                  )
-                ]
-              )
-            )
-          ]
-        )
-      )
+                          ? const Padding(padding: EdgeInsets.all(11), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
