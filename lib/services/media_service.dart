@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/media_content.dart';
 import 'package:uuid/uuid.dart';
@@ -10,54 +9,71 @@ typedef ProgressCallback = void Function(double progress);
 
 class FeedPage {
   final List<MediaContent> items;
-  final List<Map<String, dynamic>> raw; // pour creator
+  final List<Map<String, dynamic>> raw;
   FeedPage({required this.items, required this.raw});
 }
 
 class MediaService {
   static final MediaService _instance = MediaService._internal();
-  factory MediaService() => _instance;
+  factory MediaService({SupabaseClient? client, String? bucket}) => _instance;
   MediaService._internal();
   SupabaseClient get supabase => Supabase.instance.client;
   final Uuid _uuid = const Uuid();
 
-  // BATCH VUES
+  // ---- BATCH VUES 1M ----
   static final Set<String> _pendingViews = {};
   static Timer? _viewTimer;
-  void registerView(String id) { _pendingViews.add(id); _viewTimer??= Timer(const Duration(seconds: 8), _flush); }
+  void registerView(String id) { _pendingViews.add(id); _viewTimer??= Timer(const Duration(seconds:8), _flush); }
   static Future<void> _flush() async {
     if(_pendingViews.isEmpty){ _viewTimer=null; return; }
     final b=_pendingViews.toList(); _pendingViews.clear(); _viewTimer=null;
     try{ await Supabase.instance.client.rpc('batch_register_views', params:{'p_media_ids': b}); }catch(_){ _pendingViews.addAll(b); }
   }
 
-  // FEED ENRICHI - 1 requête = media + creator + follow
+  // ---- FEED ENRICHI ----
   Future<FeedPage> fetchEnrichedFeed({required List<String> seenIds, int limit=12}) async {
     final uid = supabase.auth.currentUser?.id;
     final data = await supabase.rpc('get_feed_with_creator', params:{'p_seen_ids': seenIds, 'p_limit': limit, 'p_uid': uid}) as List;
-    final items = data.map((e) => MediaContent.fromJson(Map<String, dynamic>.from(e as Map))).toList();
-    final raw = data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final items = data.map((e)=>MediaContent.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+    final raw = data.map((e)=>Map<String, dynamic>.from(e as Map)).toList();
     return FeedPage(items: items, raw: raw);
   }
-
   Future<FeedPage> fetchShuffledFeed({required List<String> seenIds, int limit=12}) async {
     final data = await supabase.rpc('get_shuffled_feed', params:{'p_seen_ids': seenIds, 'p_limit': limit}) as List;
     return FeedPage(items: data.map((e)=>MediaContent.fromJson(e as Map<String,dynamic>)).toList(), raw: []);
   }
 
+  // ---- LIKES / FOLLOW ----
   Future<bool> toggleLike(String id) async { final r=await supabase.rpc('toggle_media_like', params:{'p_media_id': id}); return r as bool; }
-  Future<void> toggleFollow(String targetId) async {
-    final uid=supabase.auth.currentUser?.id; if(uid==null||targetId.isEmpty||uid==targetId) return;
+
+  Future<bool> toggleFollow(String targetId) async {
+    final uid=supabase.auth.currentUser?.id; if(uid==null||targetId.isEmpty||uid==targetId) return false;
     final ex=await supabase.from('follows').select().eq('follower_id', uid).eq('following_id', targetId).maybeSingle();
-    if(ex!=null) await supabase.from('follows').delete().eq('follower_id', uid).eq('following_id', targetId);
-    else await supabase.from('follows').insert({'follower_id': uid, 'following_id': targetId});
+    if(ex!=null){ await supabase.from('follows').delete().eq('follower_id', uid).eq('following_id', targetId); return false; }
+    else { await supabase.from('follows').insert({'follower_id': uid, 'following_id': targetId}); return true; }
+  }
+  Future<bool> isFollowing(String targetId) async {
+    final uid=supabase.auth.currentUser?.id; if(uid==null||targetId.isEmpty||uid==targetId) return false;
+    final ex=await supabase.from('follows').select().eq('follower_id', uid).eq('following_id', targetId).maybeSingle();
+    return ex!=null;
   }
   Future<Set<String>> getLikedMediaIds(List<String> ids) async {
     if(ids.isEmpty) return {}; try{ final r=await supabase.rpc('get_liked_media_ids', params:{'p_media_ids': ids}); return (r as List).map((e)=>e as String).toSet(); }
     catch(_){ final uid=supabase.auth.currentUser?.id; if(uid==null) return {}; final r=await supabase.from('media_likes').select('media_id').eq('user_id', uid).inFilter('media_id', ids); return (r as List).map((e)=>e['media_id'] as String).toSet(); }
   }
 
-  // ADMIN - manquait avant
+  // ---- PROFILE - manquait pour user_profile_page.dart ----
+  Future<Map<String,dynamic>?> fetchProfile(String userId) async {
+    return await supabase.from('profiles').select().eq('id', userId).maybeSingle();
+  }
+  Future<Map<String,dynamic>> fetchUserStats(String userId) async {
+    final followers = await supabase.from('follows').select().eq('following_id', userId).count(CountOption.exact);
+    final following = await supabase.from('follows').select().eq('follower_id', userId).count(CountOption.exact);
+    final posts = await supabase.from('media_content').select().eq('user_id', userId).count(CountOption.exact);
+    return {'followers': followers.count, 'following': following.count, 'posts': posts.count};
+  }
+
+  // ---- ADMIN ----
   Future<List<MediaContent>> fetchAllMedia({int page=0, int limit=50}) async {
     final s=page*limit; final data=await supabase.from('media_content').select().order('created_at', ascending:false).range(s, s+limit-1) as List;
     return data.map((e)=>MediaContent.fromJson(e as Map<String,dynamic>)).toList();
