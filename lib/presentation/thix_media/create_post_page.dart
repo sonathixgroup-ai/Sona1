@@ -336,7 +336,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.between,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
                     children: [
                       const Text('Contenu Payant (Verrouillé)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                       Switch(
