@@ -66,11 +66,12 @@ class CommentItem {
     avatarUrl: m['avatar_url'] as String?,
     content: m['content'] as String,
     createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
-    parentId: m['parent_id'] as String?,
-    likeCount: m['like_count'] as int??? 0,
-    replyCount: m['reply_count'] as int??? 0,
+        parentId: m['parent_id'] as String?,
+    likeCount: m['like_count'] as int? ?? 0,
+    replyCount: m['reply_count'] as int? ?? 0,
   );
 }
+
 
 // Scalable: 30 max, pas 300. Et tri indexé
 final commentsListProvider = FutureProvider.autoDispose.family<List<CommentItem>, String>((ref, mediaId) async {
