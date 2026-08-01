@@ -114,7 +114,7 @@ class MediaService {
           commentCount: (r?['comment_count'] as num?)?.toInt() ?? 0,
         );
       } catch (_) {}
-      await Future.delayed(const Duration(seconds: 12)); // Évite de saturer la base de données
+      await Future.delayed(const Duration(seconds: 12)); 
     }
   }
 
@@ -187,9 +187,9 @@ class MediaService {
         .eq('user_id', userId);
 
     return {
-      'followers': followersCount.count,
-      'following': followingCount.count,
-      'posts': postsCount.count,
+      'followers': followersCount,
+      'following': followingCount,
+      'posts': postsCount,
     };
   }
 
@@ -291,7 +291,7 @@ class MediaService {
     }, onConflict: 'comment_id,reporter_id', ignoreDuplicates: true);
   }
 
-  // ====== PAGINATION EXPLORER & ADMIN (Préservés de l'ancien fichier) ======
+  // ====== PAGINATION EXPLORER & ADMIN ======
   Future<List<MediaContent>> fetchAllMedia({int page = 0, int limit = 50}) async {
     final start = page * limit;
     final end = start + limit - 1;
@@ -303,21 +303,6 @@ class MediaService {
     final data = await supabase.from('media_content').select().order('created_at', ascending: false).range(offset, offset + limit - 1) as List<dynamic>;
     return data.map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
   }
-
-  Future<List<MediaContent>> fetchPublishedMedia({int page = 0, int limit = 50}) async {
-    final start = page * limit;
-    final end = start + limit - 1;
-    final data = await supabase.from('media_content').select().eq('is_published', true).order('rank_position', ascending: true, nullsFirst: false).order('created_at', ascending: false).range(start, end) as List<dynamic>;
-    return data.map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList(growable: false);
-  }
-
-  Future<List<MediaContent>> fetchPublishedMediaPaginated({int limit = 30, int offset = 0}) async {
-    final data = await supabase.from('media_content').select().eq('is_published', true).order('rank_position', ascending: true, nullsFirst: false).range(offset, offset + limit - 1) as List<dynamic>;
-    return data.map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
-  }
-
-  Future<List<MediaContent>> fetchAllMediaLegacy() async => fetchAllMediaPaginated(limit: 100, offset: 0);
-  Future<List<MediaContent>> fetchPublishedMediaLegacy() async => fetchPublishedMediaPaginated(limit: 100, offset: 0);
 
   // ====== UPLOAD DE FICHIERS ET POST DIRECT DANS LE FIL ======
   Future<MediaContent> insertWithFiles(MediaContent item, {PlatformFile? coverFile, PlatformFile? videoFile, ProgressCallback? onProgress}) async {
@@ -339,17 +324,17 @@ class MediaService {
     if (videoFile != null) tasks.add(_uploadPhysicalFile(videoFile, 'thix_media/$newId/videos').then((url) { finalVideoUrl = url; tick(); }));
     if (tasks.isNotEmpty) await Future.wait(tasks);
 
-    final newItem = item.copyWith(
-      id: newId, 
-      userId: uid,           // Lien avec l'utilisateur connecté via THIX CENTRAL
-      type: 'Fil',            // Garanti d'atterrir dans le Fil
-      coverUrl: finalCoverUrl ?? item.coverUrl, 
-      videoUrl: finalVideoUrl ?? item.videoUrl,
-      createdAt: DateTime.now(), 
-      updatedAt: DateTime.now(),
-    );
-    
-    final inserted = await _retry(() => supabase.from('media_content').insert(newItem.toJson()).select().single());
+    // Utilisation d'une map pour éviter les erreurs de paramètres du modèle
+    final map = item.toJson();
+    map['id'] = newId;
+    if (uid != null) map['user_id'] = uid;
+    map['type'] = 'Fil'; // Force le post dans le fil
+    if (finalCoverUrl != null) map['coverUrl'] = finalCoverUrl;
+    if (finalVideoUrl != null) map['videoUrl'] = finalVideoUrl;
+    map['created_at'] = DateTime.now().toIso8601String();
+    map['updated_at'] = DateTime.now().toIso8601String();
+
+    final inserted = await _retry(() => supabase.from('media_content').insert(map).select().single());
     return MediaContent.fromJson(inserted as Map<String, dynamic>);
   }
 
