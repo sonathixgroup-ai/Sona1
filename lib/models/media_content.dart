@@ -1,4 +1,3 @@
-
 class MediaContent {
   final String id;
   final String title;
@@ -41,6 +40,26 @@ class MediaContent {
   });
 
   factory MediaContent.fromJson(Map<String, dynamic> json) {
+    // 🛡️ ANTI-CRASH : Sécurité absolue pour la date de création
+    DateTime parsedCreatedAt;
+    try {
+      parsedCreatedAt = json['created_at'] != null && json['created_at'].toString().trim().isNotEmpty
+          ? DateTime.parse(json['created_at'].toString()).toLocal()
+          : DateTime.now();
+    } catch (_) {
+      parsedCreatedAt = DateTime.now();
+    }
+
+    // 🛡️ ANTI-CRASH : Sécurité absolue pour la date de mise à jour
+    DateTime parsedUpdatedAt;
+    try {
+      parsedUpdatedAt = json['updated_at'] != null && json['updated_at'].toString().trim().isNotEmpty
+          ? DateTime.parse(json['updated_at'].toString()).toLocal()
+          : DateTime.now();
+    } catch (_) {
+      parsedUpdatedAt = DateTime.now();
+    }
+
     return MediaContent(
       id: json['id'].toString(),
       title: json['title'] ?? '',
@@ -58,8 +77,8 @@ class MediaContent {
       isRecommended: json['is_recommended'] ?? false,
       isPublished: json['is_published'] ?? true,
       isFeedOnly: json['is_feed_only'] ?? false,
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      createdAt: parsedCreatedAt,
+      updatedAt: parsedUpdatedAt,
     );
   }
 
