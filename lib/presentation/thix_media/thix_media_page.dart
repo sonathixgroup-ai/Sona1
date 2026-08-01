@@ -15,7 +15,6 @@ import 'package:thix_id/nav.dart' show AppRoutes;
 import 'admin/thix_media_admin_page.dart';
 import '../../services/media_service.dart';
 
-// Import des nouvelles pages (assure-toi qu'elles sont dans le même dossier)
 import 'create_post_page.dart';
 import 'user_profile_page.dart';
 
@@ -69,11 +68,23 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   return role == 'admin' || role == 'superadmin';
 });
 
-final currentUserAvatarProvider = FutureProvider.autoDispose<String?>((ref) async {
+// Providers pour récupérer dynamiquement le profil du créateur de la vidéo
+final mediaCreatorIdProvider = FutureProvider.autoDispose.family<String?, String>((ref, mediaId) async {
+  final res = await Supabase.instance.client.from('media_content').select('user_id').eq('id', mediaId).maybeSingle();
+  return res?['user_id'] as String?;
+});
+
+final userProfileProvider = FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((ref, userId) async {
+  if (userId.isEmpty) return null;
+  final res = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url').eq('id', userId).maybeSingle();
+  return res;
+});
+
+final isFollowingProvider = FutureProvider.autoDispose.family<bool, String>((ref, targetId) async {
   final uid = Supabase.instance.client.auth.currentUser?.id;
-  if (uid == null) return null;
-  final res = await Supabase.instance.client.from('profiles').select('avatar_url').eq('id', uid).maybeSingle();
-  return res?['avatar_url'] as String?;
+  if (uid == null || uid == targetId) return true; // Masque le "+" si c'est nous-même
+  final res = await Supabase.instance.client.from('follows').select().eq('follower_id', uid).eq('following_id', targetId).maybeSingle();
+  return res != null;
 });
 
 class CommentItem {
@@ -146,13 +157,17 @@ class ThixMediaPage extends ConsumerStatefulWidget {
 class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   late PageController _bannerController, _feedController;
   int _currentBannerIndex = 0;
-  Timer? _bannerTimer, _searchDebounce, _uiIdleTimer;
+  Timer? _bannerTimer, _searchDebounce;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final List<String> _filters = ["Accueil", "Fil", "Tendances", "NOVA Originals", "Live", "Courts", "Musique", "Gaming", "Formation"];
   Set<String> _likedMediaIds = {};
   final Set<String> _viewedMediaIds = {};
+  final Set<String> _newlyFollowedIds = {}; // Pour cacher le '+' instantanément
+  final Map<String, int> _localLikeCounts = {}; // Optimistic UI pour les likes
+  final Map<String, int> _localViewCounts = {}; // Optimistic UI pour les vues
+  
   bool _immersive = false;
   int _currentFeedIndex = 0;
   List<MediaContent> _filItems = [];
@@ -162,7 +177,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   double _pullDistance = 0;
   bool _pullTriggering = false;
   static const double _pullThreshold = 90;
-  static const Duration _uiIdleDelay = Duration(milliseconds: 1200);
 
   @override
   void initState() {
@@ -184,29 +198,12 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   void dispose() {
     _bannerTimer?.cancel();
     _searchDebounce?.cancel();
-    _uiIdleTimer?.cancel();
     _bannerController.dispose();
     _feedController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _hideUI() {
-    if (!_immersive) {
-      setState(() => _immersive = true);
-    }
-    _uiIdleTimer?.cancel();
-  }
-
-  void _scheduleShowUI() {
-    _uiIdleTimer?.cancel();
-    _uiIdleTimer = Timer(_uiIdleDelay, () {
-      if (mounted && _immersive) {
-        setState(() => _immersive = false);
-      }
-    });
   }
 
   MediaContent _mapMedia(Map<String, dynamic> e) {
@@ -312,20 +309,65 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     );
   }
 
-  void _registerView(MediaContent item) {
+  void _registerView(MediaContent item) async {
     if (_viewedMediaIds.contains(item.id)) return;
     _viewedMediaIds.add(item.id);
+    
+    // UI Optimiste pour les vues
+    setState(() {
+      _localViewCounts[item.id] = (_localViewCounts[item.id] ?? item.viewCount) + 1;
+    });
+
     _AnalyticsBatcher.register(item.id);
+    
+    // Fallback direct pour assurer que la vue est bien comptée même si l'RPC échoue
+    try {
+      final uid = Supabase.instance.client.auth.currentUser?.id;
+      if (uid != null) {
+        await Supabase.instance.client.from('media_views').insert({'media_id': item.id, 'user_id': uid});
+      }
+    } catch (_) {}
   }
 
   Future<void> _toggleLike(MediaContent item) async {
-    if (Supabase.instance.client.auth.currentUser == null) return;
-    final was = _likedMediaIds.contains(item.id);
-    setState(() => was ? _likedMediaIds.remove(item.id) : _likedMediaIds.add(item.id));
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    
+    final wasLiked = _likedMediaIds.contains(item.id);
+    
+    // Mise à jour Optimiste (Instantanée à l'écran)
+    setState(() {
+      if (wasLiked) {
+        _likedMediaIds.remove(item.id);
+        _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) - 1;
+      } else {
+        _likedMediaIds.add(item.id);
+        _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) + 1;
+      }
+    });
+
     try { 
       await Supabase.instance.client.rpc('toggle_media_like', params: {'p_media_id': item.id}); 
     } catch (_) { 
-      if (mounted) setState(() => was ? _likedMediaIds.add(item.id) : _likedMediaIds.remove(item.id)); 
+      // Fallback absolu si l'RPC n'existe pas ou bug
+      try {
+        if (wasLiked) {
+          await Supabase.instance.client.from('media_likes').delete().eq('media_id', item.id).eq('user_id', uid);
+        } else {
+          await Supabase.instance.client.from('media_likes').insert({'media_id': item.id, 'user_id': uid});
+        }
+      } catch (e) {
+        // En cas d'erreur complète, on annule l'état visuel
+        if (mounted) setState(() {
+          if (wasLiked) {
+            _likedMediaIds.add(item.id);
+            _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) + 1;
+          } else {
+            _likedMediaIds.remove(item.id);
+            _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) - 1;
+          }
+        });
+      }
     }
   }
 
@@ -465,11 +507,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         children: [
           NotificationListener<ScrollNotification>(
             onNotification: (n) {
+              // Disparaît au scroll, et RESTE caché. Il ne revient qu'au Tap.
               if (n is ScrollUpdateNotification || n is ScrollStartNotification) {
-                _hideUI();
-              }
-              if (n is ScrollEndNotification) {
-                _scheduleShowUI();
+                if (!_immersive) setState(() => _immersive = true);
               }
               return false;
             },
@@ -480,10 +520,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               onPageChanged: (i) { 
                 setState(() { 
                   _currentFeedIndex = i; 
-                  _immersive = true; 
+                  _immersive = true; // Reste immersif à l'arrivée sur la nouvelle vidéo
                 }); 
                 _handlePageChanged(i); 
-                _scheduleShowUI();
               }, 
               itemBuilder: (c, idx) {
                 final item = _filItems[idx]; 
@@ -499,7 +538,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                       isPlaying: isFocused, 
                       isImmersive: _immersive, 
                       onPlayStateChanged: (paused) { 
-                        _uiIdleTimer?.cancel();
+                        // Taper l'écran fait réapparaître les menus instantanément
                         setState(() => _immersive = !paused); 
                       }
                     ),
@@ -786,13 +825,23 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   Widget _bottomNav(String selCat, MediaContent? cur) { 
     final isFil = selCat == 'Fil'; 
     final isLiked = cur != null && _likedMediaIds.contains(cur.id); 
-    MediaCounts? live; 
     
+    // Valeurs Optimistes pour la réactivité
+    int displayLikes = cur?.likeCount ?? 0;
+    int displayViews = cur?.viewCount ?? 0;
+    
+    MediaCounts? live; 
     if (isFil && cur != null) {
       live = ref.watch(mediaCountsStreamProvider(cur.id)).valueOrNull; 
+      displayLikes = _localLikeCounts[cur.id] ?? live?.likeCount ?? cur.likeCount;
+      displayViews = _localViewCounts[cur.id] ?? live?.viewCount ?? cur.viewCount;
     }
     
-    final avatarUrl = ref.watch(currentUserAvatarProvider).valueOrNull;
+    // Récupérer dynamiquement le créateur de la vidéo
+    final creatorId = cur != null ? ref.watch(mediaCreatorIdProvider(cur.id)).valueOrNull ?? '' : '';
+    final creatorProfile = ref.watch(userProfileProvider(creatorId)).valueOrNull;
+    final isFollowing = ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true; // true par défaut pour cacher le + le temps que ça charge
+    final showPlusBtn = !isFollowing && !_newlyFollowedIds.contains(creatorId);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 20), 
@@ -806,11 +855,12 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
               children: [
+                
+                // 1. Bouton Compte du Créateur de la vidéo (avec badge Follow)
                 GestureDetector(
                   onTap: () {
-                    final uid = Supabase.instance.client.auth.currentUser?.id;
-                    if (uid != null) {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfilePage(userId: uid)));
+                    if (creatorId.isNotEmpty) {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfilePage(userId: creatorId)));
                     } else {
                       context.go(AppRoutes.login);
                     }
@@ -819,34 +869,57 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 24, height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white70, width: 1.5),
-                          image: avatarUrl != null && avatarUrl.isNotEmpty
-                              ? DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover)
-                              : null,
-                        ),
-                        child: avatarUrl == null || avatarUrl.isEmpty
-                            ? const Icon(Icons.person, size: 14, color: Colors.white70)
-                            : null,
+                      Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.bottomCenter,
+                        children: [
+                          Container(
+                            width: 26, height: 26,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white70, width: 1.5),
+                              image: creatorProfile != null && creatorProfile['avatar_url'] != null && creatorProfile['avatar_url'].isNotEmpty
+                                  ? DecorationImage(image: NetworkImage(creatorProfile['avatar_url']), fit: BoxFit.cover)
+                                  : null,
+                            ),
+                            child: creatorProfile == null || creatorProfile['avatar_url'] == null || creatorProfile['avatar_url'].isEmpty
+                                ? const Icon(Icons.person, size: 14, color: Colors.white70)
+                                : null,
+                          ),
+                          if (showPlusBtn)
+                            Positioned(
+                              bottom: -4,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() => _newlyFollowedIds.add(creatorId));
+                                  MediaService().toggleFollow(creatorId);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(color: kRed, shape: BoxShape.circle),
+                                  child: const Icon(Icons.add, color: Colors.white, size: 10),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 4),
-                      const Text('Compte', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white70)),
+                      Text(creatorProfile?['username'] ?? 'Profil', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white70)),
                     ],
                   ),
                 ),
 
+                // 2. Bouton J'aime
                 _navItem(
                   isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-                  cur != null ? _formatNumber(live?.likeCount ?? cur.likeCount) : "J'aime",
+                  cur != null ? _formatNumber(displayLikes) : "J'aime",
                   false,
                   1,
                   color: isLiked ? kRed : null,
                   onTap: () { if (cur != null) _toggleLike(cur); }
                 ),
 
+                // 3. Bouton Commentaires
                 _navItem(
                   Icons.chat_bubble_outline_rounded,
                   cur != null ? _formatNumber(live?.commentCount ?? cur.commentCount) : 'Commenter',
@@ -855,18 +928,16 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   onTap: () { if (cur != null) _openComments(cur); }
                 ),
 
+                // 4. Bouton Vues
                 _navItem(
                   Icons.remove_red_eye_rounded,
-                  cur != null ? _formatNumber(live?.viewCount ?? cur.viewCount) : 'Vu',
+                  cur != null ? _formatNumber(displayViews) : 'Vu',
                   false,
                   3,
-                  onTap: () {
-                    if (cur != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${cur.viewCount} vues uniques'), backgroundColor: kSurface));
-                    }
-                  }
+                  onTap: () {} // Affichage purement informatif, plus besoin du SnackBar grâce à l'UI Optimiste
                 ),
 
+                // 5. Bouton Créer un post (+)
                 GestureDetector(
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreatePostPage())),
                   child: Column(
@@ -1129,9 +1200,18 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
         setState(() => _editingComment = null);
         _fetchRoots(); 
       } else {
-        final p = await Supabase.instance.client.from('profiles').select('username,avatar_url').eq('id', uid).maybeSingle(); 
-        final name = (p?['username'] as String?)?.isNotEmpty == true ? p!['username'] : 'Utilisateur'; 
+        // Extraction intelligente du VRAI nom d'utilisateur (au lieu de 'Utilisateur')
+        final p = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url').eq('id', uid).maybeSingle(); 
+        final authUser = Supabase.instance.client.auth.currentUser;
         
+        final name = (p?['username'] as String?)?.isNotEmpty == true 
+            ? p!['username'] 
+            : (p?['full_name'] as String?)?.isNotEmpty == true 
+                ? p!['full_name']
+                : (authUser?.userMetadata?['full_name'] as String?)?.isNotEmpty == true
+                    ? authUser!.userMetadata!['full_name']
+                    : 'Utilisateur';
+
         final parentId = _replyingTo?.parentId ?? _replyingTo?.id;
 
         await Supabase.instance.client.from('media_comments').insert({
@@ -1224,11 +1304,14 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: isReply ? 12 : 16, 
-            backgroundColor: kSurfaceLight, 
-            backgroundImage: c.avatarUrl != null && c.avatarUrl!.isNotEmpty ? NetworkImage(c.avatarUrl!) : null,
-            child: c.avatarUrl == null ? Icon(Icons.person, size: isReply ? 14 : 18, color: kTextGrey) : null,
+          GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfilePage(userId: c.userId))),
+            child: CircleAvatar(
+              radius: isReply ? 12 : 16, 
+              backgroundColor: kSurfaceLight, 
+              backgroundImage: c.avatarUrl != null && c.avatarUrl!.isNotEmpty ? NetworkImage(c.avatarUrl!) : null,
+              child: c.avatarUrl == null ? Icon(Icons.person, size: isReply ? 14 : 18, color: kTextGrey) : null,
+            ),
           ), 
           const SizedBox(width: 10),
           Expanded(
