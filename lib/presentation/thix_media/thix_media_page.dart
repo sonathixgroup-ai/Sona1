@@ -74,9 +74,13 @@ final mediaCreatorIdProvider = FutureProvider.autoDispose.family<String?, String
   return res?['user_id'] as String?;
 });
 
+// SCALABILITÉ + PRÉCISION : on récupère aussi `role`. C'est ce champ qui
+// détermine, de façon fiable et centralisée en DB, si le créateur est un
+// compte officiel TDIA (admin/superadmin) -> affichage "TDIA" sans bouton
+// d'abonnement, peu importe son username réel.
 final userProfileProvider = FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((ref, userId) async {
   if (userId.isEmpty) return null;
-  final res = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url').eq('id', userId).maybeSingle();
+  final res = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url, role').eq('id', userId).maybeSingle();
   return res;
 });
 
@@ -299,6 +303,19 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     return num.toString();
   }
 
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        backgroundColor: kSurfaceLight,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   Widget _buildImage(String url, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
     if (url.isEmpty) return Container(color: kSurface, child: const Icon(Icons.broken_image_rounded, color: kTextGrey));
     return Image.network(
@@ -332,7 +349,10 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
 
   Future<void> _toggleLike(MediaContent item) async {
     final uid = Supabase.instance.client.auth.currentUser?.id;
-    if (uid == null) return;
+    if (uid == null) {
+      _showError('Connectez-vous pour aimer ce contenu.');
+      return;
+    }
     
     final wasLiked = _likedMediaIds.contains(item.id);
     
@@ -356,15 +376,18 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
           await Supabase.instance.client.from('media_likes').insert({'media_id': item.id, 'user_id': uid});
         }
       } catch (e) {
-        if (mounted) setState(() {
-          if (wasLiked) {
-            _likedMediaIds.add(item.id);
-            _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) + 1;
-          } else {
-            _likedMediaIds.remove(item.id);
-            _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) - 1;
-          }
-        });
+        if (mounted) {
+          setState(() {
+            if (wasLiked) {
+              _likedMediaIds.add(item.id);
+              _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) + 1;
+            } else {
+              _likedMediaIds.remove(item.id);
+              _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) - 1;
+            }
+          });
+          _showError("Le like n'a pas pu être enregistré. Réessayez.");
+        }
       }
     }
   }
@@ -728,7 +751,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
 
   Widget _buildRow({required String title, required String subtitle, required ProviderListenable<List<MediaContent>> provider, required double aspectRatio, required double height, required double width, required Widget Function(MediaContent item, [int? index]) itemBuilder}) { 
     final list = ref.watch(provider); 
-    // FILTRAGE STRICT : Exclure les vidéos de type 'Fil' de l'Accueil
     final filteredList = list.where((m) => m.type.toLowerCase() != 'fil').toList();
     if (filteredList.isEmpty) return const SizedBox.shrink(); 
     return Column(
@@ -820,6 +842,15 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     )
   );
 
+  // Barre du bas : ENTIÈREMENT TRANSPARENTE, uniquement les icônes avec
+  // une ombre portée pour rester lisibles sur n'importe quelle vidéo.
+  //
+  // PRÉCISION COMPTE CRÉATEUR :
+  // - creatorId vide (contenu système sans user_id)  -> TDIA officiel
+  // - profiles.role == 'admin' / 'superadmin'         -> TDIA officiel
+  // Dans les deux cas : nom "TDIA", jamais de bouton (+), tap inerte.
+  // Sinon : nom exact = username (priorité) sinon full_name, tronqué
+  // avec "..." via maxLines/overflow s'il dépasse l'espace disponible.
   Widget _bottomNav(String selCat, MediaContent? cur) { 
     final isFil = selCat == 'Fil'; 
     final isLiked = cur != null && _likedMediaIds.contains(cur.id); 
@@ -838,13 +869,18 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     final creatorProfile = ref.watch(userProfileProvider(creatorId)).valueOrNull;
     final currentUid = Supabase.instance.client.auth.currentUser?.id;
     final isFollowing = ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true; 
-    
-    // Le bouton (+) n'apparaît pas si c'est notre propre profil ou si on est déjà abonné
-    final showPlusBtn = (creatorId.isNotEmpty && creatorId != currentUid) && !isFollowing && !_newlyFollowedIds.contains(creatorId);
 
-    // Résolution intelligente du nom du créateur (sans afficher "Anonyme")
-    String displayName = 'TDIA';
-    if (creatorId.isEmpty) {
+    final creatorRole = creatorProfile?['role'] as String?;
+    final creatorIsOfficial = creatorId.isEmpty || creatorRole == 'admin' || creatorRole == 'superadmin';
+
+    final showPlusBtn = !creatorIsOfficial 
+        && creatorId.isNotEmpty 
+        && creatorId != currentUid 
+        && !isFollowing 
+        && !_newlyFollowedIds.contains(creatorId);
+
+    String displayName;
+    if (creatorIsOfficial) {
       displayName = 'TDIA';
     } else if (creatorProfile != null) {
       final uname = creatorProfile['username'] as String?;
@@ -861,120 +897,113 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 20), 
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26), 
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30), 
-          child: Container(
-            height: 60, 
-            decoration: BoxDecoration(color: const Color(0xFF12121A).withOpacity(0.85), borderRadius: BorderRadius.circular(26), border: Border.all(color: Colors.white.withOpacity(0.1))), 
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    if (creatorId.isNotEmpty) {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfilePage(userId: creatorId)));
-                    } else {
-                      context.go(AppRoutes.login);
-                    }
-                  },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24), 
+      child: SizedBox(
+        height: 60,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
+          children: [
+            GestureDetector(
+              onTap: () {
+                if (creatorId.isNotEmpty) {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfilePage(userId: creatorId)));
+                }
+                // Contenu TDIA officiel sans créateur : rien à ouvrir.
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.bottomCenter,
                     children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        alignment: Alignment.bottomCenter,
-                        children: [
-                          Container(
-                            width: 26, height: 26,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white70, width: 1.5),
-                              image: creatorProfile != null && creatorProfile['avatar_url'] != null && creatorProfile['avatar_url'].isNotEmpty
-                                  ? DecorationImage(image: NetworkImage(creatorProfile['avatar_url']), fit: BoxFit.cover)
-                                  : null,
-                            ),
-                            child: creatorProfile == null || creatorProfile['avatar_url'] == null || creatorProfile['avatar_url'].isEmpty
-                                ? const Icon(Icons.person, size: 14, color: Colors.white70)
-                                : null,
-                          ),
-                          if (showPlusBtn)
-                            Positioned(
-                              bottom: -4,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() => _newlyFollowedIds.add(creatorId));
-                                  MediaService().toggleFollow(creatorId);
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: const BoxDecoration(color: kRed, shape: BoxShape.circle),
-                                  child: const Icon(Icons.add, color: Colors.white, size: 10),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      SizedBox(
-                        width: 55, 
-                        child: Text(
-                          displayName, 
-                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white70),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
+                      Container(
+                        width: 26, height: 26,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white70, width: 1.5),
+                          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 6)],
+                          image: creatorProfile != null && creatorProfile['avatar_url'] != null && creatorProfile['avatar_url'].isNotEmpty
+                              ? DecorationImage(image: NetworkImage(creatorProfile['avatar_url']), fit: BoxFit.cover)
+                              : null,
                         ),
+                        child: creatorProfile == null || creatorProfile['avatar_url'] == null || creatorProfile['avatar_url'].isEmpty
+                            ? const Icon(Icons.person, size: 14, color: Colors.white70)
+                            : null,
                       ),
+                      if (showPlusBtn)
+                        Positioned(
+                          bottom: -4,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() => _newlyFollowedIds.add(creatorId));
+                              MediaService().toggleFollow(creatorId);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(color: kRed, shape: BoxShape.circle),
+                              child: const Icon(Icons.add, color: Colors.white, size: 10),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                ),
-
-                _navItem(
-                  isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-                  cur != null ? _formatNumber(displayLikes) : "J'aime",
-                  false,
-                  1,
-                  color: isLiked ? kRed : null,
-                  onTap: () { if (cur != null) _toggleLike(cur); }
-                ),
-
-                _navItem(
-                  Icons.chat_bubble_outline_rounded,
-                  cur != null ? _formatNumber(live?.commentCount ?? cur.commentCount) : 'Commenter',
-                  false,
-                  2,
-                  onTap: () { if (cur != null) _openComments(cur); }
-                ),
-
-                _navItem(
-                  Icons.remove_red_eye_rounded,
-                  cur != null ? _formatNumber(displayViews) : 'Vu',
-                  false,
-                  3,
-                  onTap: () {} 
-                ),
-
-                GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreatePostPage())),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.add_circle_outline_rounded, color: kRed, size: 22),
-                      SizedBox(height: 4),
-                      Text('Poster', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: kRed)),
-                    ],
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    width: 55, 
+                    child: Text(
+                      displayName, 
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white, shadows: [Shadow(color: Colors.black87, blurRadius: 6)]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                ),
-              ],
-            )
-          )
-        )
-      )
+                ],
+              ),
+            ),
+
+            _navItem(
+              isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+              cur != null ? _formatNumber(displayLikes) : "J'aime",
+              false,
+              1,
+              color: isLiked ? kRed : null,
+              onTap: () { if (cur != null) _toggleLike(cur); }
+            ),
+
+            _navItem(
+              Icons.chat_bubble_outline_rounded,
+              cur != null ? _formatNumber(live?.commentCount ?? cur.commentCount) : 'Commenter',
+              false,
+              2,
+              onTap: () { if (cur != null) _openComments(cur); }
+            ),
+
+            _navItem(
+              Icons.remove_red_eye_rounded,
+              cur != null ? _formatNumber(displayViews) : 'Vu',
+              false,
+              3,
+              onTap: () {} 
+            ),
+
+            GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreatePostPage())),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.add_circle_outline_rounded, color: kRed, size: 24, shadows: [Shadow(color: Colors.black87, blurRadius: 6)]),
+                  SizedBox(height: 4),
+                  Text('Poster', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: kRed, shadows: [Shadow(color: Colors.black87, blurRadius: 6)])),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     ); 
   }
 
@@ -984,9 +1013,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       mainAxisSize: MainAxisSize.min, 
       mainAxisAlignment: MainAxisAlignment.center, 
       children: [
-        Icon(icon, color: color ?? (sel ? Colors.white : Colors.white38), size: 22), 
+        Icon(icon, color: color ?? Colors.white, size: 24, shadows: const [Shadow(color: Colors.black87, blurRadius: 6)]), 
         const SizedBox(height: 4), 
-        Text(label, style: TextStyle(fontSize: 10, fontWeight: sel ? FontWeight.bold : FontWeight.w500, color: color ?? (sel ? Colors.white : Colors.white38))) 
+        Text(label, style: TextStyle(fontSize: 10, fontWeight: sel ? FontWeight.bold : FontWeight.w500, color: color ?? Colors.white, shadows: const [Shadow(color: Colors.black87, blurRadius: 6)])) 
       ]
     )
   );
@@ -1173,6 +1202,19 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     _fetchRoots();
   }
 
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        backgroundColor: kSurfaceLight,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   Future<void> _fetchUserLikes() async {
     final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) return;
@@ -1204,7 +1246,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
         _fetchUserLikes();
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+        _showError("Impossible de charger les commentaires.");
+      }
     }
   }
 
@@ -1222,7 +1267,9 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
           _expanded.add(parentId);
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      _showError("Impossible de charger les réponses.");
+    }
   }
   
   Future<void> _submit() async { 
@@ -1239,7 +1286,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       if (_editingComment != null) {
         await Supabase.instance.client.from('media_comments').update({'content': t}).eq('id', _editingComment!.id);
         setState(() => _editingComment = null);
-        _fetchRoots(); 
+        await _fetchRoots(); 
       } else {
         final p = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url').eq('id', uid).maybeSingle(); 
         final authUser = Supabase.instance.client.auth.currentUser;
@@ -1264,9 +1311,9 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
         }); 
         
         if (parentId != null) {
-          _fetchReplies(parentId);
+          await _fetchReplies(parentId);
         } else {
-          _fetchRoots();
+          await _fetchRoots();
         }
       }
       
@@ -1275,15 +1322,21 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       setState(() => _replyingTo = null);
       
       ref.invalidate(commentCountProvider(widget.mediaId)); 
+    } catch (e) {
+      _showError("Le commentaire n'a pas pu être envoyé. Vérifiez votre connexion.");
     } finally { 
       if (mounted) setState(() => _sending = false); 
     } 
   }
 
   Future<void> _delete(String id) async {
-    await Supabase.instance.client.from('media_comments').delete().eq('id', id);
-    _fetchRoots();
-    ref.invalidate(commentCountProvider(widget.mediaId));
+    try {
+      await Supabase.instance.client.from('media_comments').delete().eq('id', id);
+      _fetchRoots();
+      ref.invalidate(commentCountProvider(widget.mediaId));
+    } catch (_) {
+      _showError("Impossible de supprimer ce commentaire.");
+    }
   }
 
   void _showOptions(CommentItem c) {
@@ -1388,7 +1441,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                       GestureDetector(
                         onTap: () async {
                           final uid = Supabase.instance.client.auth.currentUser?.id;
-                          if (uid == null) return;
+                          if (uid == null) {
+                            _showError('Connectez-vous pour aimer un commentaire.');
+                            return;
+                          }
                           
                           setState(() {
                             if (isLiked) {
@@ -1413,6 +1469,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                                   _localCommentLikes[c.id] = currentLikes;
                                 }
                               });
+                              _showError("Le like du commentaire a échoué.");
                             }
                           }
                         },
