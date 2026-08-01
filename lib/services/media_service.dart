@@ -199,4 +199,27 @@ class MediaService {
       });
     } catch (_) {}
   }
+
+  // =========================================================================
+  // --- FONCTION D'ADMINISTRATION (RESTAURÉE) ---
+  // =========================================================================
+
+  Future<void> deleteMedia(MediaContent item) async {
+    // 1. Suppression de la base de données
+    await supabase.from('media_content').delete().eq('id', item.id);
+    
+    // 2. Suppression des fichiers du Storage (Optionnel mais recommandé)
+    try {
+      if (item.videoUrl.contains(bucket)) {
+        final videoPath = item.videoUrl.split('$bucket/').last;
+        await supabase.storage.from(bucket).remove([videoPath]);
+      }
+      if (item.coverUrl.contains(bucket)) {
+        final coverPath = item.coverUrl.split('$bucket/').last;
+        await supabase.storage.from(bucket).remove([coverPath]);
+      }
+    } catch (e) {
+      debugPrint('Erreur lors de la suppression des fichiers: $e');
+    }
+  }
 }
