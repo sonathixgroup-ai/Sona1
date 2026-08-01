@@ -292,6 +292,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     ]
   )
 ),
+ }
   Widget _navItem(IconData icon, String label, bool sel, int idx, {Color? color, required VoidCallback onTap})=>InkWell(onTap:onTap, child:Column(mainAxisSize:MainAxisSize.min, mainAxisAlignment:MainAxisAlignment.center, children:[Icon(icon,color:color??(sel?Colors.white:Colors.white38),size:22), const SizedBox(height:4), Text(label, style:TextStyle(fontSize:10,fontWeight:sel?FontWeight.bold:FontWeight.w500,color:color??(sel?Colors.white:Colors.white38)))]));
 }
 
