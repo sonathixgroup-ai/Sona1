@@ -15,6 +15,10 @@ import 'package:thix_id/nav.dart' show AppRoutes;
 import 'admin/thix_media_admin_page.dart';
 import '../../services/media_service.dart';
 
+// Import des nouvelles pages (assure-toi qu'elles sont dans le même dossier)
+import 'create_post_page.dart';
+import 'user_profile_page.dart';
+
 const Color kBg = Color(0xFF050507);
 const Color kSurface = Color(0xFF121214);
 const Color kSurfaceLight = Color(0xFF1E1E28);
@@ -806,7 +810,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   onTap: () {
                     final uid = Supabase.instance.client.auth.currentUser?.id;
                     if (uid != null) {
-                      context.go('/profile/$uid');
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfilePage(userId: uid)));
                     } else {
                       context.go(AppRoutes.login);
                     }
@@ -864,7 +868,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                 ),
 
                 GestureDetector(
-                  onTap: () => context.go('/create-post'),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreatePostPage())),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1236,7 +1240,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                   Row(
                     children: [
                       GestureDetector(
-                        onTap: () => context.go('/profile/${c.userId}'),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfilePage(userId: c.userId))),
                         child: Text(c.userName, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
                       ), 
                       const SizedBox(width: 8),
