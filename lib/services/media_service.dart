@@ -73,7 +73,7 @@ class MediaCounts {
   const MediaCounts({required this.likeCount, required this.viewCount, required this.commentCount});
 }
 
-// ---------------- SERVICE SCALABLE & ADMIN ----------------
+// ---------------- SERVICE SCALABLE, PROFIL & ADMIN ----------------
 
 class MediaService {
   // 1. SCALABILITY: Pattern SINGLETON strict
@@ -142,6 +142,55 @@ class MediaService {
       _pendingViews.addAll(batch);
       debugPrint('View batching failed, retrying later: $e');
     }
+  }
+
+  // ====== GESTION DU PROFIL ET FOLLOW (THIX CENTRAL) ======
+  
+  Future<Map<String, dynamic>?> fetchProfile(String userId) async {
+    final res = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+    return res as Map<String, dynamic>?;
+  }
+
+  Future<bool> isFollowing(String targetUserId) async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null || uid == targetUserId) return false;
+    
+    final res = await supabase
+        .from('follows')
+        .select()
+        .eq('follower_id', uid)
+        .eq('following_id', targetUserId)
+        .maybeSingle();
+        
+    return res != null;
+  }
+
+  Future<bool> toggleFollow(String targetUserId) async {
+    final res = await supabase.rpc('toggle_follow', params: {'p_target_id': targetUserId});
+    return res as bool;
+  }
+
+  Future<Map<String, int>> fetchUserStats(String userId) async {
+    final followersCount = await supabase
+        .from('follows')
+        .count(CountOption.exact)
+        .eq('following_id', userId);
+
+    final followingCount = await supabase
+        .from('follows')
+        .count(CountOption.exact)
+        .eq('follower_id', userId);
+
+    final postsCount = await supabase
+        .from('media_content')
+        .count(CountOption.exact)
+        .eq('user_id', userId);
+
+    return {
+      'followers': followersCount.count,
+      'following': followingCount.count,
+      'posts': postsCount.count,
+    };
   }
 
   // ====== LIKES (RPC atomique) ======
@@ -270,26 +319,36 @@ class MediaService {
   Future<List<MediaContent>> fetchAllMediaLegacy() async => fetchAllMediaPaginated(limit: 100, offset: 0);
   Future<List<MediaContent>> fetchPublishedMediaLegacy() async => fetchPublishedMediaPaginated(limit: 100, offset: 0);
 
-  // ====== UPLOAD DE FICHIERS (ADMIN WEB & MOBILE) ======
+  // ====== UPLOAD DE FICHIERS ET POST DIRECT DANS LE FIL ======
   Future<MediaContent> insertWithFiles(MediaContent item, {PlatformFile? coverFile, PlatformFile? videoFile, ProgressCallback? onProgress}) async {
     final newId = _uuid.v4();
+    final uid = supabase.auth.currentUser?.id;
+
     String? finalCoverUrl;
     String? finalVideoUrl;
     int totalTasks = (coverFile != null ? 1 : 0) + (videoFile != null ? 1 : 0);
     int doneTasks = 0;
+    
     void tick() {
       doneTasks++;
       if (onProgress != null && totalTasks > 0) onProgress(doneTasks / totalTasks);
     }
+    
     final tasks = <Future<void>>[];
     if (coverFile != null) tasks.add(_uploadPhysicalFile(coverFile, 'thix_media/$newId/covers').then((url) { finalCoverUrl = url; tick(); }));
     if (videoFile != null) tasks.add(_uploadPhysicalFile(videoFile, 'thix_media/$newId/videos').then((url) { finalVideoUrl = url; tick(); }));
     if (tasks.isNotEmpty) await Future.wait(tasks);
 
     final newItem = item.copyWith(
-      id: newId, coverUrl: finalCoverUrl ?? item.coverUrl, videoUrl: finalVideoUrl ?? item.videoUrl,
-      createdAt: DateTime.now(), updatedAt: DateTime.now(),
+      id: newId, 
+      userId: uid,           // Lien avec l'utilisateur connecté via THIX CENTRAL
+      type: 'Fil',            // Garanti d'atterrir dans le Fil
+      coverUrl: finalCoverUrl ?? item.coverUrl, 
+      videoUrl: finalVideoUrl ?? item.videoUrl,
+      createdAt: DateTime.now(), 
+      updatedAt: DateTime.now(),
     );
+    
     final inserted = await _retry(() => supabase.from('media_content').insert(newItem.toJson()).select().single());
     return MediaContent.fromJson(inserted as Map<String, dynamic>);
   }
