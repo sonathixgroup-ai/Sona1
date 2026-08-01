@@ -395,7 +395,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         data: (mediaList) {
           final currentItem = _filItems.isNotEmpty ? _filItems[_currentFeedIndex.clamp(0, _filItems.length - 1)] : null;
           
-          // La barre du haut ne disparaît QUE si on est dans 'Fil' et que _immersive est true (suite à un scroll)
           final showTopBar = !(_immersive && selectedCategory == 'Fil');
           
           return Stack(
@@ -445,7 +444,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   )
                 ),
 
-              // BARRE DU HAUT : Dynamique
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOutCubic,
@@ -461,7 +459,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                 )
               ),
 
-              // BARRE DU BAS : Permanente
               Positioned(
                 bottom: 0, 
                 left: 0, right: 0, 
@@ -496,7 +493,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         children: [
           NotificationListener<ScrollNotification>(
             onNotification: (n) {
-              // Cache la barre du haut dès qu'on commence à scroller
               if (n is ScrollUpdateNotification || n is ScrollStartNotification) {
                 if (!_immersive) setState(() => _immersive = true);
               }
@@ -509,14 +505,14 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               onPageChanged: (i) { 
                 setState(() { 
                   _currentFeedIndex = i; 
-                  _immersive = false; // Réaffiche IMMÉDIATEMENT la barre du haut sur la nouvelle vidéo
+                  _immersive = false; 
                 }); 
                 _handlePageChanged(i); 
               }, 
               itemBuilder: (c, idx) {
                 final item = _filItems[idx]; 
                 final isFocused = _currentFeedIndex == idx; 
-                final textBottom = 110.0; // Position texte permanente
+                final textBottom = 110.0; 
                 
                 return Stack(
                   fit: StackFit.expand, 
@@ -526,7 +522,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                       coverUrl: item.coverUrl, 
                       isPlaying: isFocused, 
                       onPlayStateChanged: (paused) { 
-                        // Taper au centre met en pause ET réaffiche la barre du haut
                         if (paused) setState(() => _immersive = false);
                       }
                     ),
@@ -566,7 +561,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
             )
           ),
           
-          // Zone de clic invisible "En haut" pour réafficher la barre
           Positioned(
             top: 0, left: 0, right: 0, height: 150,
             child: GestureDetector(
@@ -840,6 +834,24 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     final isFollowing = ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true; 
     final showPlusBtn = !isFollowing && !_newlyFollowedIds.contains(creatorId);
 
+    // Résolution intelligente du nom d'affichage
+    String displayName = 'TDIA';
+    if (creatorId.isEmpty) {
+      displayName = 'TDIA';
+    } else if (creatorProfile != null) {
+      final uname = creatorProfile['username'] as String?;
+      final fname = creatorProfile['full_name'] as String?;
+      if (uname != null && uname.trim().isNotEmpty) {
+        displayName = uname.trim();
+      } else if (fname != null && fname.trim().isNotEmpty) {
+        displayName = fname.trim();
+      } else {
+        displayName = 'Utilisateur';
+      }
+    } else {
+      displayName = '...'; // En cours de chargement
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 20), 
       child: ClipRRect(
@@ -901,9 +913,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                       ),
                       const SizedBox(height: 4),
                       SizedBox(
-                        width: 55, // Empêche le nom d'écraser les autres icônes
+                        width: 55, 
                         child: Text(
-                          creatorProfile?['username'] ?? 'Utilisateur', 
+                          displayName, 
                           style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white70),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1068,12 +1080,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           ), 
           if (_paused) const Center(child: Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 64)), 
           
-          // BARRE DE PROGRESSION PERMANENTE
           AnimatedPositioned(
             duration: const Duration(milliseconds: 250), 
             curve: Curves.easeInOutCubic,
             left: 0, right: 0, 
-            bottom: 80, // Toujours visible, juste au-dessus de la barre de navigation
+            bottom: 80, 
             child: GestureDetector(
               onHorizontalDragStart: (d) {
                 _isDragging = true;
