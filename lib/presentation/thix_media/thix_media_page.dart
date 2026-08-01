@@ -78,9 +78,12 @@ final mediaCreatorIdProvider = FutureProvider.autoDispose.family<String?, String
   return res?['user_id'] as String?;
 });
 
+// SCALABILITÉ : on récupère aussi `role` pour savoir si le créateur est
+// un compte admin/officiel -> permet d'afficher "TDIA" sans bouton
+// d'abonnement, sans avoir besoin d'une requête séparée.
 final userProfileProvider = FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((ref, userId) async {
   if (userId.isEmpty) return null;
-  final res = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url').eq('id', userId).maybeSingle();
+  final res = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url, role').eq('id', userId).maybeSingle();
   return res;
 });
 
@@ -367,9 +370,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
   }
 
   /// Enregistre une vue. IMPORTANT pour la DB à l'échelle : on n'écrit
-  /// plus une ligne "media_views" par vue individuelle (ça exploserait
-  /// avec des millions d'utilisateurs). Le compteur passe uniquement
-  /// par le batcher RPC groupé.
+  /// plus une ligne par vue individuelle (ça exploserait avec des
+  /// millions d'utilisateurs). Le compteur passe uniquement par le
+  /// batcher RPC groupé.
   void _registerView(MediaContent item) {
     if (_viewedMediaIds.contains(item.id)) return;
     _viewedMediaIds.add(item.id);
@@ -898,10 +901,17 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     final creatorId = cur != null ? ref.watch(mediaCreatorIdProvider(cur.id)).valueOrNull ?? '' : '';
     final creatorProfile = ref.watch(userProfileProvider(creatorId)).valueOrNull;
     final isFollowing = ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true;
-    final showPlusBtn = !isFollowing && !_newlyFollowedIds.contains(creatorId);
 
-    String displayName = 'TDIA';
-    if (creatorId.isEmpty) {
+    // Compte "TDIA officiel" : soit le média n'a pas de créateur (contenu
+    // système, user_id null), soit le créateur a le rôle admin/superadmin
+    // dans `profiles.role`. Dans les deux cas -> nom "TDIA", jamais de +.
+    final creatorRole = creatorProfile?['role'] as String?;
+    final creatorIsOfficial = creatorId.isEmpty || creatorRole == 'admin' || creatorRole == 'superadmin';
+
+    final showPlusBtn = !creatorIsOfficial && !isFollowing && !_newlyFollowedIds.contains(creatorId);
+
+    String displayName;
+    if (creatorIsOfficial) {
       displayName = 'TDIA';
     } else if (creatorProfile != null) {
       final uname = creatorProfile['username'] as String?;
@@ -928,9 +938,8 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
               onTap: () {
                 if (creatorId.isNotEmpty) {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfilePage(userId: creatorId)));
-                } else {
-                  context.go(AppRoutes.login);
                 }
+                // Contenu TDIA officiel sans créateur : rien à ouvrir.
               },
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -945,7 +954,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white70, width: 1.5),
-                          boxShadow: const [Shadow(color: Colors.black87, blurRadius: 6) is BoxShadow ? BoxShadow(color: Colors.black54, blurRadius: 6) : BoxShadow(color: Colors.black54, blurRadius: 6)],
+                          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 6)],
                           image: creatorProfile != null && creatorProfile['avatar_url'] != null && creatorProfile['avatar_url'].isNotEmpty
                               ? DecorationImage(image: NetworkImage(creatorProfile['avatar_url']), fit: BoxFit.cover)
                               : null,
