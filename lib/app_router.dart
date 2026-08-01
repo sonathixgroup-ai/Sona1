@@ -11,6 +11,8 @@ import 'package:thix_id/supabase/supabase_config.dart';
 
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/services/user_service.dart';
+import 'package:thix_id/presentation/thix_media/create_post_page.dart';
+import 'package:thix_id/presentation/thix_media/user_profile_page.dart';
 
 
 import 'package:thix_id/presentation/home/home_page.dart';
@@ -441,6 +443,23 @@ class AppRouter {
         ...educationRoutes,
         ...instructorRoutes,
         ...ThixMoneyRouter.routes,
+                // Route pour créer une publication dans le Fil
+        GoRoute(
+          path: '/create-post',
+          name: 'createPost',
+          pageBuilder: (_, __) => const NoTransitionPage(child: CreatePostPage()),
+        ),
+
+        // Route dynamique pour voir le profil d'un utilisateur et gérer le Follow/Unfollow
+        GoRoute(
+          path: '/profile/:userId',
+          name: 'userProfileRoute',
+          pageBuilder: (_, state) {
+            final userId = state.pathParameters['userId']!;
+            return NoTransitionPage(child: UserProfilePage(userId: userId));
+          },
+        ),
+
         GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => const NoTransitionPage(child: ThixInfoHome())),
         GoRoute(path: AppRoutes.thixInfoArticle, name: 'thixInfoArticle', pageBuilder: (_, state) => NoTransitionPage(child: thixInfoArticle.ArticleDetailPage(articleId: state.pathParameters['articleId']!))),
         GoRoute(path: AppRoutes.thixInfoSearch, name: 'thixInfoSearch', pageBuilder: (_, __) => const NoTransitionPage(child: infoSearch.SearchPage())),
