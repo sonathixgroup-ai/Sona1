@@ -69,6 +69,7 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
 });
 
 final mediaCreatorIdProvider = FutureProvider.autoDispose.family<String?, String>((ref, mediaId) async {
+  if (mediaId.isEmpty) return null;
   final res = await Supabase.instance.client.from('media_content').select('user_id').eq('id', mediaId).maybeSingle();
   return res?['user_id'] as String?;
 });
@@ -80,6 +81,7 @@ final userProfileProvider = FutureProvider.autoDispose.family<Map<String, dynami
 });
 
 final isFollowingProvider = FutureProvider.autoDispose.family<bool, String>((ref, targetId) async {
+  if (targetId.isEmpty) return true; 
   final uid = Supabase.instance.client.auth.currentUser?.id;
   if (uid == null || uid == targetId) return true; 
   final res = await Supabase.instance.client.from('follows').select().eq('follower_id', uid).eq('following_id', targetId).maybeSingle();
@@ -205,19 +207,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     super.dispose();
   }
 
-  MediaContent _mapMedia(Map<String, dynamic> e) {
-    final s = e['media_stats'] as Map<String, dynamic>?;
-    if (s != null) {
-      e = {
-        ...e,
-        'likeCount': s['like_count'] ?? e['likeCount'] ?? 0,
-        'viewCount': s['view_count'] ?? e['viewCount'] ?? 0,
-        'commentCount': s['comment_count'] ?? e['commentCount'] ?? 0,
-      };
-    }
-    return MediaContent.fromJson(e);
-  }
-
   Future<void> _initFilFeed({bool reshuffle = false}) async {
     if (_filLoading) return;
     setState(() => _filLoading = true);
@@ -237,8 +226,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       if (_filItems.isNotEmpty) _registerView(_filItems.first);
       if (reshuffle && _feedController.hasClients) _feedController.jumpToPage(0);
     } catch (_) {
-      final res = await Supabase.instance.client.from('media_content').select('*, media_stats(like_count,view_count,comment_count)').order('created_at', ascending: false).limit(12);
-      final items = (res as List).map((e) => _mapMedia(Map<String, dynamic>.from(e as Map))).toList();
+      // CORRECTION: On utilise seulement select('*') sans jointure à la vue pour éviter PGRST200
+      final res = await Supabase.instance.client.from('media_content').select('*').order('created_at', ascending: false).limit(12);
+      final items = (res as List).map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
       if (mounted) setState(() { _filItems = items; _filInitialized = true; });
     } finally {
       if (mounted) setState(() => _filLoading = false);
@@ -834,7 +824,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     final isFollowing = ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true; 
     final showPlusBtn = !isFollowing && !_newlyFollowedIds.contains(creatorId);
 
-    // Résolution intelligente du nom d'affichage
     String displayName = 'TDIA';
     if (creatorId.isEmpty) {
       displayName = 'TDIA';
@@ -849,7 +838,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         displayName = 'Utilisateur';
       }
     } else {
-      displayName = '...'; // En cours de chargement
+      displayName = '...'; 
     }
 
     return Padding(
