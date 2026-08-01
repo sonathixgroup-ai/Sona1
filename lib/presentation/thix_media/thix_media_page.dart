@@ -211,20 +211,97 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   Widget _originalCard(MediaContent it)=>GestureDetector(onTap:()=>_navigateToVideo(it), child:ClipRRect(borderRadius:BorderRadius.circular(14), child:Stack(fit:StackFit.expand, children:[_buildImage(it.coverUrl), Container(decoration:BoxDecoration(gradient:LinearGradient(begin:Alignment.bottomCenter,end:Alignment.topCenter,colors:[Colors.black.withOpacity(0.9),Colors.transparent]))), Positioned(bottom:12,left:12,right:12, child:Text(it.title, maxLines:2, style:const TextStyle(color:Colors.white,fontSize:14,fontWeight:FontWeight.bold)))])));
   Widget _top10Card(MediaContent it,int idx)=>GestureDetector(onTap:()=>_navigateToVideo(it), child:Stack(clipBehavior:Clip.none, children:[Positioned(left:-20,bottom:-10, child:Text((idx+1).toString().padLeft(2,'0'), style:TextStyle(fontSize:90,fontWeight:FontWeight.w900,color:Colors.transparent,shadows:[Shadow(color:Colors.white.withOpacity(0.2),blurRadius:2)]))), Positioned(left:40,top:0,bottom:0,right:0, child:ClipRRect(borderRadius:BorderRadius.circular(12), child:_buildImage(it.coverUrl)))]));
   Widget _bottomNav(String selCat, MediaContent? cur){
-    final isFil=selCat=='Fil'; final isLiked=cur!=null && _likedMediaIds.contains(cur.id);
-    int displayLikes=cur?.likeCount??0, displayViews=cur?.viewCount??0; MediaCounts? live;
-    if(isFil && cur!=null){ live=ref.watch(mediaCountsStreamProvider(cur.id)).valueOrNull; displayLikes=_localLikeCounts[cur.id]??live?.likeCount??cur.likeCount; displayViews=_localViewCounts[cur.id]??live?.viewCount??cur.viewCount; }
-    String creatorId=''; String displayName='TDIA'; String? avatar; bool showPlus=false;
-    if(isFil && _filRaw.isNotEmpty && _currentFeedIndex<_filRaw.length){ final raw=_filRaw[_currentFeedIndex]; creatorId=(raw['user_id'] as String?)??''; final prof=_profiles[creatorId]; displayName=(prof?['username'] as String?)??'Utilisateur'; avatar=prof?['avatar_url'] as String?; final isFollowing=_followMap[creatorId]??true; showPlus=!isFollowing &&!_newlyFollowedIds.contains(creatorId); }
-    return Padding(padding:const EdgeInsets.fromLTRB(24,0,24,20), child:ClipRRect(borderRadius:BorderRadius.circular(26), child:BackdropFilter(filter:ImageFilter.blur(sigmaX:30,sigmaY:30), child:Container(height:60, decoration:BoxDecoration(color:const Color(0xFF12121A).withOpacity(0.85), borderRadius:BorderRadius.circular(26), border:Border.all(color:Colors.white.withOpacity(0.1))), child:Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly, children:[
-      GestureDetector(onTap:(){ if(creatorId.isNotEmpty) Navigator.push(context, MaterialPageRoute(builder:(_)=>UserProfilePage(userId:creatorId))); else context.go(AppRoutes.login); }, child:Column(mainAxisSize:MainAxisSize.min, children:[Stack(clipBehavior:Clip.none, alignment:Alignment.bottomCenter, children:[Container(width:26,height:26, decoration:BoxDecoration(shape:BoxShape.circle, border:Border.all(color:Colors.white70,width:1.5), image: avatar!=null && avatar.isNotEmpty? DecorationImage(image:NetworkImage(avatar), fit:BoxFit.cover):null), child: avatar==null||avatar.isEmpty? const Icon(Icons.person,size:14,color:Colors.white70):null), if(showPlus) Positioned(bottom:-4, child:GestureDetector(onTap:(){ setState(()=>_newlyFollowedIds.add(creatorId)); MediaService().toggleFollow(creatorId); }, child:Container(padding:const EdgeInsets.all(2), decoration:const BoxDecoration(color:kRed,shape:BoxShape.circle), child:const Icon(Icons.add,color:Colors.white,size:10))))]), const SizedBox(height:4), SizedBox(width:55, child:Text(displayName, maxLines:1, overflow:TextOverflow.ellipsis, textAlign:TextAlign.center, style:const TextStyle(fontSize:10,color:Colors.white70)))])),
-      _navItem(isLiked? Icons.favorite_rounded:Icons.favorite_outline_rounded, cur!=null?_formatNumber(displayLikes):"J'aime", false, 1, color:isLiked?kRed:null, onTap:(){ if(cur!=null) _toggleLike(cur); }),
-      _navItem(Icons.chat_bubble_outline_rounded, cur!=null?_formatNumber(live?.commentCount??cur.commentCount):'Commenter', false, 2, onTap:(){ if(cur!=null) _openComments(cur); }),
-      _navItem(Icons.remove_red_eye_rounded, cur!=null?_formatNumber(displayViews):'Vu', false, 3, onTap:(){}),
-      GestureDetector(onTap:()=>Navigator.push(context, MaterialPageRoute(builder:(_)=>const CreatePostPage())), child:const Column(mainAxisSize:MainAxisSize.min, children:[Icon(Icons.add_circle_outline_rounded,color:kRed,size:22), SizedBox(height:4), Text('Poster', style:TextStyle(fontSize:10,fontWeight:FontWeight.bold,color:kRed))]))]))));
+    final isFil = selCat == 'Fil';
+    final isLiked = cur!= null && _likedMediaIds.contains(cur.id);
+    int displayLikes = cur?.likeCount?? 0;
+    int displayViews = cur?.viewCount?? 0;
+    MediaCounts? live;
+    if(isFil && cur!= null){
+      live = ref.watch(mediaCountsStreamProvider(cur.id)).valueOrNull;
+      displayLikes = _localLikeCounts[cur.id]?? live?.likeCount?? cur.likeCount;
+      displayViews = _localViewCounts[cur.id]?? live?.viewCount?? cur.viewCount;
+    }
+    String creatorId = '';
+    String displayName = 'TDIA';
+    String? avatar;
+    bool showPlus = false;
+    if(isFil && _filRaw.isNotEmpty && _currentFeedIndex < _filRaw.length){
+      final raw = _filRaw[_currentFeedIndex];
+      creatorId = (raw['user_id'] as String?)?? '';
+      final prof = _profiles[creatorId];
+      if(prof!= null){
+        displayName = (prof['username'] as String?)?? 'Utilisateur';
+        avatar = prof['avatar_url'] as String?;
+      }
+      final isFollowing = _followMap[creatorId]?? true;
+      showPlus =!isFollowing &&!_newlyFollowedIds.contains(creatorId);
+    }
+    return Padding(
+      padding:const EdgeInsets.fromLTRB(24,0,24,20),
+      child:ClipRRect(
+        borderRadius:BorderRadius.circular(26),
+        child:BackdropFilter(
+          filter:ImageFilter.blur(sigmaX:30,sigmaY:30),
+          child:Container(
+            height:60,
+            decoration:BoxDecoration(color:const Color(0xFF12121A).withOpacity(0.85), borderRadius:BorderRadius.circular(26), border:Border.all(color:Colors.white.withOpacity(0.1))),
+            child:Row(
+              mainAxisAlignment:MainAxisAlignment.spaceEvenly,
+              children:[
+                GestureDetector(
+                  onTap:(){
+                    if(creatorId.isNotEmpty){
+                      Navigator.push(context, MaterialPageRoute(builder:(_)=>UserProfilePage(userId:creatorId)));
+                    } else {
+                      context.go(AppRoutes.login);
+                    }
+                  },
+                  child:Column(
+                    mainAxisSize:MainAxisSize.min,
+                    mainAxisAlignment:MainAxisAlignment.center,
+                    children:[
+                      Stack(
+                        clipBehavior:Clip.none,
+                        alignment:Alignment.bottomCenter,
+                        children:[
+                          Container(
+                            width:26,height:26,
+                            decoration:BoxDecoration(
+                              shape:BoxShape.circle,
+                              border:Border.all(color:Colors.white70,width:1.5),
+                              image: avatar!=null && avatar.isNotEmpty? DecorationImage(image:NetworkImage(avatar), fit:BoxFit.cover):null,
+                            ),
+                            child: avatar==null || avatar.isEmpty? const Icon(Icons.person,size:14,color:Colors.white70):null,
+                          ),
+                          if(showPlus)
+                            Positioned(
+                              bottom:-4,
+                              child:GestureDetector(
+                                onTap:(){
+                                  setState(()=>_newlyFollowedIds.add(creatorId));
+                                  MediaService().toggleFollow(creatorId);
+                                },
+                                child:Container(padding:const EdgeInsets.all(2), decoration:const BoxDecoration(color:kRed,shape:BoxShape.circle), child:const Icon(Icons.add,color:Colors.white,size:10)),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height:4),
+                      SizedBox(width:55, child:Text(displayName, maxLines:1, overflow:TextOverflow.ellipsis, textAlign:TextAlign.center, style:const TextStyle(fontSize:10,color:Colors.white70))),
+                    ],
+                  ),
+                ),
+                _navItem(isLiked? Icons.favorite_rounded:Icons.favorite_outline_rounded, cur!=null?_formatNumber(displayLikes):"J'aime", false, 1, color:isLiked?kRed:null, onTap:(){ if(cur!=null) _toggleLike(cur); }),
+                _navItem(Icons.chat_bubble_outline_rounded, cur!=null?_formatNumber(live?.commentCount??cur.commentCount):'Commenter', false, 2, onTap:(){ if(cur!=null) _openComments(cur); }),
+                _navItem(Icons.remove_red_eye_rounded, cur!=null?_formatNumber(displayViews):'Vu', false, 3, onTap:(){}),
+                GestureDetector(onTap:()=>Navigator.push(context, MaterialPageRoute(builder:(_)=>const CreatePostPage())), child:const Column(mainAxisSize:MainAxisSize.min, mainAxisAlignment:MainAxisAlignment.center, children:[Icon(Icons.add_circle_outline_rounded,color:kRed,size:22), SizedBox(height:4), Text('Poster', style:TextStyle(fontSize:10,fontWeight:FontWeight.bold,color:kRed))])),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
-  Widget _navItem(IconData icon, String label, bool sel, int idx, {Color? color, required VoidCallback onTap})=>InkWell(onTap:onTap, child:Column(mainAxisSize:MainAxisSize.min, mainAxisAlignment:MainAxisAlignment.center, children:[Icon(icon,color:color??(sel?Colors.white:Colors.white38),size:22), const SizedBox(height:4), Text(label, style:TextStyle(fontSize:10,fontWeight:sel?FontWeight.bold:FontWeight.w500,color:color??(sel?Colors.white:Colors.white38)))]));
-}
 
 class FeedVideoPlayer extends StatefulWidget { final String videoUrl, coverUrl; final bool isPlaying; final Function(bool) onPlayStateChanged; const FeedVideoPlayer({super.key, required this.videoUrl, required this.coverUrl, required this.isPlaying, required this.onPlayStateChanged}); @override State<FeedVideoPlayer> createState()=>_FeedVideoPlayerState(); }
 class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
