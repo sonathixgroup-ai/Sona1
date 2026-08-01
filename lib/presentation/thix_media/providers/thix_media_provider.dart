@@ -52,9 +52,10 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
     final cat = ref.read(selectedCategoryProvider);
     final search = ref.read(searchQueryProvider).trim();
     
+    // CORRECTION ICI : On retire la jointure avec media_stats qui causait l'erreur PGRST200
     var query = Supabase.instance.client
         .from('media_content')
-        .select('*, media_stats(like_count, view_count, comment_count)');
+        .select('*');
         
     if (cursor != null) {
       query = query.lt('created_at', cursor.toIso8601String());
@@ -68,15 +69,9 @@ class ThixMediaNotifier extends StateNotifier<AsyncValue<List<MediaContent>>> {
 
     final res = await query.order('created_at', ascending: false).limit(_limit);
     
+    // CORRECTION ICI : Nettoyage du parsing puisque l'on a retiré media_stats
     final list = (res as List).map<MediaContent>((dynamic item) {
-      final Map<String, dynamic> e = Map<String, dynamic>.from(item as Map);
-      if (e['media_stats'] != null) {
-        final Map<String, dynamic> stats = Map<String, dynamic>.from(e['media_stats'] as Map);
-        e['likeCount'] = stats['like_count'] ?? e['likeCount'] ?? 0;
-        e['viewCount'] = stats['view_count'] ?? e['viewCount'] ?? 0;
-        e['commentCount'] = stats['comment_count'] ?? e['commentCount'] ?? 0;
-      }
-      return MediaContent.fromJson(e);
+      return MediaContent.fromJson(Map<String, dynamic>.from(item as Map));
     }).toList();
     
     if (list.isNotEmpty) _cursor = list.last.createdAt;
