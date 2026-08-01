@@ -118,7 +118,7 @@ class MediaService {
       final uid = supabase.auth.currentUser?.id; 
       if (uid == null) return {}; 
       // Correction de la syntaxe inFilter -> in_ (standard Supabase v2)
-      final r = await supabase.from('media_likes').select('media_id').eq('user_id', uid).in_('media_id', ids); 
+      final r = await supabase.from('media_likes').select('media_id').eq('user_id', uid).inFilter('media_id', ids); 
       return (r as List).map((e) => e['media_id'].toString()).toSet(); 
     }
   }
