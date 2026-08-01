@@ -1004,6 +1004,140 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
               cur != null ? _formatNumber(displayLikes) : "J'aime",
               false,
               1,
+
+  // LA BARRE DU BAS : Gestion propre du créateur sans "Anonyme"
+  Widget _bottomNav(String selCat, MediaContent? cur) {
+    final isFil = selCat == 'Fil';
+    final isLiked = cur != null && _likedMediaIds.contains(cur.id);
+
+    int displayLikes = cur?.likeCount ?? 0;
+    int displayViews = cur?.viewCount ?? 0;
+
+    MediaCounts? live;
+    if (isFil && cur != null) {
+      live = ref.watch(mediaCountsStreamProvider(cur.id)).valueOrNull;
+      displayLikes = _localLikeCounts[cur.id] ?? live?.likeCount ?? cur.likeCount;
+      displayViews = _localViewCounts[cur.id] ?? live?.viewCount ?? cur.viewCount;
+    }
+
+    String creatorId = '';
+    String displayName = 'Chargement...'; // Texte propre pendant la récupération
+    String? avatar;
+    bool showPlus = false;
+
+    // 1. Récupération de l'ID du créateur
+    if (isFil && cur != null) {
+      if (_filRaw.isNotEmpty && _currentFeedIndex < _filRaw.length) {
+        creatorId = (_filRaw[_currentFeedIndex]['user_id'] as String?) ?? '';
+      }
+      if (creatorId.isEmpty) {
+        creatorId = ref.watch(mediaCreatorIdProvider(cur.id)).valueOrNull ?? '';
+      }
+    }
+
+    final currentUid = Supabase.instance.client.auth.currentUser?.id;
+
+    if (creatorId.isNotEmpty) {
+      // 2. Recherche du profil (Cache local ou Provider)
+      Map<String, dynamic>? prof = _profiles[creatorId];
+      prof ??= ref.watch(userProfileProvider(creatorId)).valueOrNull;
+
+      if (prof != null) {
+        final uName = prof['username'] as String?;
+        final fName = prof['full_name'] as String?;
+        
+        if (uName != null && uName.trim().isNotEmpty) {
+          displayName = uName.trim();
+        } else if (fName != null && fName.trim().isNotEmpty) {
+          displayName = fName.trim();
+        } else {
+          displayName = 'Utilisateur';
+        }
+        avatar = prof['avatar_url'] as String?;
+      } else {
+        displayName = 'Chargement...';
+      }
+      
+      final isFollowing = _followMap[creatorId] ?? ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true;
+      
+      // Le bouton (+) s'affiche si ce n'est pas notre propre compte et qu'on n'est pas abonné
+      showPlus = (creatorId != currentUid) && !isFollowing && !_newlyFollowedIds.contains(creatorId);
+    } else {
+      displayName = 'TDIA';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      child: SizedBox(
+        height: 60,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            GestureDetector(
+              onTap: () {
+                if (creatorId.isNotEmpty) {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfilePage(userId: creatorId)));
+                } 
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.bottomCenter,
+                    children: [
+                      Container(
+                        width: 34, height: 34,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                          boxShadow: const [BoxShadow(color: Colors.black87, blurRadius: 6)],
+                          image: avatar != null && avatar.isNotEmpty
+                              ? DecorationImage(image: NetworkImage(avatar), fit: BoxFit.cover)
+                              : null,
+                        ),
+                        child: avatar == null || avatar.isEmpty
+                            ? const Center(child: Icon(Icons.person, color: Colors.white, size: 18))
+                            : null,
+                      ),
+                      if (showPlus)
+                        Positioned(
+                          bottom: -6,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() => _newlyFollowedIds.add(creatorId));
+                              MediaService().toggleFollow(creatorId);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(color: kRed, shape: BoxShape.circle),
+                              child: const Icon(Icons.add, color: Colors.white, size: 12),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      displayName,
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white, shadows: [Shadow(color: Colors.black87, blurRadius: 4)]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            _navItem(
+              isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+              cur != null ? _formatNumber(displayLikes) : "J'aime",
+              false,
+              1,
               color: isLiked ? kRed : null,
               onTap: () { if (cur != null) _toggleLike(cur); }
             ),
@@ -1042,21 +1176,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     );
   }
 
-  Widget _navItem(IconData icon, String label, bool sel, int idx, {Color? color, required VoidCallback onTap}) => InkWell(
-    onTap: onTap,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: color ?? Colors.white, size: 24, shadows: const [Shadow(color: Colors.black87, blurRadius: 6)]),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 10, fontWeight: sel ? FontWeight.bold : FontWeight.w500, color: color ?? Colors.white, shadows: const [Shadow(color: Colors.black87, blurRadius: 6)]))
-      ]
-    )
-  );
-}
-
-// VIDEO PLAYER COMPLET : Respecte le format original (Aspect Ratio) sans couper l'image
+              
+              
+              // VIDEO PLAYER COMPLET : Respecte le format original (Aspect Ratio) sans couper l'image
 class FeedVideoPlayer extends StatefulWidget {
   final String videoUrl, coverUrl;
   final bool isPlaying;
