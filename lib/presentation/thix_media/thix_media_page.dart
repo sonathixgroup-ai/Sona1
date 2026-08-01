@@ -13,7 +13,6 @@ import '../../models/media_content.dart';
 import 'providers/thix_media_provider.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
 import 'admin/thix_media_admin_page.dart';
-// IMPORTANT: Assure-toi que ce service pointe vers le MediaService mis à jour avec les requêtes de commentaires
 import '../../services/media_service.dart';
 
 const Color kBg = Color(0xFF050507);
@@ -34,7 +33,6 @@ class MediaCounts {
   });
 }
 
-// Batcher entreprise: 1 RPC pour 50 vues
 class _AnalyticsBatcher {
   static final Set<String> _pending = {};
   static Timer? _timer;
@@ -67,7 +65,14 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   return role == 'admin' || role == 'superadmin';
 });
 
-// MODÈLE DE COMMENTAIRES MIS À JOUR POUR LES RÉPONSES
+// Provider pour récupérer l'avatar de l'utilisateur connecté pour le rond de profil du bas
+final currentUserAvatarProvider = FutureProvider.autoDispose<String?>((ref) async {
+  final uid = Supabase.instance.client.auth.currentUser?.id;
+  if (uid == null) return null;
+  final res = await Supabase.instance.client.from('profiles').select('avatar_url').eq('id', uid).maybeSingle();
+  return res?['avatar_url'] as String?;
+});
+
 class CommentItem {
   final String id, userId, userName, content;
   final String? avatarUrl, parentId;
@@ -110,7 +115,6 @@ final commentCountProvider = FutureProvider.autoDispose.family<int, String>((ref
   return (r?['comment_count'] as int?) ?? 0;
 });
 
-// Polling 12s sur media_stats, pas Realtime -> tient 1M
 final mediaCountsStreamProvider = StreamProvider.autoDispose.family<MediaCounts, String>((ref, mediaId) async* {
   while (true) {
     try {
@@ -130,22 +134,6 @@ final mediaCountsStreamProvider = StreamProvider.autoDispose.family<MediaCounts,
   }
 });
 
-class _NavItemData {
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final int index;
-  final Color? color;
-  
-  _NavItemData({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.index,
-    this.color,
-  });
-}
-
 class ThixMediaPage extends ConsumerStatefulWidget {
   const ThixMediaPage({super.key});
   @override
@@ -155,7 +143,7 @@ class ThixMediaPage extends ConsumerStatefulWidget {
 class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   late PageController _bannerController, _feedController;
   int _currentBannerIndex = 0;
-  Timer? _bannerTimer, _searchDebounce;
+  Timer? _bannerTimer, _searchDebounce, _uiIdleTimer;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -171,9 +159,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   double _pullDistance = 0;
   bool _pullTriggering = false;
   static const double _pullThreshold = 90;
-
-  // --- Timer pour réafficher les barres après arrêt du scroll ---
-  Timer? _uiIdleTimer;
   static const Duration _uiIdleDelay = Duration(milliseconds: 1200);
 
   @override
@@ -205,7 +190,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     super.dispose();
   }
 
-  // Cache les barres + progress immédiatement
   void _hideUI() {
     if (!_immersive) {
       setState(() => _immersive = true);
@@ -213,7 +197,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     _uiIdleTimer?.cancel();
   }
 
-  // Réaffiche les barres + progress après un délai d'inactivité
   void _scheduleShowUI() {
     _uiIdleTimer?.cancel();
     _uiIdleTimer = Timer(_uiIdleDelay, () {
@@ -316,10 +299,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   Widget _buildImage(String url, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
     if (url.isEmpty) return Container(color: kSurface, child: const Icon(Icons.broken_image_rounded, color: kTextGrey));
     return Image.network(
-      url, 
-      width: width, 
-      height: height, 
-      fit: fit, 
+      url, width: width, height: height, fit: fit, 
       cacheWidth: kIsWeb ? null : (width != null ? (width * 2).toInt() : 600), 
       loadingBuilder: (c, child, p) { 
         if (p == null) return child; 
@@ -424,7 +404,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   )
                 ),
 
-              // ANIMATION : LA BARRE DU HAUT GLISSE EN DEHORS DE L'ÉCRAN
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOutCubic,
@@ -440,7 +419,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                 )
               ),
 
-              // ANIMATION : LA BARRE DU BAS GLISSE EN DEHORS DE L'ÉCRAN
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOutCubic,
@@ -484,11 +462,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         children: [
           NotificationListener<ScrollNotification>(
             onNotification: (n) {
-              // Dès qu'on scrolle → cache immédiatement
               if (n is ScrollUpdateNotification || n is ScrollStartNotification) {
                 _hideUI();
               }
-              // Quand le scroll s'arrête → programme la réapparition
               if (n is ScrollEndNotification) {
                 _scheduleShowUI();
               }
@@ -501,11 +477,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               onPageChanged: (i) { 
                 setState(() { 
                   _currentFeedIndex = i; 
-                  // On reste immersif pendant le swipe, le timer s'occupera de réafficher
-                  _immersive = true;
+                  _immersive = true; 
                 }); 
                 _handlePageChanged(i); 
-                // Après le changement de page, on programme aussi le retour de l'UI
                 _scheduleShowUI();
               }, 
               itemBuilder: (c, idx) {
@@ -522,8 +496,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                       isPlaying: isFocused, 
                       isImmersive: _immersive, 
                       onPlayStateChanged: (paused) { 
-                        // Tap sur l'écran : Pause = Affiche UI / Play = Cache UI
-                        // On annule le timer pour ne pas interférer avec le geste utilisateur
                         _uiIdleTimer?.cancel();
                         setState(() => _immersive = !paused); 
                       }
@@ -567,9 +539,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
           ),
           if (_pullDistance > 0 || _filLoading) 
             Positioned(
-              top: 90, 
-              left: 0, 
-              right: 0, 
+              top: 90, left: 0, right: 0, 
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.all(10), 
@@ -819,18 +789,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       live = ref.watch(mediaCountsStreamProvider(cur.id)).valueOrNull; 
     }
     
-    final items = isFil ? [
-      _NavItemData(icon: Icons.movie_filter_rounded, label: 'TDIA', selected: true, index: 0), 
-      _NavItemData(icon: isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded, label: cur != null ? _formatNumber(live?.likeCount ?? cur.likeCount) : "J'aime", selected: false, index: 1, color: isLiked ? kRed : null), 
-      _NavItemData(icon: Icons.chat_bubble_outline_rounded, label: cur != null ? _formatNumber(live?.commentCount ?? cur.commentCount) : 'Commenter', selected: false, index: 2), 
-      _NavItemData(icon: Icons.remove_red_eye_rounded, label: cur != null ? _formatNumber(live?.viewCount ?? cur.viewCount) : 'Vu', selected: false, index: 3)
-    ] : [
-      _NavItemData(icon: Icons.movie_filter_rounded, label: 'TDIA', selected: true, index: 0), 
-      _NavItemData(icon: Icons.search_rounded, label: 'Recherche', selected: false, index: 1), 
-      _NavItemData(icon: Icons.favorite_rounded, label: 'Favoris', selected: false, index: 2), 
-      _NavItemData(icon: Icons.person_rounded, label: 'Profil', selected: false, index: 3)
-    ]; 
-    
+    // Remplacement du bouton TDIA par le cercle de profil et ajout d'un bouton '+' pour poster
+    final avatarUrl = ref.watch(currentUserAvatarProvider).valueOrNull;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 20), 
       child: ClipRRect(
@@ -842,7 +803,86 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
             decoration: BoxDecoration(color: const Color(0xFF12121A).withOpacity(0.85), borderRadius: BorderRadius.circular(26), border: Border.all(color: Colors.white.withOpacity(0.1))), 
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
-              children: items.map((d) => _navItem(d.icon, d.label, d.selected, d.index, isFil: isFil, currentItem: cur, color: d.color)).toList()
+              children: [
+                // 1. Cercle de Profil (Remplace l'ancien bouton TDIA)
+                GestureDetector(
+                  onTap: () {
+                    final uid = Supabase.instance.client.auth.currentUser?.id;
+                    if (uid != null) {
+                      context.go('/profile/$uid');
+                    } else {
+                      context.go(AppRoutes.login);
+                    }
+                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 24, height: 24,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white70, width: 1.5),
+                          image: avatarUrl != null && avatarUrl.isNotEmpty
+                              ? DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover)
+                              : null,
+                        ),
+                        child: avatarUrl == null || avatarUrl.isEmpty
+                            ? const Icon(Icons.person, size: 14, color: Colors.white70)
+                            : null,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text('Compte', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white70)),
+                    ],
+                  ),
+                ),
+
+                // 2. Bouton J'aime / Cœur
+                _navItem(
+                  isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                  cur != null ? _formatNumber(live?.likeCount ?? cur.likeCount) : "J'aime",
+                  false,
+                  1,
+                  color: isLiked ? kRed : null,
+                  onTap: () { if (cur != null) _toggleLike(cur); }
+                ),
+
+                // 3. Bouton Commentaires
+                _navItem(
+                  Icons.chat_bubble_outline_rounded,
+                  cur != null ? _formatNumber(live?.commentCount ?? cur.commentCount) : 'Commenter',
+                  false,
+                  2,
+                  onTap: () { if (cur != null) _openComments(cur); }
+                ),
+
+                // 4. Bouton Vues
+                _navItem(
+                  Icons.remove_red_eye_rounded,
+                  cur != null ? _formatNumber(live?.viewCount ?? cur.viewCount) : 'Vu',
+                  false,
+                  3,
+                  onTap: () {
+                    if (cur != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${cur.viewCount} vues uniques'), backgroundColor: kSurface));
+                    }
+                  }
+                ),
+
+                // 5. Bouton Créer un post (+) pour poster directement dans le Fil
+                GestureDetector(
+                  onTap: () => context.go('/create-post'),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.add_circle_outline_rounded, color: kRed, size: 22),
+                      SizedBox(height: 4),
+                      Text('Poster', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: kRed)),
+                    ],
+                  ),
+                ),
+              ],
             )
           )
         )
@@ -850,26 +890,8 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     ); 
   }
 
-  Widget _navItem(IconData icon, String label, bool sel, int idx, {required bool isFil, MediaContent? currentItem, Color? color}) => InkWell(
-    onTap: () { 
-      if (idx == 0) { 
-        if (ref.read(selectedCategoryProvider.notifier).state == 'Fil') {
-          _feedController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeOutCubic); 
-        } else {
-          ref.read(selectedCategoryProvider.notifier).state = 'Fil'; 
-        }
-        return; 
-      } 
-      if (isFil) { 
-        switch (idx) { 
-          case 1: if (currentItem != null) _toggleLike(currentItem); break; 
-          case 2: if (currentItem != null) _openComments(currentItem); break; 
-          case 3: if (currentItem != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${currentItem.viewCount} vues uniques'), backgroundColor: kSurface)); break; 
-        } 
-      } else { 
-        if (idx == 3) context.go(AppRoutes.userDashboard); 
-      } 
-    }, 
+  Widget _navItem(IconData icon, String label, bool sel, int idx, {Color? color, required VoidCallback onTap}) => InkWell(
+    onTap: onTap, 
     child: Column(
       mainAxisSize: MainAxisSize.min, 
       mainAxisAlignment: MainAxisAlignment.center, 
@@ -882,7 +904,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   );
 }
 
-// LECTEUR VIDÉO AVEC BARRE DE PROGRESSION INTERACTIVE ET IMMERSIVE
 class FeedVideoPlayer extends StatefulWidget { 
   final String videoUrl, coverUrl; 
   final bool isPlaying, isImmersive; 
@@ -979,12 +1000,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           ), 
           if (_paused) const Center(child: Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 64)), 
           
-          // BARRE DE PROGRESSION INTERACTIVE ET GLISSANTE
           AnimatedPositioned(
             duration: const Duration(milliseconds: 250), 
             curve: Curves.easeInOutCubic,
             left: 0, right: 0, 
-            // -20 cache la barre en mode immersif, 80 la place au-dessus de la nav
             bottom: widget.isImmersive ? -20 : 80, 
             child: GestureDetector(
               onHorizontalDragStart: (d) {
@@ -1007,7 +1026,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                 _seekToPercent(pct);
               },
               child: Container(
-                height: 24, // Zone de touche tactile confortable
+                height: 24, 
                 color: Colors.transparent,
                 alignment: Alignment.bottomCenter,
                 child: ValueListenableBuilder<Duration>(
@@ -1032,7 +1051,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 }
 
-// ---------------- GESTION AVANCÉE DES COMMENTAIRES (IMBRIQUÉS, LIKES, ÉDITION) ----------------
 class _CommentsSheet extends ConsumerStatefulWidget { 
   final String mediaId, mediaTitle; 
   const _CommentsSheet({required this.mediaId, required this.mediaTitle}); 
@@ -1066,7 +1084,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
           .from('media_comments')
           .select('id,user_id,user_name,avatar_url,content,created_at,parent_id,like_count,reply_count')
           .eq('media_id', widget.mediaId)
-          .isFilter('parent_id', null) // isFilter pour is null
+          .isFilter('parent_id', null)
           .order('created_at', ascending: false)
           .limit(50);
           
@@ -1110,12 +1128,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     setState(() => _sending = true); 
     try { 
       if (_editingComment != null) {
-        // Mode Modification
         await Supabase.instance.client.from('media_comments').update({'content': t}).eq('id', _editingComment!.id);
         setState(() => _editingComment = null);
         _fetchRoots(); 
       } else {
-        // Mode Création (Nouveau ou Réponse)
         final p = await Supabase.instance.client.from('profiles').select('username,avatar_url').eq('id', uid).maybeSingle(); 
         final name = (p?['username'] as String?)?.isNotEmpty == true ? p!['username'] : 'Utilisateur'; 
         
@@ -1131,9 +1147,9 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
         }); 
         
         if (parentId != null) {
-          _fetchReplies(parentId); // Rafraîchit les réponses pour ce parent
+          _fetchReplies(parentId);
         } else {
-          _fetchRoots(); // Rafraîchit la liste principale
+          _fetchRoots();
         }
       }
       
@@ -1226,7 +1242,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                 children: [
                   Row(
                     children: [
-                      Text(c.userName, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)), 
+                      GestureDetector(
+                        onTap: () => context.go('/profile/${c.userId}'),
+                        child: Text(c.userName, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                      ), 
                       const SizedBox(width: 8),
                       Text(_formatDate(c.createdAt), style: const TextStyle(color: kTextGrey, fontSize: 11)),
                     ]
@@ -1355,7 +1374,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                         onSubmitted: (_) => _submit(), 
                         style: const TextStyle(color: Colors.white, fontSize: 13.5), 
                         decoration: InputDecoration(
-                          hintText: _editingComment != null ? 'Modifier le commentaire...' : (_replyingTo != null ? 'Ajouter une réponse...' : 'Ajouter un commentaire...'), 
+                          hintText: _editingComment != null ? 'Modifier le commentaire...' : (_replyingTox != null ? 'Ajouter une réponse...' : 'Ajouter un commentaire...'), 
                           hintStyle: const TextStyle(color: kTextGrey, fontSize: 13.5), 
                           border: InputBorder.none, 
                           isDense: true
