@@ -63,14 +63,12 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   return role == 'admin' || role == 'superadmin';
 });
 
-// Fallback Provider 1 : Va chercher l'ID du créateur si absent
 final mediaCreatorIdProvider = FutureProvider.autoDispose.family<String?, String>((ref, mediaId) async {
   if (mediaId.isEmpty) return null;
   final res = await Supabase.instance.client.from('media_content').select('user_id').eq('id', mediaId).maybeSingle();
   return res?['user_id'] as String?;
 });
 
-// Fallback Provider 2 : Va chercher le profil complet
 final userProfileProvider = FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((ref, userId) async {
   if (userId.isEmpty) return null;
   final res = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url').eq('id', userId).maybeSingle();
@@ -458,7 +456,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
           final currentItem = _filItems.isNotEmpty ? _filItems[_currentFeedIndex.clamp(0, _filItems.length - 1)] : null;
           final showTopBar = !(_immersive && selectedCategory == 'Fil');
 
-          // FILTRAGE STRICT : Les vidéos du "Fil" n'apparaissent jamais dans l'Accueil
+          // FILTRAGE STRICT : Les vidéos du "Fil" n'apparaissent JAMAIS dans l'Accueil
           final accueilMedia = mediaList.where((m) => m.type.toLowerCase() != 'fil').toList();
           final bannerItemsList = accueilMedia.take(5).toList();
 
@@ -879,7 +877,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     )
   );
 
-  // LA NOUVELLE BARRE DU BAS : Gestion du Fallback Vrai Nom et Image
+  // LA BARRE DU BAS : Le Fallback Ultime assigne les vidéos sans créateur à ton compte
   Widget _bottomNav(String selCat, MediaContent? cur) {
     final isFil = selCat == 'Fil';
     final isLiked = cur != null && _likedMediaIds.contains(cur.id);
@@ -895,7 +893,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     }
 
     String creatorId = '';
-    String displayName = 'TDIA';
+    String displayName = 'Utilisateur';
     String? avatar;
     bool showPlus = false;
 
@@ -903,15 +901,17 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
       creatorId = (_filRaw[_currentFeedIndex]['user_id'] as String?) ?? '';
     }
     
-    // FALLBACK ULTIME : Si la vidéo est ancienne et n'a pas été mappée dans _filRaw
     if (creatorId.isEmpty && cur != null) {
       creatorId = ref.watch(mediaCreatorIdProvider(cur.id)).valueOrNull ?? '';
     }
 
+    // FALLBACK ULTIME : Si toujours vide, c'est TON compte qui est assigné à la vidéo
+    if (creatorId.isEmpty) {
+      creatorId = Supabase.instance.client.auth.currentUser?.id ?? '';
+    }
+
     if (creatorId.isNotEmpty) {
-      // 1. Cherche dans le cache de la vue SQL
       Map<String, dynamic>? prof = _profiles[creatorId];
-      // 2. Si non trouvé (ancienne vidéo), cherche via Riverpod
       prof ??= ref.watch(userProfileProvider(creatorId)).valueOrNull;
 
       if (prof != null) {
@@ -922,18 +922,15 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
           displayName = uName.trim();
         } else if (fName != null && fName.trim().isNotEmpty) {
           displayName = fName.trim();
-        } else {
-          displayName = 'Utilisateur';
-        }
+        } 
         avatar = prof['avatar_url'] as String?;
-      } else {
-        displayName = 'Utilisateur';
-      }
+      } 
       
       final isFollowing = _followMap[creatorId] ?? ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true;
-      showPlus = !isFollowing && !_newlyFollowedIds.contains(creatorId);
+      // Ne pas afficher "+" si c'est ton propre compte
+      final isMe = creatorId == Supabase.instance.client.auth.currentUser?.id;
+      showPlus = !isMe && !isFollowing && !_newlyFollowedIds.contains(creatorId);
     } else {
-      // Video système TDIA (Admin) - pas de bouton d'abonnement
       displayName = 'TDIA';
       showPlus = false;
       avatar = null;
@@ -965,7 +962,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 1.5),
-                          boxShadow: const [Shadow(color: Colors.black87, blurRadius: 6) is BoxShadow ? BoxShadow(color: Colors.black54, blurRadius: 6) : BoxShadow(color: Colors.black54, blurRadius: 6)],
+                          boxShadow: const [Shadow(color: Colors.black87, blurRadius: 6)],
                           image: avatar != null && avatar.isNotEmpty
                               ? DecorationImage(image: NetworkImage(avatar), fit: BoxFit.cover)
                               : null,
@@ -1068,7 +1065,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
   );
 }
 
-// VIDEO PLAYER COMPLET (Avec barre de progression et format Aspect Ratio respecté)
+// VIDEO PLAYER COMPLET : Respecte le format original (Aspect Ratio) sans couper l'image
 class FeedVideoPlayer extends StatefulWidget {
   final String videoUrl, coverUrl;
   final bool isPlaying;
@@ -1144,7 +1141,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    // FORMAT DE LA COVER RESPECTÉ ICI
+    // LA COUVERTURE : Affichée au format original sans la couper
     if (!_init) {
       return Container(
         color: Colors.black, 
@@ -1167,7 +1164,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // FORMAT DE LA VIDÉO RESPECTÉ ICI (Sans crop, centré)
+          // LA VIDÉO : Centrée au milieu de l'écran (gardant ses proportions)
           Container(
             color: Colors.black,
             child: Center(
@@ -1231,7 +1228,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 }
 
-// COMMENTS SHEET COMPLET (Avec likes de commentaires en temps réel)
+// COMMENTS SHEET
 class _CommentsSheet extends ConsumerStatefulWidget {
   final String mediaId, mediaTitle;
   const _CommentsSheet({required this.mediaId, required this.mediaTitle});
