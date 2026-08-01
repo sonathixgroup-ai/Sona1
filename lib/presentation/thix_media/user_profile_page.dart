@@ -14,6 +14,7 @@ const Color kRed = Color(0xFFFF1A1A);
 const Color kTextWhite = Color(0xFFFFFFFF);
 const Color kTextGrey = Color(0xFF9CA3AF);
 const Color kBorderLight = Color(0x14FFFFFF);
+const Color kTdiaBlue = Color(0xFF2D6CDF); // AJOUT DE LA COULEUR MANQUANTE ICI
 
 class UserProfilePage extends StatefulWidget {
   final String userId;
@@ -75,7 +76,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
       if (mounted) {
         setState(() {
           _profile = results[0] as Map<String, dynamic>?;
-          // CORRECTION DU TYPAGE ICI : On force explicitement Map<String, int>
           _stats = Map<String, int>.from(results[1] as Map);
           _isFollowing = results[2] as bool;
           
@@ -366,7 +366,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 }
 
-
 // ==========================================================
 // COMPOSANT : CARTE VIDÉO AUTONOME (Avec Stats Temps Réel)
 // ==========================================================
@@ -394,7 +393,6 @@ class _ProfileVideoCardState extends State<_ProfileVideoCard> {
   }
 
   void _listenToStats() {
-    // Écoute de la vue SQL "media_stats" en temps réel par intervalle court (sans surcharger)
     _statsSub = Stream.periodic(const Duration(seconds: 15)).asyncMap((_) async {
       final r = await Supabase.instance.client
           .from('media_stats')
@@ -523,7 +521,7 @@ class _ProfileVideoCardState extends State<_ProfileVideoCard> {
                         _buildStatIcon(Icons.favorite_rounded, _format(_likes), color: kRed),
                         _buildStatIcon(Icons.chat_bubble_rounded, _format(_comments)),
                         
-                        // Badge de la catégorie (ex: Musique, Formation)
+                        // Badge de la catégorie
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
