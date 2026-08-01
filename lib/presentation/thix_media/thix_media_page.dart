@@ -34,8 +34,7 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
 });
 
 /// Flux live du compteur (likes/vues/commentaires) — n'est ouvert que pour
-/// la vidéo actuellement visible du Fil (voir _handlePageChanged), jamais
-/// pour tout le feed. C'est ce qui garde ça scalable à des millions d'utilisateurs.
+/// la vidéo actuellement visible du Fil, jamais pour tout le feed.
 final mediaCountsStreamProvider = StreamProvider.autoDispose.family<MediaCounts, String>((ref, mediaId) {
   return MediaService().watchMediaCounts(mediaId);
 });
@@ -67,7 +66,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
 
   Set<String> _likedMediaIds = {};
   final Set<String> _viewedMediaIds = {};
-  final Map<String, int> _likeDelta = {};
 
   bool _immersive = false;
   int _currentFeedIndex = 0;
@@ -75,7 +73,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
 
   // ---- ÉTAT DU FIL MÉLANGÉ (indépendant de la date, scalable) ----
   final List<MediaContent> _filItems = [];
-  double _filCursor = 0;
   bool _filLoading = false;
   bool _filInitialized = false;
 
@@ -83,6 +80,11 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   double _pullDistance = 0;
   bool _pullTriggering = false;
   static const double _pullThreshold = 90;
+
+  // ---- GARDE-FOU ANTI-EMPILEMENT DE BOTTOM SHEETS ----
+  // Empêche l'ouverture d'une nouvelle sheet tant qu'une est déjà active :
+  // c'est ce qui causait le voile de plus en plus opaque à chaque tap.
+  bool _commentsSheetOpen = false;
 
   @override
   void initState() {
@@ -119,12 +121,12 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   Future<void> _initFilFeed({bool reshuffle = false}) async {
     if (_filLoading) return;
     setState(() => _filLoading = true);
-    
+
     try {
       if (reshuffle) _viewedMediaIds.clear();
-      
+
       final page = await _mediaService.fetchShuffledFeed(seenIds: _viewedMediaIds.toList(), limit: 12);
-      
+
       if (!mounted) return;
       setState(() {
         _filItems.clear();
@@ -132,17 +134,17 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         _filInitialized = true;
         _currentFeedIndex = 0;
       });
-      
+
       await _syncLikedMedias(_filItems);
       if (_filItems.isNotEmpty) _registerView(_filItems.first);
-      
+
       if (reshuffle && _feedController.hasClients) {
         _feedController.jumpToPage(0);
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur serveur: $e'), backgroundColor: kRed));
-      setState(() => _filInitialized = true); 
+      setState(() => _filInitialized = true);
     } finally {
       if (mounted) setState(() => _filLoading = false);
     }
@@ -151,11 +153,11 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   Future<void> _loadMoreFil() async {
     if (_filLoading) return;
     setState(() => _filLoading = true);
-    
+
     try {
       final page = await _mediaService.fetchShuffledFeed(seenIds: _viewedMediaIds.toList(), limit: 12);
       if (!mounted) return;
-      
+
       setState(() {
         _filItems.addAll(page.items);
       });
@@ -250,13 +252,21 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     }
   }
 
+  // ✅ Garde-fou : n'ouvre la sheet que si aucune n'est déjà active,
+  // et réinitialise le flag seulement quand elle se ferme réellement.
   void _openComments(MediaContent item) {
+    if (_commentsSheetOpen) return;
+    _commentsSheetOpen = true;
+
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => _CommentsSheet(mediaId: item.id, mediaTitle: item.title),
-    );
+    ).whenComplete(() {
+      _commentsSheetOpen = false;
+    });
   }
 
   void _handlePageChanged(int index) {
@@ -386,39 +396,43 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
             final item = _filItems[index];
             final isFocused = _currentFeedIndex == index;
 
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => setState(() => _immersive = !_immersive),
-              child: Stack(fit: StackFit.expand, children: [
-                // 1. Lecteur vidéo pur (Plein écran forcé, aucune couche par dessus)
-                FeedVideoPlayer(videoUrl: item.videoUrl, coverUrl: item.coverUrl, isPlaying: isFocused),
-
-                // 2. Texte brut posé directement sur la vidéo, SANS AUCUN FOND NI COUCHE.
-                Positioned(
-                  left: 20, bottom: 40, right: 20,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start, 
-                    mainAxisSize: MainAxisSize.min, 
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: kTdiaBlue.withOpacity(0.2), borderRadius: BorderRadius.circular(8), border: Border.all(color: kTdiaBlue.withOpacity(0.5))),
-                        child: Text(item.type, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(item.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1.1)),
-                      if (item.subtitle != null) ...[
-                        const SizedBox(height: 6),
-                        Text(item.subtitle!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
-                      ],
-                    ]
+            // ✅ Un seul GestureDetector, dans FeedVideoPlayer : le tap simple
+            // gère play/pause, l'appui long bascule l'immersion. Plus de
+            // double-détecteur concurrent sur la même zone.
+            return Stack(fit: StackFit.expand, children: [
+              FeedVideoPlayer(
+                videoUrl: item.videoUrl,
+                coverUrl: item.coverUrl,
+                isPlaying: isFocused,
+                onLongPress: () => setState(() => _immersive = !_immersive),
+              ),
+              IgnorePointer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.85), Colors.black.withOpacity(0.2), Colors.black.withOpacity(0.4)], stops: const [0.0, 0.4, 1.0]),
                   ),
                 ),
-              ]),
-            );
+              ),
+              IgnorePointer(
+                child: Positioned(
+                  left: 20, bottom: 40, right: 20,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: kTdiaBlue.withOpacity(0.2), borderRadius: BorderRadius.circular(8), border: Border.all(color: kTdiaBlue.withOpacity(0.5))),
+                      child: Text(item.type, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(item.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1.1)),
+                    const SizedBox(height: 8),
+                    if (item.subtitle != null)
+                      Text(item.subtitle!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
+                  ]),
+                ),
+              ),
+            ]);
           },
         ),
-        // Indicateur de tirage du pull-to-refresh
         if (_pullDistance > 0 || _filLoading)
           Positioned(
             top: 90, left: 0, right: 0,
@@ -745,13 +759,24 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   }
 }
 
-// ---------------- LECTEUR VIDÉO DU FIL : autoplay + pause + double clic ----------------
+// ---------------- LECTEUR VIDÉO DU FIL : autoplay + pause + barre de progression ----------------
+// ✅ Un seul GestureDetector gère à la fois le tap (play/pause) et l'appui
+// long (immersion) — plus de détecteurs concurrents sur la même zone,
+// ce qui éliminait les rebuilds en boucle à l'origine de l'opacité croissante.
 
 class FeedVideoPlayer extends StatefulWidget {
   final String videoUrl;
   final String coverUrl;
   final bool isPlaying;
-  const FeedVideoPlayer({super.key, required this.videoUrl, required this.coverUrl, required this.isPlaying});
+  final VoidCallback? onLongPress;
+
+  const FeedVideoPlayer({
+    super.key,
+    required this.videoUrl,
+    required this.coverUrl,
+    required this.isPlaying,
+    this.onLongPress,
+  });
 
   @override
   State<FeedVideoPlayer> createState() => _FeedVideoPlayerState();
@@ -765,7 +790,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   Timer? _hideTimer;
   final ValueNotifier<Duration> _position = ValueNotifier(Duration.zero);
   Duration _duration = Duration.zero;
-  Offset? _tapPosition;
 
   @override
   void initState() {
@@ -836,16 +860,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     return '${two(d.inMinutes.remainder(60))}:${two(d.inSeconds.remainder(60))}';
   }
 
-  void _seekRelative(int seconds) {
-    if (!_isInitialized) return;
-    final newPos = _position.value + Duration(seconds: seconds);
-    Duration target = newPos;
-    if (target < Duration.zero) target = Duration.zero;
-    if (target > _duration) target = _duration;
-    _controller.seekTo(target);
-    _scheduleHide();
-  }
-
   @override
   void dispose() {
     _hideTimer?.cancel();
@@ -870,29 +884,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     return GestureDetector(
-      onTapDown: (details) => _tapPosition = details.globalPosition,
-      onTap: _togglePlayPause,
-      onDoubleTap: () {
-        if (_tapPosition == null) return;
-        final w = MediaQuery.of(context).size.width;
-        if (_tapPosition!.dx < w / 2) {
-          _seekRelative(-10);
-        } else {
-          _seekRelative(10);
-        }
-      },
+      behavior: HitTestBehavior.opaque,
+      onTap: _togglePlayPause, // tap simple = play/pause uniquement
+      onLongPress: widget.onLongPress, // appui long = masquer/afficher les barres
       child: Stack(fit: StackFit.expand, children: [
-        // Remplissage complet plein écran sans espace vide
-        SizedBox.expand(
-          child: FittedBox(
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-            child: SizedBox(
-              width: _controller.value.isInitialized ? _controller.value.size.width : 100,
-              height: _controller.value.isInitialized ? _controller.value.size.height : 100,
-              child: VideoPlayer(_controller),
-            ),
-          ),
+        FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(width: _controller.value.size.width, height: _controller.value.size.height, child: VideoPlayer(_controller)),
         ),
         if (_userPaused)
           const Center(
@@ -952,7 +950,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 }
 
-// ---------------- SHEET DE COMMENTAIRES ----------------
+// ----------------------------------------------------------------------
+// SHEET DE COMMENTAIRES — 1 seul niveau d'imbrication, réponses repliées
+// par défaut, chargées à la demande. Fixe l'empilement de sheets grâce
+// à useRootNavigator + garde-fou anti-double-ouverture.
+// ----------------------------------------------------------------------
 
 class _CommentsSheet extends ConsumerStatefulWidget {
   final String mediaId, mediaTitle;
@@ -979,6 +981,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
   final Map<String, List<CommentItem>> _repliesByParent = {};
   final Set<String> _expandedParents = {};
   final Set<String> _loadingReplies = {};
+
+  // ✅ Garde-fou local : empêche l'ouverture en double du menu d'options
+  // (Modifier/Supprimer/Signaler) qui causait l'empilement de barriers.
+  bool _optionsSheetOpen = false;
 
   @override
   void initState() {
@@ -1063,14 +1069,19 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
   }
 
   void _showCommentOptions(CommentItem com, bool isAdmin) {
+    if (_optionsSheetOpen) return; // ✅ bloque les taps répétés / doubles ouvertures
+    _optionsSheetOpen = true;
+
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     final isAuthor = currentUserId != null && currentUserId == com.userId;
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true, // ✅ évite l'empilement avec la sheet parente
+      barrierColor: Colors.black45,
       backgroundColor: kSurface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const SizedBox(height: 10),
           Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(4))),
@@ -1080,7 +1091,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
               leading: const Icon(Icons.edit_rounded, color: Colors.white),
               title: const Text('Modifier', style: TextStyle(color: Colors.white)),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.of(sheetContext).pop(); // ✅ pop du bon Navigator
                 setState(() {
                   _editingComment = com;
                   _replyingTo = null;
@@ -1094,7 +1105,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
               leading: const Icon(Icons.delete_outline_rounded, color: kRed),
               title: const Text('Supprimer', style: TextStyle(color: kRed)),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.of(sheetContext).pop();
                 _deleteComment(com);
               },
             ),
@@ -1102,14 +1113,20 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
             leading: const Icon(Icons.flag_outlined, color: Colors.orangeAccent),
             title: const Text('Signaler', style: TextStyle(color: Colors.orangeAccent)),
             onTap: () {
-              Navigator.pop(context);
+              Navigator.of(sheetContext).pop();
               _service.reportComment(com.id);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Signalé aux modérateurs'), backgroundColor: kSurface));
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Signalé aux modérateurs'), backgroundColor: kSurface),
+                );
+              }
             },
           ),
         ]),
       ),
-    );
+    ).whenComplete(() {
+      _optionsSheetOpen = false; // ✅ réinitialisé seulement à la fermeture réelle
+    });
   }
 
   Future<void> _deleteComment(CommentItem com) async {
