@@ -279,9 +279,19 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       _navItem(isLiked? Icons.favorite_rounded:Icons.favorite_outline_rounded, cur!=null?_formatNumber(displayLikes):"J'aime", false, 1, color:isLiked?kRed:null, onTap:(){ if(cur!=null) _toggleLike(cur); }),
       _navItem(Icons.chat_bubble_outline_rounded, cur!=null?_formatNumber(live?.commentCount??cur.commentCount):'Commenter', false, 2, onTap:(){ if(cur!=null) _openComments(cur); }),
       _navItem(Icons.remove_red_eye_rounded, cur!=null?_formatNumber(displayViews):'Vu', false, 3, onTap:(){}),
-      GestureDetector(onTap:()=>Navigator.push(context, MaterialPageRoute(builder:(_)=>const CreatePostPage())), child:Column(mainAxisSize:MainAxisSize.min, mainAxisAlignment:MainAxisAlignment.center, children:const [Icon(Icons.add_circle_outline_rounded,color:kRed,size:22), SizedBox(height:4), Text('Poster', style:TextStyle(fontSize:10,fontWeight:FontWeight.bold,color:kRed))])),
-    ]))))));
-  }
+      
+      GestureDetector(
+  onTap:()=>Navigator.push(context, MaterialPageRoute(builder:(_)=>const CreatePostPage())), 
+  child: const Column(
+    mainAxisSize:MainAxisSize.min, 
+    mainAxisAlignment:MainAxisAlignment.center, 
+    children: [
+      Icon(Icons.add_circle_outline_rounded,color:kRed,size:22), 
+      SizedBox(height:4), 
+      Text('Poster', style:TextStyle(fontSize:10,fontWeight:FontWeight.bold,color:kRed))
+    ]
+  )
+),
   Widget _navItem(IconData icon, String label, bool sel, int idx, {Color? color, required VoidCallback onTap})=>InkWell(onTap:onTap, child:Column(mainAxisSize:MainAxisSize.min, mainAxisAlignment:MainAxisAlignment.center, children:[Icon(icon,color:color??(sel?Colors.white:Colors.white38),size:22), const SizedBox(height:4), Text(label, style:TextStyle(fontSize:10,fontWeight:sel?FontWeight.bold:FontWeight.w500,color:color??(sel?Colors.white:Colors.white38)))]));
 }
 
