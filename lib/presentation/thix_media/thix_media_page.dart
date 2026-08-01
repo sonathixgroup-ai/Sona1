@@ -13,7 +13,6 @@ import '../../models/media_content.dart';
 import 'providers/thix_media_provider.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
 import 'admin/thix_media_admin_page.dart';
-// IMPORTANT: Assure-toi que ce service pointe vers le MediaService mis à jour avec les requêtes de commentaires
 import '../../services/media_service.dart';
 
 const Color kBg = Color(0xFF050507);
@@ -34,7 +33,6 @@ class MediaCounts {
   });
 }
 
-// Batcher entreprise: 1 RPC pour 50 vues
 class _AnalyticsBatcher {
   static final Set<String> _pending = {};
   static Timer? _timer;
@@ -67,7 +65,6 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   return role == 'admin' || role == 'superadmin';
 });
 
-// MODÈLE DE COMMENTAIRES MIS À JOUR POUR LES RÉPONSES
 class CommentItem {
   final String id, userId, userName, content;
   final String? avatarUrl, parentId;
@@ -110,7 +107,6 @@ final commentCountProvider = FutureProvider.autoDispose.family<int, String>((ref
   return (r?['comment_count'] as int?) ?? 0;
 });
 
-// Polling 12s sur media_stats, pas Realtime -> tient 1M
 final mediaCountsStreamProvider = StreamProvider.autoDispose.family<MediaCounts, String>((ref, mediaId) async* {
   while (true) {
     try {
@@ -294,9 +290,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     if (url.isEmpty) return Container(color: kSurface, child: const Icon(Icons.broken_image_rounded, color: kTextGrey));
     return Image.network(
       url, 
-      width: width, 
-      height: height, 
-      fit: fit, 
+      width: width, height: height, fit: fit, 
       cacheWidth: kIsWeb ? null : (width != null ? (width * 2).toInt() : 600), 
       loadingBuilder: (c, child, p) { 
         if (p == null) return child; 
@@ -401,11 +395,11 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   )
                 ),
 
-              // ANIMATION : LA BARRE DU HAUT GLISSE EN DEHORS DE L'ÉCRAN
+              // BARRE DU HAUT (DISPARAÎT AU SCROLL, RÉAPARAÎT À L'ARRÊT/TAP)
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOutCubic,
-                top: showBars ? 0 : -100, 
+                top: showBars ? 0 : -120, 
                 left: 0, right: 0, 
                 child: IgnorePointer(
                   ignoring: !showBars,
@@ -417,7 +411,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                 )
               ),
 
-              // ANIMATION : LA BARRE DU BAS GLISSE EN DEHORS DE L'ÉCRAN
+              // BARRE DU BAS (DISPARAÎT AU SCROLL, RÉAPARAÎT À L'ARRÊT/TAP)
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOutCubic,
@@ -459,15 +453,20 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       },
       child: Stack(
         children: [
-          NotificationListener<UserScrollNotification>(
-            onNotification: (n) { 
-              if (n.direction != ScrollDirection.idle && !_immersive) { 
-                WidgetsBinding.instance.addPostFrameCallback((_) { 
-                  if (mounted) setState(() => _immersive = true); // Cache les menus au scroll
-                }); 
-              } 
-              return false; 
-            }, 
+          // GESTION DU SCROLL INTELLIGENT : DISPARAÎT QUAND ON SCROLLE, RÉAPARAÎT QUAND ON S'ARRÊTE
+          NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (n is ScrollStartNotification) {
+                if (!_immersive) {
+                  setState(() => _immersive = true); // Disparition immédiate au mouvement
+                }
+              } else if (n is ScrollEndNotification) {
+                // Optionnel : tu peux laisser _immersive à true pour n'afficher qu'au tap, 
+                // ou le remettre à false ici si tu veux que ça réapparaisse tout seul à l'arrêt.
+                // Actuellement configuré pour réapparaître au TAP sur l'écran (via onPlayStateChanged).
+              }
+              return false;
+            },
             child: PageView.builder(
               controller: _feedController, 
               scrollDirection: Axis.vertical, 
@@ -475,7 +474,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               onPageChanged: (i) { 
                 setState(() { 
                   _currentFeedIndex = i; 
-                  _immersive = true; // Immersif auto au swipe
+                  _immersive = true; 
                 }); 
                 _handlePageChanged(i); 
               }, 
@@ -532,13 +531,11 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                   ]
                 );
               }
-            )
+            ),
           ),
           if (_pullDistance > 0 || _filLoading) 
             Positioned(
-              top: 90, 
-              left: 0, 
-              right: 0, 
+              top: 90, left: 0, right: 0, 
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.all(10), 
@@ -948,12 +945,12 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           ), 
           if (_paused) const Center(child: Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 64)), 
           
-          // BARRE DE PROGRESSION INTERACTIVE ET GLISSANTE
+          // BARRE DE PROGRESSION INTERACTIVE ET IMMERSIVE
           AnimatedPositioned(
             duration: const Duration(milliseconds: 250), 
             curve: Curves.easeInOutCubic,
             left: 0, right: 0, 
-            // 80 px la place au-dessus de la nav bar. -10 px la cache en bas de l'écran lors du scroll
+            // 80 px la place au-dessus de la nav bar. -20 px la cache en bas lors du scroll
             bottom: widget.isImmersive ? -20 : 80, 
             child: GestureDetector(
               onHorizontalDragStart: (d) {
@@ -976,7 +973,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                 _seekToPercent(pct);
               },
               child: Container(
-                height: 24, // Zone de touche tactile confortable
+                height: 24, // Zone tactile confortable pour le doigt
                 color: Colors.transparent,
                 alignment: Alignment.bottomCenter,
                 child: ValueListenableBuilder<Duration>(
@@ -1035,7 +1032,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
           .from('media_comments')
           .select('id,user_id,user_name,avatar_url,content,created_at,parent_id,like_count,reply_count')
           .eq('media_id', widget.mediaId)
-          .isFilter('parent_id', null) // isFilter pour is null
+          .isFilter('parent_id', null)
           .order('created_at', ascending: false)
           .limit(50);
           
@@ -1079,12 +1076,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     setState(() => _sending = true); 
     try { 
       if (_editingComment != null) {
-        // Mode Modification
         await Supabase.instance.client.from('media_comments').update({'content': t}).eq('id', _editingComment!.id);
         setState(() => _editingComment = null);
         _fetchRoots(); 
       } else {
-        // Mode Création (Nouveau ou Réponse)
         final p = await Supabase.instance.client.from('profiles').select('username,avatar_url').eq('id', uid).maybeSingle(); 
         final name = (p?['username'] as String?)?.isNotEmpty == true ? p!['username'] : 'Utilisateur'; 
         
@@ -1100,9 +1095,9 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
         }); 
         
         if (parentId != null) {
-          _fetchReplies(parentId); // Rafraîchit les réponses pour ce parent
+          _fetchReplies(parentId);
         } else {
-          _fetchRoots(); // Rafraîchit la liste principale
+          _fetchRoots();
         }
       }
       
