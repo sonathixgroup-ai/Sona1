@@ -95,15 +95,15 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     finally{ if(mounted) setState(()=>_filLoading=false); }
   }
 
-  Future<void> _loadMoreFil() async {
+ Future<void> _loadMoreFil() async {
     if(_filLoading) return; setState(()=>_filLoading=true);
     try{
       if(_seenIds.length>200){ _seenIds.removeAll(_seenIds.take(_seenIds.length-200).toList()); }
       final page=await MediaService().fetchEnrichedFeed(seenIds:_seenIds.toList(), limit:12);
       if(!mounted) return;
+      final newItems=page.items.where((e)=>!_seenIds.contains(e.id)).toList();
+      final newRaw=page.raw.where((r)=>!_seenIds.contains(r['id'] as String)).toList();
       setState((){
-        final newItems=page.items.where((e)=>!_seenIds.contains(e.id)).toList();
-        final newRaw=page.raw.where((r)=>!_seenIds.contains(r['id'] as String)).toList();
         _filItems.addAll(newItems); _filRaw.addAll(newRaw); _seenIds.addAll(newItems.map((e)=>e.id));
         for(var r in page.raw){ final uid=r['user_id'] as String?; if(uid!=null){ _profiles[uid]={'username': r['username'], 'avatar_url': r['avatar_url']}; _followMap[uid]=(r['is_following'] as bool?)?? false; } }
       });
