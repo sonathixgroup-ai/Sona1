@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +14,6 @@ import 'providers/thix_media_provider.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
 import 'admin/thix_media_admin_page.dart';
 import '../../services/media_service.dart';
-
 import 'create_post_page.dart';
 import 'user_profile_page.dart';
 
@@ -30,16 +28,9 @@ const Color kTdiaBlue = Color(0xFF2D6CDF);
 
 class MediaCounts {
   final int likeCount, viewCount, commentCount;
-  const MediaCounts({
-    required this.likeCount,
-    required this.viewCount,
-    required this.commentCount,
-  });
+  const MediaCounts({required this.likeCount, required this.viewCount, required this.commentCount});
 }
 
-/// Batching des vues : on n'écrit JAMAIS une ligne par vue individuelle.
-/// On accumule les IDs côté client et on envoie un seul appel RPC groupé
-/// toutes les 8s. Ça protège la DB de millions d'inserts/s.
 class _AnalyticsBatcher {
   static final Set<String> _pending = {};
   static Timer? _timer;
@@ -78,12 +69,9 @@ final mediaCreatorIdProvider = FutureProvider.autoDispose.family<String?, String
   return res?['user_id'] as String?;
 });
 
-// SCALABILITÉ : on récupère aussi `role` pour savoir si le créateur est
-// un compte admin/officiel -> permet d'afficher "TDIA" sans bouton
-// d'abonnement, sans avoir besoin d'une requête séparée.
 final userProfileProvider = FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((ref, userId) async {
   if (userId.isEmpty) return null;
-  final res = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url, role').eq('id', userId).maybeSingle();
+  final res = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url').eq('id', userId).maybeSingle();
   return res;
 });
 
@@ -137,10 +125,6 @@ final commentCountProvider = FutureProvider.autoDispose.family<int, String>((ref
   return (r?['comment_count'] as int?) ?? 0;
 });
 
-/// SCALABILITÉ : plus de polling toutes les 12s (coût = 1 requête DB
-/// par viewer actif toutes les 12s -> explose avec des millions
-/// d'utilisateurs simultanés). On utilise le Realtime de Supabase :
-/// Postgres pousse la mise à jour uniquement quand la ligne change.
 final mediaCountsStreamProvider = StreamProvider.autoDispose.family<MediaCounts, String>((ref, mediaId) {
   return Supabase.instance.client
       .from('media_stats')
@@ -156,10 +140,7 @@ final mediaCountsStreamProvider = StreamProvider.autoDispose.family<MediaCounts,
       viewCount: (r['view_count'] as num?)?.toInt() ?? 0,
       commentCount: (r['comment_count'] as num?)?.toInt() ?? 0,
     );
-  }).handleError((_) {
-    // En cas de coupure réseau, on ne casse pas l'UI : le provider
-    // garde sa dernière valeur connue (valueOrNull côté consommateur).
-  });
+  }).handleError((_) {});
 });
 
 class ThixMediaPage extends ConsumerStatefulWidget {
@@ -176,6 +157,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final List<String> _filters = ["Accueil", "Fil", "Tendances", "NOVA Originals", "Live", "Courts", "Musique", "Gaming", "Formation"];
+  
   Set<String> _likedMediaIds = {};
   final LinkedHashSet<String> _viewedMediaIds = LinkedHashSet<String>();
   final Set<String> _newlyFollowedIds = {};
@@ -185,21 +167,21 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
   bool _immersive = false;
   int _currentFeedIndex = 0;
   List<MediaContent> _filItems = [];
+  List<Map<String, dynamic>> _filRaw = [];
   final LinkedHashSet<String> _seenIds = LinkedHashSet<String>();
+  final Map<String, Map<String, dynamic>> _profiles = {};
+  final Map<String, bool> _followMap = {};
+  
   bool _filLoading = false;
   bool _filInitialized = false;
   double _pullDistance = 0;
   bool _pullTriggering = false;
   static const double _pullThreshold = 90;
 
-  // Protection RAM : au-delà de ce nombre d'items en mémoire dans le
-  // feed, on purge les plus anciens (loin derrière l'utilisateur).
   static const int _maxFeedItems = 80;
   static const int _keepBehind = 20;
   static const int _maxTrackedIds = 600;
 
-  // Vrai si l'app est au premier plan. Utilisé pour forcer la pause
-  // vidéo dès que l'app passe en arrière-plan (verrouillage, appel, etc).
   bool _appActive = true;
 
   @override
@@ -246,8 +228,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     }
   }
 
-  /// Purge les items du feed trop loin derrière la position actuelle
-  /// pour ne pas laisser la RAM grossir indéfiniment sur un scroll infini.
   void _trimFeedIfNeeded() {
     if (_filItems.length <= _maxFeedItems) return;
     final removeCount = _currentFeedIndex - _keepBehind;
@@ -255,6 +235,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
 
     setState(() {
       _filItems.removeRange(0, removeCount);
+      _filRaw.removeRange(0, removeCount);
       _currentFeedIndex -= removeCount;
     });
 
@@ -267,23 +248,50 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     if (_filLoading) return;
     setState(() => _filLoading = true);
     try {
-      if (reshuffle) _seenIds.clear();
-      final res = await Supabase.instance.client.rpc('get_shuffled_feed', params: {'p_seen_ids': _seenIds.toList(), 'p_limit': 12});
-      final items = (res as List).map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
+      if (reshuffle) {
+        _seenIds.clear();
+        _profiles.clear();
+        _followMap.clear();
+        _filRaw.clear();
+      }
+      
+      final page = await MediaService().fetchEnrichedFeed(seenIds: _seenIds.toList(), limit: 12);
       if (!mounted) return;
 
       setState(() {
-        _filItems = reshuffle ? items : [..._filItems, ...items.where((x) => !_seenIds.contains(x.id))];
+        if (reshuffle) {
+          _filItems = page.items;
+          _filRaw = page.raw;
+        } else {
+          final newItems = page.items.where((x) => !_seenIds.contains(x.id)).toList();
+          final newRaw = page.raw.where((r) => !_seenIds.contains(r['id'] as String)).toList();
+          _filItems = [..._filItems, ...newItems];
+          _filRaw = [..._filRaw, ...newRaw];
+        }
+        
         _seenIds.addAll(_filItems.map((e) => e.id));
         _capTracking(_seenIds);
+        
+        for (var r in page.raw) {
+          final uid = r['user_id'] as String?;
+          if (uid != null) {
+            _profiles[uid] = {
+              'username': r['username'],
+              'full_name': r['full_name'], // Ajout du full_name pour le nom étendu
+              'avatar_url': r['avatar_url']
+            };
+            _followMap[uid] = (r['is_following'] as bool?) ?? false;
+          }
+        }
         _filInitialized = true;
         if (reshuffle) _currentFeedIndex = 0;
       });
+      
       await _syncLiked(_filItems.isNotEmpty ? [_filItems.first] : []);
       if (_filItems.isNotEmpty) _registerView(_filItems.first);
       if (reshuffle && _feedController.hasClients) _feedController.jumpToPage(0);
+      
     } catch (_) {
-      // CORRECTION: On utilise seulement select('*') sans jointure à la vue pour éviter PGRST200
       final res = await Supabase.instance.client.from('media_content').select('*').order('created_at', ascending: false).limit(12);
       final items = (res as List).map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
       if (mounted) setState(() { _filItems = items; _filInitialized = true; });
@@ -296,15 +304,31 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     if (_filLoading) return;
     setState(() => _filLoading = true);
     try {
-      final res = await Supabase.instance.client.rpc('get_shuffled_feed', params: {'p_seen_ids': _seenIds.toList(), 'p_limit': 12});
-      final items = (res as List).map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
+      final page = await MediaService().fetchEnrichedFeed(seenIds: _seenIds.toList(), limit: 12);
       if (!mounted) return;
+      
+      final newItems = page.items.where((e) => !_seenIds.contains(e.id)).toList();
+      final newRaw = page.raw.where((r) => !_seenIds.contains(r['id'] as String)).toList();
+      
       setState(() {
-        _filItems.addAll(items.where((e) => !_seenIds.contains(e.id)));
-        _seenIds.addAll(items.map((e) => e.id));
+        _filItems.addAll(newItems);
+        _filRaw.addAll(newRaw);
+        _seenIds.addAll(newItems.map((e) => e.id));
         _capTracking(_seenIds);
+        
+        for (var r in page.raw) {
+          final uid = r['user_id'] as String?;
+          if (uid != null) {
+            _profiles[uid] = {
+              'username': r['username'],
+              'full_name': r['full_name'],
+              'avatar_url': r['avatar_url']
+            };
+            _followMap[uid] = (r['is_following'] as bool?) ?? false;
+          }
+        }
       });
-      await _syncLiked(items);
+      await _syncLiked(newItems);
     } catch (_) {} finally {
       if (mounted) setState(() => _filLoading = false);
     }
@@ -369,10 +393,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     );
   }
 
-  /// Enregistre une vue. IMPORTANT pour la DB à l'échelle : on n'écrit
-  /// plus une ligne par vue individuelle (ça exploserait avec des
-  /// millions d'utilisateurs). Le compteur passe uniquement par le
-  /// batcher RPC groupé.
   void _registerView(MediaContent item) {
     if (_viewedMediaIds.contains(item.id)) return;
     _viewedMediaIds.add(item.id);
@@ -460,7 +480,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
         error: (e, st) => Center(child: Text('Erreur: $e', style: const TextStyle(color: kTextWhite))),
         data: (mediaList) {
           final currentItem = _filItems.isNotEmpty ? _filItems[_currentFeedIndex.clamp(0, _filItems.length - 1)] : null;
-
           final showTopBar = !(_immersive && selectedCategory == 'Fil');
 
           return Stack(
@@ -586,7 +605,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
                     FeedVideoPlayer(
                       videoUrl: item.videoUrl,
                       coverUrl: item.coverUrl,
-                      // Pause forcée si l'app quitte le premier plan.
                       isPlaying: isFocused && _appActive,
                       onPlayStateChanged: (paused) {
                         if (paused) setState(() => _immersive = false);
@@ -882,8 +900,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     )
   );
 
-  // Barre du bas : entièrement transparente, uniquement les icônes
-  // (ombre portée pour rester lisible au-dessus de la vidéo).
+  // LA NOUVELLE BARRE DU BAS : Gestion du Vrai Nom, Image du profil et Abonnement
   Widget _bottomNav(String selCat, MediaContent? cur) {
     final isFil = selCat == 'Fil';
     final isLiked = cur != null && _likedMediaIds.contains(cur.id);
@@ -898,33 +915,40 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
       displayViews = _localViewCounts[cur.id] ?? live?.viewCount ?? cur.viewCount;
     }
 
-    final creatorId = cur != null ? ref.watch(mediaCreatorIdProvider(cur.id)).valueOrNull ?? '' : '';
-    final creatorProfile = ref.watch(userProfileProvider(creatorId)).valueOrNull;
-    final isFollowing = ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true;
+    String creatorId = '';
+    String displayName = 'TDIA';
+    String? avatar;
+    bool showPlus = false;
 
-    // Compte "TDIA officiel" : soit le média n'a pas de créateur (contenu
-    // système, user_id null), soit le créateur a le rôle admin/superadmin
-    // dans `profiles.role`. Dans les deux cas -> nom "TDIA", jamais de +.
-    final creatorRole = creatorProfile?['role'] as String?;
-    final creatorIsOfficial = creatorId.isEmpty || creatorRole == 'admin' || creatorRole == 'superadmin';
+    if (isFil && _filRaw.isNotEmpty && _currentFeedIndex < _filRaw.length) {
+      final raw = _filRaw[_currentFeedIndex];
+      creatorId = (raw['user_id'] as String?) ?? '';
 
-    final showPlusBtn = !creatorIsOfficial && !isFollowing && !_newlyFollowedIds.contains(creatorId);
-
-    String displayName;
-    if (creatorIsOfficial) {
-      displayName = 'TDIA';
-    } else if (creatorProfile != null) {
-      final uname = creatorProfile['username'] as String?;
-      final fname = creatorProfile['full_name'] as String?;
-      if (uname != null && uname.trim().isNotEmpty) {
-        displayName = uname.trim();
-      } else if (fname != null && fname.trim().isNotEmpty) {
-        displayName = fname.trim();
+      if (creatorId.isNotEmpty) {
+        final prof = _profiles[creatorId];
+        if (prof != null) {
+          final uName = prof['username'] as String?;
+          final fName = prof['full_name'] as String?;
+          
+          if (uName != null && uName.trim().isNotEmpty) {
+            displayName = uName.trim();
+          } else if (fName != null && fName.trim().isNotEmpty) {
+            displayName = fName.trim();
+          } else {
+            displayName = 'Utilisateur';
+          }
+          avatar = prof['avatar_url'] as String?;
+        } else {
+          displayName = 'Utilisateur';
+        }
+        final isFollowing = _followMap[creatorId] ?? true;
+        showPlus = !isFollowing && !_newlyFollowedIds.contains(creatorId);
       } else {
-        displayName = 'Utilisateur';
+        // Video système TDIA (Admin) - pas de bouton d'abonnement
+        displayName = 'TDIA';
+        showPlus = false;
+        avatar = null;
       }
-    } else {
-      displayName = '...';
     }
 
     return Padding(
@@ -938,8 +962,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
               onTap: () {
                 if (creatorId.isNotEmpty) {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfilePage(userId: creatorId)));
-                }
-                // Contenu TDIA officiel sans créateur : rien à ouvrir.
+                } 
               },
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -950,22 +973,27 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
                     alignment: Alignment.bottomCenter,
                     children: [
                       Container(
-                        width: 26, height: 26,
+                        width: 34, height: 34,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white70, width: 1.5),
-                          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 6)],
-                          image: creatorProfile != null && creatorProfile['avatar_url'] != null && creatorProfile['avatar_url'].isNotEmpty
-                              ? DecorationImage(image: NetworkImage(creatorProfile['avatar_url']), fit: BoxFit.cover)
+                          border: Border.all(color: Colors.white, width: 1.5),
+                          boxShadow: const [Shadow(color: Colors.black87, blurRadius: 6) is BoxShadow ? BoxShadow(color: Colors.black54, blurRadius: 6) : BoxShadow(color: Colors.black54, blurRadius: 6)],
+                          image: avatar != null && avatar.isNotEmpty
+                              ? DecorationImage(image: NetworkImage(avatar), fit: BoxFit.cover)
                               : null,
                         ),
-                        child: creatorProfile == null || creatorProfile['avatar_url'] == null || creatorProfile['avatar_url'].isEmpty
-                            ? const Icon(Icons.person, size: 14, color: Colors.white70)
+                        child: avatar == null || avatar.isEmpty
+                            ? Center(
+                                child: Text(
+                                  creatorId.isEmpty ? 'T' : 'U', 
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
+                                )
+                              )
                             : null,
                       ),
-                      if (showPlusBtn)
+                      if (showPlus)
                         Positioned(
-                          bottom: -4,
+                          bottom: -6,
                           child: GestureDetector(
                             onTap: () {
                               setState(() => _newlyFollowedIds.add(creatorId));
@@ -974,18 +1002,18 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
                             child: Container(
                               padding: const EdgeInsets.all(2),
                               decoration: const BoxDecoration(color: kRed, shape: BoxShape.circle),
-                              child: const Icon(Icons.add, color: Colors.white, size: 10),
+                              child: const Icon(Icons.add, color: Colors.white, size: 12),
                             ),
                           ),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   SizedBox(
-                    width: 55,
+                    width: 60,
                     child: Text(
                       displayName,
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white, shadows: [Shadow(color: Colors.black87, blurRadius: 6)]),
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white, shadows: [Shadow(color: Colors.black87, blurRadius: 4)]),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
