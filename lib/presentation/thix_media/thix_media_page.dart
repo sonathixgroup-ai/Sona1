@@ -117,20 +117,12 @@ class CommentItem {
 }
 
 final commentCountProvider = FutureProvider.autoDispose.family<int, String>((ref, mediaId) async {
-  final r = await Supabase.instance.client
-      .from('media_stats')
-      .select('comment_count')
-      .eq('media_id', mediaId)
-      .maybeSingle();
+  final r = await Supabase.instance.client.from('media_stats').select('comment_count').eq('media_id', mediaId).maybeSingle();
   return (r?['comment_count'] as int?) ?? 0;
 });
 
 final mediaCountsStreamProvider = StreamProvider.autoDispose.family<MediaCounts, String>((ref, mediaId) {
-  return Supabase.instance.client
-      .from('media_stats')
-      .stream(primaryKey: ['media_id'])
-      .eq('media_id', mediaId)
-      .map((rows) {
+  return Supabase.instance.client.from('media_stats').stream(primaryKey: ['media_id']).eq('media_id', mediaId).map((rows) {
     if (rows.isEmpty) return const MediaCounts(likeCount: 0, viewCount: 0, commentCount: 0);
     final r = rows.first;
     return MediaCounts(
@@ -356,11 +348,17 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     return num.toString();
   }
 
-  void _showError(String message) {
+  // AFFICHAGE DE LA VRAIE ERREUR EN ROUGE
+  void _showError(String message, {Color bgColor = Colors.red}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message, style: const TextStyle(color: Colors.white)), backgroundColor: kSurfaceLight, behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 2))
+      SnackBar(
+        content: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: bgColor,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5), // Un peu plus long pour lire l'erreur
+      )
     );
   }
 
@@ -388,7 +386,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
   Future<void> _toggleLike(MediaContent item) async {
     final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) {
-      _showError('Connectez-vous pour aimer ce contenu.');
+      _showError("Connectez-vous pour aimer ce contenu.", bgColor: kSurfaceLight);
       return;
     }
 
@@ -405,14 +403,14 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
 
     try {
       await Supabase.instance.client.rpc('toggle_media_like', params: {'p_media_id': item.id});
-    } catch (_) {
+    } catch (e) {
       try {
         if (wasLiked) {
           await Supabase.instance.client.from('media_likes').delete().eq('media_id', item.id).eq('user_id', uid);
         } else {
           await Supabase.instance.client.from('media_likes').insert({'media_id': item.id, 'user_id': uid});
         }
-      } catch (e) {
+      } catch (e2) {
         if (mounted) {
           setState(() {
             if (wasLiked) {
@@ -423,7 +421,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
               _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) - 1;
             }
           });
-          _showError("Le like n'a pas pu être enregistré. Réessayez.");
+          _showError("Erreur Like: ${e2.toString()}");
         }
       }
     }
@@ -456,7 +454,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
           final currentItem = _filItems.isNotEmpty ? _filItems[_currentFeedIndex.clamp(0, _filItems.length - 1)] : null;
           final showTopBar = !(_immersive && selectedCategory == 'Fil');
 
-          // FILTRAGE STRICT : Les vidéos du "Fil" n'apparaissent JAMAIS dans l'Accueil
           final accueilMedia = mediaList.where((m) => m.type.toLowerCase() != 'fil').toList();
           final bannerItemsList = accueilMedia.take(5).toList();
 
@@ -877,7 +874,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     )
   );
 
-  // LA BARRE DU BAS : Le Fallback Ultime assigne les vidéos sans créateur à ton compte
+  // LA BARRE DU BAS : Logique ultra robuste pour le créateur
   Widget _bottomNav(String selCat, MediaContent? cur) {
     final isFil = selCat == 'Fil';
     final isLiked = cur != null && _likedMediaIds.contains(cur.id);
@@ -893,22 +890,21 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
     }
 
     String creatorId = '';
-    String displayName = 'Utilisateur';
+    String displayName = 'Anonyme';
     String? avatar;
     bool showPlus = false;
 
+    // 1. Cherche dans le flux SQL
     if (isFil && _filRaw.isNotEmpty && _currentFeedIndex < _filRaw.length) {
       creatorId = (_filRaw[_currentFeedIndex]['user_id'] as String?) ?? '';
     }
     
+    // 2. Fallback via Provider si vide
     if (creatorId.isEmpty && cur != null) {
       creatorId = ref.watch(mediaCreatorIdProvider(cur.id)).valueOrNull ?? '';
     }
 
-    // FALLBACK ULTIME : Si toujours vide, c'est TON compte qui est assigné à la vidéo
-    if (creatorId.isEmpty) {
-      creatorId = Supabase.instance.client.auth.currentUser?.id ?? '';
-    }
+    final currentUid = Supabase.instance.client.auth.currentUser?.id;
 
     if (creatorId.isNotEmpty) {
       Map<String, dynamic>? prof = _profiles[creatorId];
@@ -922,18 +918,18 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
           displayName = uName.trim();
         } else if (fName != null && fName.trim().isNotEmpty) {
           displayName = fName.trim();
-        } 
+        } else {
+          displayName = 'Utilisateur';
+        }
         avatar = prof['avatar_url'] as String?;
-      } 
+      } else {
+        displayName = 'Utilisateur';
+      }
       
       final isFollowing = _followMap[creatorId] ?? ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true;
-      // Ne pas afficher "+" si c'est ton propre compte
-      final isMe = creatorId == Supabase.instance.client.auth.currentUser?.id;
-      showPlus = !isMe && !isFollowing && !_newlyFollowedIds.contains(creatorId);
-    } else {
-      displayName = 'TDIA';
-      showPlus = false;
-      avatar = null;
+      
+      // On affiche le '+' UNIQUEMENT si ce n'est PAS moi et que je ne suis pas abonné
+      showPlus = (creatorId != currentUid) && !isFollowing && !_newlyFollowedIds.contains(creatorId);
     }
 
     return Padding(
@@ -968,12 +964,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> with WidgetsBindi
                               : null,
                         ),
                         child: avatar == null || avatar.isEmpty
-                            ? Center(
-                                child: Text(
-                                  creatorId.isEmpty ? 'T' : 'U', 
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
-                                )
-                              )
+                            ? const Center(child: Icon(Icons.person, color: Colors.white, size: 18))
                             : null,
                       ),
                       if (showPlus)
@@ -1258,15 +1249,16 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     _fetchRoots();
   }
 
-  void _showError(String message) {
+  // LA VRAIE ERREUR EN ROUGE
+  void _showError(String message, {Color color = Colors.red}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(color: Colors.white)),
-        backgroundColor: kSurfaceLight,
+        content: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: color, // Erreur rouge pétant
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 4), // Le temps de lire
       ),
     );
   }
@@ -1333,7 +1325,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     if (t.isEmpty || _sending) return;
     final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous connecter.'), backgroundColor: kSurface));
+      _showError("Veuillez vous connecter pour commenter.");
       return;
     }
 
@@ -1378,8 +1370,12 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       setState(() => _replyingTo = null);
 
       ref.invalidate(commentCountProvider(widget.mediaId));
+      
+    // CAPTURE DU VRAI MESSAGE D'ERREUR SQL SUPABASE ICI !
+    } on PostgrestException catch (e) {
+      _showError("ERREUR SQL: ${e.message}");
     } catch (e) {
-      _showError("Le commentaire n'a pas pu être envoyé. Vérifiez votre connexion.");
+      _showError("Erreur système: ${e.toString()}");
     } finally {
       if (mounted) setState(() => _sending = false);
     }
