@@ -13,6 +13,8 @@ import '../../models/media_content.dart';
 import 'providers/thix_media_provider.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
 import 'admin/thix_media_admin_page.dart';
+// IMPORTANT: Assure-toi que ce service pointe vers le MediaService mis à jour avec les requêtes de commentaires
+import '../../services/media_service.dart';
 
 const Color kBg = Color(0xFF050507);
 const Color kSurface = Color(0xFF121214);
@@ -65,10 +67,12 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   return role == 'admin' || role == 'superadmin';
 });
 
+// MODÈLE DE COMMENTAIRES MIS À JOUR POUR LES RÉPONSES
 class CommentItem {
   final String id, userId, userName, content;
-  final String? avatarUrl;
+  final String? avatarUrl, parentId;
   final DateTime createdAt;
+  final int likeCount, replyCount;
   
   CommentItem({
     required this.id,
@@ -77,6 +81,9 @@ class CommentItem {
     required this.content,
     required this.createdAt,
     this.avatarUrl,
+    this.parentId,
+    this.likeCount = 0,
+    this.replyCount = 0,
   });
   
   factory CommentItem.fromMap(Map<String, dynamic> m) {
@@ -87,19 +94,12 @@ class CommentItem {
       avatarUrl: m['avatar_url'] as String?,
       content: m['content'] as String,
       createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
+      parentId: m['parent_id'] as String?,
+      likeCount: (m['like_count'] as num?)?.toInt() ?? 0,
+      replyCount: (m['reply_count'] as num?)?.toInt() ?? 0,
     );
   }
 }
-
-final commentsListProvider = FutureProvider.autoDispose.family<List<CommentItem>, String>((ref, mediaId) async {
-  final res = await Supabase.instance.client
-      .from('media_comments')
-      .select('id,user_id,user_name,avatar_url,content,created_at')
-      .eq('media_id', mediaId)
-      .order('created_at', ascending: false)
-      .limit(30);
-  return (res as List).map((e) => CommentItem.fromMap(e as Map<String, dynamic>)).toList();
-});
 
 final commentCountProvider = FutureProvider.autoDispose.family<int, String>((ref, mediaId) async {
   final r = await Supabase.instance.client
@@ -360,8 +360,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                 _buildTikTokFeed() 
               else 
                 RefreshIndicator(
-                  color: kRed, 
-                  backgroundColor: kSurface, 
+                  color: kRed, backgroundColor: kSurface, 
                   onRefresh: () => ref.read(thixMediaListProvider.notifier).refresh(), 
                   child: CustomScrollView(
                     controller: _scrollController, 
@@ -378,8 +377,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    begin: Alignment.topCenter, 
-                                    end: Alignment.bottomCenter, 
+                                    begin: Alignment.topCenter, end: Alignment.bottomCenter, 
                                     colors: [Colors.transparent, kBg.withOpacity(0.6), kBg], 
                                     stops: const [0.0, 0.1, 0.3]
                                   )
@@ -402,26 +400,36 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                     ]
                   )
                 ),
-              Positioned(
-                top: 0, left: 0, right: 0, 
+
+              // ANIMATION : LA BARRE DU HAUT GLISSE EN DEHORS DE L'ÉCRAN
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOutCubic,
+                top: showBars ? 0 : -100, 
+                left: 0, right: 0, 
                 child: IgnorePointer(
-                  ignoring: !showBars, 
+                  ignoring: !showBars,
                   child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 250), 
-                    opacity: showBars ? 1 : 0, 
+                    duration: const Duration(milliseconds: 250),
+                    opacity: showBars ? 1 : 0,
                     child: Column(children: [_header(), _filtersRow(selectedCategory)])
-                  )
+                  ),
                 )
               ),
-              Positioned(
-                bottom: 0, left: 0, right: 0, 
+
+              // ANIMATION : LA BARRE DU BAS GLISSE EN DEHORS DE L'ÉCRAN
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOutCubic,
+                bottom: showBars ? 0 : -100, 
+                left: 0, right: 0, 
                 child: IgnorePointer(
-                  ignoring: !showBars, 
+                  ignoring: !showBars,
                   child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 250), 
-                    opacity: showBars ? 1 : 0, 
+                    duration: const Duration(milliseconds: 250),
+                    opacity: showBars ? 1 : 0,
                     child: _bottomNav(selectedCategory, currentItem)
-                  )
+                  ),
                 )
               ),
             ]
@@ -455,7 +463,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
             onNotification: (n) { 
               if (n.direction != ScrollDirection.idle && !_immersive) { 
                 WidgetsBinding.instance.addPostFrameCallback((_) { 
-                  if (mounted) setState(() => _immersive = true); 
+                  if (mounted) setState(() => _immersive = true); // Cache les menus au scroll
                 }); 
               } 
               return false; 
@@ -467,7 +475,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               onPageChanged: (i) { 
                 setState(() { 
                   _currentFeedIndex = i; 
-                  _immersive = true; 
+                  _immersive = true; // Immersif auto au swipe
                 }); 
                 _handlePageChanged(i); 
               }, 
@@ -485,6 +493,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                       isPlaying: isFocused, 
                       isImmersive: _immersive, 
                       onPlayStateChanged: (paused) { 
+                        // Tap sur l'écran : Pause = Affiche UI / Play = Cache UI
                         setState(() => _immersive = !paused); 
                       }
                     ),
@@ -510,11 +519,11 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                             const SizedBox(height: 10), 
                             Text(
                               item.title, 
-                              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1.1)
+                              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1.1, shadows: [Shadow(color: Colors.black87, blurRadius: 6)])
                             ), 
                             if (item.subtitle != null) ...[
                               const SizedBox(height: 6), 
-                              Text(item.subtitle!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 13))
+                              Text(item.subtitle!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, shadows: [Shadow(color: Colors.black87, blurRadius: 6)]))
                             ]
                           ]
                         )
@@ -824,7 +833,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         switch (idx) { 
           case 1: if (currentItem != null) _toggleLike(currentItem); break; 
           case 2: if (currentItem != null) _openComments(currentItem); break; 
-          case 3: if (currentItem != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${currentItem.viewCount} vues'), backgroundColor: kSurface)); break; 
+          case 3: if (currentItem != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${currentItem.viewCount} vues uniques'), backgroundColor: kSurface)); break; 
         } 
       } else { 
         if (idx == 3) context.go(AppRoutes.userDashboard); 
@@ -842,6 +851,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   );
 }
 
+// LECTEUR VIDÉO AVEC BARRE DE PROGRESSION INTERACTIVE ET IMMERSIVE
 class FeedVideoPlayer extends StatefulWidget { 
   final String videoUrl, coverUrl; 
   final bool isPlaying, isImmersive; 
@@ -865,6 +875,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   bool _init = false, _paused = false; 
   final ValueNotifier<Duration> _pos = ValueNotifier(Duration.zero); 
   Duration _dur = Duration.zero;
+  bool _isDragging = false;
   
   @override 
   void initState() { 
@@ -875,7 +886,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       _c.setLooping(true); 
       _c.setVolume(1.0); 
       _c.addListener(() { 
-        if (mounted) _pos.value = _c.value.position; 
+        if (mounted && !_isDragging) _pos.value = _c.value.position; 
       }); 
       setState(() { 
         _init = true; 
@@ -905,6 +916,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     super.dispose(); 
   }
 
+  void _seekToPercent(double pct) {
+    if (!_init) return;
+    final newPos = Duration(milliseconds: (_dur.inMilliseconds * pct).round());
+    _c.seekTo(newPos);
+    _pos.value = newPos;
+  }
+
   @override 
   Widget build(BuildContext context) {
     if (!_init) return Image.network(widget.coverUrl, fit: BoxFit.cover);
@@ -929,22 +947,51 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
             child: SizedBox(width: _c.value.size.width, height: _c.value.size.height, child: VideoPlayer(_c))
           ), 
           if (_paused) const Center(child: Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 64)), 
+          
+          // BARRE DE PROGRESSION INTERACTIVE ET GLISSANTE
           AnimatedPositioned(
             duration: const Duration(milliseconds: 250), 
+            curve: Curves.easeInOutCubic,
             left: 0, right: 0, 
-            bottom: widget.isImmersive ? 0 : 80, 
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 250), 
-              opacity: widget.isImmersive ? 0 : 1, 
-              child: ValueListenableBuilder<Duration>(
-                valueListenable: _pos, 
-                builder: (_, pos, __) { 
-                  final pct = _dur.inMilliseconds == 0 ? 0.0 : pos.inMilliseconds / _dur.inMilliseconds; 
-                  return SizedBox(
-                    height: 4, 
-                    child: LinearProgressIndicator(value: pct, backgroundColor: Colors.white24, valueColor: const AlwaysStoppedAnimation<Color>(kRed))
-                  ); 
-                }
+            // 80 px la place au-dessus de la nav bar. -10 px la cache en bas de l'écran lors du scroll
+            bottom: widget.isImmersive ? -20 : 80, 
+            child: GestureDetector(
+              onHorizontalDragStart: (d) {
+                _isDragging = true;
+                _c.pause();
+              },
+              onHorizontalDragUpdate: (d) {
+                final width = context.size!.width;
+                final pct = (d.localPosition.dx / width).clamp(0.0, 1.0);
+                _pos.value = Duration(milliseconds: (_dur.inMilliseconds * pct).round());
+              },
+              onHorizontalDragEnd: (d) {
+                _isDragging = false;
+                _c.seekTo(_pos.value);
+                if (!_paused) _c.play();
+              },
+              onTapDown: (d) {
+                final width = context.size!.width;
+                final pct = (d.localPosition.dx / width).clamp(0.0, 1.0);
+                _seekToPercent(pct);
+              },
+              child: Container(
+                height: 24, // Zone de touche tactile confortable
+                color: Colors.transparent,
+                alignment: Alignment.bottomCenter,
+                child: ValueListenableBuilder<Duration>(
+                  valueListenable: _pos, 
+                  builder: (_, pos, __) { 
+                    final pct = _dur.inMilliseconds == 0 ? 0.0 : pos.inMilliseconds / _dur.inMilliseconds; 
+                    return Stack(
+                      alignment: Alignment.bottomLeft,
+                      children: [
+                        Container(height: _isDragging ? 6 : 3, width: double.infinity, color: Colors.white38),
+                        Container(height: _isDragging ? 6 : 3, width: MediaQuery.of(context).size.width * pct, color: kRed),
+                      ]
+                    ); 
+                  }
+                )
               )
             )
           ) 
@@ -954,6 +1001,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 }
 
+// ---------------- GESTION AVANCÉE DES COMMENTAIRES (IMBRIQUÉS, LIKES, ÉDITION) ----------------
 class _CommentsSheet extends ConsumerStatefulWidget { 
   final String mediaId, mediaTitle; 
   const _CommentsSheet({required this.mediaId, required this.mediaTitle}); 
@@ -963,36 +1011,257 @@ class _CommentsSheet extends ConsumerStatefulWidget {
 
 class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
   final _controller = TextEditingController(); 
+  final _focusNode = FocusNode();
   bool _sending = false;
+  bool _loading = true;
+  
+  List<CommentItem> _roots = [];
+  final Map<String, List<CommentItem>> _replies = {};
+  final Set<String> _expanded = {};
+  
+  CommentItem? _replyingTo;
+  CommentItem? _editingComment;
+  final Set<String> _likedIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRoots();
+  }
+
+  Future<void> _fetchRoots() async {
+    try {
+      final res = await Supabase.instance.client
+          .from('media_comments')
+          .select('id,user_id,user_name,avatar_url,content,created_at,parent_id,like_count,reply_count')
+          .eq('media_id', widget.mediaId)
+          .isFilter('parent_id', null) // isFilter pour is null
+          .order('created_at', ascending: false)
+          .limit(50);
+          
+      if (mounted) {
+        setState(() {
+          _roots = (res as List).map((e) => CommentItem.fromMap(e as Map<String, dynamic>)).toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _fetchReplies(String parentId) async {
+    try {
+      final res = await Supabase.instance.client
+          .from('media_comments')
+          .select('id,user_id,user_name,avatar_url,content,created_at,parent_id,like_count,reply_count')
+          .eq('parent_id', parentId)
+          .order('created_at', ascending: true);
+          
+      if (mounted) {
+        setState(() {
+          _replies[parentId] = (res as List).map((e) => CommentItem.fromMap(e as Map<String, dynamic>)).toList();
+          _expanded.add(parentId);
+        });
+      }
+    } catch (_) {}
+  }
   
   Future<void> _submit() async { 
     final t = _controller.text.trim(); 
     if (t.isEmpty || _sending) return; 
     final uid = Supabase.instance.client.auth.currentUser?.id; 
-    if (uid == null) return; 
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous connecter.'), backgroundColor: kSurface));
+      return; 
+    }
     
     setState(() => _sending = true); 
     try { 
-      final p = await Supabase.instance.client.from('profiles').select('username,avatar_url').eq('id', uid).maybeSingle(); 
-      final name = (p?['username'] as String?)?.isNotEmpty == true ? p!['username'] : 'Utilisateur'; 
-      await Supabase.instance.client.from('media_comments').insert({
-        'media_id': widget.mediaId, 
-        'user_id': uid, 
-        'user_name': name, 
-        'avatar_url': p?['avatar_url'], 
-        'content': t
-      }); 
+      if (_editingComment != null) {
+        // Mode Modification
+        await Supabase.instance.client.from('media_comments').update({'content': t}).eq('id', _editingComment!.id);
+        setState(() => _editingComment = null);
+        _fetchRoots(); 
+      } else {
+        // Mode Création (Nouveau ou Réponse)
+        final p = await Supabase.instance.client.from('profiles').select('username,avatar_url').eq('id', uid).maybeSingle(); 
+        final name = (p?['username'] as String?)?.isNotEmpty == true ? p!['username'] : 'Utilisateur'; 
+        
+        final parentId = _replyingTo?.parentId ?? _replyingTo?.id;
+
+        await Supabase.instance.client.from('media_comments').insert({
+          'media_id': widget.mediaId, 
+          'user_id': uid, 
+          'user_name': name, 
+          'avatar_url': p?['avatar_url'], 
+          'content': t,
+          'parent_id': parentId,
+        }); 
+        
+        if (parentId != null) {
+          _fetchReplies(parentId); // Rafraîchit les réponses pour ce parent
+        } else {
+          _fetchRoots(); // Rafraîchit la liste principale
+        }
+      }
+      
       _controller.clear(); 
-      ref.invalidate(commentsListProvider(widget.mediaId)); 
+      _focusNode.unfocus();
+      setState(() => _replyingTo = null);
+      
       ref.invalidate(commentCountProvider(widget.mediaId)); 
     } finally { 
       if (mounted) setState(() => _sending = false); 
     } 
   }
 
+  Future<void> _delete(String id) async {
+    await Supabase.instance.client.from('media_comments').delete().eq('id', id);
+    _fetchRoots();
+    ref.invalidate(commentCountProvider(widget.mediaId));
+  }
+
+  void _showOptions(CommentItem c) {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    final isAuthor = uid == c.userId;
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: kSurfaceLight,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isAuthor) ListTile(
+              leading: const Icon(Icons.edit, color: Colors.white),
+              title: const Text('Modifier', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() { _editingComment = c; _replyingTo = null; });
+                _controller.text = c.content;
+                _focusNode.requestFocus();
+              }
+            ),
+            if (isAuthor) ListTile(
+              leading: const Icon(Icons.delete, color: kRed),
+              title: const Text('Supprimer', style: TextStyle(color: kRed)),
+              onTap: () {
+                Navigator.pop(context);
+                _delete(c.id);
+              }
+            ),
+            ListTile(
+              leading: const Icon(Icons.flag, color: Colors.orange),
+              title: const Text('Signaler', style: TextStyle(color: Colors.orange)),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Signalé aux modérateurs'), backgroundColor: kSurface));
+              }
+            ),
+          ]
+        )
+      )
+    );
+  }
+
+  String _formatDate(DateTime d) {
+    final diff = DateTime.now().difference(d);
+    if (diff.inSeconds < 60) return "à l'instant";
+    if (diff.inMinutes < 60) return "${diff.inMinutes} min";
+    if (diff.inHours < 24) return "${diff.inHours} h";
+    return "${diff.inDays} j";
+  }
+
+  Widget _buildCommentTile(CommentItem c, {bool isReply = false}) {
+    final isLiked = _likedIds.contains(c.id);
+    return Padding(
+      padding: EdgeInsets.only(left: isReply ? 40 : 0, top: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: isReply ? 12 : 16, 
+            backgroundColor: kSurfaceLight, 
+            backgroundImage: c.avatarUrl != null && c.avatarUrl!.isNotEmpty ? NetworkImage(c.avatarUrl!) : null,
+            child: c.avatarUrl == null ? Icon(Icons.person, size: isReply ? 14 : 18, color: kTextGrey) : null,
+          ), 
+          const SizedBox(width: 10),
+          Expanded(
+            child: GestureDetector(
+              onLongPress: () => _showOptions(c),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, 
+                children: [
+                  Row(
+                    children: [
+                      Text(c.userName, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)), 
+                      const SizedBox(width: 8),
+                      Text(_formatDate(c.createdAt), style: const TextStyle(color: kTextGrey, fontSize: 11)),
+                    ]
+                  ),
+                  const SizedBox(height: 4),
+                  Text(c.content, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          setState(() { _replyingTo = c; _editingComment = null; });
+                          _focusNode.requestFocus();
+                        },
+                        child: const Text('Répondre', style: TextStyle(color: kTextGrey, fontSize: 12, fontWeight: FontWeight.bold))
+                      ),
+                      const SizedBox(width: 24),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() => isLiked ? _likedIds.remove(c.id) : _likedIds.add(c.id));
+                          Supabase.instance.client.rpc('toggle_comment_like', params: {'p_comment_id': c.id}).catchError((_) {});
+                        },
+                        child: Row(
+                          children: [
+                            Icon(isLiked ? Icons.favorite : Icons.favorite_border, color: isLiked ? kRed : kTextGrey, size: 14),
+                            const SizedBox(width: 4),
+                            Text(c.likeCount > 0 ? '${c.likeCount}' : "J'aime", style: TextStyle(color: isLiked ? kRed : kTextGrey, fontSize: 11))
+                          ]
+                        )
+                      )
+                    ]
+                  ),
+                  
+                  if (!isReply && (c.replyCount > 0 || _replies.containsKey(c.id))) ...[
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () {
+                        if (_expanded.contains(c.id)) {
+                          setState(() => _expanded.remove(c.id));
+                        } else {
+                          _fetchReplies(c.id);
+                        }
+                      },
+                      child: Row(
+                        children: [
+                          Container(width: 24, height: 1, color: kBorderLight),
+                          const SizedBox(width: 8),
+                          Text(_expanded.contains(c.id) ? 'Masquer' : 'Voir les réponses', style: const TextStyle(color: kTdiaBlue, fontSize: 12, fontWeight: FontWeight.w600))
+                        ]
+                      )
+                    )
+                  ],
+                  if (!isReply && _expanded.contains(c.id)) ...[
+                    ...(_replies[c.id] ?? []).map((r) => _buildCommentTile(r, isReply: true))
+                  ]
+                ]
+              )
+            )
+          )
+        ]
+      )
+    );
+  }
+
   @override 
   Widget build(BuildContext context) { 
-    final async = ref.watch(commentsListProvider(widget.mediaId)); 
     final insets = MediaQuery.of(context).viewInsets.bottom; 
     
     return AnimatedPadding(
@@ -1006,47 +1275,39 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
             const SizedBox(height: 10), 
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(4))), 
             const SizedBox(height: 14), 
-            async.when(
-              loading: () => const Text('Commentaires', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), 
-              error: (_, __) => const Text('Commentaires', style: TextStyle(color: Colors.white)), 
-              data: (l) => Text('${l.length} commentaires', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
-            ), 
+            const Text('Commentaires', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), 
             const Divider(color: kBorderLight, height: 1), 
+            
             Expanded(
-              child: async.when(
-                loading: () => const Center(child: CircularProgressIndicator(color: kRed)), 
-                error: (e, s) => const Center(child: Text('Erreur', style: TextStyle(color: kTextGrey))), 
-                data: (cs) => ListView.separated(
-                  padding: const EdgeInsets.all(16), 
-                  itemCount: cs.length, 
-                  separatorBuilder: (_, __) => const SizedBox(height: 12), 
-                  itemBuilder: (c, i) { 
-                    final com = cs[i]; 
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start, 
-                      children: [
-                        CircleAvatar(
-                          radius: 14, 
-                          backgroundColor: kSurfaceLight, 
-                          backgroundImage: com.avatarUrl != null && com.avatarUrl!.isNotEmpty ? NetworkImage(com.avatarUrl!) : null
-                        ), 
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start, 
-                            children: [
-                              Text(com.userName, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)), 
-                              Text(com.content, style: const TextStyle(color: Colors.white70, fontSize: 13))
-                            ]
-                          )
-                        )
-                      ]
-                    ); 
-                  }
-                )
-              )
+              child: _loading 
+                ? const Center(child: CircularProgressIndicator(color: kRed)) 
+                : _roots.isEmpty 
+                  ? const Center(child: Text('Aucun commentaire', style: TextStyle(color: kTextGrey)))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      itemCount: _roots.length,
+                      itemBuilder: (c, i) => _buildCommentTile(_roots[i])
+                    )
             ), 
+            
             const Divider(color: kBorderLight, height: 1), 
+            
+            if (_replyingTo != null || _editingComment != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: kSurfaceLight.withOpacity(0.5),
+                child: Row(
+                  children: [
+                    Text(_editingComment != null ? 'Modification' : 'Réponse à @${_replyingTo!.userName}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () { setState(() { _replyingTo = null; _editingComment = null; }); _controller.clear(); },
+                      child: const Icon(Icons.close, color: Colors.white70, size: 18)
+                    )
+                  ]
+                )
+              ),
+
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 10), 
               child: Row(
@@ -1057,11 +1318,17 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                       decoration: BoxDecoration(color: kSurfaceLight, borderRadius: BorderRadius.circular(24)), 
                       child: TextField(
                         controller: _controller, 
+                        focusNode: _focusNode,
                         minLines: 1, 
                         maxLines: 4, 
                         onSubmitted: (_) => _submit(), 
-                        style: const TextStyle(color: Colors.white), 
-                        decoration: const InputDecoration(hintText: 'Ajouter un commentaire...', hintStyle: TextStyle(color: kTextGrey), border: InputBorder.none, isDense: true)
+                        style: const TextStyle(color: Colors.white, fontSize: 13.5), 
+                        decoration: InputDecoration(
+                          hintText: _editingComment != null ? 'Modifier le commentaire...' : (_replyingTo != null ? 'Ajouter une réponse...' : 'Ajouter un commentaire...'), 
+                          hintStyle: const TextStyle(color: kTextGrey, fontSize: 13.5), 
+                          border: InputBorder.none, 
+                          isDense: true
+                        )
                       )
                     )
                   ), 
@@ -1072,7 +1339,9 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                       width: 42, 
                       height: 42, 
                       decoration: BoxDecoration(color: _sending ? kSurfaceLight : kRed, shape: BoxShape.circle), 
-                      child: _sending ? const Padding(padding: EdgeInsets.all(11), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.send_rounded, color: Colors.white, size: 18)
+                      child: _sending 
+                        ? const Padding(padding: EdgeInsets.all(11), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                        : const Icon(Icons.send_rounded, color: Colors.white, size: 18)
                     )
                   ) 
                 ]
