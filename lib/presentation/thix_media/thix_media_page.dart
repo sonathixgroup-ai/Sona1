@@ -286,7 +286,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         final items = (res as List).map((e) => _mapMedia(Map<String, dynamic>.from(e as Map))).toList();
         if (mounted) setState(() { _filItems = items; _filInitialized = true; });
       } catch (e2) {
-        if (mounted) setState(() { _filInitialized = true; }); // Évite le chargement infini
+        if (mounted) setState(() { _filInitialized = true; }); 
       }
     } finally {
       if (mounted) setState(() => _filLoading = false);
@@ -465,7 +465,17 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       backgroundColor: kBg, 
       body: asyncMedia.when(
         loading: () => const Center(child: CircularProgressIndicator(color: kRed)), 
-        error: (e, st) => Center(child: Text('Erreur système', style: const TextStyle(color: kTextWhite))), 
+        // 🔴 ICI ON AFFICHE LA VRAIE ERREUR
+        error: (e, st) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Text(
+              'ERREUR : $e', 
+              style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ), 
         data: (mediaList) {
           final currentItem = _filItems.isNotEmpty ? _filItems[_currentFeedIndex.clamp(0, _filItems.length - 1)] : null;
           final showTopBar = !(_immersive && selectedCategory == 'Fil');
@@ -1150,7 +1160,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       child: Stack(
         fit: StackFit.expand, 
         children: [
-          // RENDU VIDÉO : Parfaitement proportionné, sans perte d'image
+          // RESPECT DU FORMAT D'ORIGINE DE LA VIDÉO (Aspect Ratio sans zoom excessif)
           Container(
             color: Colors.black,
             child: Center(
@@ -1247,10 +1257,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: kRed,
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        backgroundColor: kSurfaceLight,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -1317,7 +1327,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     if (t.isEmpty || _sending) return; 
     final uid = Supabase.instance.client.auth.currentUser?.id; 
     if (uid == null) {
-      _showError('Veuillez vous connecter pour commenter.');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous connecter.'), backgroundColor: kSurface));
       return; 
     }
     
@@ -1363,7 +1373,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       
       ref.invalidate(commentCountProvider(widget.mediaId)); 
     } catch (e) {
-      _showError("Erreur SQL ou Serveur : Impossible d'envoyer le commentaire.");
+      _showError("Le commentaire n'a pas pu être envoyé. Vérifiez votre connexion.");
     } finally { 
       if (mounted) setState(() => _sending = false); 
     } 
