@@ -70,25 +70,33 @@ final isMediaAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
 
 final mediaCreatorIdProvider = FutureProvider.autoDispose.family<String?, String>((ref, mediaId) async {
   if (mediaId.isEmpty) return null;
-  final res = await Supabase.instance.client.from('media_content').select('user_id').eq('id', mediaId).maybeSingle();
-  return res?['user_id'] as String?;
+  try {
+    final res = await Supabase.instance.client.from('media_content').select('user_id').eq('id', mediaId).maybeSingle();
+    return res?['user_id'] as String?;
+  } catch (_) {
+    return null;
+  }
 });
 
-// SCALABILITÉ + PRÉCISION : on récupère aussi `role`. C'est ce champ qui
-// détermine, de façon fiable et centralisée en DB, si le créateur est un
-// compte officiel TDIA (admin/superadmin) -> affichage "TDIA" sans bouton
-// d'abonnement, peu importe son username réel.
 final userProfileProvider = FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((ref, userId) async {
   if (userId.isEmpty) return null;
-  final res = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url, role').eq('id', userId).maybeSingle();
-  return res;
+  try {
+    final res = await Supabase.instance.client.from('profiles').select('username, full_name, avatar_url, role').eq('id', userId).maybeSingle();
+    return res;
+  } catch (_) {
+    return null;
+  }
 });
 
 final isFollowingProvider = FutureProvider.autoDispose.family<bool, String>((ref, targetId) async {
   final uid = Supabase.instance.client.auth.currentUser?.id;
   if (uid == null || uid == targetId) return true; 
-  final res = await Supabase.instance.client.from('follows').select().eq('follower_id', uid).eq('following_id', targetId).maybeSingle();
-  return res != null;
+  try {
+    final res = await Supabase.instance.client.from('follows').select().eq('follower_id', uid).eq('following_id', targetId).maybeSingle();
+    return res != null;
+  } catch (_) {
+    return true;
+  }
 });
 
 class CommentItem {
@@ -110,13 +118,23 @@ class CommentItem {
   });
   
   factory CommentItem.fromMap(Map<String, dynamic> m) {
+    // 🛡️ ANTI-CRASH : Gestion robuste des dates
+    DateTime parsedDate;
+    try {
+      parsedDate = m['created_at'] != null 
+          ? DateTime.parse(m['created_at'].toString()).toLocal() 
+          : DateTime.now();
+    } catch (_) {
+      parsedDate = DateTime.now();
+    }
+
     return CommentItem(
-      id: m['id'] as String,
-      userId: m['user_id'] as String,
+      id: m['id']?.toString() ?? '',
+      userId: m['user_id']?.toString() ?? '',
       userName: (m['user_name'] as String?)?.trim().isNotEmpty == true ? m['user_name'] as String : 'Utilisateur',
       avatarUrl: m['avatar_url'] as String?,
-      content: m['content'] as String,
-      createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
+      content: m['content']?.toString() ?? '',
+      createdAt: parsedDate,
       parentId: m['parent_id'] as String?,
       likeCount: (m['like_count'] as num?)?.toInt() ?? 0,
       replyCount: (m['reply_count'] as num?)?.toInt() ?? 0,
@@ -125,12 +143,16 @@ class CommentItem {
 }
 
 final commentCountProvider = FutureProvider.autoDispose.family<int, String>((ref, mediaId) async {
-  final r = await Supabase.instance.client
-      .from('media_stats')
-      .select('comment_count')
-      .eq('media_id', mediaId)
-      .maybeSingle();
-  return (r?['comment_count'] as int?) ?? 0;
+  try {
+    final r = await Supabase.instance.client
+        .from('media_stats')
+        .select('comment_count')
+        .eq('media_id', mediaId)
+        .maybeSingle();
+    return (r?['comment_count'] as int?) ?? 0;
+  } catch (_) {
+    return 0;
+  }
 });
 
 final mediaCountsStreamProvider = StreamProvider.autoDispose.family<MediaCounts, String>((ref, mediaId) async* {
@@ -166,6 +188,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final List<String> _filters = ["Accueil", "Fil", "Tendances", "NOVA Originals", "Live", "Courts", "Musique", "Gaming", "Formation"];
+  
   Set<String> _likedMediaIds = {};
   final Set<String> _viewedMediaIds = {};
   final Set<String> _newlyFollowedIds = {}; 
@@ -176,7 +199,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   int _currentFeedIndex = 0;
   List<MediaContent> _filItems = [];
   
-  // STATIQUE GLOBAL : Permet de retenir les vidéos vues même si on quitte et revient sur la page
+  // 🧠 STATIQUE GLOBAL : Mémoire persistante du scroll
   static final Set<String> _globalSeenIds = {};
   
   bool _filLoading = false;
@@ -229,10 +252,20 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   Future<void> _initFilFeed({bool reshuffle = false}) async {
     if (_filLoading) return;
     setState(() => _filLoading = true);
+    
     try {
       if (reshuffle) _globalSeenIds.clear();
-      final res = await Supabase.instance.client.rpc('get_shuffled_feed', params: {'p_seen_ids': _globalSeenIds.toList(), 'p_limit': 12});
-      final items = (res as List).map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
+      
+      dynamic res = await Supabase.instance.client.rpc('get_shuffled_feed', params: {'p_seen_ids': _globalSeenIds.toList(), 'p_limit': 12});
+      List<MediaContent> items = (res as List).map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
+      
+      // 🚀 LOOP INFINI : Reset si la base de données n'a plus de nouveau contenu
+      if (items.isEmpty && _globalSeenIds.isNotEmpty) {
+        _globalSeenIds.clear();
+        res = await Supabase.instance.client.rpc('get_shuffled_feed', params: {'p_seen_ids': [], 'p_limit': 12});
+        items = (res as List).map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
+      }
+
       if (!mounted) return;
       
       setState(() {
@@ -241,13 +274,20 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         _filInitialized = true;
         if (reshuffle) _currentFeedIndex = 0;
       });
+      
       await _syncLiked(_filItems.isNotEmpty ? [_filItems.first] : []);
       if (_filItems.isNotEmpty) _registerView(_filItems.first);
       if (reshuffle && _feedController.hasClients) _feedController.jumpToPage(0);
+      
     } catch (_) {
-      final res = await Supabase.instance.client.from('media_content').select('*, media_stats(like_count,view_count,comment_count)').order('created_at', ascending: false).limit(12);
-      final items = (res as List).map((e) => _mapMedia(Map<String, dynamic>.from(e as Map))).toList();
-      if (mounted) setState(() { _filItems = items; _filInitialized = true; });
+      // Fallback Ultime de sécurité
+      try {
+        final res = await Supabase.instance.client.from('media_content').select('*, media_stats(like_count,view_count,comment_count)').order('created_at', ascending: false).limit(12);
+        final items = (res as List).map((e) => _mapMedia(Map<String, dynamic>.from(e as Map))).toList();
+        if (mounted) setState(() { _filItems = items; _filInitialized = true; });
+      } catch (e2) {
+        if (mounted) setState(() { _filInitialized = true; }); // Évite le chargement infini
+      }
     } finally {
       if (mounted) setState(() => _filLoading = false);
     }
@@ -256,10 +296,20 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   Future<void> _loadMoreFil() async {
     if (_filLoading) return;
     setState(() => _filLoading = true);
+    
     try {
-      final res = await Supabase.instance.client.rpc('get_shuffled_feed', params: {'p_seen_ids': _globalSeenIds.toList(), 'p_limit': 12});
-      final items = (res as List).map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
+      dynamic res = await Supabase.instance.client.rpc('get_shuffled_feed', params: {'p_seen_ids': _globalSeenIds.toList(), 'p_limit': 12});
+      List<MediaContent> items = (res as List).map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
+      
+      // 🚀 LOOP INFINI
+      if (items.isEmpty && _globalSeenIds.isNotEmpty) {
+        _globalSeenIds.clear();
+        res = await Supabase.instance.client.rpc('get_shuffled_feed', params: {'p_seen_ids': [], 'p_limit': 12});
+        items = (res as List).map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
+      }
+
       if (!mounted) return;
+      
       setState(() {
         _filItems.addAll(items.where((e) => !_globalSeenIds.contains(e.id)));
         _globalSeenIds.addAll(items.map((e) => e.id));
@@ -308,10 +358,10 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(color: Colors.white)),
-        backgroundColor: kSurfaceLight,
+        content: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: kRed,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -376,18 +426,15 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
           await Supabase.instance.client.from('media_likes').insert({'media_id': item.id, 'user_id': uid});
         }
       } catch (e) {
-        if (mounted) {
-          setState(() {
-            if (wasLiked) {
-              _likedMediaIds.add(item.id);
-              _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) + 1;
-            } else {
-              _likedMediaIds.remove(item.id);
-              _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) - 1;
-            }
-          });
-          _showError("Le like n'a pas pu être enregistré. Réessayez.");
-        }
+        if (mounted) setState(() {
+          if (wasLiked) {
+            _likedMediaIds.add(item.id);
+            _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) + 1;
+          } else {
+            _likedMediaIds.remove(item.id);
+            _localLikeCounts[item.id] = (_localLikeCounts[item.id] ?? item.likeCount) - 1;
+          }
+        });
       }
     }
   }
@@ -418,7 +465,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       backgroundColor: kBg, 
       body: asyncMedia.when(
         loading: () => const Center(child: CircularProgressIndicator(color: kRed)), 
-        error: (e, st) => Center(child: Text('Erreur: $e', style: const TextStyle(color: kTextWhite))), 
+        error: (e, st) => Center(child: Text('Erreur système', style: const TextStyle(color: kTextWhite))), 
         data: (mediaList) {
           final currentItem = _filItems.isNotEmpty ? _filItems[_currentFeedIndex.clamp(0, _filItems.length - 1)] : null;
           final showTopBar = !(_immersive && selectedCategory == 'Fil');
@@ -751,6 +798,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
 
   Widget _buildRow({required String title, required String subtitle, required ProviderListenable<List<MediaContent>> provider, required double aspectRatio, required double height, required double width, required Widget Function(MediaContent item, [int? index]) itemBuilder}) { 
     final list = ref.watch(provider); 
+    // EXCLUSION : Les vidéos du 'Fil' ne vont pas dans l'Accueil
     final filteredList = list.where((m) => m.type.toLowerCase() != 'fil').toList();
     if (filteredList.isEmpty) return const SizedBox.shrink(); 
     return Column(
@@ -842,15 +890,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     )
   );
 
-  // Barre du bas : ENTIÈREMENT TRANSPARENTE, uniquement les icônes avec
-  // une ombre portée pour rester lisibles sur n'importe quelle vidéo.
-  //
-  // PRÉCISION COMPTE CRÉATEUR :
-  // - creatorId vide (contenu système sans user_id)  -> TDIA officiel
-  // - profiles.role == 'admin' / 'superadmin'         -> TDIA officiel
-  // Dans les deux cas : nom "TDIA", jamais de bouton (+), tap inerte.
-  // Sinon : nom exact = username (priorité) sinon full_name, tronqué
-  // avec "..." via maxLines/overflow s'il dépasse l'espace disponible.
   Widget _bottomNav(String selCat, MediaContent? cur) { 
     final isFil = selCat == 'Fil'; 
     final isLiked = cur != null && _likedMediaIds.contains(cur.id); 
@@ -870,16 +909,18 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     final currentUid = Supabase.instance.client.auth.currentUser?.id;
     final isFollowing = ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true; 
 
+    // LOGIQUE OFFICIELLE TDIA (Admin)
     final creatorRole = creatorProfile?['role'] as String?;
     final creatorIsOfficial = creatorId.isEmpty || creatorRole == 'admin' || creatorRole == 'superadmin';
 
+    // Afficher le + seulement pour les vrais créateurs qu'on ne suit pas encore
     final showPlusBtn = !creatorIsOfficial 
         && creatorId.isNotEmpty 
         && creatorId != currentUid 
         && !isFollowing 
         && !_newlyFollowedIds.contains(creatorId);
 
-    String displayName;
+    String displayName = '';
     if (creatorIsOfficial) {
       displayName = 'TDIA';
     } else if (creatorProfile != null) {
@@ -905,10 +946,9 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
           children: [
             GestureDetector(
               onTap: () {
-                if (creatorId.isNotEmpty) {
+                if (creatorId.isNotEmpty && !creatorIsOfficial) {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfilePage(userId: creatorId)));
                 }
-                // Contenu TDIA officiel sans créateur : rien à ouvrir.
               },
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1110,7 +1150,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       child: Stack(
         fit: StackFit.expand, 
         children: [
-          // RESPECT DU FORMAT D'ORIGINE DE LA VIDÉO (Aspect Ratio sans zoom excessif)
+          // RENDU VIDÉO : Parfaitement proportionné, sans perte d'image
           Container(
             color: Colors.black,
             child: Center(
@@ -1207,10 +1247,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(color: Colors.white)),
-        backgroundColor: kSurfaceLight,
+        content: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: kRed,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -1277,7 +1317,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     if (t.isEmpty || _sending) return; 
     final uid = Supabase.instance.client.auth.currentUser?.id; 
     if (uid == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous connecter.'), backgroundColor: kSurface));
+      _showError('Veuillez vous connecter pour commenter.');
       return; 
     }
     
@@ -1323,7 +1363,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       
       ref.invalidate(commentCountProvider(widget.mediaId)); 
     } catch (e) {
-      _showError("Le commentaire n'a pas pu être envoyé. Vérifiez votre connexion.");
+      _showError("Erreur SQL ou Serveur : Impossible d'envoyer le commentaire.");
     } finally { 
       if (mounted) setState(() => _sending = false); 
     } 
@@ -1442,7 +1482,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                         onTap: () async {
                           final uid = Supabase.instance.client.auth.currentUser?.id;
                           if (uid == null) {
-                            _showError('Connectez-vous pour aimer un commentaire.');
+                            _showError('Connectez-vous pour aimer.');
                             return;
                           }
                           
@@ -1469,7 +1509,6 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                                   _localCommentLikes[c.id] = currentLikes;
                                 }
                               });
-                              _showError("Le like du commentaire a échoué.");
                             }
                           }
                         },
