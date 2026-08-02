@@ -53,7 +53,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     int idx = 0;
     if(step=='address') idx=0;
     if(step=='shipping') idx=1;
-    if(step=='summary') idx=2;
+    if(step=='summary' || step=='confirmation') idx=2;
     if(step=='payment') idx=3;
     
     return Container(
@@ -111,8 +111,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     switch(state.currentStep){
       case 'address': return _AddressStep(state: state, notifier: notifier);
       case 'shipping': return const ShippingMethodSelector();
-      case 'summary': return const OrderSummaryWidget(); // Étape 3 : Résumé et validation
-      case 'payment': return const PaymentMethodSelector(); // Étape 4 : Paiement final (Edge Function)
+      case 'summary':
+      case 'confirmation': return const OrderSummaryWidget(); // Étape 3 : Résumé et Validation initiale
+      case 'payment': return const PaymentMethodSelector(); // Étape 4 : Sélection du mode de paiement et Paiement final
       default: return Center(child: Text('Étape inconnue: ${state.currentStep}'));
     }
   }
