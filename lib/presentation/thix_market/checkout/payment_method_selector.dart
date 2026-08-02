@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/checkout/payment_method_selector.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'checkout_provider.dart';
@@ -64,21 +65,35 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
       }).toList();
 
       final total = cartNotifier.subtotal;
+      final phone = _phoneController.text.trim().isNotEmpty
+          ? _phoneController.text.trim()
+          : null;
 
-      // processOrder crée la commande + traite le paiement + vide le panier
-      await notifier.processOrder(total: total, items: items);
+      // processOrder crée la commande + initie le paiement
+      final result = await notifier.processOrder(
+        total: total,
+        items: items,
+        phoneNumber: phone,
+      );
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_t(context, 'Paiement effectué avec succès !', 'Payment successful!')),
-          backgroundColor: Colors.green.shade600,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      final needsWaiting = result['needs_waiting'] == true;
 
-      notifier.goToStep('bon_de_commande');
+      if (needsWaiting) {
+        // Mobile Money → écran d'attente (roue qui tourne)
+        notifier.goToStep('waiting_payment');
+      } else {
+        // Cash ou THIX Money → confirmation immédiate
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_t(context, 'Paiement effectué avec succès !', 'Payment successful!')),
+            backgroundColor: Colors.green.shade600,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        notifier.goToStep('bon_de_commande');
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -318,15 +333,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                                           color: isOpSelected ? opColor : cardBorder,
                                           width: isOpSelected ? 2 : 1,
                                         ),
-                                        boxShadow: isOpSelected
-                                            ? [
-                                                BoxShadow(
-                                                  color: opColor.withOpacity(0.15),
-                                                  blurRadius: 8,
-                                                  offset: const Offset(0, 2),
-                                                )
-                                              ]
-                                            : null,
                                       ),
                                       child: Row(
                                         children: [
@@ -382,7 +388,7 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                               decoration: InputDecoration(
                                 hintText: 'Ex: +243 97X XXX XXX',
-                                hintStyle: TextStyle(color: mutedText.withOpacity(0.7), fontWeight: FontWeight.w500),
+                                hintStyle: TextStyle(color: mutedText.withOpacity(0.7)),
                                 prefixIcon: const Icon(Icons.phone_rounded, color: mutedText, size: 20),
                                 filled: true,
                                 fillColor: pureWhite,
