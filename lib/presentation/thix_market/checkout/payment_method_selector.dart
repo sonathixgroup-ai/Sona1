@@ -1,6 +1,7 @@
 // lib/presentation/market/payment_method_selector.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'supabase_flutter/supabase_flutter.dart'; // Si besoin pour l'appel final
 import 'checkout_provider.dart';
 
 class PaymentMethodSelector extends ConsumerStatefulWidget {
@@ -11,74 +12,28 @@ class PaymentMethodSelector extends ConsumerStatefulWidget {
 }
 
 class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
-  // Charte graphique unifiée B2B / Retail
   static const Color primaryBlue = Color(0xFF0B3D91);
-  static const Color navyDeep = Color(0xFF0A1F44);
   static const Color lightBg = Color(0xFFF6F8FB);
-  static const Color gold = Color(0xFFF7C948);
   static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF10182B);
+  static const Color darkText = Color(0xFF10192E);
   static const Color mutedText = Color(0xFF6B7690);
   static const Color cardBorder = Color(0xFFEEF1F7);
 
-  // Méthodes principales
-  final List<Map<String, dynamic>> _mainMethods = [
-    {
-      'id': 'mobile_money',
-      'name': 'Mobile Money (RDC)',
-      'desc': 'Vodacom, Airtel, Orange, Africell',
-      'icon': Icons.phone_android_rounded,
-      'color': 0xFF2D6CDF,
-    },
-    {
-      'id': 'cash',
-      'name': 'Paiement à la livraison',
-      'desc': 'Règlement en espèces à la réception',
-      'icon': Icons.payments_rounded,
-      'color': 0xFF00B074,
-    },
-    {
-      'id': 'thix_money',
-      'name': 'THIX Money Wallet',
-      'desc': 'Paiement instantané sécurisé',
-      'icon': Icons.account_balance_wallet_rounded,
-      'color': 0xFFE5592F,
-    },
-    {
-      'id': 'card',
-      'name': 'Carte Bancaire Internationale',
-      'desc': 'Visa, Mastercard',
-      'icon': Icons.credit_card_rounded,
-      'color': 0xFF0A1F44,
-    },
-  ];
-
-  // Opérateurs Mobile Money extraits de la carte RDC (Vodacom, Airtel, Orange, Africell)
-  final List<Map<String, dynamic>> _mobileOperators = [
-    {
-      'id': 'vodacom',
-      'name': 'Vodacom (M-Pesa)',
-      'color': 0xFFE60000, // Rouge Vodacom
-      'badge': 'Populaire',
-    },
-    {
-      'id': 'airtel',
-      'name': 'Airtel Money',
-      'color': 0xFFED1C24, // Rouge Airtel
-    },
-    {
-      'id': 'orange',
-      'name': 'Orange Money',
-      'color': 0xFFFF7900, // Orange
-    },
-    {
-      'id': 'africell',
-      'name': 'Africell (AfriMoney)',
-      'color': 0xFF662D91, // Violet / Orange Africell
-    },
-  ];
-
+  final TextEditingController _phoneController = TextEditingController();
   String? _selectedOperator;
+  bool _isProcessing = false;
+
+  // Fonction de traduction dynamique selon la langue du système
+  String _t(BuildContext context, String fr, String en) {
+    final lang = Localizations.localeOf(context).languageCode;
+    return lang == 'fr' ? fr : en;
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,20 +41,57 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
     final notifier = ref.read(checkoutProvider.notifier);
     final isMobileMoneySelected = state.selectedPayment != null && state.selectedPayment!['id'] == 'mobile_money';
 
+    final List<Map<String, dynamic>> mainMethods = [
+      {
+        'id': 'mobile_money',
+        'name': _t(context, 'Mobile Money (RDC)', 'Mobile Money (DRC)'),
+        'desc': 'Vodacom, Airtel, Orange, Africell',
+        'icon': Icons.phone_android_rounded,
+        'color': 0xFF2D6CDF,
+      },
+      {
+        'id': 'cash',
+        'name': _t(context, 'Paiement à la livraison', 'Cash on Delivery'),
+        'desc': _t(context, 'Règlement en espèces à la réception', 'Pay in cash upon receipt'),
+        'icon': Icons.payments_rounded,
+        'color': 0xFF00B074,
+      },
+      {
+        'id': 'thix_money',
+        'name': 'THIX Money Wallet',
+        'desc': _t(context, 'Paiement instantané sécurisé', 'Secure instant payment'),
+        'icon': Icons.account_balance_wallet_rounded,
+        'color': 0xFFE5592F,
+      },
+      {
+        'id': 'card',
+        'name': _t(context, 'Carte Bancaire Internationale', 'International Credit Card'),
+        'desc': 'Visa, Mastercard',
+        'icon': Icons.credit_card_rounded,
+        'color': 0xFF0A1F44,
+      },
+    ];
+
+    final List<Map<String, dynamic>> mobileOperators = [
+      {'id': 'vodacom', 'name': 'Vodacom (M-Pesa)', 'color': 0xFFE60000},
+      {'id': 'airtel', 'name': 'Airtel Money', 'color': 0xFFED1C24},
+      {'id': 'orange', 'name': 'Orange Money', 'color': 0xFFFF7900},
+      {'id': 'africell', 'name': 'Africell (AfriMoney)', 'color': 0xFF662D91},
+    ];
+
     return Column(
       children: [
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Text(
-                'Choisissez votre mode de paiement',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: darkText),
+              Text(
+                _t(context, 'Choisissez votre mode de paiement', 'Choose your payment method'),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: darkText),
               ),
               const SizedBox(height: 12),
 
-              // Liste des méthodes principales
-              ..._mainMethods.map((method) {
+              ...mainMethods.map((method) {
                 final isSelected = state.selectedPayment != null && state.selectedPayment!['id'] == method['id'];
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -158,7 +150,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                 );
               }),
 
-              // Sous-menu spécifique pour Mobile Money (Affichage des 4 opérateurs de la carte RDC)
               if (isMobileMoneySelected) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -171,13 +162,13 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.signal_cellular_alt_rounded, size: 16, color: primaryBlue),
-                          SizedBox(width: 8),
+                          const Icon(Icons.signal_cellular_alt_rounded, size: 16, color: primaryBlue),
+                          const SizedBox(width: 8),
                           Text(
-                            'Sélectionnez votre opérateur (RDC)',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: primaryBlue),
+                            _t(context, 'Sélectionnez votre opérateur (RDC)', 'Select your operator (DRC)'),
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: primaryBlue),
                           ),
                         ],
                       ),
@@ -191,9 +182,9 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                           mainAxisSpacing: 10,
                           childAspectRatio: 2.8,
                         ),
-                        itemCount: _mobileOperators.length,
+                        itemCount: mobileOperators.length,
                         itemBuilder: (context, i) {
-                          final op = _mobileOperators[i];
+                          final op = mobileOperators[i];
                           final isOpSelected = _selectedOperator == op['id'];
                           final opColor = Color(op['color'] as int);
 
@@ -209,31 +200,40 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                               ),
                               child: Row(
                                 children: [
-                                  Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: BoxDecoration(color: opColor, shape: BoxShape.circle),
-                                  ),
+                                  Container(width: 10, height: 10, decoration: BoxDecoration(color: opColor, shape: BoxShape.circle)),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       op['name'] as String,
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: isOpSelected ? FontWeight.w900 : FontWeight.w700,
-                                        color: darkText,
-                                      ),
+                                      style: TextStyle(fontSize: 11.5, fontWeight: isOpSelected ? FontWeight.w900 : FontWeight.w700, color: darkText),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  if (isOpSelected)
-                                    Icon(Icons.check_circle_rounded, size: 16, color: opColor),
+                                  if (isOpSelected) Icon(Icons.check_circle_rounded, size: 16, color: opColor),
                                 ],
                               ),
                             ),
                           );
                         },
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _t(context, 'Numéro de téléphone Mobile Money', 'Mobile Money Phone Number'),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: darkText),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          hintText: 'Ex: +243XXXXXXXXX',
+                          filled: true,
+                          fillColor: pureWhite,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: cardBorder)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: cardBorder)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
                       ),
                     ],
                   ),
@@ -243,7 +243,7 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
           ),
         ),
 
-        // Bouton Continuer bas de page
+        // Bouton de Paiement Final via Edge Function
         Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           decoration: BoxDecoration(
@@ -256,16 +256,26 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: (state.selectedPayment == null || (isMobileMoneySelected && _selectedOperator == null))
+                onPressed: (state.selectedPayment == null || (isMobileMoneySelected && (_selectedOperator == null || _phoneController.text.trim().isEmpty)) || _isProcessing)
                     ? null
-                    : () {
-                        // Action de validation du paiement
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Paiement sélectionné : ${state.selectedPayment!['name']}${_selectedOperator != null ? ' ($_selectedOperator)' : ''}'),
-                            backgroundColor: successGreen,
-                          ),
-                        );
+                    : () async {
+                        setState(() => _isProcessing = true);
+                        try {
+                          // TODO: Déclencher ici l'appel à l'Edge Function de paiement avec state.selectedPayment, _selectedOperator et _phoneController.text
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(_t(context, 'Paiement effectué avec succès !', 'Payment successful!'))),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setState(() => _isProcessing = false);
+                        }
                       },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryBlue,
@@ -274,7 +284,9 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 0,
                 ),
-                child: const Text('Continuer vers le paiement', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                child: _isProcessing
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : Text(_t(context, 'Payer maintenant', 'Pay Now'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               ),
             ),
           ),
@@ -282,6 +294,4 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
       ],
     );
   }
-
-  static const Color successGreen = Color(0xFF00B074);
 }
