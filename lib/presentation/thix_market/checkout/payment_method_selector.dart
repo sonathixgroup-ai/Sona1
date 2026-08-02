@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'checkout_provider.dart';
+import '../cart/cart_provider.dart';
 import '../../../services/market_payment_service.dart';
 
 class PaymentMethodSelector extends ConsumerStatefulWidget {
@@ -16,7 +17,7 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
   static const Color primaryBlue = Color(0xFF0B3D91);
   static const Color lightBg = Color(0xFFF6F8FB);
   static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF10192E);
+  static const Color darkText = Color(0xFF10182B);
   static const Color mutedText = Color(0xFF7386A8);
   static const Color cardBorder = Color(0xFFEEF1F7);
 
@@ -39,6 +40,7 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
   Widget build(BuildContext context) {
     final state = ref.watch(checkoutProvider);
     final notifier = ref.read(checkoutProvider.notifier);
+    final cartNotifier = ref.read(cartProvider.notifier);
     final isMobileMoneySelected = state.selectedPayment != null && state.selectedPayment!['id'] == 'mobile_money';
 
     final List<Map<String, dynamic>> mainMethods = [
@@ -243,7 +245,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
           ),
         ),
 
-        // Bouton de Paiement Final via Edge Function Supabase
         Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           decoration: BoxDecoration(
@@ -263,22 +264,25 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                         try {
                           final paymentService = MarketPaymentService(Supabase.instance.client);
                           
-                          // Appel de l'Edge Function Supabase pour traiter le paiement
+                          final dynamic dynState = state;
+                          final String orderId = dynState.orderId ?? dynState.order?['id'] ?? '';
+                          final double amount = dynState.totalAmount ?? cartNotifier.subtotal;
+                          final String currency = dynState.currency ?? (cartNotifier.currencySymbol == '\$' ? 'USD' : 'FC');
+                          final String baseMethod = state.selectedPayment!['id'] ?? 'mobile_money';
+                          final String paymentMethod = _selectedOperator != null ? '${baseMethod}_$_selectedOperator' : baseMethod;
+
                           await paymentService.processOrderPayment(
-                            orderId: state.orderId ?? '',
-                            amount: state.totalAmount,
-                            currency: state.currency,
-                            paymentMethod: state.selectedPayment!['id'],
+                            orderId: orderId,
+                            amount: amount,
+                            currency: currency,
+                            paymentMethod: paymentMethod,
                             phoneNumber: _phoneController.text.trim(),
-                            operator: _selectedOperator,
                           );
 
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text(_t(context, 'Paiement effectué avec succès !', 'Payment successful!'))),
                             );
-                            // Redirection vers la page de succès ou confirmation finale
-                            // context.go('/market/order-success');
                           }
                         } catch (e) {
                           if (context.mounted) {
