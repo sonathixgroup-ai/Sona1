@@ -14,12 +14,13 @@ class PaymentMethodSelector extends ConsumerStatefulWidget {
 }
 
 class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
-  static const Color primaryBlue = Color(0xFF0B3D91);
-  static const Color lightBg = Color(0xFFF6F8FB);
+  // Couleurs THIX
+  static const Color thixOrange = Color(0xFFE5592F);
   static const Color pureWhite = Color(0xFFFFFFFF);
   static const Color darkText = Color(0xFF10192E);
   static const Color mutedText = Color(0xFF7386A8);
   static const Color cardBorder = Color(0xFFEEF1F7);
+  static const Color lightBg = Color(0xFFF7F8FC);
 
   final TextEditingController _phoneController = TextEditingController();
   String? _selectedOperator;
@@ -36,147 +37,311 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
     super.dispose();
   }
 
+  Future<void> _handlePayment() async {
+    final state = ref.read(checkoutProvider);
+    final notifier = ref.read(checkoutProvider.notifier);
+    final cartNotifier = ref.read(cartProvider.notifier);
+    final cartState = ref.read(cartProvider);
+
+    if (state.selectedPayment == null) return;
+
+    setState(() => _isProcessing = true);
+
+    try {
+      // 1. Préparer les items
+      final items = cartState.items.map((item) {
+        final product = item['product'] as Map?;
+        double price = 0;
+        try {
+          price = cartNotifier.getItemRealPrice(item);
+        } catch (_) {}
+        return {
+          'product_id': product != null ? product['id'] : item['product_id'],
+          'quantity': item['quantity'],
+          'price': price,
+          'product_name': product?['title']?.toString() ?? 'Produit',
+        };
+      }).toList();
+
+      final total = cartNotifier.subtotal;
+
+      // 2. Créer la commande si elle n'existe pas encore
+      String orderId = '';
+      try {
+        final dynState = state as dynamic;
+        orderId = dynState.orderId?.toString() ?? dynState.order?['id']?.toString() ?? '';
+      } catch (_) {}
+
+      if (orderId.isEmpty) {
+        await notifier.processOrder(total: total, items: items);
+        // Récupérer le nouvel orderId
+        final newState = ref.read(checkoutProvider);
+        try {
+          final dyn = newState as dynamic;
+          orderId = dyn.orderId?.toString() ?? dyn.order?['id']?.toString() ?? '';
+        } catch (_) {}
+      }
+
+      if (orderId.isEmpty) {
+        throw Exception(_t(context, 'Impossible de créer la commande', 'Unable to create order'));
+      }
+
+      // 3. Traiter le paiement
+      final paymentService = MarketPaymentService(Supabase.instance.client);
+      final currency = cartNotifier.currencySymbol == '\$' ? 'USD' : 'FC';
+      final baseMethod = state.selectedPayment!['id'] as String;
+      final paymentMethod = _selectedOperator != null ? '${baseMethod}_$_selectedOperator' : baseMethod;
+
+      await paymentService.processOrderPayment(
+        orderId: orderId,
+        amount: total,
+        currency: currency,
+        paymentMethod: paymentMethod,
+        phoneNumber: _phoneController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      // 4. Succès → aller au Bon de commande
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_t(context, 'Paiement effectué avec succès !', 'Payment successful!')),
+          backgroundColor: Colors.green.shade600,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      // Navigation vers l'étape finale
+      try {
+        (notifier as dynamic).goToStep('bon_de_commande');
+      } catch (_) {
+        try {
+          (notifier as dynamic).goToStep('success');
+        } catch (_) {
+          try {
+            (notifier as dynamic).next();
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_t(context, 'Erreur', 'Error')} : $e'),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(checkoutProvider);
     final notifier = ref.read(checkoutProvider.notifier);
     final cartNotifier = ref.read(cartProvider.notifier);
-    final isMobileMoneySelected = state.selectedPayment != null && state.selectedPayment!['id'] == 'mobile_money';
+    final total = cartNotifier.subtotal;
+    final currencySymbol = cartNotifier.currencySymbol;
+
+    final isMobileMoneySelected =
+        state.selectedPayment != null && state.selectedPayment!['id'] == 'mobile_money';
 
     final List<Map<String, dynamic>> mainMethods = [
       {
         'id': 'mobile_money',
         'name': _t(context, 'Mobile Money (RDC)', 'Mobile Money (DRC)'),
-        'desc': 'Vodacom, Airtel, Orange, Africell',
+        'desc': 'Vodacom • Airtel • Orange • Africell',
         'icon': Icons.phone_android_rounded,
-        'color': 0xFF2D6CDF,
+        'color': const Color(0xFF2D6CDF),
+        'badge': 'MM',
       },
       {
         'id': 'cash',
         'name': _t(context, 'Paiement à la livraison', 'Cash on Delivery'),
         'desc': _t(context, 'Règlement en espèces à la réception', 'Pay in cash upon receipt'),
         'icon': Icons.payments_rounded,
-        'color': 0xFF00B074,
+        'color': const Color(0xFF00B074),
+        'badge': '\$',
       },
       {
         'id': 'thix_money',
         'name': 'THIX Money Wallet',
         'desc': _t(context, 'Paiement instantané sécurisé', 'Secure instant payment'),
         'icon': Icons.account_balance_wallet_rounded,
-        'color': 0xFFE5592F,
+        'color': thixOrange,
+        'badge': 'TX',
       },
       {
         'id': 'card',
         'name': _t(context, 'Carte Bancaire Internationale', 'International Credit Card'),
-        'desc': 'Visa, Mastercard',
+        'desc': 'Visa • Mastercard',
         'icon': Icons.credit_card_rounded,
-        'color': 0xFF0A1F44,
+        'color': const Color(0xFF0A1F44),
+        'badge': '💳',
       },
     ];
 
     final List<Map<String, dynamic>> mobileOperators = [
-      {'id': 'vodacom', 'name': 'Vodacom (M-Pesa)', 'color': 0xFFE60000},
-      {'id': 'airtel', 'name': 'Airtel Money', 'color': 0xFFED1C24},
-      {'id': 'orange', 'name': 'Orange Money', 'color': 0xFFFF7900},
-      {'id': 'africell', 'name': 'Africell (AfriMoney)', 'color': 0xFF662D91},
+      {'id': 'vodacom', 'name': 'Vodacom (M-Pesa)', 'short': 'V', 'color': const Color(0xFFE60012)},
+      {'id': 'airtel', 'name': 'Airtel Money', 'short': 'A', 'color': const Color(0xFFED1C24)},
+      {'id': 'orange', 'name': 'Orange Money', 'short': 'O', 'color': const Color(0xFFFF7900)},
+      {'id': 'africell', 'name': 'Africell (AfriMoney)', 'short': 'AF', 'color': const Color(0xFF662D91)},
     ];
+
+    final canPay = state.selectedPayment != null &&
+        !(isMobileMoneySelected && (_selectedOperator == null || _phoneController.text.trim().isEmpty)) &&
+        !_isProcessing;
 
     return Column(
       children: [
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             children: [
               Text(
                 _t(context, 'Choisissez votre mode de paiement', 'Choose your payment method'),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: darkText),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: darkText),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 6),
+              Text(
+                _t(context, 'Sélectionnez une option pour continuer', 'Select an option to continue'),
+                style: const TextStyle(fontSize: 13, color: mutedText, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 20),
 
               ...mainMethods.map((method) {
                 final isSelected = state.selectedPayment != null && state.selectedPayment!['id'] == method['id'];
+                final color = method['color'] as Color;
+
                 return Column(
                   children: [
-                    Container(
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
                         color: pureWhite,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: isSelected ? primaryBlue : cardBorder, width: isSelected ? 2 : 1),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isSelected ? color : cardBorder,
+                          width: isSelected ? 2.2 : 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isSelected ? color.withOpacity(0.12) : Colors.black.withOpacity(0.03),
+                            blurRadius: isSelected ? 16 : 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: InkWell(
-                        onTap: () {
-                          notifier.selectPaymentMethod(method);
-                          if (method['id'] != 'mobile_money') {
-                            setState(() => _selectedOperator = null);
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(16),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Color(method['color'] as int).withOpacity(0.1),
-                                  shape: BoxShape.circle,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            notifier.selectPaymentMethod(method);
+                            if (method['id'] != 'mobile_money') {
+                              setState(() => _selectedOperator = null);
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(18),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                // Logo / Badge
+                                Container(
+                                  width: 52,
+                                  height: 52,
+                                  decoration: BoxDecoration(
+                                    color: color.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Center(
+                                    child: Icon(method['icon'] as IconData, color: color, size: 26),
+                                  ),
                                 ),
-                                child: Icon(method['icon'] as IconData, color: Color(method['color'] as int), size: 24),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(method['name'].toString(), style: const TextStyle(fontWeight: FontWeight.w800, color: darkText, fontSize: 15)),
-                                    const SizedBox(height: 4),
-                                    Text(method['desc'].toString(), style: const TextStyle(color: mutedText, fontSize: 12, fontWeight: FontWeight.w500)),
-                                  ],
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        method['name'].toString(),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          color: darkText,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        method['desc'].toString(),
+                                        style: const TextStyle(
+                                          color: mutedText,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              Radio<Map<String, dynamic>>(
-                                value: method,
-                                groupValue: state.selectedPayment,
-                                onChanged: (v) {
-                                  if (v != null) {
-                                    notifier.selectPaymentMethod(v);
-                                    if (v['id'] != 'mobile_money') setState(() => _selectedOperator = null);
-                                  }
-                                },
-                                activeColor: primaryBlue,
-                              ),
-                            ],
+                                // Radio custom
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isSelected ? color : Colors.grey.shade300,
+                                      width: 2,
+                                    ),
+                                    color: isSelected ? color : Colors.transparent,
+                                  ),
+                                  child: isSelected
+                                      ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                      : null,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
 
-                    // Affichage conditionnel des opérateurs et du champ téléphone juste en dessous si Mobile Money est sélectionné
-                    if (method['id'] == 'mobile_money' && isMobileMoneySelected) ...[
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 16, left: 8, right: 8),
+                    // Section Mobile Money (opérateurs + téléphone)
+                    if (method['id'] == 'mobile_money' && isMobileMoneySelected)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        margin: const EdgeInsets.only(bottom: 16, left: 4, right: 4),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: lightBg,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: primaryBlue.withOpacity(0.3)),
+                          border: Border.all(color: const Color(0xFF2D6CDF).withOpacity(0.25)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.signal_cellular_alt_rounded, size: 16, color: primaryBlue),
+                                const Icon(Icons.signal_cellular_alt_rounded, size: 18, color: Color(0xFF2D6CDF)),
                                 const SizedBox(width: 8),
                                 Text(
-                                  _t(context, 'Sélectionnez votre opérateur (RDC)', 'Select your operator (DRC)'),
-                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: primaryBlue),
+                                  _t(context, 'Sélectionnez votre opérateur', 'Select your operator'),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13.5,
+                                    color: Color(0xFF2D6CDF),
+                                  ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 14),
+
+                            // Grille opérateurs avec logos (badges)
                             GridView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
@@ -184,65 +349,112 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                                 crossAxisCount: 2,
                                 crossAxisSpacing: 10,
                                 mainAxisSpacing: 10,
-                                childAspectRatio: 2.8,
+                                childAspectRatio: 2.6,
                               ),
                               itemCount: mobileOperators.length,
                               itemBuilder: (context, i) {
                                 final op = mobileOperators[i];
                                 final isOpSelected = _selectedOperator == op['id'];
-                                final opColor = Color(op['color'] as int);
+                                final opColor = op['color'] as Color;
 
-                                return InkWell(
-                                  onTap: () => setState(() => _selectedOperator = op['id']),
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: isOpSelected ? opColor.withOpacity(0.12) : pureWhite,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: isOpSelected ? opColor : cardBorder, width: isOpSelected ? 2 : 1),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(width: 10, height: 10, decoration: BoxDecoration(color: opColor, shape: BoxShape.circle)),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            op['name'] as String,
-                                            style: TextStyle(fontSize: 11.5, fontWeight: isOpSelected ? FontWeight.w900 : FontWeight.w700, color: darkText),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
+                                return Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () => setState(() => _selectedOperator = op['id'] as String),
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 180),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: isOpSelected ? opColor.withOpacity(0.12) : pureWhite,
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: isOpSelected ? opColor : cardBorder,
+                                          width: isOpSelected ? 2 : 1,
                                         ),
-                                        if (isOpSelected) Icon(Icons.check_circle_rounded, size: 16, color: opColor),
-                                      ],
+                                        boxShadow: isOpSelected
+                                            ? [BoxShadow(color: opColor.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 2))]
+                                            : null,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          // Logo badge
+                                          Container(
+                                            width: 28,
+                                            height: 28,
+                                            decoration: BoxDecoration(
+                                              color: opColor,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                op['short'] as String,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              op['name'] as String,
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                fontWeight: isOpSelected ? FontWeight.w800 : FontWeight.w600,
+                                                color: darkText,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (isOpSelected)
+                                            Icon(Icons.check_circle_rounded, size: 18, color: opColor),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 );
                               },
                             ),
-                            const SizedBox(height: 16),
+
+                            const SizedBox(height: 18),
                             Text(
-                              _t(context, 'Numéro de téléphone Mobile Money', 'Mobile Money Phone Number'),
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: darkText),
+                              _t(context, 'Numéro Mobile Money', 'Mobile Money Phone Number'),
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: darkText),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 8),
                             TextField(
                               controller: _phoneController,
                               keyboardType: TextInputType.phone,
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                               decoration: InputDecoration(
-                                hintText: 'Ex: +243XXXXXXXXX',
+                                hintText: 'Ex: +243 97X XXX XXX',
+                                hintStyle: TextStyle(color: mutedText.withOpacity(0.7), fontWeight: FontWeight.w500),
+                                prefixIcon: const Icon(Icons.phone_rounded, color: mutedText, size: 20),
                                 filled: true,
                                 fillColor: pureWhite,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: cardBorder)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: cardBorder)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(color: cardBorder),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(color: cardBorder),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(color: Color(0xFF2D6CDF), width: 1.8),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                               ),
+                              onChanged: (_) => setState(() {}),
                             ),
                           ],
                         ),
                       ),
-                    ],
                   ],
                 );
               }),
@@ -250,67 +462,70 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
           ),
         ),
 
-        // Bouton de Paiement Final via Edge Function Supabase
+        // Bouton final
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
           decoration: BoxDecoration(
             color: pureWhite,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 16, offset: const Offset(0, -4))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 20,
+                offset: const Offset(0, -6),
+              ),
+            ],
           ),
           child: SafeArea(
             top: false,
-            child: SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: (state.selectedPayment == null || (isMobileMoneySelected && (_selectedOperator == null || _phoneController.text.trim().isEmpty)) || _isProcessing)
-                    ? null
-                    : () async {
-                        setState(() => _isProcessing = true);
-                        try {
-                          final paymentService = MarketPaymentService(Supabase.instance.client);
-                          
-                          final dynamic dynState = state;
-                          final String orderId = dynState.orderId ?? dynState.order?['id'] ?? '';
-                          final double amount = dynState.totalAmount ?? cartNotifier.subtotal;
-                          final String currency = dynState.currency ?? (cartNotifier.currencySymbol == '\$' ? 'USD' : 'FC');
-                          final String baseMethod = state.selectedPayment!['id'] ?? 'mobile_money';
-                          final String paymentMethod = _selectedOperator != null ? '${baseMethod}_$_selectedOperator' : baseMethod;
-
-                          await paymentService.processOrderPayment(
-                            orderId: orderId,
-                            amount: amount,
-                            currency: currency,
-                            paymentMethod: paymentMethod,
-                            phoneNumber: _phoneController.text.trim(),
-                          );
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(_t(context, 'Paiement effectué avec succès !', 'Payment successful!'))),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
-                            );
-                          }
-                        } finally {
-                          if (mounted) setState(() => _isProcessing = false);
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryBlue,
-                  foregroundColor: pureWhite,
-                  disabledBackgroundColor: Colors.grey.shade200,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 0,
+            child: Column(
+              children: [
+                // Résumé montant
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _t(context, 'Total à payer', 'Total to pay'),
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: mutedText, fontSize: 14),
+                      ),
+                      Text(
+                        '${total.toInt()} $currencySymbol',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: darkText,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: _isProcessing
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text(_t(context, 'Payer maintenant', 'Pay Now'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-              ),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: canPay ? _handlePayment : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: thixOrange,
+                      foregroundColor: pureWhite,
+                      disabledBackgroundColor: Colors.grey.shade200,
+                      disabledForegroundColor: Colors.grey.shade500,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    child: _isProcessing
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                          )
+                        : Text(
+                            _t(context, 'Payer maintenant', 'Pay Now'),
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                          ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
