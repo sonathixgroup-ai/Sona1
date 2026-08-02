@@ -282,16 +282,14 @@ SAFE ou FAKE: [raison]
     };
   }
 
-  // ─── PUBLICATION AVEC IMPRESSION DES ERREURS ───
+  // ─── PUBLICATION AVEC TIMEOUT ET GESTION D'ERREURS ───
   Future<void> _publishPost() async {
     final textContent = _contentController.text.trim();
     
-    // Réinitialiser les erreurs précédentes
     setState(() {
       _errorMessage = null; 
     });
 
-    // Validations selon le mode
     if (_postTypeMode == 0 && textContent.isEmpty && _images.isEmpty && _videos.isEmpty) {
       setState(() => _errorMessage = 'Veuillez entrer du contenu ou sélectionner des médias');
       return;
@@ -313,15 +311,21 @@ SAFE ou FAKE: [raison]
     try {
       final ns = ref.read(networkServiceProvider);
 
-      // Fact-check
-      final factCheckResult = await _runFactCheck(textContent);
+      // Timeout ajouté ici pour éviter le blocage infini sur les sondages "Nncncnc"
+      final factCheckResult = await _runFactCheck(textContent).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('⏳ Le Fact-Check a pris trop de temps. Publication en SAFE par défaut.');
+          return {'isMisinformation': 'false', 'message': null, 'severity': null};
+        },
+      );
+
       final bool isMisinformation = factCheckResult['isMisinformation'] == 'true';
       final String? factCheckMessage = factCheckResult['message'];
       final String? factCheckSeverity = factCheckResult['severity'];
 
       if (mounted) setState(() => _factCheckStatusLabel = 'Envoi de la publication...');
 
-      // Upload des images avec gestion d'erreur
       final List<String> imageUrls = [];
       for (final item in _images) {
         try {
@@ -329,9 +333,7 @@ SAFE ou FAKE: [raison]
           final ext = item.name.split('.').last;
           final url = await ns.uploadImageBytes(compressed, fileExtension: ext);
           if (url != null && url.isNotEmpty) imageUrls.add(url);
-        } catch (e, stack) {
-          debugPrint('ERREUR UPLOAD IMAGE: $e');
-          debugPrint('Stacktrace: $stack');
+        } catch (e) {
           if (mounted) {
             setState(() {
               _errorMessage = 'Échec de l\'upload d\'image: $e';
@@ -339,20 +341,17 @@ SAFE ou FAKE: [raison]
               _factCheckStatusLabel = null;
             });
           }
-          return; // Stoppe la publication si l'image échoue
+          return;
         }
       }
 
-      // Upload des vidéos avec gestion d'erreur
       final List<String> videoUrls = [];
       for (final item in _videos) {
         try {
           final ext = item.name.split('.').last;
           final url = await ns.uploadImageBytes(item.bytes, fileExtension: ext);
           if (url != null && url.isNotEmpty) videoUrls.add(url);
-        } catch (e, stack) {
-          debugPrint('ERREUR UPLOAD VIDEO: $e');
-          debugPrint('Stacktrace: $stack');
+        } catch (e) {
           if (mounted) {
             setState(() {
               _errorMessage = 'Échec de l\'upload vidéo: $e';
@@ -360,7 +359,7 @@ SAFE ou FAKE: [raison]
               _factCheckStatusLabel = null;
             });
           }
-          return; // Stoppe la publication si la vidéo échoue
+          return;
         }
       }
 
@@ -382,7 +381,6 @@ SAFE ou FAKE: [raison]
         'community_id': widget.communityId,
       };
 
-      // Spécificités du mode
       if (_postTypeMode == 1) {
         final options = _pollOptionControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
         if (options.length < 2) {
@@ -406,12 +404,8 @@ SAFE ou FAKE: [raison]
         payload['post_type'] = 'standard';
       }
 
-      // Insertion dans Supabase
-      debugPrint('Envoi du payload à Supabase: $payload');
       await Supabase.instance.client.from('posts').insert(payload);
-      debugPrint('Publication insérée avec succès dans Supabase');
 
-      // Actualisation Riverpod
       ref.invalidate(feedProvider);
       widget.onPostCreated?.call();
 
@@ -424,9 +418,7 @@ SAFE ou FAKE: [raison]
         );
         Navigator.pop(context, true);
       }
-    } catch (e, stack) {
-      debugPrint('ERREUR GLOBALE DE PUBLICATION (Base de données probable) : $e');
-      debugPrint('Stacktrace: $stack');
+    } catch (e) {
       if (mounted) {
         setState(() {
           _errorMessage = "Erreur système: $e";
