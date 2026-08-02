@@ -134,3 +134,4 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - lib/l10n/translations/
