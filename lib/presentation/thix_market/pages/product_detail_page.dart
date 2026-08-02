@@ -63,7 +63,6 @@ final productDetailProvider = FutureProvider.family<Map<String,dynamic>, String>
   };
 });
 
-// Provider pour charger les autres produits de LA MÊME BOUTIQUE (façon Alibaba)
 final storeProductsProvider = FutureProvider.family<List<Map<String,dynamic>>, String>((ref, shopId) async {
   final db = ref.read(supabaseClientProvider);
   final res = await db.from('products')
@@ -98,13 +97,17 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   bool _adding = false;
   int _imgIndex = 0;
 
-  // ─── ACTIONS ───
+  // Dictionnaire de traduction dynamique basé sur la langue du système
+  String _t(BuildContext context, String fr, String en) {
+    final lang = Localizations.localeOf(context).languageCode;
+    return lang == 'fr' ? fr : en;
+  }
 
   Future<void> _toggleFav(bool currentlyFav) async {
     final db = ref.read(supabaseClientProvider);
     final uid = db.auth.currentUser?.id;
     if (uid == null) { 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous connecter'))); 
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t(context, 'Veuillez vous connecter', 'Please log in')))); 
       return; 
     }
     try {
@@ -113,7 +116,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       } else {
         await db.from('wishlist').delete().match({'user_id': uid, 'product_id': widget.productId});
       }
-      // CORRECTION 1: On ne rafraîchit que le provider local car favoritesProvider n'est pas défini ici.
       ref.invalidate(isFavoriteProvider(widget.productId));
     } catch(e) { 
       debugPrint('fav error $e'); 
@@ -125,7 +127,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     final uid = db.auth.currentUser?.id;
     
     if (uid == null) { 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez vous connecter'))); 
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t(context, 'Veuillez vous connecter', 'Please log in')))); 
       return; 
     }
     
@@ -148,7 +150,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       }
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ajouté au panier !'), backgroundColor: _MarketColors.successGreen));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t(context, 'Ajouté au panier !', 'Added to cart!')), backgroundColor: _MarketColors.successGreen));
       }
       ref.invalidate(cartProvider);
     } catch(e) {
@@ -160,7 +162,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
   Future<void> _buyNow(int stock) async {
     if (stock <= 0) { 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rupture de stock'))); 
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t(context, 'Rupture de stock', 'Out of stock')))); 
       return; 
     }
     await _addToCart();
@@ -174,7 +176,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     final shopId = product['shop_id'];
     
     if (shopId == null) { 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Boutique indisponible'))); 
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t(context, 'Boutique indisponible', 'Store unavailable')))); 
       return; 
     }
     
@@ -183,18 +185,15 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     context.push('/market/chat/$shopId', extra: {'title': name, 'userName': name, 'userAvatar': avatar});
   }
 
-  // ─── BUILD ───
-
   @override 
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(productDetailProvider(widget.productId));
     final favAsync = ref.watch(isFavoriteProvider(widget.productId));
 
     return detailAsync.when(
-      loading: () => const Scaffold(backgroundColor: _MarketColors.pureWhite, body: Center(child: CircularProgressIndicator(color: _MarketColors.red))),
+      loading: () => const Scaffold(backgroundColor: _MarketColors.pureWhite, body: Center(child: CircularProgressIndicator(color: _MarketColors.red)))),
       error: (e, _) => Scaffold(appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop())), body: Center(child: Text('Erreur $e'))),
       data: (product) {
-        
         final imagesRaw = product['images'] as List?;
         List<String> images = [];
         if (imagesRaw != null && imagesRaw.isNotEmpty) {
@@ -206,8 +205,10 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         }
         
         bool hasDiscount = product['discount_price'] != null && (product['discount_price'] as num) < (product['price'] as num);
+        
+        // Respect dynamique de la devise (USD ou FC / currency système)
         String currency = product['currency']?.toString() ?? 'CDF';
-        String symbol = currency == 'USD' ? '\$' : 'FC';
+        String symbol = currency == 'USD' ? '\$' : (currency == 'EUR' ? '€' : currency);
         
         int stock = product['stock'] != null ? (product['stock'] as num).toInt() : 0;
         bool available = stock > 0;
@@ -217,14 +218,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         List reviews = product['reviews'] is List ? product['reviews'] as List : [];
         bool isFav = favAsync.valueOrNull ?? false;
         final shopId = product['shop_id']?.toString();
+        final shop = product['shop'] as Map<String, dynamic>?;
 
         return Scaffold(
           backgroundColor: _MarketColors.lightBg,
           body: CustomScrollView(
             slivers: [
-              // ============================================================
-              // APPBAR & CAROUSEL D'IMAGES
-              // ============================================================
               SliverAppBar(
                 expandedHeight: 380,
                 pinned: true,
@@ -290,14 +289,11 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                 ),
               ),
 
-              // ============================================================
-              // CONTENU DU PRODUIT
-              // ============================================================
               SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start, 
                   children: [
-                    // --- TITRE ET PRIX ---
+                    // PRIX ET TITRE
                     Container(
                       color: _MarketColors.pureWhite,
                       padding: const EdgeInsets.all(16),
@@ -337,7 +333,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 onRatingUpdate: (_) {}
                               ),
                               const SizedBox(width: 8),
-                              Text('${product['reviews_count']} avis', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: _MarketColors.mutedText)),
+                              Text('${product['reviews_count']} ${_t(context, 'avis', 'reviews')}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: _MarketColors.mutedText)),
                             ]
                           ),
                         ]
@@ -346,7 +342,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
                     const SizedBox(height: 10),
 
-                    // --- SÉLECTION QUANTITÉ & VARIANTES ---
+                    // VARIANTES & QUANTITÉ
                     Container(
                       color: _MarketColors.pureWhite,
                       padding: const EdgeInsets.all(16),
@@ -360,7 +356,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           
                           Row(
                             children: [
-                              const Text('Quantité', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _MarketColors.darkText)),
+                              Text(_t(context, 'Quantité', 'Quantity'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _MarketColors.darkText)),
                               const Spacer(),
                               Container(
                                 decoration: BoxDecoration(
@@ -385,8 +381,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
                     const SizedBox(height: 10),
 
-                    // --- BOUTIQUE / SHOP (STYLE ALIBABA) ---
-                    if (product['shop'] != null)
+                    // BOUTIQUE / SHOP (SANS CODE EN DUR)
+                    if (shop != null && shop.isNotEmpty)
                       Container(
                         color: _MarketColors.pureWhite,
                         padding: const EdgeInsets.all(16),
@@ -404,7 +400,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
                                     child: Image.network(
-                                      product['shop']['logo_url']?.toString() ?? '',
+                                      shop['logo_url']?.toString() ?? '',
                                       fit: BoxFit.cover,
                                       loadingBuilder: (_, child, p) => p == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2)),
                                       errorBuilder: (_,__,___) => const Icon(Icons.storefront_rounded, color: _MarketColors.mutedText)
@@ -417,12 +413,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        product['shop']['name']?.toString() ?? 'Boutique Partenaire', 
+                                        shop['name']?.toString() ?? _t(context, 'Boutique Partenaire', 'Partner Store'), 
                                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: _MarketColors.darkText)
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Partenaire vérifié • Situé à ${product['shop']['city'] ?? 'Kinshasa'}', 
+                                        '${_t(context, 'Partenaire vérifié', 'Verified Partner')} • ${shop['city'] ?? ''}', 
                                         style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12)
                                       ),
                                     ]
@@ -431,55 +427,29 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                               ]
                             ),
                             const SizedBox(height: 16),
-                            const Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Company overview', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                                      SizedBox(height: 8),
-                                      Text('100.0%', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                                      Text('On-time dispatch rate', style: TextStyle(color: _MarketColors.mutedText, fontSize: 11)),
-                                    ]
-                                  )
-                                ),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      SizedBox(height: 24),
-                                      Text('≤2h', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                                      Text('Response Time', style: TextStyle(color: _MarketColors.mutedText, fontSize: 11)),
-                                    ]
-                                  )
-                                )
-                              ]
-                            ),
-                            const SizedBox(height: 16),
                             Row(
                               children: [
                                 Expanded(
                                   child: OutlinedButton(
-                                    onPressed: () => context.push('/market/shop/${product['shop_id']}'), 
+                                    onPressed: () => context.push('/market/shop/$shopId'), 
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: _MarketColors.darkText,
                                       side: const BorderSide(color: _MarketColors.darkText),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
                                     ),
-                                    child: const Text('Plus de produits')
+                                    child: Text(_t(context, 'Plus de produits', 'More products'))
                                   )
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: OutlinedButton(
-                                    onPressed: () => context.push('/market/shop/${product['shop_id']}'), 
+                                    onPressed: () => context.push('/market/shop/$shopId'), 
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: _MarketColors.darkText,
                                       side: const BorderSide(color: _MarketColors.darkText),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
                                     ),
-                                    child: const Text('Profil vendeur')
+                                    child: Text(_t(context, 'Profil vendeur', 'Store profile'))
                                   )
                                 )
                               ]
@@ -490,7 +460,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
                     const SizedBox(height: 10),
 
-                    // --- SECTION PRODUITS SIMILAIRES & BESTSELLERS (ALIBABA STYLE) ---
+                    // PRODUITS SIMILAIRES DE LA BOUTIQUE
                     if (shopId != null)
                       Consumer(
                         builder: (context, ref, _) {
@@ -500,11 +470,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                             loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: _MarketColors.red))),
                             error: (_, __) => const SizedBox(),
                             data: (products) {
-                              // On filtre le produit actuel pour ne pas le réafficher
                               final filtered = products.where((p) => p['id'] != widget.productId).toList();
                               if (filtered.isEmpty) return const SizedBox();
                               
-                              // On simule deux listes : "Produits similaires" et "Meilleures ventes"
                               final similar = filtered.take(5).toList();
                               final bestsellers = filtered.skip(5).take(5).toList();
                               
@@ -515,13 +483,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     if (similar.isNotEmpty) ...[
-                                      _buildHorizontalTitle('Produits similaires du vendeur'),
-                                      // CORRECTION 2: EdgeInsets.only(top: 12) utilisé ici
+                                      _buildHorizontalTitle(_t(context, 'Produits similaires du vendeur', 'Similar store products')),
                                       _buildHorizontalList(similar, symbol),
                                       const SizedBox(height: 20),
                                     ],
                                     if (bestsellers.isNotEmpty) ...[
-                                      _buildHorizontalTitle('Meilleures ventes de la boutique'),
+                                      _buildHorizontalTitle(_t(context, 'Meilleures ventes de la boutique', 'Store bestsellers')),
                                       _buildHorizontalList(bestsellers, symbol),
                                     ]
                                   ]
@@ -534,14 +501,14 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
                     const SizedBox(height: 10),
 
-                    // --- DESCRIPTION ET AVIS ---
+                    // DESCRIPTION & AVIS CLIENTS
                     Container(
                       color: _MarketColors.pureWhite,
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Détails du produit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _MarketColors.darkText)),
+                          Text(_t(context, 'Détails du produit', 'Product details'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _MarketColors.darkText)),
                           const SizedBox(height: 12),
                           Text(
                             product['description']?.toString() ?? '', 
@@ -553,17 +520,19 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween, 
                             children: [
-                              const Text('Avis clients', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _MarketColors.darkText)), 
+                              Text(_t(context, 'Avis clients', 'Customer reviews'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _MarketColors.darkText)), 
                               if (reviews.isNotEmpty)
                                 GestureDetector(
                                   onTap: () => _showAllReviews(reviews), 
-                                  child: const Text('Voir tout', style: TextStyle(color: _MarketColors.red, fontWeight: FontWeight.w800, fontSize: 13))
+                                  child: Text(_t(context, 'Voir tout', 'See all'), style: const TextStyle(color: _MarketColors.red, fontWeight: FontWeight.w800, fontSize: 13))
                                 )
                             ]
                           ),
                           const SizedBox(height: 16),
-                          if (reviews.isEmpty) const Text('Aucun avis pour le moment.', style: TextStyle(color: _MarketColors.mutedText, fontSize: 13))
-                          else ...reviews.take(3).map((r) => _reviewCard(r)),
+                          if (reviews.isEmpty) 
+                            Text(_t(context, 'Aucun avis pour le moment.', 'No reviews yet.'), style: const TextStyle(color: _MarketColors.mutedText, fontSize: 13))
+                          else 
+                            ...reviews.take(3).map((r) => _reviewCard(r)),
                         ]
                       )
                     ),
@@ -574,9 +543,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
             ]
           ),
 
-          // ============================================================
-          // BARRE INFÉRIEURE — Style Alibaba (Boutique, Chat, Buy)
-          // ============================================================
+          // BARRE D'ACTIONS INFÉRIEURE
           bottomNavigationBar: Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             decoration: BoxDecoration(
@@ -588,7 +555,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
               child: Row(
                 children: [
                   InkWell(
-                    onTap: () => context.push('/market/shop/${product['shop_id']}'),
+                    onTap: () => context.push('/market/shop/$shopId'),
                     child: const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -620,7 +587,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                     child: ElevatedButton(
                       onPressed: available && !_adding ? () => _buyNow(stock) : null, 
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFD0391A), // Orange brûlé style Alibaba
+                        backgroundColor: const Color(0xFFD0391A),
                         padding: const EdgeInsets.symmetric(vertical: 14), 
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))
@@ -639,8 +606,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     );
   }
 
-  // ─── WIDGETS HORIZONTAUX ALIBABA STYLE ───
-
   Widget _buildHorizontalTitle(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -656,7 +621,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
   Widget _buildHorizontalList(List<Map<String,dynamic>> products, String symbol) {
     return Container(
-      height: 210,
+      height: 200,
       margin: const EdgeInsets.only(top: 12),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
@@ -665,7 +630,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         itemBuilder: (context, index) {
           final p = products[index];
           final price = p['discount_price'] ?? p['price'] ?? 0;
-          final stock = p['stock'] != null ? (p['stock'] as num).toInt() : 1;
           
           return GestureDetector(
             onTap: () => context.push('/market/product/${p['id']}'),
@@ -676,7 +640,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    height: 140,
+                    height: 130,
                     width: 140,
                     decoration: BoxDecoration(
                       color: _MarketColors.lightBg,
@@ -693,12 +657,10 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                       )
                     )
                   ),
-                  const SizedBox(height: 8),
-                  Text('$price $symbol', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: _MarketColors.darkText)),
+                  const SizedBox(height: 6),
+                  Text('$price $symbol', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5, color: _MarketColors.darkText)),
                   const SizedBox(height: 2),
-                  Text('$stock unité(s) (MOQ)', style: const TextStyle(fontSize: 11, color: _MarketColors.mutedText)),
-                  const SizedBox(height: 2),
-                  const Text('Lower price', style: TextStyle(fontSize: 11, color: _MarketColors.red)),
+                  Text(_t(context, 'Disponible', 'In stock'), style: const TextStyle(fontSize: 11, color: _MarketColors.successGreen)),
                 ]
               )
             )
@@ -707,8 +669,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       )
     );
   }
-
-  // ─── MÉTHODES UTILITAIRES POUR L'UI ───
 
   Widget _circleBtn(IconData icon, VoidCallback onTap, {Color color = _MarketColors.darkText}) {
     return InkWell(
@@ -743,7 +703,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start, 
       children: [
-        const Text('Taille / Modèle', style: TextStyle(fontWeight: FontWeight.w600, color: _MarketColors.darkText, fontSize: 14)), 
+        Text(_t(context, 'Taille / Modèle', 'Size / Model'), style: const TextStyle(fontWeight: FontWeight.w600, color: _MarketColors.darkText, fontSize: 14)), 
         const SizedBox(height: 8), 
         Wrap(
           spacing: 10, runSpacing: 10, 
@@ -761,7 +721,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start, 
       children: [
-        const Text('Couleurs', style: TextStyle(fontWeight: FontWeight.w600, color: _MarketColors.darkText, fontSize: 14)), 
+        Text(_t(context, 'Couleurs', 'Colors'), style: const TextStyle(fontWeight: FontWeight.w600, color: _MarketColors.darkText, fontSize: 14)), 
         const SizedBox(height: 8), 
         Wrap(
           spacing: 10, runSpacing: 10, 
@@ -801,7 +761,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
   Widget _reviewCard(Map<String,dynamic> review) {
     final user = review['user'] as Map?;
-    String name = user?['name']?.toString() ?? 'Client vérifié';
+    String name = user?['name']?.toString() ?? _t(context, 'Client vérifié', 'Verified Customer');
     String? avatar = user?['avatar']?.toString();
     
     double rating = review['rating'] != null ? (review['rating'] as num).toDouble() : 0;
@@ -888,7 +848,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   padding: const EdgeInsets.all(20), 
                   child: Row(
                     children: [
-                      const Text('Tous les avis', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _MarketColors.darkText)), 
+                      Text(_t(context, 'Tous les avis', 'All reviews'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _MarketColors.darkText)), 
                       const Spacer(), 
                       InkWell(
                         onTap: () => Navigator.pop(context), 
