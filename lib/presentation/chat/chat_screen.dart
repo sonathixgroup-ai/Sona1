@@ -32,8 +32,10 @@ import 'package:thix_id/models/chat/call_status.dart';
 import 'package:thix_id/presentation/chat/call/call_page.dart';
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 import 'package:thix_id/presentation/chat/providers/chat_list_provider.dart';
+
 class _C {
-  static const bg = Color(0xFFF0F2F5);
+  // Changement du background pour la couleur douce classique type WhatsApp
+  static const bg = Color(0xFFEFEAE2); 
   static const surface = Colors.white;
   static const surfaceAlt = Color(0xFFF8FAFC);
   static const border = Color(0xFFE2E8F0);
@@ -246,7 +248,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   Future<void> _markAsRead() async {
     await ref.read(chatServiceProvider).markAsRead(widget.conversationId);
-    // Force le refresh des badges dans la liste
     try {
       ref.read(chatListProvider.notifier).refresh();
     } catch (_) {}
@@ -385,11 +386,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     setState(() => _isSending = true);
 
     try {
+      bool textSentAsCaption = false;
+
       if (_selectedFiles.isNotEmpty) {
         final filesToSend = List<PlatformFile>.from(_selectedFiles);
         setState(() => _selectedFiles.clear());
 
-        for (var f in filesToSend) {
+        for (int i = 0; i < filesToSend.length; i++) {
+          final f = filesToSend[i];
           final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
           if (bytes == null) continue;
 
@@ -402,9 +406,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           );
 
           if (url != null) {
+            // Regroupe la légende et l'image sur le dernier fichier envoyé
+            final isLastFile = i == filesToSend.length - 1;
+            String messageContent = '';
+            
+            if (isLastFile && text.isNotEmpty) {
+              messageContent = text;
+              textSentAsCaption = true;
+            }
+
             final msg = await svc.sendMessage(
               conversationId: widget.conversationId,
-              content: f.name,
+              content: messageContent,
               mediaUrl: url,
               mediaType: _getMediaType(ext),
               mediaName: f.name,
@@ -418,7 +431,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         }
       }
 
-      if (text.isNotEmpty && !text.startsWith('📎')) {
+      // N'envoie le texte séparément QUE s'il n'a pas été envoyé comme légende d'image
+      if (text.isNotEmpty && !textSentAsCaption) {
         final msg = await svc.sendMessage(
           conversationId: widget.conversationId,
           content: text,
@@ -795,9 +809,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       if (result != null && result.files.isNotEmpty) {
         setState(() {
           _selectedFiles.addAll(result.files);
-          if (_inputController.text.trim().isEmpty) {
-            _inputController.text = '📎 ${_selectedFiles.length} fichier(s)';
-          }
+          // Fini le texte factice, la barre reste propre pour écrire une vraie légende.
         });
       }
     } catch (e) {
@@ -812,11 +824,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   void _removeFile(int index) {
     setState(() {
       _selectedFiles.removeAt(index);
-      if (_selectedFiles.isEmpty && _inputController.text.startsWith('📎')) {
-        _inputController.clear();
-      } else if (_selectedFiles.isNotEmpty && _inputController.text.startsWith('📎')) {
-        _inputController.text = '📎 ${_selectedFiles.length} fichier(s)';
-      }
     });
   }
 
@@ -860,11 +867,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final lastSeen = status.lastSeenAt ?? DateTime.now();
     final diff = DateTime.now().difference(lastSeen);
 
-    // Timeout de 2 minutes → considéré offline
     if (status.status == 'online' && diff.inMinutes <= 2) {
       return 'En ligne';
     }
     return 'Vu ${_formatLastSeen(lastSeen)}';
+  }
+
+  // Amélioration de l'affichage du format d'heure
+  String _formatLastSeen(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(d.year, d.month, d.day);
+    final diffInDays = today.difference(date).inDays;
+    final timeStr = DateFormat('HH:mm').format(d);
+
+    if (diffInDays == 0) return "aujourd'hui à $timeStr";
+    if (diffInDays == 1) return "hier à $timeStr";
+    if (diffInDays < 7) return "${DateFormat('EEEE', 'fr_FR').format(d)} à $timeStr";
+    return "le ${DateFormat('dd/MM/yyyy').format(d)} à $timeStr";
   }
 
   @override
@@ -1150,12 +1170,5 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         ),
       ),
     );
-  }
-
-  String _formatLastSeen(DateTime d) {
-    final diff = DateTime.now().difference(d);
-    if (diff.inDays == 0) return 'à ${DateFormat('HH:mm').format(d)}';
-    if (diff.inDays == 1) return 'hier à ${DateFormat('HH:mm').format(d)}';
-    return 'le ${DateFormat('dd/MM/yyyy').format(d)}';
   }
 }
