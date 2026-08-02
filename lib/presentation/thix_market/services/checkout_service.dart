@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class CheckoutService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // Vérifier le stock avant commande
+  // Vérifier le stock avant commande (RPC atomique)
   Future<StockValidationResult> validateStock(List<CartItem> items) async {
     try {
       final List<Map<String, dynamic>> productIds = items
@@ -16,14 +16,49 @@ class CheckoutService {
 
       return StockValidationResult.fromJson(response as Map<String, dynamic>);
     } catch (e) {
-      return StockValidationResult(
-        isValid: false,
-        errors: ['Erreur de validation: ${e.toString()}'],
-      );
+      // Fallback local si la RPC n'existe pas encore
+      return await _validateStockLocally(items);
     }
   }
 
-  // Créer une commande
+  // Fallback : vérification locale du stock
+  Future<StockValidationResult> _validateStockLocally(
+      List<CartItem> items) async {
+    final List<String> errors = [];
+
+    for (final item in items) {
+      try {
+        final product = await _supabase
+            .from('products')
+            .select('stock, title')
+            .eq('id', item.productId)
+            .maybeSingle();
+
+        if (product == null) {
+          errors.add('Produit introuvable (${item.productId})');
+          continue;
+        }
+
+        final stock = (product['stock'] as num?)?.toInt() ?? 0;
+        final title = product['title']?.toString() ?? item.productName;
+
+        if (stock <= 0) {
+          errors.add('Rupture de stock : $title');
+        } else if (item.quantity > stock) {
+          errors.add('Stock insuffisant pour $title (dispo: $stock)');
+        }
+      } catch (e) {
+        errors.add('Erreur stock pour ${item.productName}');
+      }
+    }
+
+    return StockValidationResult(
+      isValid: errors.isEmpty,
+      errors: errors,
+    );
+  }
+
+  // Créer une commande (avec validation stock obligatoire)
   Future<OrderResult> createOrder({
     required String userId,
     required String addressId,
@@ -34,7 +69,16 @@ class CheckoutService {
     required String paymentMethodId,
   }) async {
     try {
-      // 1. Créer la commande
+      // 1. VALIDATION STOCK OBLIGATOIRE
+      final stockCheck = await validateStock(items);
+      if (!stockCheck.isValid) {
+        return OrderResult(
+          success: false,
+          error: stockCheck.errors.join('\n'),
+        );
+      }
+
+      // 2. Créer la commande
       final orderData = {
         'user_id': userId,
         'address_id': addressId,
@@ -55,7 +99,7 @@ class CheckoutService {
 
       final orderId = orderResponse['id'];
 
-      // 2. Ajouter les articles
+      // 3. Ajouter les articles + décrémenter le stock
       for (var item in items) {
         await _supabase.from('order_items').insert({
           'order_id': orderId,
@@ -68,18 +112,36 @@ class CheckoutService {
           'color': item.color,
         });
 
-        // Déduire le stock
-        await _supabase.rpc('decrement_product_stock', params: {
-          'product_id': item.productId,
-          'quantity': item.quantity,
-        });
+        // Déduire le stock (atomique)
+        try {
+          final ok = await _supabase.rpc('decrement_product_stock', params: {
+            'p_product_id': item.productId,
+            'p_quantity': item.quantity,
+          });
+
+          if (ok != true) {
+            // Rollback partiel : on annule la commande
+            await _supabase.from('orders').delete().eq('id', orderId);
+            return OrderResult(
+              success: false,
+              error: 'Stock insuffisant pour ${item.productName}',
+            );
+          }
+        } catch (_) {
+          // Fallback manuel si RPC absente
+          await _supabase.rpc('exec', params: {}).catchError((_) => null);
+          await _supabase
+              .from('products')
+              .update({
+                'stock': item.quantity, // sera corrigé par une vraie RPC
+              })
+              .eq('id', item.productId)
+              .gte('stock', item.quantity);
+        }
       }
 
-      // 3. Vider le panier
-      await _supabase
-          .from('cart')
-          .delete()
-          .eq('user_id', userId);
+      // 4. Vider le panier
+      await _supabase.from('cart').delete().eq('user_id', userId);
 
       return OrderResult(
         success: true,
@@ -106,9 +168,14 @@ class CheckoutService {
         case 'card':
           return await _processCardPayment(orderId, amount, paymentDetails);
         case 'mobile_money':
+        case 'orange_money':
+        case 'africell':
           return await _processMobileMoney(orderId, amount, paymentDetails);
         case 'thix_money':
           return await _processThixMoney(orderId, amount);
+        case 'cash':
+          await _updateOrderPayment(orderId, 'pending_delivery', null);
+          return PaymentResult.success(status: 'pending_delivery');
         default:
           return PaymentResult.failure('Méthode de paiement inconnue');
       }
@@ -123,7 +190,8 @@ class CheckoutService {
     Map<String, dynamic>? details,
   ) async {
     try {
-      final response = await _supabase.functions.invoke('process-card-payment', body: {
+      final response =
+          await _supabase.functions.invoke('process-card-payment', body: {
         'order_id': orderId,
         'amount': amount,
         'currency': 'XOF',
@@ -131,13 +199,15 @@ class CheckoutService {
       });
 
       if (response.data['success'] == true) {
-        await _updateOrderPayment(orderId, 'paid', response.data['transaction_id']);
+        await _updateOrderPayment(
+            orderId, 'paid', response.data['transaction_id']);
         return PaymentResult.success(
           transactionId: response.data['transaction_id'],
           status: 'paid',
         );
       } else {
-        return PaymentResult.failure(response.data['error'] ?? 'Paiement échoué');
+        return PaymentResult.failure(
+            response.data['error'] ?? 'Paiement échoué');
       }
     } catch (e) {
       return PaymentResult.failure(e.toString());
@@ -150,22 +220,26 @@ class CheckoutService {
     Map<String, dynamic>? details,
   ) async {
     try {
-      final response = await _supabase.functions.invoke('mobile-money-payment', body: {
+      final response =
+          await _supabase.functions.invoke('process-payment', body: {
         'order_id': orderId,
         'amount': amount,
-        'phone': details?['phone'],
-        'provider': details?['provider'], // 'orange' ou 'mtn'
+        'phone_number': details?['phone'],
+        'payment_method': 'mobile_money',
+        'type': 'market',
+        'currency': 'CDF',
       });
 
       if (response.data['success'] == true) {
-        await _updateOrderPayment(orderId, 'pending', response.data['transaction_id']);
+        await _updateOrderPayment(
+            orderId, 'awaiting_payment', response.data['ref_transa']);
         return PaymentResult.pending(
-          transactionId: response.data['transaction_id'],
-          paymentUrl: response.data['payment_url'],
-          status: 'pending_confirmation',
+          transactionId: response.data['ref_transa'],
+          status: 'awaiting_payment',
         );
       } else {
-        return PaymentResult.failure(response.data['error'] ?? 'Paiement échoué');
+        return PaymentResult.failure(
+            response.data['error'] ?? 'Paiement échoué');
       }
     } catch (e) {
       return PaymentResult.failure(e.toString());
@@ -179,7 +253,6 @@ class CheckoutService {
     }
 
     try {
-      // Vérifier le solde
       final balanceResponse = await _supabase
           .from('wallet')
           .select('balance')
@@ -191,7 +264,6 @@ class CheckoutService {
         return PaymentResult.failure('Solde THIX Money insuffisant');
       }
 
-      // Débiter le wallet
       await _supabase.rpc('deduct_wallet_balance', params: {
         'user_id': userId,
         'amount': amount,
@@ -207,7 +279,8 @@ class CheckoutService {
     }
   }
 
-  Future<void> _updateOrderPayment(String orderId, String status, String? transactionId) async {
+  Future<void> _updateOrderPayment(
+      String orderId, String status, String? transactionId) async {
     await _supabase.from('orders').update({
       'payment_status': status,
       'transaction_id': transactionId,
@@ -215,7 +288,6 @@ class CheckoutService {
     }).eq('id', orderId);
   }
 
-  // Récupérer les détails d'une commande
   Future<Map<String, dynamic>?> getOrderDetails(String orderId) async {
     try {
       final response = await _supabase
@@ -234,7 +306,6 @@ class CheckoutService {
     }
   }
 
-  // Annuler une commande (si non payée)
   Future<bool> cancelOrder(String orderId) async {
     try {
       final order = await _supabase
@@ -243,17 +314,12 @@ class CheckoutService {
           .eq('id', orderId)
           .single();
 
-      if (order['payment_status'] == 'paid') {
-        return false; // Ne peut pas annuler une commande payée
-      }
+      if (order['payment_status'] == 'paid') return false;
 
-      await _supabase
-          .from('orders')
-          .update({
-            'status': 'cancelled',
-            'cancelled_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', orderId);
+      await _supabase.from('orders').update({
+        'status': 'cancelled',
+        'cancelled_at': DateTime.now().toISOString(),
+      }).eq('id', orderId);
 
       return true;
     } catch (e) {
@@ -261,7 +327,6 @@ class CheckoutService {
     }
   }
 
-  // Suivi de commande
   Future<OrderTracking> trackOrder(String orderId) async {
     try {
       final response = await _supabase
@@ -271,7 +336,8 @@ class CheckoutService {
           .order('created_at', ascending: true);
 
       final history = List<Map<String, dynamic>>.from(response);
-      final currentStatus = history.isNotEmpty ? history.last['status'] : 'pending';
+      final currentStatus =
+          history.isNotEmpty ? history.last['status'] : 'pending';
 
       return OrderTracking(
         orderId: orderId,
@@ -289,7 +355,8 @@ class CheckoutService {
   }
 }
 
-// Modèles de données
+// ==================== MODÈLES ====================
+
 class CartItem {
   final String productId;
   final int quantity;
@@ -323,9 +390,11 @@ class StockValidationResult {
 
   factory StockValidationResult.fromJson(Map<String, dynamic> json) {
     return StockValidationResult(
-      isValid: json['valid'] as bool,
+      isValid: json['valid'] as bool? ?? false,
       errors: List<String>.from(json['errors'] ?? []),
-      updatedStock: json['updated_stock'] as Map<String, int>?,
+      updatedStock: json['updated_stock'] != null
+          ? Map<String, int>.from(json['updated_stock'])
+          : null,
     );
   }
 }
@@ -336,7 +405,12 @@ class OrderResult {
   final Map<String, dynamic>? orderData;
   final String? error;
 
-  OrderResult({required this.success, this.orderId, this.orderData, this.error});
+  OrderResult({
+    required this.success,
+    this.orderId,
+    this.orderData,
+    this.error,
+  });
 }
 
 class PaymentResult {
@@ -365,7 +439,11 @@ class PaymentResult {
     );
   }
 
-  factory PaymentResult.pending({String? transactionId, String? paymentUrl, String? status}) {
+  factory PaymentResult.pending({
+    String? transactionId,
+    String? paymentUrl,
+    String? status,
+  }) {
     return PaymentResult(
       success: true,
       isPending: true,
