@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/chat/chat_conversation.dart';
 import 'providers/chat_list_provider.dart';
+import 'providers/presence_provider.dart'; // 👈 AJOUT DU PROVIDER DE PRESENCE
 import 'chat_screen.dart';
 import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
@@ -276,14 +277,25 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(chatListProvider);
     final notifier = ref.read(chatListProvider.notifier);
-    // ⚠️ Suppose que authControllerProvider expose un champ `.name`.
-    final currentUserName = ref.watch(authControllerProvider).value?.name ?? '';
+    
+    // 👈 CORRECTION 1: Utilisation de displayName et récupération de l'ID actuel
+    final currentUser = ref.watch(authControllerProvider).value;
+    final currentUserName = currentUser?.displayName ?? '';
+    final currentUserId = currentUser?.id ?? '';
 
-    // ⚠️ Suppose que ChatConversation expose `isOnline`. Ne garde que les
-    // contacts individuels (pas les groupes) actuellement connectés.
-    final onlineContacts = state.filtered
-        .where((c) => !c.isGroup && c.isOnline)
-        .toList();
+    // 👈 CORRECTION 2: Écoute des utilisateurs en ligne via le provider Supabase Realtime
+    final onlineUserIds = ref.watch(presenceProvider);
+
+    // 👈 CORRECTION 3: Filtrage propre des contacts en ligne
+    final onlineContacts = state.filtered.where((c) {
+      if (c.isGroup) return false;
+      // On cherche l'ID de l'autre participant
+      final otherUserId = c.participantIds.firstWhere(
+        (id) => id != currentUserId,
+        orElse: () => ''
+      );
+      return onlineUserIds.contains(otherUserId);
+    }).toList();
 
     return Scaffold(
       backgroundColor: _C.bg,
@@ -319,7 +331,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     SliverToBoxAdapter(child: _escalationBanner(state.pendingEscalations)),
                   SliverToBoxAdapter(child: _filters(state.filterIndex)),
                   const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                  _chatList(state.filtered),
+                  // On passe l'ID courant et la liste des connectés à _chatList
+                  _chatList(state.filtered, currentUserId, onlineUserIds),
                   if (state.isLoadingMore)
                     const SliverToBoxAdapter(
                       child: Padding(
@@ -391,7 +404,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     label: conv.displayName.split(' ').first,
                     avatarUrl: conv.displayAvatar,
                     isSelf: false,
-                    isOnline: true,
+                    isOnline: true, // Garanti vrai car filtré plus haut
                     onTap: () async {
                       await Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv)));
                       ref.read(chatListProvider.notifier).refresh();
@@ -465,7 +478,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   }
 
   // ─────────────────────────── RECHERCHE ───────────────────────────
-  // Carte blanche qui chevauche légèrement le bas de l'en-tête dégradé.
 
   Widget _searchCard() {
     return Transform.translate(
@@ -596,7 +608,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  Widget _chatList(List<ChatConversation> list) {
+  // 👈 CORRECTION 4: Signature mise à jour pour inclure les paramètres dynamiques de présence
+  Widget _chatList(List<ChatConversation> list, String currentUserId, Set<String> onlineUserIds) {
     if (list.isEmpty) {
       return const SliverToBoxAdapter(
         child: Padding(
@@ -626,6 +639,13 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           final last = conv.lastMessage;
           final t = last != null ? last.createdAt : conv.updatedAt;
           final unread = conv.unreadCount > 0;
+
+          // Détermination de la présence pour cet item précis
+          final otherUserId = conv.participantIds.firstWhere(
+            (id) => id != currentUserId,
+            orElse: () => ''
+          );
+          final isOnline = onlineUserIds.contains(otherUserId);
 
           return Material(
             color: Colors.transparent,
@@ -692,7 +712,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                 )
                               : null,
                         ),
-                        if (!conv.isGroup && conv.isOnline)
+                        // Affichage conditionnel du point vert
+                        if (!conv.isGroup && isOnline)
                           Positioned(
                             right: -1,
                             bottom: -1,
