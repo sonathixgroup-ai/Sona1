@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/market_colors.dart';
 import '../../l10n/market_strings.dart';
+import '../common/network_image_widget.dart';
 import 'wishlist_button.dart';
 
 enum ProductCardVariant { grid, horizontal }
@@ -69,151 +70,113 @@ class ProductCard extends ConsumerWidget {
     final city = (product['city'] ?? product['location'] ?? t.cityFallback).toString();
     final id = product['id']?.toString() ?? '';
 
-    final imageFlex = variant == ProductCardVariant.horizontal ? 5 : 6;
-    final infoFlex = variant == ProductCardVariant.horizontal ? 5 : 5;
+    final isHorizontal = variant == ProductCardVariant.horizontal;
+    final borderRadius = isHorizontal ? 12.0 : 10.0;
 
     final card = Container(
-      width: variant == ProductCardVariant.horizontal ? (width ?? 158) : null,
+      width: isHorizontal ? (width ?? 138) : null,
       decoration: BoxDecoration(
         color: MarketColors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: isOut ? const Color(0xFFE8E8E8) : MarketColors.cardBorder),
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(color: isOut ? const Color(0xFFEDEDED) : const Color(0xFFEEEEEE)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.045), blurRadius: 14, offset: const Offset(0, 6)),
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: imageFlex,
+          AspectRatio(
+            aspectRatio: 1,
             child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(borderRadius)),
               child: Stack(fit: StackFit.expand, children: [
-                Container(
-                  color: MarketColors.lightBg,
-                  child: img == null || img.isEmpty
-                      ? const Center(child: Icon(Icons.shopping_bag_outlined, color: MarketColors.mutedText, size: 34))
-                      : Image.network(
-                          img,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return const Center(
-                              child: SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: MarketColors.red),
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Center(child: Icon(Icons.shopping_bag_outlined, color: MarketColors.mutedText, size: 34)),
-                        ),
-                ),
+                NetworkProductImage(url: img, cacheWidth: 300),
                 if (isOut)
                   Container(
                     decoration: const BoxDecoration(color: Color(0x66000000)),
                     child: Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(color: MarketColors.red, borderRadius: BorderRadius.circular(6)),
-                        child: Text(t.outOfStock, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(color: MarketColors.red, borderRadius: BorderRadius.circular(4)),
+                        child: Text(t.outOfStock, style: const TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w800)),
                       ),
                     ),
                   ),
                 if (!isOut && (isFlashSale || isFeatured || hasDiscount))
                   Positioned(
-                    top: 8,
-                    left: 8,
+                    top: 5,
+                    left: 5,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(colors: isFlashSale
                             ? [MarketColors.redDark, MarketColors.red]
                             : isFeatured
                                 ? [const Color(0xFFC9862B), MarketColors.gold]
                                 : [MarketColors.red, MarketColors.redDark]),
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 4, offset: const Offset(0, 2))],
+                        borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
                         isFlashSale ? t.flashBadge : isFeatured ? t.featuredBadge.toUpperCase() : '-$discountPercent%',
-                        style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 0.3),
+                        style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.2),
                       ),
                     ),
                   ),
                 if (showFavoriteButton)
                   Positioned(
-                    top: 8,
-                    right: 8,
+                    top: 5,
+                    right: 5,
                     child: Container(
-                      padding: const EdgeInsets.all(3),
+                      padding: const EdgeInsets.all(2),
                       decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                      child: WishlistButton(productId: id, size: 18),
+                      child: WishlistButton(productId: id, size: 15),
                     ),
                   ),
               ]),
             ),
           ),
-          Expanded(
-            flex: infoFlex,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title,
-                      maxLines: variant == ProductCardVariant.grid ? 2 : 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: Color(0xFF10192E), height: 1.2)),
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    const Icon(Icons.location_on_outlined, size: 11, color: MarketColors.mutedText),
-                    const SizedBox(width: 2),
-                    Expanded(child: Text(city, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: MarketColors.mutedText))),
-                  ]),
-                  const Spacer(),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (hasDiscount && !isOut)
-                              Text('${originalPrice.toInt()} $symbol',
-                                  style: TextStyle(decoration: TextDecoration.lineThrough, fontSize: 10, color: Colors.grey.shade400)),
-                            ShaderMask(
-                              shaderCallback: (bounds) => const LinearGradient(colors: [MarketColors.red, MarketColors.redDark])
-                                  .createShader(bounds),
-                              child: Text(
-                                isOut ? t.unavailable : '${price.toInt()} $symbol',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, color: isOut ? Colors.grey : Colors.white),
-                              ),
-                            ),
-                          ],
-                        ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(7, 6, 7, 7),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: Color(0xFF1A1D29), height: 1.22)),
+                const SizedBox(height: 3),
+                Row(children: [
+                  const Icon(Icons.location_on_outlined, size: 9.5, color: MarketColors.mutedText),
+                  const SizedBox(width: 2),
+                  Expanded(child: Text(city, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, color: MarketColors.mutedText))),
+                ]),
+                const SizedBox(height: 4),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (hasDiscount && !isOut)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Text('${originalPrice.toInt()}',
+                            style: TextStyle(decoration: TextDecoration.lineThrough, fontSize: 9, color: Colors.grey.shade400)),
                       ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isOut ? const Color(0xFFFFF0F0) : const Color(0xFFE8FFF1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(isOut ? t.outOfStock : '$stock ${t.inStock}',
-                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: isOut ? MarketColors.red : const Color(0xFF00B074))),
+                    Expanded(
+                      child: Text(
+                        isOut ? t.unavailable : '${price.toInt()} $symbol',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: isOut ? Colors.grey : MarketColors.red),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
+                ),
+                if (!isOut) ...[
+                  const SizedBox(height: 3),
+                  Text('$stock ${t.inStock}', style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w600, color: Color(0xFF00B074))),
                 ],
-              ),
+              ],
             ),
           ),
         ],
