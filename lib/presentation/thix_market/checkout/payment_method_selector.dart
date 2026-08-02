@@ -1,8 +1,9 @@
 // lib/presentation/market/payment_method_selector.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'supabase_flutter/supabase_flutter.dart'; // Si besoin pour l'appel final
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'checkout_provider.dart';
+import '../../../services/market_payment_service.dart';
 
 class PaymentMethodSelector extends ConsumerStatefulWidget {
   const PaymentMethodSelector({super.key});
@@ -16,14 +17,13 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
   static const Color lightBg = Color(0xFFF6F8FB);
   static const Color pureWhite = Color(0xFFFFFFFF);
   static const Color darkText = Color(0xFF10192E);
-  static const Color mutedText = Color(0xFF6B7690);
+  static const Color mutedText = Color(0xFF7386A8);
   static const Color cardBorder = Color(0xFFEEF1F7);
 
   final TextEditingController _phoneController = TextEditingController();
   String? _selectedOperator;
   bool _isProcessing = false;
 
-  // Fonction de traduction dynamique selon la langue du système
   String _t(BuildContext context, String fr, String en) {
     final lang = Localizations.localeOf(context).languageCode;
     return lang == 'fr' ? fr : en;
@@ -243,7 +243,7 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
           ),
         ),
 
-        // Bouton de Paiement Final via Edge Function
+        // Bouton de Paiement Final via Edge Function Supabase
         Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           decoration: BoxDecoration(
@@ -261,16 +261,29 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                     : () async {
                         setState(() => _isProcessing = true);
                         try {
-                          // TODO: Déclencher ici l'appel à l'Edge Function de paiement avec state.selectedPayment, _selectedOperator et _phoneController.text
+                          final paymentService = MarketPaymentService(Supabase.instance.client);
+                          
+                          // Appel de l'Edge Function Supabase pour traiter le paiement
+                          await paymentService.processOrderPayment(
+                            orderId: state.orderId ?? '',
+                            amount: state.totalAmount,
+                            currency: state.currency,
+                            paymentMethod: state.selectedPayment!['id'],
+                            phoneNumber: _phoneController.text.trim(),
+                            operator: _selectedOperator,
+                          );
+
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text(_t(context, 'Paiement effectué avec succès !', 'Payment successful!'))),
                             );
+                            // Redirection vers la page de succès ou confirmation finale
+                            // context.go('/market/order-success');
                           }
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+                              SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
                             );
                           }
                         } finally {
