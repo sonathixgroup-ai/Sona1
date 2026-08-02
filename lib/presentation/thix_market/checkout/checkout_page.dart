@@ -29,8 +29,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     });
   }
 
-  // Méthode utilitaire universelle pour changer d'étape en toute sécurité
-  void _goToNextStep(CheckoutNotifier notifier, String targetStep) {
+  void _goToStep(CheckoutNotifier notifier, String targetStep) {
     try {
       (notifier as dynamic).goToStep(targetStep);
     } catch (_) {
@@ -57,7 +56,21 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF0A1931)),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            // Retour intelligent selon l'étape
+            final step = state.currentStep;
+            if (step == 'shipping') {
+              _goToStep(notifier, 'address');
+            } else if (step == 'summary' || step == 'confirmation') {
+              _goToStep(notifier, 'shipping');
+            } else if (step == 'payment') {
+              _goToStep(notifier, 'summary');
+            } else if (step == 'success' || step == 'bon_de_commande') {
+              _goToStep(notifier, 'payment');
+            } else {
+              context.pop();
+            }
+          },
         ),
         title: Text(
           _t(context, 'Validation de commande', 'Checkout Validation'),
@@ -73,41 +86,88 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   }
 
   Widget _stepper(String step) {
+    // 0: Adresse | 1: Livraison | 2: Vérification | 3: Paiement | 4: Bon de commande
     int idx = 0;
-    if (step == 'address') idx = 0;
-    if (step == 'shipping') idx = 1;
-    if (step == 'summary' || step == 'confirmation') idx = 2;
-    if (step == 'payment') idx = 3;
+    switch (step) {
+      case 'address':
+        idx = 0;
+        break;
+      case 'shipping':
+        idx = 1;
+        break;
+      case 'summary':
+      case 'confirmation':
+        idx = 2;
+        break;
+      case 'payment':
+        idx = 3;
+        break;
+      case 'success':
+      case 'bon_de_commande':
+        idx = 4;
+        break;
+      default:
+        idx = 0;
+    }
+
+    final labels = [
+      _t(context, 'Adresse', 'Address'),
+      _t(context, 'Livraison', 'Shipping'),
+      _t(context, 'Vérif.', 'Review'),
+      _t(context, 'Paiement', 'Payment'),
+      _t(context, 'Bon', 'Order'),
+    ];
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Row(
-        children: List.generate(4, (i) {
-          bool active = i <= idx;
-          bool current = i == idx;
+        children: List.generate(5, (i) {
+          final active = i <= idx;
+          final current = i == idx;
           return Expanded(
             child: Row(
               children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: active ? const Color(0xFFE5592F) : Colors.grey.shade200,
-                    shape: BoxShape.circle,
-                    border: current ? Border.all(color: const Color(0xFFE5592F), width: 2) : null,
-                  ),
-                  child: Center(
-                    child: i < idx
-                        ? const Icon(Icons.check, size: 16, color: Colors.white)
-                        : Text('${i + 1}', style: TextStyle(color: active ? Colors.white : Colors.grey, fontWeight: FontWeight.w800, fontSize: 12)),
-                  ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: active ? const Color(0xFFE5592F) : Colors.grey.shade200,
+                        shape: BoxShape.circle,
+                        border: current ? Border.all(color: const Color(0xFFE5592F), width: 2) : null,
+                      ),
+                      child: Center(
+                        child: i < idx
+                            ? const Icon(Icons.check, size: 14, color: Colors.white)
+                            : Text(
+                                '${i + 1}',
+                                style: TextStyle(
+                                  color: active ? Colors.white : Colors.grey,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 11,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      labels[i],
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: current ? FontWeight.w700 : FontWeight.w500,
+                        color: active ? const Color(0xFFE5592F) : Colors.grey,
+                      ),
+                    ),
+                  ],
                 ),
-                if (i < 3)
+                if (i < 4)
                   Expanded(
                     child: Container(
                       height: 3,
-                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      margin: const EdgeInsets.only(bottom: 14, left: 4, right: 4),
                       decoration: BoxDecoration(
                         color: i < idx ? const Color(0xFFE5592F) : Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(2),
@@ -152,27 +212,31 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         ),
       );
     }
-    try {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: _buildStepContent(state, notifier),
-      );
-    } catch (e) {
-      return Center(child: Text('Erreur interface: $e', style: const TextStyle(color: Colors.red)));
-    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      child: _buildStepContent(state, notifier),
+    );
   }
 
   Widget _buildStepContent(CheckoutState state, CheckoutNotifier notifier) {
     switch (state.currentStep) {
       case 'address':
-        return _AddressStep(state: state, notifier: notifier, onContinue: () => _goToNextStep(notifier, 'shipping'));
+        return _AddressStep(
+          state: state,
+          notifier: notifier,
+          onContinue: () => _goToStep(notifier, 'shipping'),
+        );
       case 'shipping':
-        return const ShippingMethodSelector();
+        return const ShippingMethodSelector(); // doit appeler goToStep('summary')
       case 'summary':
       case 'confirmation':
-        return const OrderSummaryWidget();
+        return const OrderSummaryWidget(); // juste vérification → va vers payment
       case 'payment':
-        return const PaymentMethodSelector();
+        return const PaymentMethodSelector(); // traite le paiement + crée la commande → va vers bon_de_commande
+      case 'success':
+      case 'bon_de_commande':
+        return _BonDeCommandeStep(); // ou ton widget de confirmation
       default:
         return Center(child: Text('Étape inconnue: ${state.currentStep}'));
     }
@@ -184,7 +248,11 @@ class _AddressStep extends StatelessWidget {
   final CheckoutNotifier notifier;
   final VoidCallback onContinue;
 
-  const _AddressStep({required this.state, required this.notifier, required this.onContinue});
+  const _AddressStep({
+    required this.state,
+    required this.notifier,
+    required this.onContinue,
+  });
 
   String _t(BuildContext context, String fr, String en) {
     final lang = Localizations.localeOf(context).languageCode;
@@ -209,7 +277,13 @@ class _AddressStep extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           decoration: BoxDecoration(
             color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 16, offset: const Offset(0, -4))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 16,
+                offset: const Offset(0, -4),
+              ),
+            ],
           ),
           child: SafeArea(
             top: false,
@@ -230,12 +304,28 @@ class _AddressStep extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
-                child: Text(_t(context, 'Continuer', 'Continue'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                child: Text(
+                  _t(context, 'Continuer', 'Continue'),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+// Placeholder pour le Bon de commande (à remplacer par ton vrai widget)
+class _BonDeCommandeStep extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text(
+        'Bon de commande / Confirmation',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
     );
   }
 }
