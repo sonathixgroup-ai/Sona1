@@ -9,6 +9,7 @@ import 'chat_code_snippet.dart';
 import 'chat_ephemeral_timer.dart';
 import 'package:thix_id/models/chat/sentiment.dart';
 import 'package:thix_id/presentation/chat/widgets/sentiment_indicator.dart';
+// import 'message_status_ticks.dart'; // Importez le widget si nécessaire selon sa localisation
 
 class _C {
   static const bg = Colors.white;
@@ -238,7 +239,10 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                 if (widget.isEphemeralActive) ChatEphemeralTimer(duration: widget.message.ephemeralDuration ?? 60, onExpired: () => widget.onDelete?.call()),
                 if (widget.isEphemeralActive) const SizedBox(width: 6),
                 Text(DateFormat('HH:mm').format(msg.createdAt), style: const TextStyle(fontSize: 10, color: _C.textMuted, fontWeight: FontWeight.w500)),
-                if (isOwn)...[const SizedBox(width: 4), Icon(msg.isRead ? Icons.done_all_rounded : Icons.check_rounded, size: 12, color: msg.isRead ? _C.primary : _C.textMuted)],
+                if (isOwn) ...[
+                  const SizedBox(width: 4),
+                  MessageStatusTicks(isRead: message.isRead),
+                ],
               ],
             ),
           ),
@@ -382,7 +386,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     );
   }
 
-  // LA CORRECTION DU BUG D'AFFICHAGE EST ICI
   Widget _media() {
     final url = widget.message.mediaUrl;
     if (url == null || url.isEmpty) return Text(widget.message.content, style: TextStyle(color: widget.isOwn ? Colors.white : _C.textMain, fontSize: 13));
@@ -394,11 +397,10 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
           tag: widget.message.id,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            // CONSTRAINEDBOX : Empêche la ligne bleue infinie !
             child: ConstrainedBox(
               constraints: const BoxConstraints(
-                maxHeight: 250, // Limite absolue pour la hauteur
-                maxWidth: 250,  // Limite absolue pour la largeur
+                maxHeight: 250,
+                maxWidth: 250,
               ),
               child: Image.network(
                 url,
