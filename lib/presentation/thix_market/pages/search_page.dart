@@ -80,8 +80,8 @@ class SearchNotifier
     try {
       final offset = _all.length;
 
-      // Requête de base
-      var queryBuilder = db
+      // Use dynamic to seamlessly handle Supabase filter and transform builders
+      dynamic queryBuilder = db
           .from('products')
           .select('id, title, price, currency, image_url, brand, created_at, shop:shops(name)')
           .ilike('title', '%$q%');
