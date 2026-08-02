@@ -126,6 +126,7 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
     final currency = product['currency']?.toString() ?? 'FC';
     final productId = product['id'].toString();
     final title = product['title']?.toString() ?? 'Produit';
+    final imageUrl = product['image_url']?.toString();
 
     final targetCtrl = TextEditingController(
       text: currentPrice > 0 ? (currentPrice * 0.9).toInt().toString() : '',
@@ -275,14 +276,21 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
           .maybeSingle();
 
       if (existing != null) {
-        await db
-            .from('price_alerts')
-            .update({'target_price': target}).eq('id', existing['id']);
+        // Mise à jour d'une alerte existante
+        await db.from('price_alerts').update({
+          'target_price': target,
+          'product_title': title,
+          if (imageUrl != null && imageUrl.isNotEmpty) 'product_image': imageUrl,
+        }).eq('id', existing['id']);
       } else {
+        // Création d'une nouvelle alerte (product_title est obligatoire)
         await db.from('price_alerts').insert({
           'user_id': uid,
           'product_id': productId,
+          'product_title': title, // ← CORRIGÉ : plus de null
           'target_price': target,
+          if (imageUrl != null && imageUrl.isNotEmpty) 'product_image': imageUrl,
+          'is_active': true,
         });
       }
 
