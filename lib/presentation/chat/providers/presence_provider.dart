@@ -1,3 +1,4 @@
+// lib/presentation/chat/providers/presence_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -18,21 +19,33 @@ class PresenceNotifier extends StateNotifier<Set<String>> {
     final myUserId = _supabase.auth.currentUser?.id;
     if (myUserId == null) return;
 
-    // 1. On rejoint un salon virtuel (canal) global pour le chat
+    // 1. On rejoint un salon virtuel global pour le chat
     _channel = _supabase.channel('thix-global-presence');
 
     // 2. On écoute les entrées/sorties en temps réel
-    _channel.onPresenceSync((payload) {
+    _channel.onPresenceSync((_) {
       final newState = <String>{};
-      final presences = _channel.presenceState();
       
-      for (final key in presences.keys) {
-        for (final presence in presences[key]!) {
-          if (presence['user_id'] != null) {
-            newState.add(presence['user_id'] as String);
+      // La nouvelle API Supabase renvoie une List<SinglePresenceState>
+      final List<dynamic> presences = _channel.presenceState();
+      
+      for (final dynamic stateItem in presences) {
+        try {
+          // stateItem contient une liste nommée 'presences'
+          final List<dynamic> innerPresences = stateItem.presences;
+          
+          for (final dynamic presence in innerPresences) {
+            // On extrait le JSON (payload) configuré dans track()
+            final payload = presence.payload;
+            if (payload != null && payload['user_id'] != null) {
+              newState.add(payload['user_id'].toString());
+            }
           }
+        } catch (e) {
+          // Try-catch de sécurité pour prévenir tout futur crash de structure
         }
       }
+      
       // Met à jour l'interface Flutter automatiquement
       state = newState;
     }).subscribe((status, [error]) async {
