@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/market_colors.dart';
 import '../../l10n/market_strings.dart';
-import '../common/network_image_widget.dart';
 import 'wishlist_button.dart';
 
 enum ProductCardVariant { grid, horizontal }
@@ -91,7 +90,27 @@ class ProductCard extends ConsumerWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.vertical(top: Radius.circular(borderRadius)),
               child: Stack(fit: StackFit.expand, children: [
-                NetworkProductImage(url: img, cacheWidth: 300),
+                Container(
+                  color: MarketColors.lightBg,
+                  child: img == null || img.isEmpty
+                      ? const Center(child: Icon(Icons.shopping_bag_outlined, color: MarketColors.mutedText, size: 28))
+                      : Image.network(
+                          img,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: MarketColors.red),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Center(child: Icon(Icons.shopping_bag_outlined, color: MarketColors.mutedText, size: 28)),
+                        ),
+                ),
                 if (isOut)
                   Container(
                     decoration: const BoxDecoration(color: Color(0x66000000)),
