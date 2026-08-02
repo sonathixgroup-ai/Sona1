@@ -1,3 +1,4 @@
+// lib/presentation/market/shop_detail_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -141,6 +142,11 @@ class _ShopDetailPageState extends ConsumerState<ShopDetailPage> {
               final p = products[i];
               final img = p['image_url'] as String?;
               final price = (p['price'] as num?)?.toDouble()?? 0;
+              
+              // Gestion dynamique de la devise (USD ou FC)
+              final currency = p['currency'] ?? 'FC';
+              final symbol = currency == 'USD' ? '\$' : 'FC';
+
               return InkWell(
                 onTap: ()=> context.push('/market/product/${p['id']}'),
                 child: Container(
@@ -150,7 +156,7 @@ class _ShopDetailPageState extends ConsumerState<ShopDetailPage> {
                     Padding(padding: const EdgeInsets.all(8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(p['title']??'', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textDark)),
                       const SizedBox(height: 2),
-                      Text('${price.toInt()} FCFA', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: navy)),
+                      Text('${price.toInt()} $symbol', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: navy)),
                     ])),
                   ]),
                 ),
