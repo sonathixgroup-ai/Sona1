@@ -13,10 +13,6 @@ import 'widgets/create_story_dialog.dart';
 import 'widgets/post_card.dart';
 import 'widgets/story_viewer.dart';
 
-/// Palette officielle Charte THIX ID.
-/// Toutes les clés existantes sont conservées pour ne rien casser ailleurs
-/// dans l'app ; seules les valeurs ont été recalées sur la charte + de
-/// nouveaux tokens dégradés ont été ajoutés.
 class ThixColors {
   static const background = Color(0xFFF6F7FB);
   static const white = Color(0xFFFFFFFF);
@@ -163,6 +159,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
               physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               slivers: [
                 _buildSliverAppBar(),
+                // "Mes status" (Votre story) est toujours la première case du
+                // carrousel — totalement indépendant du FAB "+" de création de
+                // post situé en bas de l'écran.
                 SliverToBoxAdapter(child: _buildStories(currentUser.id)),
                 SliverToBoxAdapter(child: _buildFilters()),
                 SliverToBoxAdapter(child: _buildCreatePostBar()),
@@ -215,6 +214,8 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   }
 
   // ─────────────────────────── APP BAR ───────────────────────────
+  // Wordmark en texte dégradé, sans bloc de couleur plein : harmonisé
+  // avec le reste de l'interface (fond blanc, icônes en pastille douce).
 
   Widget _buildSliverAppBar() {
     return SliverAppBar(
@@ -226,17 +227,19 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
       snap: true,
       toolbarHeight: 58,
       titleSpacing: 16,
-      title: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          gradient: ThixColors.gradientPrimary,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: const [BoxShadow(color: ThixColors.shadow, blurRadius: 10, offset: Offset(0, 4))],
-        ),
-        child: const Text(
-          'THIX PRO',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.4),
-        ),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ShaderMask(
+            shaderCallback: (b) => ThixColors.gradientPrimary.createShader(b),
+            child: const Text(
+              'THIX PRO',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -0.4),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(width: 5, height: 5, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientGold)),
+        ],
       ),
       actions: [
         _appBarIcon(icon: Icons.search_rounded, onTap: () => context.push('/network/search')),
@@ -267,7 +270,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
       onTap: onTap,
       child: Container(
         width: 38, height: 38,
-        decoration: BoxDecoration(color: ThixColors.softBlue, shape: BoxShape.circle),
+        decoration: const BoxDecoration(color: ThixColors.softBlue, shape: BoxShape.circle),
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -305,6 +308,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
+        // "Mes status" est toujours l'item d'index 0 → première case.
         itemCount: otherStories.length + 1,
         separatorBuilder: (_, __) => const SizedBox(width: 14),
         itemBuilder: (c, i) {
@@ -329,6 +333,8 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   }
 
   // ─────────────────────────── FILTRES ───────────────────────────
+  // Chip sélectionnée : plus de bloc plein — fond doux + contour, comme
+  // le reste des surfaces de l'app (cartes, boutons secondaires).
 
   Widget _buildFilters() {
     final filters = {
@@ -360,15 +366,14 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                   curve: Curves.easeOut,
                   padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: sel ? ThixColors.gradientPrimary : null,
-                    color: sel ? null : ThixColors.softBlue,
+                    color: sel ? ThixColors.softBlue : ThixColors.background,
                     borderRadius: BorderRadius.circular(30),
-                    boxShadow: sel ? const [BoxShadow(color: ThixColors.shadow, blurRadius: 10, offset: Offset(0, 4))] : null,
+                    border: Border.all(color: sel ? ThixColors.primary : ThixColors.border, width: sel ? 1.4 : 1),
                   ),
                   child: Row(children: [
-                    Icon(e.value.$2, size: 16, color: sel ? Colors.white : ThixColors.primaryDeep),
+                    Icon(e.value.$2, size: 16, color: sel ? ThixColors.primaryDeep : ThixColors.textSecondary),
                     const SizedBox(width: 7),
-                    Text(e.value.$1, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: sel ? Colors.white : ThixColors.textDark)),
+                    Text(e.value.$1, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: sel ? ThixColors.primaryDeep : ThixColors.textDark)),
                   ]),
                 ),
               ),
@@ -576,7 +581,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
         gradient: ThixColors.gradientPrimary,
         boxShadow: [
           BoxShadow(color: ThixColors.primary.withValues(alpha: 0.45), blurRadius: 18, spreadRadius: 1, offset: const Offset(0, 6)),
-          const BoxShadow(color: ThixColors.gold, blurRadius: 0, spreadRadius: 0),
         ],
         border: Border.all(color: ThixColors.white, width: 3),
       ),
@@ -667,8 +671,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
     );
   }
 }
-
-// ─────────────────────────── STORY ITEMS ───────────────────────────
 
 class _MyStoryItem extends StatelessWidget {
   final bool hasStory;
