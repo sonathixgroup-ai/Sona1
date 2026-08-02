@@ -1,4 +1,4 @@
- // lib/presentation/chat/chat_list_page.dart
+// lib/presentation/chat/chat_list_page.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -296,7 +296,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   const SliverToBoxAdapter(child: SizedBox(height: 4)),
                   SliverToBoxAdapter(child: _searchBar()),
                   if (state.pendingEscalations > 0)
-                    asl: SliverToBoxAdapter(child: _escalationBanner(state.pendingEscalations)),
+                    SliverToBoxAdapter(child: _escalationBanner(state.pendingEscalations)),
                   SliverToBoxAdapter(child: _filters(state.filterIndex)),
                   const SliverToBoxAdapter(child: SizedBox(height: 8)),
                   _chatList(state.filtered),
@@ -530,7 +530,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
   Widget _chatList(List<ChatConversation> list) {
     if (list.isEmpty) {
-      return const SliverToBoxAdapter(
+      return const asl: SliverToBoxAdapter(
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 80),
           child: Column(
@@ -594,7 +594,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 ),
                 child: Row(
                   children: [
-                    // Avatar
                     Stack(
                       children: [
                         Container(
@@ -642,8 +641,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       ],
                     ),
                     const SizedBox(width: 14),
-
-                    // Contenu
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
