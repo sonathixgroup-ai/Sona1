@@ -326,17 +326,21 @@ SAFE ou FAKE: [raison]
 
       if (mounted) setState(() => _factCheckStatusLabel = 'Envoi de la publication...');
 
-      final List<String> imageUrls = [];
-      for (final item in _images) {
+            final List<String> videoUrls = [];
+      for (final item in _videos) {
         try {
-          final compressed = await compute(compressImageBytes, item.bytes);
           final ext = item.name.split('.').last;
-          final url = await ns.uploadImageBytes(compressed, fileExtension: ext);
-          if (url != null && url.isNotEmpty) imageUrls.add(url);
+          // 🌟 On envoie explicitement dans le bucket 'videos' dédié aux vidéos
+          final url = await ns.uploadImageBytes(
+            item.bytes, 
+            fileExtension: ext, 
+            bucket: 'videos' // <-- Remplacez par 'post_video' si vous préférez ce bucket
+          );
+          if (url != null && url.isNotEmpty) videoUrls.add(url);
         } catch (e) {
           if (mounted) {
             setState(() {
-              _errorMessage = 'Échec de l\'upload d\'image: $e';
+              _errorMessage = 'Échec de l\'upload vidéo: $e';
               _isUploading = false;
               _factCheckStatusLabel = null;
             });
