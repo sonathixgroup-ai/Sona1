@@ -200,30 +200,19 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
     });
   }
 
-  // ─── FACT-CHECK IA : Tavily recherche EN PREMIER, puis analyse IA basée sur les sources ───
-  //
-  // Règle : l'IA ne doit JAMAIS s'appuyer sur sa propre date/mémoire interne pour juger un fait
-  // récent (marchés financiers, actualité, chiffres). Elle doit se baser UNIQUEMENT sur les
-  // sources Tavily. Si aucune source pertinente n'est trouvée, elle reste SAFE par défaut
-  // (on ne bloque jamais une publication faute de preuve — on bloque seulement en cas de
-  // contradiction claire et sourcée).
+  // ─── FACT-CHECK IA ───
   Future<Map<String, String?>> _runFactCheck(String textContent) async {
     bool isMisinformation = false;
     String? factCheckMessage;
     String? factCheckSeverity;
 
     if (textContent.isEmpty) {
-      return {
-        'isMisinformation': 'false',
-        'message': null,
-        'severity': null,
-      };
+      return {'isMisinformation': 'false', 'message': null, 'severity': null};
     }
 
     List<String> webSources = [];
     bool tavilySucceeded = false;
 
-    // 1. ÉTAPE OBLIGATOIRE : recherche Tavily AVANT toute analyse IA
     try {
       final response = await Supabase.instance.client.rpc(
         'search_tavily',
@@ -244,15 +233,9 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
       debugPrint('Erreur recherche Tavily (non bloquante) : $searchError');
     }
 
-    // 2. Si aucune source web fiable n'a pu être récupérée, on NE lance PAS de verdict FAKE.
-    //    On publie en SAFE pour éviter les faux positifs basés sur la mémoire interne du modèle.
     if (!tavilySucceeded) {
       debugPrint('Fact-Check : aucune source Tavily disponible, publication en SAFE par défaut.');
-      return {
-        'isMisinformation': 'false',
-        'message': null,
-        'severity': null,
-      };
+      return {'isMisinformation': 'false', 'message': null, 'severity': null};
     }
 
     final contextSources = "SOURCES WEB VÉRIFIÉES EN TEMPS RÉEL (Tavily) :\n${webSources.join('\n')}";
@@ -268,42 +251,17 @@ Date actuelle réelle : $currentDateString
 $contextSources
 
 Tu es un moteur de FACT-CHECKING professionnel.
+Ta mission : analyser UNIQUEMENT la véracité des affirmations factuelles présentes dans la publication.
+PUBLICATION : "$textContent"
 
-RÈGLE ABSOLUE N°1 — SOURCE DE VÉRITÉ :
-Tu ne dois JAMAIS te fier à ta propre mémoire interne, à ta date d'entraînement ou à des connaissances
-générales pour juger un fait récent, chiffré, ou lié à l'actualité (marchés financiers, entreprises,
-personnalités, événements). Ta mémoire interne est probablement PÉRIMÉE par rapport à la date actuelle
-ci-dessus. La SEULE source de vérité autorisée pour ton verdict est le contenu des "SOURCES WEB VÉRIFIÉES"
-fourni ci-dessus.
-
-RÈGLE ABSOLUE N°2 — PRÉSOMPTION DE VÉRACITÉ :
-Si les sources web ne contredisent pas explicitement et clairement l'affirmation, réponds SAFE.
-Ne réponds JAMAIS FAKE simplement parce que l'information te semble "improbable" ou que tu ne l'as
-"jamais vue" dans tes données d'entraînement. Une absence de connaissance interne n'est PAS une preuve
-de fausseté.
-
-RÈGLE ABSOLUE N°3 — PÉRIMÈTRE :
-Analyse uniquement le FOND factuel. Ignore totalement : fautes d'orthographe, style, emojis, opinions,
-satire, ton, présentations personnelles.
-
-Ta mission : analyser UNIQUEMENT la véracité des affirmations factuelles présentes dans la publication
-suivante, à la lumière des sources web ci-dessus.
-
-PUBLICATION :
-"$textContent"
-
-Format de réponse STRICT (aucun autre texte) :
-SAFE
-ou
-FAKE: [raison courte, citant explicitement l'élément des sources web qui contredit la publication]
+Format de réponse STRICT :
+SAFE ou FAKE: [raison]
 """;
 
       final aiResponse = await aiService.askAi(
         prompt: prompt,
         provider: AiProvider.mistral,
-        systemPrompt:
-            "Tu es THIX Fact-Check AI. Tu te bases exclusivement sur les sources web fournies dans le prompt, "
-            "jamais sur ta mémoire interne. Réponds uniquement par SAFE ou FAKE: raison.",
+        systemPrompt: "Tu te bases exclusivement sur les sources web fournies. Réponds SAFE ou FAKE: raison.",
       );
 
       final responseText = aiResponse.trim().toUpperCase();
@@ -314,7 +272,6 @@ FAKE: [raison courte, citant explicitement l'élément des sources web qui contr
       }
     } catch (aiError) {
       debugPrint('Erreur Fact-Check IA (non bloquante) : $aiError');
-      // En cas d'erreur IA, on ne bloque jamais la publication : SAFE par défaut.
       isMisinformation = false;
     }
 
@@ -325,9 +282,14 @@ FAKE: [raison courte, citant explicitement l'élément des sources web qui contr
     };
   }
 
-  // ─── PUBLICATION AVEC FACT-CHECKING IA ET MODES FORCÉS RÉINTÉGRÉS ───
+  // ─── PUBLICATION AVEC IMPRESSION DES ERREURS ───
   Future<void> _publishPost() async {
     final textContent = _contentController.text.trim();
+    
+    // Réinitialiser les erreurs précédentes
+    setState(() {
+      _errorMessage = null; 
+    });
 
     // Validations selon le mode
     if (_postTypeMode == 0 && textContent.isEmpty && _images.isEmpty && _videos.isEmpty) {
@@ -351,7 +313,7 @@ FAKE: [raison courte, citant explicitement l'élément des sources web qui contr
     try {
       final ns = ref.read(networkServiceProvider);
 
-      // Fact-check : Tavily d'abord, puis IA basée sur les sources trouvées
+      // Fact-check
       final factCheckResult = await _runFactCheck(textContent);
       final bool isMisinformation = factCheckResult['isMisinformation'] == 'true';
       final String? factCheckMessage = factCheckResult['message'];
@@ -359,7 +321,7 @@ FAKE: [raison courte, citant explicitement l'élément des sources web qui contr
 
       if (mounted) setState(() => _factCheckStatusLabel = 'Envoi de la publication...');
 
-      // Upload des images et vidéos
+      // Upload des images avec gestion d'erreur
       final List<String> imageUrls = [];
       for (final item in _images) {
         try {
@@ -367,21 +329,44 @@ FAKE: [raison courte, citant explicitement l'élément des sources web qui contr
           final ext = item.name.split('.').last;
           final url = await ns.uploadImageBytes(compressed, fileExtension: ext);
           if (url != null && url.isNotEmpty) imageUrls.add(url);
-        } catch (_) {}
+        } catch (e, stack) {
+          debugPrint('ERREUR UPLOAD IMAGE: $e');
+          debugPrint('Stacktrace: $stack');
+          if (mounted) {
+            setState(() {
+              _errorMessage = 'Échec de l\'upload d\'image: $e';
+              _isUploading = false;
+              _factCheckStatusLabel = null;
+            });
+          }
+          return; // Stoppe la publication si l'image échoue
+        }
       }
 
+      // Upload des vidéos avec gestion d'erreur
       final List<String> videoUrls = [];
       for (final item in _videos) {
         try {
           final ext = item.name.split('.').last;
           final url = await ns.uploadImageBytes(item.bytes, fileExtension: ext);
           if (url != null && url.isNotEmpty) videoUrls.add(url);
-        } catch (_) {}
+        } catch (e, stack) {
+          debugPrint('ERREUR UPLOAD VIDEO: $e');
+          debugPrint('Stacktrace: $stack');
+          if (mounted) {
+            setState(() {
+              _errorMessage = 'Échec de l\'upload vidéo: $e';
+              _isUploading = false;
+              _factCheckStatusLabel = null;
+            });
+          }
+          return; // Stoppe la publication si la vidéo échoue
+        }
       }
 
       final List<String> allMedia = [...imageUrls, ...videoUrls];
       final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) throw Exception('Non authentifié');
+      if (user == null) throw Exception('Utilisateur non authentifié');
 
       final Map<String, dynamic> payload = {
         'user_id': user.id,
@@ -421,7 +406,10 @@ FAKE: [raison courte, citant explicitement l'élément des sources web qui contr
         payload['post_type'] = 'standard';
       }
 
+      // Insertion dans Supabase
+      debugPrint('Envoi du payload à Supabase: $payload');
       await Supabase.instance.client.from('posts').insert(payload);
+      debugPrint('Publication insérée avec succès dans Supabase');
 
       // Actualisation Riverpod
       ref.invalidate(feedProvider);
@@ -436,14 +424,17 @@ FAKE: [raison courte, citant explicitement l'élément des sources web qui contr
         );
         Navigator.pop(context, true);
       }
-    } catch (e) {
-      if (mounted) setState(() => _errorMessage = e.toString());
-    } finally {
-      if (mounted) setState(() {
-        _isUploading = false;
-        _factCheckStatusLabel = null;
-      });
-    }
+    } catch (e, stack) {
+      debugPrint('ERREUR GLOBALE DE PUBLICATION (Base de données probable) : $e');
+      debugPrint('Stacktrace: $stack');
+      if (mounted) {
+        setState(() {
+          _errorMessage = "Erreur système: $e";
+          _isUploading = false;
+          _factCheckStatusLabel = null;
+        });
+      }
+    } 
   }
 
   Widget _buildTypeTab(String label, int modeIndex, IconData icon) {
@@ -528,7 +519,6 @@ FAKE: [raison courte, citant explicitement l'élément des sources web qui contr
               child: SingleChildScrollView(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-                  // Outils de formatage (Masqués pour les challenges pour économiser de la place)
                   if (_postTypeMode != 2) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -567,7 +557,6 @@ FAKE: [raison courte, citant explicitement l'élément des sources web qui contr
                     ),
                   ),
 
-                  // RÉINTÉGRATION : UI Sondage
                   if (_postTypeMode == 1) ...[
                     const SizedBox(height: 12),
                     const Text('Options du sondage :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _DialogColors.textDark)),
@@ -595,7 +584,6 @@ FAKE: [raison courte, citant explicitement l'élément des sources web qui contr
                       ),
                   ],
 
-                  // RÉINTÉGRATION : UI Challenge
                   if (_postTypeMode == 2) ...[
                     const SizedBox(height: 12),
                     const Text('Description et Règles :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _DialogColors.textDark)),
