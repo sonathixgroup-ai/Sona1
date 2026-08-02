@@ -1,4 +1,3 @@
-// lib/presentation/market/checkout_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,7 +5,9 @@ import 'checkout_provider.dart';
 import 'shipping_method_selector.dart';
 import 'payment_method_selector.dart';
 import 'order_summary_widget.dart';
+import 'order_confirmation_page.dart';
 import '../delivery/delivery_address_selector.dart';
+import '../cart/cart_provider.dart';
 
 class CheckoutPage extends ConsumerStatefulWidget {
   const CheckoutPage({super.key});
@@ -29,20 +30,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     });
   }
 
-  void _goToStep(CheckoutNotifier notifier, String targetStep) {
-    try {
-      (notifier as dynamic).goToStep(targetStep);
-    } catch (_) {
-      try {
-        (notifier as dynamic).setStep(targetStep);
-      } catch (_) {
-        try {
-          (notifier as dynamic).next();
-        } catch (_) {}
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(checkoutProvider);
@@ -57,18 +44,11 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF0A1931)),
           onPressed: () {
-            // Retour intelligent selon l'étape
             final step = state.currentStep;
-            if (step == 'shipping') {
-              _goToStep(notifier, 'address');
-            } else if (step == 'summary' || step == 'confirmation') {
-              _goToStep(notifier, 'shipping');
-            } else if (step == 'payment') {
-              _goToStep(notifier, 'summary');
-            } else if (step == 'success' || step == 'bon_de_commande') {
-              _goToStep(notifier, 'payment');
-            } else {
+            if (step == 'address') {
               context.pop();
+            } else {
+              notifier.previous();
             }
           },
         ),
@@ -86,7 +66,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   }
 
   Widget _stepper(String step) {
-    // 0: Adresse | 1: Livraison | 2: Vérification | 3: Paiement | 4: Bon de commande
     int idx = 0;
     switch (step) {
       case 'address':
@@ -225,18 +204,26 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         return _AddressStep(
           state: state,
           notifier: notifier,
-          onContinue: () => _goToStep(notifier, 'shipping'),
+          onContinue: () => notifier.goToStep('shipping'),
         );
       case 'shipping':
-        return const ShippingMethodSelector(); // doit appeler goToStep('summary')
+        return const ShippingMethodSelector();
       case 'summary':
       case 'confirmation':
-        return const OrderSummaryWidget(); // juste vérification → va vers payment
+        return const OrderSummaryWidget();
       case 'payment':
-        return const PaymentMethodSelector(); // traite le paiement + crée la commande → va vers bon_de_commande
+        return const PaymentMethodSelector();
       case 'success':
       case 'bon_de_commande':
-        return _BonDeCommandeStep(); // ou ton widget de confirmation
+        final order = state.createdOrder;
+        if (order == null) {
+          return const Center(child: Text('Commande introuvable'));
+        }
+        final currencySymbol = ref.read(cartProvider.notifier).currencySymbol;
+        return OrderConfirmationPage(
+          order: order,
+          currencySymbol: currencySymbol,
+        );
       default:
         return Center(child: Text('Étape inconnue: ${state.currentStep}'));
     }
@@ -313,19 +300,6 @@ class _AddressStep extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-// Placeholder pour le Bon de commande (à remplacer par ton vrai widget)
-class _BonDeCommandeStep extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Bon de commande / Confirmation',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
     );
   }
 }
