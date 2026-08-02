@@ -98,7 +98,7 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
             }
           },
         )
-        // ← CORRECTION CRITIQUE : quand un message passe is_read = true
+        // Quand un message passe is_read = true
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'public',
@@ -166,15 +166,15 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
 
   /// Marque une conversation comme lue : optimiste en local (le badge
   /// disparaît immédiatement, aucun flash au retour sur la liste), puis
-  /// persisté côté Supabase via la RPC `mark_chat_read`. En cas d'échec
-  /// réseau, on resynchronise les compteurs depuis le serveur plutôt que
-  /// de laisser l'état local dériver silencieusement.
+  /// persisté côté Supabase via `ChatService.markAsRead` — déjà existant
+  /// et déjà branché sur vos vraies tables (`messages.is_read`,
+  /// `conversation_participants.last_read_at`).
   Future<void> markAsRead(String conversationId) async {
     final idx = state.all.indexWhere((c) => c.id == conversationId);
     if (idx == -1) return;
 
     final prevUnread = state.all[idx].unreadCount;
-    if (prevUnread == 0) return; // déjà lu, on évite un appel RPC inutile
+    if (prevUnread == 0) return; // déjà lu, on évite un appel réseau inutile
 
     final updatedAll = List<ChatConversation>.from(state.all);
     // ⚠️ Suppose que ChatConversation.copyWith(unreadCount: ...) existe.
@@ -188,8 +188,7 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
     _applyFilter();
 
     try {
-      // ⚠️ Méthode à ajouter dans ChatService — voir snippet ci-dessous.
-      await _chatService.markConversationRead(conversationId);
+      await _chatService.markAsRead(conversationId);
     } catch (e) {
       debugPrint('❌ markAsRead error: $e');
       // La mise à jour optimiste a peut-être menti : on refait confiance
