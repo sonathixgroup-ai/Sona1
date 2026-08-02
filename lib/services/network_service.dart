@@ -25,7 +25,6 @@ class NetworkService extends ChangeNotifier {
     final hiddenRes = await _supabase.from('hidden_posts').select('post_id').eq('user_id', uid);
     final hiddenSet = (hiddenRes as List).map((e) => e['post_id'] as String).toSet();
 
-    // 🌟 AJOUT DE 'all' POUR QUE LE SMART MIX FONCTIONNE ICI AUSSI
     if (feedType == 'all' || feedType == 'recent' || feedType == 'Pour vous' || feedType == 'smart' || feedType == 'Pourvous') {
       final res = await _supabase.from('posts_view').select().eq('is_public', true).order('created_at', ascending: false).range(offset, offset + limit - 1);
       return (res as List).map((e) => NetworkPost.fromJson(e)).where((p) => !hiddenSet.contains(p.id)).toList();
@@ -130,7 +129,6 @@ class NetworkService extends ChangeNotifier {
   Future<NetworkPost?> getPinnedPost(String userId) async { final res = await _supabase.from('posts_view').select().eq('user_id', userId).eq('is_pinned', true).maybeSingle(); return res == null ? null : NetworkPost.fromJson(res); }
   Future<List<NetworkPost>> getPinnedPosts(String userId) async { final res = await _supabase.from('posts_view').select().eq('user_id', userId).eq('is_pinned', true).order('created_at', ascending: false); return (res as List).map((e) => NetworkPost.fromJson(e)).toList(); }
   
-  // 🌟 FIX LIKES : Utilisation de Upsert pour éviter les crashs de duplication
   Future<void> likePost(String id) async { 
     if (currentUserId.isEmpty) return;
     try {
@@ -150,7 +148,6 @@ class NetworkService extends ChangeNotifier {
     notifyListeners(); 
   }
 
-  // 🌟 FIX UNLIKE
   Future<void> unlikePost(String id) async { 
     if (currentUserId.isEmpty) return;
     try {
@@ -216,7 +213,29 @@ class NetworkService extends ChangeNotifier {
   Future<void> markEventInterest(String id) async { await _supabase.from('event_interests').upsert({'event_id': id, 'user_id': currentUserId}, onConflict: 'event_id,user_id', ignoreDuplicates: true); }
   Future<bool> hasEventInterest(String id) async { final r = await _supabase.from('event_interests').select('id').eq('event_id', id).eq('user_id', currentUserId).maybeSingle(); return r != null; }
   Future<Map<String, int>> getRecommendationsCount() async { return {'people': 5, 'opportunities': 0, 'communities': 5}; }
-  Future<String?> uploadImageBytes(Uint8List bytes, {required String fileExtension, String bucket = 'post_images'}) async { try { final name = '${DateTime.now().millisecondsSinceEpoch}.$fileExtension'; final path = '$currentUserId/$name'; await _supabase.storage.from(bucket).uploadBinary(path, bytes, fileOptions: FileOptions(contentType: 'image/$fileExtension', upsert: true)); return _supabase.storage.from(bucket).getPublicUrl(path); } catch (e) { debugPrint('upload: $e'); return null; } }
+  
+  // 🌟 FIX : DÉTECTION DU TYPE MIME POUR LES VIDÉOS ET GESTION D'ERREUR
+  Future<String?> uploadImageBytes(Uint8List bytes, {required String fileExtension, String bucket = 'post_images'}) async { 
+    try { 
+      final name = '${DateTime.now().millisecondsSinceEpoch}.$fileExtension'; 
+      final path = '$currentUserId/$name'; 
+      
+      final isVideo = ['mp4', 'mov', 'avi', 'mkv'].contains(fileExtension.toLowerCase());
+      final mimeType = isVideo ? 'video/$fileExtension' : 'image/$fileExtension';
+
+      await _supabase.storage.from(bucket).uploadBinary(
+        path, 
+        bytes, 
+        fileOptions: FileOptions(contentType: mimeType, upsert: true)
+      ); 
+      
+      return _supabase.storage.from(bucket).getPublicUrl(path); 
+    } catch (e) { 
+      debugPrint('uploadMedia Error: $e'); 
+      throw Exception(e.toString()); // Relance l'erreur pour que CreatePostDialog l'affiche
+    } 
+  }
+
   Future<String> _getPostOwnerId(String postId) async { final r = await _supabase.from('posts').select('user_id').eq('id', postId).maybeSingle(); return r?['user_id'] ?? ''; }
   Future<void> _createNotification({required String userId, required String type, String? postId}) async { if (userId.isEmpty || userId == currentUserId) return; await _supabase.from('notifications').insert({'user_id': userId, 'type': type, 'sender_id': currentUserId, 'post_id': postId, 'is_read': false}); }
 }
