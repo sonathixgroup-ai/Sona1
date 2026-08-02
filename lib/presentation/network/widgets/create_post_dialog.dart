@@ -52,7 +52,6 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
   final _contentController = TextEditingController();
   final _contentFocusNode = FocusNode();
 
-  // Contrôleurs spécifiques Sondages et Challenges
   final List<TextEditingController> _pollOptionControllers = [
     TextEditingController(),
     TextEditingController(),
@@ -68,7 +67,6 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
   bool _isUploading = false;
   String? _errorMessage;
 
-  // Statut affiché pendant la vérification IA
   String? _factCheckStatusLabel;
 
   List<Map<String, dynamic>> _mentionSuggestions = [];
@@ -200,7 +198,6 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
     });
   }
 
-  // ─── FACT-CHECK IA ───
   Future<Map<String, String?>> _runFactCheck(String textContent) async {
     bool isMisinformation = false;
     String? factCheckMessage;
@@ -234,7 +231,6 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
     }
 
     if (!tavilySucceeded) {
-      debugPrint('Fact-Check : aucune source Tavily disponible, publication en SAFE par défaut.');
       return {'isMisinformation': 'false', 'message': null, 'severity': null};
     }
 
@@ -251,7 +247,6 @@ Date actuelle réelle : $currentDateString
 $contextSources
 
 Tu es un moteur de FACT-CHECKING professionnel.
-Ta mission : analyser UNIQUEMENT la véracité des affirmations factuelles présentes dans la publication.
 PUBLICATION : "$textContent"
 
 Format de réponse STRICT :
@@ -271,7 +266,7 @@ SAFE ou FAKE: [raison]
         factCheckMessage = aiResponse.substring(aiResponse.toUpperCase().indexOf("FAKE:") + 5).trim();
       }
     } catch (aiError) {
-      debugPrint('Erreur Fact-Check IA (non bloquante) : $aiError');
+      debugPrint('Erreur Fact-Check IA : $aiError');
       isMisinformation = false;
     }
 
@@ -282,7 +277,6 @@ SAFE ou FAKE: [raison]
     };
   }
 
-  // ─── PUBLICATION AVEC TIMEOUT ET GESTION D'ERREURS ───
   Future<void> _publishPost() async {
     final textContent = _contentController.text.trim();
     
@@ -311,13 +305,10 @@ SAFE ou FAKE: [raison]
     try {
       final ns = ref.read(networkServiceProvider);
 
-      // Timeout de 10 secondes pour éviter le blocage sur les sondages/textes courts
+      // Timeout de 10s pour éviter les blocages sur les textes courts ou sondages
       final factCheckResult = await _runFactCheck(textContent).timeout(
         const Duration(seconds: 10),
-        onTimeout: () {
-          debugPrint('⏳ Le Fact-Check a pris trop de temps. Publication en SAFE par défaut.');
-          return {'isMisinformation': 'false', 'message': null, 'severity': null};
-        },
+        onTimeout: () => {'isMisinformation': 'false', 'message': null, 'severity': null},
       );
 
       final bool isMisinformation = factCheckResult['isMisinformation'] == 'true';
@@ -326,7 +317,6 @@ SAFE ou FAKE: [raison]
 
       if (mounted) setState(() => _factCheckStatusLabel = 'Envoi de la publication...');
 
-      // Upload des images
       final List<String> imageUrls = [];
       for (final item in _images) {
         try {
@@ -346,7 +336,7 @@ SAFE ou FAKE: [raison]
         }
       }
 
-      // Upload des vidéos (Dirigées vers le bucket 'videos' dédié)
+      // Vidéos dirigées vers le bucket Supabase dédié 'videos'
       final List<String> videoUrls = [];
       for (final item in _videos) {
         try {
@@ -381,6 +371,7 @@ SAFE ou FAKE: [raison]
         'media_urls': allMedia,
         'media_url': allMedia.isNotEmpty ? allMedia.first : null,
         'community_id': widget.communityId,
+        'post_type': 'standard',
       };
 
       if (_postTypeMode == 1) {
@@ -402,8 +393,6 @@ SAFE ou FAKE: [raison]
           'end_date': _challengeEndDate?.toIso8601String(),
           'participants_count': 0
         };
-      } else {
-        payload['post_type'] = 'standard';
       }
 
       await Supabase.instance.client.from('posts').insert(payload);
