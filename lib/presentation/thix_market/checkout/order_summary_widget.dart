@@ -1,4 +1,3 @@
-// lib/presentation/thix_market/checkout/order_summary_widget.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../cart/cart_provider.dart';
@@ -62,7 +61,6 @@ class OrderSummaryWidget extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Adresse
                 _section(_t(context, 'Adresse de livraison', 'Delivery Address'), [
                   Text(
                     checkout.selectedAddress != null
@@ -92,8 +90,6 @@ class OrderSummaryWidget extends ConsumerWidget {
                   ),
                 ]),
                 const SizedBox(height: 16),
-
-                // Mode de livraison
                 _section(_t(context, 'Mode de livraison', 'Shipping Method'), [
                   Text(shippingName, style: const TextStyle(fontWeight: FontWeight.w600)),
                   Text(
@@ -102,8 +98,6 @@ class OrderSummaryWidget extends ConsumerWidget {
                   ),
                 ]),
                 const SizedBox(height: 16),
-
-                // Articles
                 Text(
                   _t(context, 'Articles', 'Items'),
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText),
@@ -156,22 +150,13 @@ class OrderSummaryWidget extends ConsumerWidget {
             ),
           ),
         ),
-
-        // Bouton → va UNIQUEMENT vers le paiement (pas de processOrder ici)
         Padding(
           padding: const EdgeInsets.all(16),
           child: ElevatedButton(
             onPressed: checkout.isProcessing
                 ? null
                 : () {
-                    // Juste avancer vers l'étape paiement
-                    try {
-                      (checkoutNotifier as dynamic).goToStep('payment');
-                    } catch (_) {
-                      try {
-                        (checkoutNotifier as dynamic).next();
-                      } catch (_) {}
-                    }
+                    checkoutNotifier.goToStep('payment');
                   },
             style: ElevatedButton.styleFrom(
               backgroundColor: thixOrange,
