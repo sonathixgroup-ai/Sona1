@@ -42,8 +42,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     int idx = 0;
     if(step=='address') idx=0;
     if(step=='shipping') idx=1;
-    if(step=='payment') idx=2;
-    if(step=='confirmation') idx=3;
+    if(step=='summary') idx=2;
+    if(step=='payment') idx=3;
+    
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -82,8 +83,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     switch(state.currentStep){
       case 'address': return _AddressStep(state: state, notifier: notifier);
       case 'shipping': return const ShippingMethodSelector();
-      case 'payment': return const PaymentMethodSelector();
-      case 'confirmation': return const OrderSummaryWidget();
+      case 'summary': return const OrderSummaryWidget(); // Étape 3 : Résumé et Validation initiale de la commande
+      case 'payment': return const PaymentMethodSelector(); // Étape 4 : Sélection du mode de paiement et Paiement via Edge Function
       default: return Center(child: Text('Étape inconnue: ${state.currentStep}'));
     }
   }
@@ -104,14 +105,7 @@ class _AddressStep extends StatelessWidget {
           child: SizedBox(width: double.infinity, height: 52, child: ElevatedButton(
             onPressed: state.selectedAddress!=null? (){
               notifier.selectAddress(state.selectedAddress!);
-              // Utilisation de la méthode générique pour changer d'étape vers 'shipping'
-              try {
-                (notifier as dynamic).goToStep('shipping');
-              } catch (_) {
-                try {
-                  (notifier as dynamic).next();
-                } catch (_) {}
-              }
+              try { (notifier as dynamic).goToStep('shipping'); } catch (_) { try { (notifier as dynamic).next(); } catch (_) {} }
             } : null,
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5592F), foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey.shade200, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
             child: const Text('Continuer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
