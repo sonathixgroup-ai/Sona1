@@ -356,13 +356,12 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                             GridView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SpilverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 10,
-                                childAspectRatio: 2.6,
-                              ),
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+  crossAxisCount: 2,
+  crossAxisSpacing: 10,
+  mainAxisSpacing: 10,
+  childAspectRatio: 2.6,
+),
                               itemCount: mobileOperators.length,
                               itemBuilder: (context, i) {
                                 final op = mobileOperators[i];
