@@ -93,7 +93,7 @@ class _JobApplyPageState extends State<JobApplyPage> {
         diplomaUrls: diplomaUrls,
       );
       if (!mounted) return;
-      context.go('/jobs/${widget.jobId}?applied=1');
+      context.pushReplacement('/jobs/${widget.jobId}?applied=1');
     } catch (e) {
       debugPrint('JobApplyPage.submit failed $e');
       if (mounted) setState(() => _error = 'Erreur lors de la candidature.');
@@ -166,7 +166,7 @@ class _JobApplyPageState extends State<JobApplyPage> {
                     const Spacer(),
                     Text('Offre introuvable.', style: context.textStyles.titleMedium?.copyWith(color: LearningCyberColors.text)),
                     const SizedBox(height: AppSpacing.lg),
-                    SizedBox(width: double.infinity, child: FilledButton(onPressed: () => context.go(AppRoutes.jobs), child: const Text('Retour'))),
+                    SizedBox(width: double.infinity, child: FilledButton(onPressed: () => context.canPop() ? context.pop() : context.push(AppRoutes.jobs), child: const Text('Retour'))),
                     const Spacer(),
                   ],
                 ),
@@ -227,7 +227,7 @@ class _TopBar extends StatelessWidget {
   const _TopBar({required this.jobId});
   @override
   Widget build(BuildContext context) {
-    return Row(children: [IconButton(onPressed: () => context.go('/jobs/$jobId'), icon: const Icon(Icons.arrow_back_ios_new_rounded, color: LearningCyberColors.text)), Expanded(child: Text('THIX Apply', style: context.textStyles.titleLarge?.copyWith(color: LearningCyberColors.text, fontWeight: FontWeight.w900)))]);
+    return Row(children: [IconButton(onPressed: () => context.canPop() ? context.pop() : context.push('/jobs/$jobId'), icon: const Icon(Icons.arrow_back_ios_new_rounded, color: LearningCyberColors.text)), Expanded(child: Text('THIX Apply', style: context.textStyles.titleLarge?.copyWith(color: LearningCyberColors.text, fontWeight: FontWeight.w900)))]);
   }
 }
 

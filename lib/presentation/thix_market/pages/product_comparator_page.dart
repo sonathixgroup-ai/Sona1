@@ -132,7 +132,7 @@ class ProductComparatorPage extends ConsumerWidget {
             ),
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: () => context.go('/market/home'),
+              onPressed: () => context.canPop() ? context.pop() : context.push('/market'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _MarketColors.red,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),

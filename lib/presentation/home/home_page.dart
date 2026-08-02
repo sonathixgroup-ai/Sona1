@@ -113,12 +113,14 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
     if (user == null) {
       context.push(AppRoutes.login);
     } else {
-      context.push(AppRoutes.userDashboard);
+      // Dashboard est dans la branche 3 du shell → go() pour basculer de branche
+      context.go(AppRoutes.userDashboard);
     }
   }
 
   Future<void> _openThixAi() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push('/thix_ia'); return; } context.push(AppRoutes.login); }
-  Future<void> _openThixChat() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push(AppRoutes.chat); } else { context.push(AppRoutes.login); } }
+  // Chat est dans la branche 2 → go() pour basculer de branche sans créer de doublon
+  Future<void> _openThixChat() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.go(AppRoutes.chat); } else { context.push(AppRoutes.login); } }
   
   Future<void> _openEmergency() async { 
     final auth = context.read<AuthController>(); 
@@ -149,7 +151,8 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
       case 'thixInfo': context.push(AppRoutes.thixInfo); break;
       case 'opportunites': context.push(AppRoutes.opportunities); break;
       case 'evenements': context.push('/thix-event'); break;
-      case 'reseauPro': context.push(AppRoutes.network); break;
+      // Réseau Pro est dans la branche 1 → go() pour basculer sans empiler
+      case 'reseauPro': context.go(AppRoutes.network); break;
       case 'thixSante': context.push(AppRoutes.thixSante); break;
       case 'thixMoney': context.push(AppRoutes.thixMoney); break;
       case 'monPays': context.push(AppRoutes.monPays); break;

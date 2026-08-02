@@ -82,7 +82,7 @@ class _WishlistPageState extends ConsumerState<WishlistPage> {
           const SizedBox(height: 8),
           const Text('Vous n\'avez pas encore ajouté de produits à vos favoris. Explorez le marché.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: MarketColors.mutedText, height: 1.4)),
           const SizedBox(height: 32),
-          ElevatedButton(onPressed: ()=> context.go('/market/home'), style: ElevatedButton.styleFrom(backgroundColor: MarketColors.red, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), elevation: 0), child: const Text('Explorer le marché', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
+          ElevatedButton(onPressed: ()=> context.canPop() ? context.pop() : context.push('/market'), style: ElevatedButton.styleFrom(backgroundColor: MarketColors.red, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), elevation: 0), child: const Text('Explorer le marché', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
         ]),
       ),
     );

@@ -3,10 +3,11 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../nav.dart';
 import '../../services/chat/chat_service.dart';
 import '../../services/chat/connection_service.dart';
-import 'chat_screen.dart';
 
 // Nouvelle palette "Grandeur Entreprise" (Thème Clair)
 class _C {
@@ -353,7 +354,7 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> {
         isGroup: state.selected.length > 1, 
         groupName: state.selected.length > 1 ? state.groupName.trim() : null
       );
-      if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv)));
+      if (mounted) context.pushReplacement(AppRoutes.chatDetail(conv.id), extra: conv);
     } catch(e) { 
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red)); 
     } finally { 
