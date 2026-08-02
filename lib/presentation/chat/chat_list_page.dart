@@ -22,8 +22,9 @@ class _C {
   static const surfaceAlt = Color(0xFFF1F5F9);
   static const searchBg = Color(0xFFF1F5F9);
   static const border = Color(0xFFE2E8F0);
-  static const primary = Color(0xFF1D4ED8);
-  static const primaryDeep = Color(0xFF0F1E4D);
+  static const navyDeep = Color(0xFF0A1F44);
+  static const primaryDeep = Color(0xFF123B7A);
+  static const primary = Color(0xFF2D6CDF);
   static const primarySoft = Color(0xFFEFF6FF);
   static const gold = Color(0xFFE3B23C);
   static const goldLight = Color(0xFFF3D999);
@@ -32,11 +33,11 @@ class _C {
   static const textSoft = Color(0xFF94A3B8);
   static const red = Color(0xFFEF4444);
   static const orange = Color(0xFFF59E0B);
-  static const green = Color(0xFF10B981); // Conservé uniquement pour le point de statut "en ligne"
+  static const green = Color(0xFF10B981); // uniquement pour le point "en ligne"
 
   static const gradientHeader = LinearGradient(
     begin: Alignment.topLeft, end: Alignment.bottomRight,
-    colors: [primaryDeep, primary],
+    colors: [navyDeep, primaryDeep, primary],
   );
   static const gradientOnlineRing = LinearGradient(
     begin: Alignment.topLeft, end: Alignment.bottomRight,
@@ -54,7 +55,7 @@ class ChatListPage extends ConsumerStatefulWidget {
 class _ChatListPageState extends ConsumerState<ChatListPage> {
   final _searchCtrl = TextEditingController();
   final _scroll = ScrollController();
-  
+
   int _selectedNav = 1;
   bool _isNavExpanded = false;
   Timer? _navInactivityTimer;
@@ -89,6 +90,15 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         if (mounted) setState(() => _isNavExpanded = false);
       });
     }
+  }
+
+  /// Ouvre une conversation et la marque comme lue immédiatement (optimiste),
+  /// avant même que l'utilisateur ait fini de lire — évite tout flash de
+  /// badge non-lu au retour sur la liste.
+  Future<void> _openConversation(ChatConversation conv) async {
+    ref.read(chatListProvider.notifier).markAsRead(conv.id);
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv)));
+    ref.read(chatListProvider.notifier).refresh();
   }
 
   void _openNotifications(int pending) {
@@ -127,7 +137,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                       leading: Container(
                         width: 48, height: 48,
-                        decoration: BoxDecoration(color: _C.red.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+                        decoration: BoxDecoration(color: _C.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
                         child: const Icon(Icons.swap_vert_rounded, color: _C.red, size: 24),
                       ),
                       title: Text('$pending escalade(s) en attente', style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w700, fontSize: 15)),
@@ -210,7 +220,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(chatListProvider);
     final notifier = ref.read(chatListProvider.notifier);
-    
+
     final currentUser = ref.watch(authControllerProvider).value;
     final currentUserName = currentUser?.displayName ?? '';
     final currentUserId = currentUser?.id ?? '';
@@ -247,11 +257,10 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       _chatList(state.filtered, currentUserId, onlineUserIds),
                       if (state.isLoadingMore)
                         const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.symmetric(vertical: 28), child: Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 3)))),
-                      const SliverToBoxAdapter(child: SizedBox(height: 140)), // Espace pour le menu flottant
+                      const SliverToBoxAdapter(child: SizedBox(height: 140)),
                     ],
                   ),
                 ),
-          
           _buildExpandableBottomNav(state.totalUnread),
         ],
       ),
@@ -259,6 +268,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   }
 
   // ─────────────────────── EN-TÊTE & RECHERCHE ───────────────────────
+  // Dégradé aligné sur la Charte THIX ID (navyDeep → primaryDeep → primary),
+  // identique à celui de THIX PRO / MON PAYS pour une cohérence inter-modules.
 
   Widget _buildGradientHeader(String userName, String? userPhoto, List<ChatConversation> online, int pending) {
     return Container(
@@ -276,38 +287,30 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      text: 'Bonjour,\n',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: -0.2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Bonjour,',
+                        style: TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w500, letterSpacing: -0.1),
                       ),
-                      children: [
-                        TextSpan(
-                          text: userName.isNotEmpty ? userName : 'Utilisateur',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.5,
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 2),
+                      Text(
+                        userName.isNotEmpty ? userName : 'Utilisateur',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3, height: 1.25),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 _headerIcon(icon: Icons.swap_vert_rounded, badge: pending > 0, onTap: () => context.pushNamed('chatEscalationReceived')),
                 const SizedBox(width: 8),
                 _headerIcon(icon: Icons.notifications_outlined, badge: pending > 0, onTap: () => _openNotifications(pending)),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             SizedBox(
               height: 78,
               child: ListView.separated(
@@ -324,10 +327,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     avatarUrl: conv.displayAvatar,
                     isSelf: false,
                     isOnline: true,
-                    onTap: () async {
-                      await Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv)));
-                      ref.read(chatListProvider.notifier).refresh();
-                    },
+                    onTap: () => _openConversation(conv),
                   );
                 },
               ),
@@ -343,7 +343,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       onTap: onTap,
       child: Container(
         width: 38, height: 38,
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), shape: BoxShape.circle),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), shape: BoxShape.circle),
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -402,7 +402,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           onChanged: (v) => ref.read(chatListProvider.notifier).search(v),
           style: const TextStyle(fontSize: 15, color: _C.textMain, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
-            hintText: 'Rechercher une conversation...', // Texte réinitialisé et professionnel
+            hintText: 'Rechercher une conversation...',
             hintStyle: const TextStyle(fontSize: 15, color: _C.textSoft, fontWeight: FontWeight.w400),
             prefixIcon: const Icon(Icons.search_rounded, size: 22, color: _C.textSoft),
             suffixIcon: _searchCtrl.text.isNotEmpty
@@ -422,7 +422,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(color: _C.red.withOpacity(0.07), borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: _C.red.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(16)),
         child: Row(
           children: [
             const Icon(Icons.warning_amber_rounded, color: _C.red, size: 20),
@@ -435,7 +435,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  // Nouveau design premium des filtres (sans le vert WhatsApp)
   Widget _filters(int selected) {
     final tabs = ['Toutes', 'Non lues', 'Équipes', 'Personnelles'];
     return SizedBox(
@@ -461,7 +460,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     color: sel ? _C.primary : _C.surfaceAlt,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: sel ? _C.primary : _C.border, width: 1),
-                    boxShadow: sel ? [BoxShadow(color: _C.primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))] : [],
+                    boxShadow: sel ? [BoxShadow(color: _C.primary.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 3))] : [],
                   ),
                   child: Text(
                     tabs[i],
@@ -511,10 +510,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           return Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () async {
-                await Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv)));
-                ref.read(chatListProvider.notifier).refresh();
-              },
+              onTap: () => _openConversation(conv),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
@@ -550,11 +546,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                 child: Text(
                                   conv.displayName,
                                   maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 16.5,
-                                    fontWeight: FontWeight.w600, 
-                                    color: _C.textMain,
-                                  ),
+                                  style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w600, color: _C.textMain),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -562,7 +554,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                 _fmt(t),
                                 style: TextStyle(
                                   fontSize: 12.5,
-                                  // L'heure passe au bleu THIX si non lu
                                   fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
                                   color: unread ? _C.primary : _C.textSoft,
                                 ),
@@ -587,7 +578,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                 Container(
                                   margin: const EdgeInsets.only(left: 10),
                                   padding: const EdgeInsets.all(6),
-                                  // Le badge non-lu passe au bleu THIX
                                   decoration: const BoxDecoration(color: _C.primary, shape: BoxShape.circle),
                                   child: Text(
                                     '${conv.unreadCount}',
@@ -629,10 +619,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(32),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
-                  blurRadius: 20, offset: const Offset(0, 8),
-                ),
+                BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 20, offset: const Offset(0, 8)),
               ],
             ),
             child: _isNavExpanded
@@ -641,8 +628,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     children: [
                       _navItem(Icons.people_alt_outlined, Icons.people_alt, 'Réseau', 0, unread),
                       _navItem(Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Discussions', 1, unread),
-                      
-                      // 👈 BOUTON FLOTTANT INTÉGRÉ AU CENTRE DU MENU
                       GestureDetector(
                         onTap: () {
                           _resetNavTimer();
@@ -654,14 +639,11 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                           decoration: const BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: _C.gradientHeader,
-                            boxShadow: [
-                              BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
-                            ]
+                            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3))],
                           ),
                           child: const Icon(Icons.add_comment_rounded, color: Colors.white, size: 24),
                         ),
                       ),
-
                       _navItem(Icons.workspaces_outline, Icons.workspaces_filled, 'Espaces', 2, unread),
                       _navItem(Icons.settings_outlined, Icons.settings, 'Réglages', 3, unread),
                     ],
@@ -674,10 +656,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       child: Container(
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [_C.goldLight, _C.primary],
-                            radius: 0.8,
-                          ),
+                          gradient: RadialGradient(colors: [_C.goldLight, _C.primary], radius: 0.8),
                         ),
                         child: const Icon(Icons.grid_view_rounded, color: Colors.white, size: 28),
                       ),
