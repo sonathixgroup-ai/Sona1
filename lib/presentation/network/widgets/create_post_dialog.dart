@@ -311,7 +311,7 @@ SAFE ou FAKE: [raison]
     try {
       final ns = ref.read(networkServiceProvider);
 
-      // Timeout ajouté ici pour éviter le blocage infini sur les sondages "Nncncnc"
+      // Timeout de 10 secondes pour éviter le blocage sur les sondages/textes courts
       final factCheckResult = await _runFactCheck(textContent).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
@@ -326,21 +326,18 @@ SAFE ou FAKE: [raison]
 
       if (mounted) setState(() => _factCheckStatusLabel = 'Envoi de la publication...');
 
-            final List<String> videoUrls = [];
-      for (final item in _videos) {
+      // Upload des images
+      final List<String> imageUrls = [];
+      for (final item in _images) {
         try {
+          final compressed = await compute(compressImageBytes, item.bytes);
           final ext = item.name.split('.').last;
-          // 🌟 On envoie explicitement dans le bucket 'videos' dédié aux vidéos
-          final url = await ns.uploadImageBytes(
-            item.bytes, 
-            fileExtension: ext, 
-            bucket: 'videos' // <-- Remplacez par 'post_video' si vous préférez ce bucket
-          );
-          if (url != null && url.isNotEmpty) videoUrls.add(url);
+          final url = await ns.uploadImageBytes(compressed, fileExtension: ext, bucket: 'post_images');
+          if (url != null && url.isNotEmpty) imageUrls.add(url);
         } catch (e) {
           if (mounted) {
             setState(() {
-              _errorMessage = 'Échec de l\'upload vidéo: $e';
+              _errorMessage = 'Échec de l\'upload d\'image: $e';
               _isUploading = false;
               _factCheckStatusLabel = null;
             });
@@ -349,11 +346,12 @@ SAFE ou FAKE: [raison]
         }
       }
 
+      // Upload des vidéos (Dirigées vers le bucket 'videos' dédié)
       final List<String> videoUrls = [];
       for (final item in _videos) {
         try {
           final ext = item.name.split('.').last;
-          final url = await ns.uploadImageBytes(item.bytes, fileExtension: ext);
+          final url = await ns.uploadImageBytes(item.bytes, fileExtension: ext, bucket: 'videos');
           if (url != null && url.isNotEmpty) videoUrls.add(url);
         } catch (e) {
           if (mounted) {
