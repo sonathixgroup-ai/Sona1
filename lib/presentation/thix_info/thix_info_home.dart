@@ -183,7 +183,7 @@ class _ThixInfoHomeState extends ConsumerState<ThixInfoHome> {
         children: [
           IconButton(
             icon: const Icon(Icons.menu, size: 20, color: _kDark),
-            onPressed: () => context.go('/'),
+            onPressed: () => context.canPop() ? context.pop() : context.go('/'),
           ),
           Container(
             width: 38,

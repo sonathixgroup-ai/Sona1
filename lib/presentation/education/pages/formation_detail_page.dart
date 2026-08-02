@@ -327,7 +327,7 @@ class FormationDetailPage extends ConsumerWidget {
         }
       }
     }
-    context.go('/education/my-learning'); 
+    context.push('/education/my-learning'); 
   }
 
   void _showThixIdVerificationSheet(BuildContext context, WidgetRef ref, String userId, String formationId) {
@@ -421,7 +421,7 @@ class _ThixIdVerificationWidgetState extends State<_ThixIdVerificationWidget> {
           // 2. Redirection automatique vers "Mes cours" après une légère pause pour laisser le temps de lire le message de succès
           Future.delayed(const Duration(milliseconds: 1000), () {
             if (context.mounted) {
-              context.go('/education/my-learning');
+              context.push('/education/my-learning');
             }
           });
         }
@@ -436,7 +436,7 @@ class _ThixIdVerificationWidgetState extends State<_ThixIdVerificationWidget> {
           // Redirection également si l'utilisateur était déjà inscrit
           Future.delayed(const Duration(milliseconds: 1000), () {
             if (context.mounted) {
-              context.go('/education/my-learning');
+              context.push('/education/my-learning');
             }
           });
         } else {

@@ -42,7 +42,7 @@ class AdminDashboardPage extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.home),
-            onPressed: () => context.go('/mon-pays'),
+            onPressed: () => context.canPop() ? context.pop() : context.push('/mon-pays'),
             tooltip: 'Retour à l\'accueil',
           ),
         ],

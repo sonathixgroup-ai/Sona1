@@ -101,6 +101,7 @@ import 'package:thix_id/presentation/opportunities/opportunity_details_page.dart
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
+import 'package:thix_id/presentation/common/main_app_shell.dart';
 
 import 'package:thix_id/presentation/thix_market/pages/market_home_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/search_page.dart' as marketSearch;
@@ -298,7 +299,6 @@ class AppRouter {
       },
       routes: [
         GoRoute(path: AppRoutes.start, name: 'start', pageBuilder: (_, __) => const NoTransitionPage(child: ThixIdStartPage())),
-        GoRoute(path: AppRoutes.home, name: 'home', pageBuilder: (_, __) => const NoTransitionPage(child: HomePagePremium())),
         GoRoute(path: AppRoutes.login, name: 'login', pageBuilder: (_, __) => const NoTransitionPage(child: LoginPage())),
         GoRoute(path: AppRoutes.personalReg, name: 'personalReg', pageBuilder: (_, state) {
           final step = int.tryParse(state.uri.queryParameters['step'] ?? '') ?? 1;
@@ -313,54 +313,136 @@ class AppRouter {
         GoRoute(path: AppRoutes.publicProfile, name: 'publicProfile', pageBuilder: (_, state) => NoTransitionPage(child: public_profile.PublicProfilePage(initialThixId: state.uri.queryParameters['thixId']))),
         
         // =====================================================
-        // CORRECTION DE LA ROUTE DU DASHBOARD + SECURITE
+        // FILETS DE SÉCURITÉ : Redirigent les anciens liens erronés
         // =====================================================
-        
-        // 1. La VRAIE route du dashboard (utilise la nouvelle classe)
-        GoRoute(
-          path: AppRoutes.userDashboard, 
-          name: 'userDashboard', 
-          pageBuilder: (_, __) => const NoTransitionPage(child: ThixUserDashboardPage())
-        ),
-        
-        // 2. FILETS DE SÉCURITÉ : Redirigent les anciens liens erronés
-        GoRoute(
-          path: '/user/dashboard', 
-          redirect: (_, __) => AppRoutes.userDashboard,
-        ),
-        GoRoute(
-          path: '/user-dashboard', 
-          redirect: (_, __) => AppRoutes.userDashboard,
-        ),
-        // =====================================================
+        GoRoute(path: '/user/dashboard', redirect: (_, __) => AppRoutes.userDashboard),
+        GoRoute(path: '/user-dashboard', redirect: (_, __) => AppRoutes.userDashboard),
 
-        GoRoute(
-          path: AppRoutes.network,
-          name: 'network',
-          pageBuilder: (_, __) => const NoTransitionPage(child: NetworkProHome()),
+        // =====================================================
+        // SHELL PRINCIPAL : 4 branches avec piles de navigation
+        // indépendantes (état conservé à la sortie/retour).
+        //   0 → Accueil  (/)
+        //   1 → Pro      (/network + sous-routes)
+        //   2 → Chat     (/chat + sous-routes)
+        //   3 → Profil   (/dashboard)
+        // =====================================================
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) =>
+              MainAppShell(navigationShell: navigationShell),
+          branches: [
+            // ── Branche 0 : Accueil ──────────────────────────────
+            StatefulShellBranch(routes: [
+              GoRoute(
+                path: AppRoutes.home,
+                name: 'home',
+                pageBuilder: (_, __) => const NoTransitionPage(child: HomePagePremium()),
+              ),
+            ]),
+
+            // ── Branche 1 : Réseau Pro ───────────────────────────
+            StatefulShellBranch(routes: [
+              GoRoute(
+                path: AppRoutes.network,
+                name: 'network',
+                pageBuilder: (_, __) => const NoTransitionPage(child: NetworkProHome()),
+                routes: [
+                  GoRoute(path: 'search', name: 'networkSearch', pageBuilder: (_, __) => const NoTransitionPage(child: SearchNetworkPage())),
+                  GoRoute(path: 'notifications', name: 'networkNotifications', pageBuilder: (_, __) => const NoTransitionPage(child: NotificationsPage())),
+                  GoRoute(path: 'messages', name: 'networkMessages', pageBuilder: (_, __) => const NoTransitionPage(child: ConversationsList())),
+                  GoRoute(path: 'chat/:userId', name: 'networkChat', pageBuilder: (_, state) {
+                    final uid = state.pathParameters['userId']!;
+                    final extra = state.extra;
+                    String name = 'Discussion'; String? avatar;
+                    if (extra is String) { name = extra; } else if (extra is Map) { name = (extra['userName'] as String?) ?? name; avatar = extra['userAvatar'] as String?; }
+                    return NoTransitionPage(child: network_chat.ChatScreen(userId: uid, userName: name, userAvatar: avatar));
+                  }),
+                  GoRoute(path: 'connections', name: 'networkConnections', pageBuilder: (_, __) => const NoTransitionPage(child: ConnectionsListPage())),
+                  GoRoute(path: 'profile-settings', name: 'networkProfileSettings', pageBuilder: (_, __) => const NoTransitionPage(child: ProfileSettingsPage())),
+                  GoRoute(path: 'blocked', name: 'networkBlockedUsers', pageBuilder: (_, __) => const NoTransitionPage(child: BlockedUsersPage())),
+                  GoRoute(path: 'discover', name: 'networkDiscover', pageBuilder: (_, __) => const NoTransitionPage(child: DiscoverTab())),
+                  GoRoute(path: 'communities', name: 'networkCommunities', pageBuilder: (_, __) => const NoTransitionPage(child: CommunitiesListPage())),
+                  GoRoute(path: 'community/create', name: 'networkCommunityCreate', pageBuilder: (_, __) => const NoTransitionPage(child: CreateCommunityPage())),
+                  GoRoute(path: 'community/:communityId', name: 'networkCommunityDetail', pageBuilder: (_, state) => NoTransitionPage(child: CommunityDetailPage(communityId: state.pathParameters['communityId']!))),
+                  GoRoute(path: 'story/:storyId', name: 'networkStoryViewer', pageBuilder: (_, state) => NoTransitionPage(child: StoryViewerScreen(storyId: state.pathParameters['storyId']!))),
+                  GoRoute(path: 'comments/:postId', name: 'networkComments', pageBuilder: (_, state) => NoTransitionPage(child: CommentsPage(postId: state.pathParameters['postId']!, currentProfileId: Supabase.instance.client.auth.currentUser?.id ?? ''))),
+                  GoRoute(path: 'hashtag/:tag', name: 'networkHashtag', pageBuilder: (_, state) => NoTransitionPage(child: HashtagPage(tag: state.pathParameters['tag']!))),
+                  GoRoute(path: 'post/:postId', name: 'networkPostDetail', pageBuilder: (_, state) => NoTransitionPage(child: PostDetailPage(postId: state.pathParameters['postId']!, currentProfileId: auth.currentUser?.id ?? ''))),
+                  GoRoute(path: 'profile/:userId', name: 'networkProfile', pageBuilder: (_, state) => NoTransitionPage(child: ProfilePage(userId: state.pathParameters['userId']!))),
+                ],
+              ),
+            ]),
+
+            // ── Branche 2 : Chat ─────────────────────────────────
+            StatefulShellBranch(routes: [
+              GoRoute(
+                path: AppRoutes.chat,
+                name: 'chat',
+                pageBuilder: (_, __) => const NoTransitionPage(child: ChatListPage()),
+                routes: [
+                  GoRoute(path: 'new', name: 'chat_new', pageBuilder: (_, __) => const NoTransitionPage(child: NewConversationPage())),
+                  GoRoute(path: 'group/create', name: 'group_create', pageBuilder: (_, __) => const NoTransitionPage(child: GroupCreatePage())),
+                  GoRoute(path: 'group/:groupId/info', name: 'group_info', pageBuilder: (_, state) => NoTransitionPage(child: GroupInfoPage(groupId: state.pathParameters['groupId']!))),
+                  GoRoute(path: 'group/:groupId/settings', name: 'group_settings', pageBuilder: (_, state) => NoTransitionPage(child: GroupSettingsPage(groupId: state.pathParameters['groupId']!))),
+                  GoRoute(path: 'profile/:userId', name: 'chatProfile', pageBuilder: (context, state) => NoTransitionPage(child: ChatProfilePage(userId: state.pathParameters['userId']!))),
+                  GoRoute(
+                    path: 'settings',
+                    name: 'chatSettings',
+                    pageBuilder: (context, state) => const NoTransitionPage(child: ChatSettingsPage()),
+                    routes: [
+                      GoRoute(path: 'appearance', name: 'chatAppearance', pageBuilder: (context, state) => const NoTransitionPage(child: ChatAppearanceSettings())),
+                      GoRoute(path: 'privacy', name: 'chatPrivacy', pageBuilder: (context, state) => const NoTransitionPage(child: ChatPrivacySettings())),
+                      GoRoute(path: 'notifications', name: 'chatNotifications', pageBuilder: (context, state) => const NoTransitionPage(child: ChatNotificationSettings())),
+                      GoRoute(path: 'data', name: 'chatData', pageBuilder: (context, state) => const NoTransitionPage(child: ChatDataSettings())),
+                    ],
+                  ),
+                  GoRoute(path: 'escalate/:conversationId', name: 'chatEscalate', pageBuilder: (context, state) {
+                    final conversationId = state.pathParameters['conversationId']!;
+                    final fromAgentId = state.uri.queryParameters['agentId'] ?? '';
+                    final fromAgentName = state.uri.queryParameters['agentName'];
+                    return NoTransitionPage(child: EscalateConversationPage(conversationId: conversationId, fromAgentId: fromAgentId, fromAgentName: fromAgentName));
+                  }),
+                  GoRoute(path: 'escalation/handle/:escalationId', name: 'chatEscalationHandle', pageBuilder: (context, state) => NoTransitionPage(child: HandleEscalationPage(escalationId: state.pathParameters['escalationId']!, agentId: state.uri.queryParameters['agentId'] ?? ''))),
+                  GoRoute(path: 'escalation/history/:conversationId', name: 'chatEscalationHistory', pageBuilder: (context, state) => NoTransitionPage(child: EscalationHistoryPage(conversationId: state.pathParameters['conversationId']!))),
+                  GoRoute(path: 'escalation/dashboard', name: 'chatEscalationDashboard', pageBuilder: (context, state) {
+                    final agentId = state.uri.queryParameters['agentId'] ?? '';
+                    final levelIndex = int.tryParse(state.uri.queryParameters['level'] ?? '0') ?? 0;
+                    final level = EscalationLevel.values[levelIndex.clamp(0, EscalationLevel.values.length - 1)];
+                    return NoTransitionPage(child: EscalationDashboardPage(agentId: agentId, agentLevel: level));
+                  }),
+                  GoRoute(path: 'escalation/received', name: 'chatEscalationReceived', pageBuilder: (context, state) => const NoTransitionPage(child: ReceivedEscalationsPage())),
+                  // :conversationId doit être en dernier pour ne pas masquer les routes littérales ci-dessus
+                  GoRoute(path: ':conversationId', name: 'chat_conversation', pageBuilder: (_, state) {
+                    final convId = state.pathParameters['conversationId']!;
+                    final conv = (state.extra as ChatConversation?) ?? ChatConversation(id: convId, isGroup: false, participantIds: [], updatedAt: DateTime.now());
+                    return NoTransitionPage(child: ThixChat.ChatScreen(conversationId: convId, conversation: conv));
+                  }),
+                ],
+              ),
+            ]),
+
+            // ── Branche 3 : Profil / Dashboard ───────────────────
+            StatefulShellBranch(routes: [
+              GoRoute(
+                path: AppRoutes.userDashboard,
+                name: 'userDashboard',
+                pageBuilder: (_, __) => const NoTransitionPage(child: ThixUserDashboardPage()),
+              ),
+            ]),
+          ],
         ),
-        GoRoute(path: AppRoutes.networkSearch, name: 'networkSearch', pageBuilder: (_, __) => const NoTransitionPage(child: SearchNetworkPage())),
-        GoRoute(path: AppRoutes.networkNotifications, name: 'networkNotifications', pageBuilder: (_, __) => const NoTransitionPage(child: NotificationsPage())),
-        GoRoute(path: AppRoutes.networkMessages, name: 'networkMessages', pageBuilder: (_, __) => const NoTransitionPage(child: ConversationsList())),
-        GoRoute(path: '${AppRoutes.networkChatBasePath}/:userId', name: 'networkChat', pageBuilder: (_, state) {
-          final uid = state.pathParameters['userId']!;
-          final extra = state.extra;
-          String name = 'Discussion'; String? avatar;
-          if (extra is String) { name = extra; } else if (extra is Map) { name = (extra['userName'] as String?) ?? name; avatar = extra['userAvatar'] as String?; }
-          return NoTransitionPage(child: network_chat.ChatScreen(userId: uid, userName: name, userAvatar: avatar));
-        }),
-        GoRoute(path: AppRoutes.networkConnections, name: 'networkConnections', pageBuilder: (_, __) => const NoTransitionPage(child: ConnectionsListPage())),
-        GoRoute(path: AppRoutes.networkProfileSettings, name: 'networkProfileSettings', pageBuilder: (_, __) => const NoTransitionPage(child: ProfileSettingsPage())),
-        GoRoute(path: AppRoutes.networkBlockedUsers, name: 'networkBlockedUsers', pageBuilder: (_, __) => const NoTransitionPage(child: BlockedUsersPage())),
-        GoRoute(path: '/network/discover', name: 'networkDiscover', pageBuilder: (_, __) => const NoTransitionPage(child: DiscoverTab())),
-        GoRoute(path: '/network/communities', name: 'networkCommunities', pageBuilder: (_, __) => const NoTransitionPage(child: CommunitiesListPage())),
-        GoRoute(path: '/network/community/create', name: 'networkCommunityCreate', pageBuilder: (_, __) => const NoTransitionPage(child: CreateCommunityPage())),
-        GoRoute(path: '${AppRoutes.networkCommunityBasePath}/:communityId', name: 'networkCommunityDetail', pageBuilder: (_, state) => NoTransitionPage(child: CommunityDetailPage(communityId: state.pathParameters['communityId']!))),
-        GoRoute(path: '/network/story/:storyId', name: 'networkStoryViewer', pageBuilder: (_, state) => NoTransitionPage(child: StoryViewerScreen(storyId: state.pathParameters['storyId']!))),
-        GoRoute(path: '/network/comments/:postId', name: 'networkComments', pageBuilder: (_, state) => NoTransitionPage(child: CommentsPage(postId: state.pathParameters['postId']!, currentProfileId: Supabase.instance.client.auth.currentUser?.id ?? ''))),
-        GoRoute(path: '/network/hashtag/:tag', name: 'networkHashtag', pageBuilder: (_, state) => NoTransitionPage(child: HashtagPage(tag: state.pathParameters['tag']!))),
-        GoRoute(path: '${AppRoutes.networkPostBasePath}/:postId', name: 'networkPostDetail', pageBuilder: (_, state) => NoTransitionPage(child: PostDetailPage(postId: state.pathParameters['postId']!, currentProfileId: auth.currentUser?.id ?? ''))),
-        GoRoute(path: '${AppRoutes.networkProfileBasePath}/:userId', name: 'networkProfile', pageBuilder: (_, state) => NoTransitionPage(child: ProfilePage(userId: state.pathParameters['userId']!))),
+
+        // ── Routes hors du shell ──────────────────────────────────
+        // Ces routes se superposent au shell (push). En appuyant sur
+        // « retour », l'utilisateur revient au shell exactement là où
+        // il l'avait quitté (branche et page préservées).
+
+        GoRoute(path: '/connections', name: 'connections', pageBuilder: (context, state) => const NoTransitionPage(child: ConnectionsPage())),
+        // Appels entrants / sortants (plein écran, sans barre de nav)
+        GoRoute(path: AppRoutes.callIncoming, name: AppRoutes.callIncomingName, builder: (c, s) => IncomingCallPage(invite: s.extra as CallInvite)),
+        GoRoute(path: AppRoutes.callOngoing, name: AppRoutes.callOngoingName, builder: (c, s) { final e = s.extra as Map<String, dynamic>; return CallPage(channel: e['channel'], name: e['name'], type: e['type'] == 'video' ? CallType.video : CallType.audio, inviteId: e['inviteId'], isCaller: e['isCaller'] ?? true, avatarUrl: e['avatarUrl']); }),
+        GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => const NoTransitionPage(child: DocumentVaultPage())),
+        GoRoute(path: AppRoutes.settings, name: 'settings', pageBuilder: (_, __) => const NoTransitionPage(child: SettingsPage())),
+        GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (_, __) => const NoTransitionPage(child: ProfilePage())),
         GoRoute(path: '/thix-urgent', name: 'thixUrgent', pageBuilder: (_, __) => NoTransitionPage(child: ThixUrgentProviders.wrap(const ThixUrgentScreen()))),
         GoRoute(path: '/thix-urgent/chambre-de-crise', name: 'chambreDeCrise', pageBuilder: (_, state) {
           final extra = state.extra as Map<String, dynamic>?;
@@ -369,43 +451,6 @@ class AppRouter {
           return NoTransitionPage(child: ChambreDeCriseScreen(criseId: criseId, type: type));
         }),
         GoRoute(path: '/thix-urgent/config/gardiens', name: 'thixUrgentGardiens', pageBuilder: (_, __) => const NoTransitionPage(child: GardiensConfigPage())),
-        GoRoute(path: AppRoutes.chat, name: 'chat', pageBuilder: (_, __) => const NoTransitionPage(child: ChatListPage())),
-        GoRoute(path: AppRoutes.chatNew, name: 'chat_new', pageBuilder: (_, __) => const NoTransitionPage(child: NewConversationPage())),
-        GoRoute(path: AppRoutes.chatConversation, name: 'chat_conversation', pageBuilder: (_, state) {
-          final convId = state.pathParameters['conversationId']!;
-          final conv = (state.extra as ChatConversation?) ?? ChatConversation(id: convId, isGroup: false, participantIds: [], updatedAt: DateTime.now());
-          return NoTransitionPage(child: ThixChat.ChatScreen(conversationId: convId, conversation: conv));
-        }),
-        GoRoute(path: AppRoutes.callIncoming, name: AppRoutes.callIncomingName, builder: (c, s) => IncomingCallPage(invite: s.extra as CallInvite)),
-        GoRoute(path: AppRoutes.callOngoing, name: AppRoutes.callOngoingName, builder: (c, s) { final e = s.extra as Map<String, dynamic>; return CallPage(channel: e['channel'], name: e['name'], type: e['type'] == 'video' ? CallType.video : CallType.audio, inviteId: e['inviteId'], isCaller: e['isCaller'] ?? true, avatarUrl: e['avatarUrl']); }),
-        GoRoute(path: AppRoutes.groupCreate, name: 'group_create', pageBuilder: (_, __) => const NoTransitionPage(child: GroupCreatePage())),
-        GoRoute(path: AppRoutes.groupInfo, name: 'group_info', pageBuilder: (_, state) => NoTransitionPage(child: GroupInfoPage(groupId: state.pathParameters['groupId']!))),
-        GoRoute(path: AppRoutes.groupSettings, name: 'group_settings', pageBuilder: (_, state) => NoTransitionPage(child: GroupSettingsPage(groupId: state.pathParameters['groupId']!))),
-        GoRoute(path: AppRoutes.chatProfile, name: 'chatProfile', pageBuilder: (context, state) => NoTransitionPage(child: ChatProfilePage(userId: state.pathParameters['userId']!))),
-        GoRoute(path: AppRoutes.chatSettings, name: 'chatSettings', pageBuilder: (context, state) => const NoTransitionPage(child: ChatSettingsPage())),
-        GoRoute(path: AppRoutes.chatAppearance, name: 'chatAppearance', pageBuilder: (context, state) => const NoTransitionPage(child: ChatAppearanceSettings())),
-        GoRoute(path: AppRoutes.chatPrivacy, name: 'chatPrivacy', pageBuilder: (context, state) => const NoTransitionPage(child: ChatPrivacySettings())),
-        GoRoute(path: AppRoutes.chatNotifications, name: 'chatNotifications', pageBuilder: (context, state) => const NoTransitionPage(child: ChatNotificationSettings())),
-        GoRoute(path: AppRoutes.chatData, name: 'chatData', pageBuilder: (context, state) => const NoTransitionPage(child: ChatDataSettings())),
-        GoRoute(path: AppRoutes.chatEscalate, name: 'chatEscalate', pageBuilder: (context, state) {
-          final conversationId = state.pathParameters['conversationId']!;
-          final fromAgentId = state.uri.queryParameters['agentId'] ?? '';
-          final fromAgentName = state.uri.queryParameters['agentName'];
-          return NoTransitionPage(child: EscalateConversationPage(conversationId: conversationId, fromAgentId: fromAgentId, fromAgentName: fromAgentName));
-        }),
-        GoRoute(path: '/connections', name: 'connections', pageBuilder: (context, state) => const NoTransitionPage(child: ConnectionsPage())),
-        GoRoute(path: AppRoutes.chatEscalationHandle, name: 'chatEscalationHandle', pageBuilder: (context, state) => NoTransitionPage(child: HandleEscalationPage(escalationId: state.pathParameters['escalationId']!, agentId: state.uri.queryParameters['agentId'] ?? ''))),
-        GoRoute(path: AppRoutes.chatEscalationHistory, name: 'chatEscalationHistory', pageBuilder: (context, state) => NoTransitionPage(child: EscalationHistoryPage(conversationId: state.pathParameters['conversationId']!))),
-        GoRoute(path: AppRoutes.chatEscalationDashboard, name: 'chatEscalationDashboard', pageBuilder: (context, state) {
-          final agentId = state.uri.queryParameters['agentId'] ?? '';
-          final levelIndex = int.tryParse(state.uri.queryParameters['level'] ?? '0') ?? 0;
-          final level = EscalationLevel.values[levelIndex.clamp(0, EscalationLevel.values.length - 1)];
-          return NoTransitionPage(child: EscalationDashboardPage(agentId: agentId, agentLevel: level));
-        }),
-        GoRoute(path: AppRoutes.chatEscalationReceived, name: 'chatEscalationReceived', pageBuilder: (context, state) => const NoTransitionPage(child: ReceivedEscalationsPage())),
-        GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => const NoTransitionPage(child: DocumentVaultPage())),
-        GoRoute(path: AppRoutes.settings, name: 'settings', pageBuilder: (_, __) => const NoTransitionPage(child: SettingsPage())),
-        GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (_, __) => const NoTransitionPage(child: ProfilePage())),
         GoRoute(path: AppRoutes.thixSante, redirect: (_, __) => AppRoutes.thixSanteDashboard),
         GoRoute(path: AppRoutes.thixSanteDashboard, builder: (c, s) => const PatientDashboardPage()),
         GoRoute(path: AppRoutes.santeMonMedecinTraitant, builder: (c, s) => const MonMedecinTraitantPage()),

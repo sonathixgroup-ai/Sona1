@@ -215,7 +215,7 @@ class _ThixReservationHomePageState extends State<ThixReservationHomePage> {
       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 20)]),
       child: SafeArea(child: BottomNavigationBar(
         currentIndex: 2, selectedItemColor: kPrimary, unselectedItemColor: const Color(0xFF9AA8C3), type: BottomNavigationBarType.fixed, backgroundColor: Colors.white, elevation: 0,
-        onTap: (i){ if(i==0) context.go('/'); if(i==3) context.push('/thix-reservation/bus/bookings'); },
+        onTap: (i){ if(i==0) context.pop(); if(i==3) context.push('/thix-reservation/bus/bookings'); },
         items: [
           const BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Accueil'),
           const BottomNavigationBarItem(icon: Icon(Icons.explore_outlined), label: 'Explorer'),

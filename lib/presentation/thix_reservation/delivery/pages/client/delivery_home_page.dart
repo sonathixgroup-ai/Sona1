@@ -604,7 +604,7 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
             ]),
           ),
           _navIcon(Icons.favorite_border_rounded, "Favoris", false, () => _comingSoon("Favoris")),
-          _navIcon(Icons.person_outline_rounded, "Profil", false, () => context.go('/user/dashboard')),
+          _navIcon(Icons.person_outline_rounded, "Profil", false, () => context.push('/dashboard')),
         ]),
       );
 
