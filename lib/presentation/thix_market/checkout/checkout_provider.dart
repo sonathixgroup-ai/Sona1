@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/market_providers.dart';
 import '../cart/cart_provider.dart';
+import '../../../services/market_payment_service.dart';
 
 class CheckoutState {
   final bool isLoading;
@@ -57,16 +58,15 @@ class CheckoutState {
 class CheckoutNotifier extends StateNotifier<CheckoutState> {
   CheckoutNotifier(this.ref) : super(const CheckoutState());
   final Ref ref;
-  String? _paymentIntentId;
-  String? _paymentUrl;
 
-  // ========== NAVIGATION D'ÉTAPES ==========
+  // ========== NAVIGATION ==========
   void goToStep(String step) {
     const validSteps = [
       'address',
       'shipping',
       'summary',
       'payment',
+      'waiting_payment',
       'confirmation',
       'success',
       'bon_de_commande',
@@ -91,6 +91,9 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         goToStep('payment');
         break;
       case 'payment':
+        goToStep('waiting_payment');
+        break;
+      case 'waiting_payment':
         goToStep('bon_de_commande');
         break;
       default:
@@ -109,6 +112,9 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         break;
       case 'payment':
         goToStep('summary');
+        break;
+      case 'waiting_payment':
+        goToStep('payment');
         break;
       case 'success':
       case 'bon_de_commande':
@@ -188,21 +194,10 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         return r;
       }
     } catch (_) {}
-    try {
-      final r = await db
-          .from('users')
-          .select('id, email, phone, default_address_id')
-          .eq('id', userId)
-          .maybeSingle();
-      if (r != null) {
-        r['full_name'] = 'Utilisateur';
-        return r;
-      }
-    } catch (_) {}
     return {'id': userId, 'full_name': 'Utilisateur'};
   }
 
-  // ========== SÉLECTIONS (ne forcent plus l'étape) ==========
+  // ========== SÉLECTIONS ==========
   void selectAddress(Map<String, dynamic> address) {
     state = state.copyWith(selectedAddress: address);
   }
@@ -236,8 +231,8 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
     state = state.copyWith(selectedPayment: method);
   }
 
-  // ========== CRÉATION COMMANDE + PAIEMENT ==========
-  Future<Map<String, dynamic>> processOrder({
+  // ========== CRÉATION COMMANDE (sans paiement) ==========
+  Future<Map<String, dynamic>> createOrderOnly({
     required double total,
     required List<Map<String, dynamic>> items,
   }) async {
@@ -250,7 +245,6 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
     if (items.isEmpty) throw Exception('Panier vide');
 
     state = state.copyWith(isProcessing: true);
-    Map<String, dynamic>? createdOrder;
 
     try {
       String? shopId;
@@ -271,110 +265,87 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         'shipping_cost': state.selectedShipping!['price'] ?? 0.0,
         'total': total,
         'status': 'pending',
-        'payment_status': 'pending',
+        'payment_status': 'awaiting_payment',
         'created_at': DateTime.now().toIso8601String(),
       };
 
       final orderRes = await db.from('orders').insert(orderData).select().single();
-      createdOrder = orderRes;
 
       for (var item in items) {
-        String prodTitle = 'Produit';
-        if (item['product_name'] != null) {
-          prodTitle = item['product_name'].toString();
-        } else if (item['product'] is Map && (item['product'] as Map)['title'] != null) {
+        String prodTitle = item['product_name']?.toString() ?? 'Produit';
+        if (item['product'] is Map && (item['product'] as Map)['title'] != null) {
           prodTitle = (item['product'] as Map)['title'].toString();
         }
 
         await db.from('order_items').insert({
-          'order_id': createdOrder['id'],
+          'order_id': orderRes['id'],
           'product_id': item['product_id'] ??
               (item['product'] is Map ? (item['product'] as Map)['id'] : null),
           'quantity': item['quantity'],
-          'price': item['price'] ??
-              (item['product'] is Map ? (item['product'] as Map)['price'] : 0),
+          'price': item['price'] ?? 0,
           'product_name': prodTitle,
-          'product_image': item['image_url'] ??
-              (item['product'] is Map ? (item['product'] as Map)['image_url'] : null),
+          'product_image': item['image_url'],
           'title_snapshot': prodTitle,
         });
       }
 
-      final payResult = await _processPayment(total, createdOrder['id'].toString());
-
-      if (payResult['success'] == true) {
-        bool isCash = state.selectedPayment!['id'] == 'cash';
-        await db.from('orders').update({
-          'payment_status': isCash ? 'pending_delivery' : 'paid',
-          'status': 'processing',
-          'paid_at': isCash ? null : DateTime.now().toIso8601String(),
-        }).eq('id', createdOrder['id']);
-
-        await ref.read(cartProvider.notifier).clearCart();
-
-        final updated = await db.from('orders').select().eq('id', createdOrder['id']).single();
-        state = state.copyWith(createdOrder: updated, isProcessing: false);
-        return updated;
-      } else {
-        throw Exception(payResult['error'] ?? 'Paiement échoué');
-      }
+      state = state.copyWith(createdOrder: orderRes, isProcessing: false);
+      return orderRes;
     } catch (e) {
-      debugPrint('checkout error $e');
-      if (createdOrder != null) {
-        try {
-          final db = ref.read(supabaseClientProvider);
-          await db.from('orders').delete().eq('id', createdOrder['id']);
-        } catch (_) {}
-      }
       state = state.copyWith(isProcessing: false);
       rethrow;
     }
   }
 
-  Future<Map<String, dynamic>> _processPayment(double amount, String orderId) async {
-    final db = ref.read(supabaseClientProvider);
-    final method = state.selectedPayment!['id'];
-    switch (method) {
-      case 'cash':
-        return {'success': true};
-      case 'card':
-        try {
-          final res = await db.functions.invoke('create-payment-intent', body: {
-            'amount': amount,
-            'currency': 'CDF',
-            'order_id': orderId,
-          });
-          _paymentIntentId = res.data['payment_intent_id'];
-          return {'success': true, 'payment_intent_id': _paymentIntentId};
-        } catch (e) {
-          return {'success': false, 'error': 'Erreur carte: $e'};
-        }
-      case 'mobile_money':
-        try {
-          final res = await db.functions.invoke('mobile-money-payment', body: {
-            'amount': amount,
-            'phone': state.userInfo['phone'] ?? '',
-            'order_id': orderId,
-          });
-          _paymentUrl = res.data['payment_url'];
-          return {'success': true, 'payment_url': _paymentUrl};
-        } catch (e) {
-          return {'success': false, 'error': 'Erreur Mobile Money: $e'};
-        }
-      case 'thix_money':
-        try {
-          final result = await db.rpc('deduct_wallet_balance', params: {
-            'user_id': db.auth.currentUser!.id,
-            'amount': amount,
-          });
-          if (result == true) return {'success': true};
-          return {'success': false, 'error': 'Solde insuffisant'};
-        } catch (e) {
-          return {'success': false, 'error': 'Erreur THIX Money: $e'};
-        }
-      default:
-        return {'success': false, 'error': 'Méthode non supportée'};
+  // ========== PROCESS ORDER + PAIEMENT (utilisé par payment_method_selector) ==========
+  Future<Map<String, dynamic>> processOrder({
+    required double total,
+    required List<Map<String, dynamic>> items,
+    String? phoneNumber,
+  }) async {
+    // 1. Créer la commande
+    final order = await createOrderOnly(total: total, items: items);
+    final orderId = order['id'].toString();
+
+    // 2. Initier le paiement
+    final paymentService = MarketPaymentService(ref.read(supabaseClientProvider));
+    final method = state.selectedPayment!['id'] as String;
+
+    final result = await paymentService.initiatePayment(
+      orderId: orderId,
+      amount: total,
+      currency: 'CDF',
+      paymentMethod: method,
+      phoneNumber: phoneNumber ?? state.userInfo['phone']?.toString(),
+    );
+
+    if (result['success'] != true) {
+      // Annuler la commande si le paiement échoue immédiatement
+      try {
+        await ref.read(supabaseClientProvider).from('orders').delete().eq('id', orderId);
+      } catch (_) {}
+      throw Exception(result['error'] ?? 'Paiement échoué');
     }
+
+    // 3. Mettre à jour le status selon le type de paiement
+    final paymentStatus = result['payment_status'] ?? 'awaiting_payment';
+    await ref.read(supabaseClientProvider).from('orders').update({
+      'payment_status': paymentStatus,
+      if (paymentStatus == 'paid' || paymentStatus == 'pending_delivery') 'status': 'processing',
+    }).eq('id', orderId);
+
+    // 4. Si paiement immédiat (cash / thix), vider le panier
+    if (result['needs_waiting'] != true) {
+      await ref.read(cartProvider.notifier).clearCart();
+      final updated = await ref.read(supabaseClientProvider).from('orders').select().eq('id', orderId).single();
+      state = state.copyWith(createdOrder: updated);
+    }
+
+    return {
+      ...result,
+      'order': order,
+      'order_id': orderId,
+    };
   }
 
   void reset() {
