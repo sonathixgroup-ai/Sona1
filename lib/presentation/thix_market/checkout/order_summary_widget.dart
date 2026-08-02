@@ -1,11 +1,8 @@
 // lib/presentation/thix_market/checkout/order_summary_widget.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../cart/cart_provider.dart';
 import 'checkout_provider.dart';
-import 'order_confirmation_page.dart';
-import '../../../services/market_payment_service.dart'; // <-- Ton service de paiement par Edge Function
 
 class OrderSummaryWidget extends ConsumerWidget {
   const OrderSummaryWidget({super.key});
@@ -14,6 +11,11 @@ class OrderSummaryWidget extends ConsumerWidget {
   static const pureWhite = Color(0xFFFFFFFF);
   static const darkText = Color(0xFF10192E);
   static const mutedText = Color(0xFF7386A8);
+
+  String _t(BuildContext context, String fr, String en) {
+    final lang = Localizations.localeOf(context).languageCode;
+    return lang == 'fr' ? fr : en;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -24,8 +26,8 @@ class OrderSummaryWidget extends ConsumerWidget {
 
     final subtotalSymbol = cartNotifier.currencySymbol;
     final total = cartNotifier.subtotal;
-    final shippingLabel = checkout.selectedShipping != null ? (checkout.selectedShipping!['price_label'] ?? 'À déterminer').toString() : 'À déterminer';
-    final shippingName = checkout.selectedShipping != null ? (checkout.selectedShipping!['name'] ?? 'Livraison').toString() : 'Livraison';
+    final shippingLabel = checkout.selectedShipping != null ? (checkout.selectedShipping!['price_label'] ?? _t(context, 'À déterminer', 'To be determined')).toString() : _t(context, 'À déterminer', 'To be determined');
+    final shippingName = checkout.selectedShipping != null ? (checkout.selectedShipping!['name'] ?? _t(context, 'Livraison', 'Shipping')).toString() : _t(context, 'Livraison', 'Shipping');
 
     final items = cartState.items.map((item) {
       final product = item['product'] as Map?;
@@ -37,7 +39,7 @@ class OrderSummaryWidget extends ConsumerWidget {
         'product_id': product != null ? product['id'] : item['product_id'],
         'quantity': item['quantity'],
         'price': price,
-        'product_name': product != null && product['title'] != null ? product['title'].toString() : 'Produit',
+        'product_name': product != null && product['title'] != null ? product['title'].toString() : _t(context, 'Produit', 'Product'),
         'image_url': product != null ? (product['images'] is List && (product['images'] as List).isNotEmpty ? (product['images'] as List).first.toString() : product['image_url']?.toString()) : null,
       };
     }).toList();
@@ -50,25 +52,21 @@ class OrderSummaryWidget extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _section('Adresse de livraison', [
+                _section(_t(context, 'Adresse de livraison', 'Delivery Address'), [
                   Text(checkout.selectedAddress != null ? (checkout.selectedAddress!['full_name'] ?? '').toString() : '', style: const TextStyle(fontWeight: FontWeight.w600)),
                   Text(checkout.selectedAddress != null ? (checkout.selectedAddress!['address_line'] ?? '').toString() : ''),
                   Text(checkout.selectedAddress != null ? '${checkout.selectedAddress!['commune'] ?? ''}, ${checkout.selectedAddress!['city'] ?? ''}' : ''),
                   if (checkout.selectedAddress != null && checkout.selectedAddress!['landmark'] != null && checkout.selectedAddress!['landmark'].toString().isNotEmpty)
-                    Text('Repère: ${checkout.selectedAddress!['landmark']}', style: const TextStyle(fontStyle: FontStyle.italic)),
-                  Text('Tél: ${checkout.selectedAddress != null ? checkout.selectedAddress!['phone'] ?? '' : ''}'),
+                    Text('${_t(context, 'Repère', 'Landmark')}: ${checkout.selectedAddress!['landmark']}', style: const TextStyle(fontStyle: FontStyle.italic)),
+                  Text('${_t(context, 'Tél', 'Phone')}: ${checkout.selectedAddress != null ? checkout.selectedAddress!['phone'] ?? '' : ''}'),
                 ]),
                 const SizedBox(height: 16),
-                _section('Mode de livraison', [
+                _section(_t(context, 'Mode de livraison', 'Shipping Method'), [
                   Text(shippingName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text('Frais : $shippingLabel', style: const TextStyle(color: thixOrange, fontWeight: FontWeight.w500)),
+                  Text('${_t(context, 'Frais', 'Fees')} : $shippingLabel', style: const TextStyle(color: thixOrange, fontWeight: FontWeight.w500)),
                 ]),
                 const SizedBox(height: 16),
-                _section('Moyen de paiement', [
-                  Text(checkout.selectedPayment != null ? (checkout.selectedPayment!['name'] ?? '').toString() : '', style: const TextStyle(fontWeight: FontWeight.w600)),
-                ]),
-                const SizedBox(height: 16),
-                const Text('Articles', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
+                Text(_t(context, 'Articles', 'Items'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
                 const SizedBox(height: 8),
                 ...items.map((item) => ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -79,14 +77,14 @@ class OrderSummaryWidget extends ConsumerWidget {
                             : Container(width: 50, height: 50, color: Colors.grey.shade200, child: const Icon(Icons.image_rounded, color: mutedText)),
                       ),
                       title: Text(item['product_name'].toString(), style: const TextStyle(fontWeight: FontWeight.w600, color: darkText, fontSize: 14)),
-                      subtitle: Text('Qté: ${item['quantity']}', style: const TextStyle(color: mutedText, fontSize: 12)),
+                      subtitle: Text('${_t(context, 'Qté', 'Qty')}: ${item['quantity']}', style: const TextStyle(color: mutedText, fontSize: 12)),
                       trailing: Text('${((item['price'] as num) * (item['quantity'] as num)).toInt()} $subtotalSymbol', style: const TextStyle(fontWeight: FontWeight.w800, color: darkText)),
                     )),
                 const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
-                _priceRow('Sous-total', '${total.toInt()} $subtotalSymbol'),
-                _priceRow('Livraison', shippingLabel, isHighlight: true),
+                _priceRow(_t(context, 'Sous-total', 'Subtotal'), '${total.toInt()} $subtotalSymbol'),
+                _priceRow(_t(context, 'Livraison', 'Shipping'), shippingLabel, isHighlight: true),
                 const Divider(height: 24),
-                _priceRow('Total à payer (hors livraison)', '${total.toInt()} $subtotalSymbol', isTotal: true),
+                _priceRow(_t(context, 'Total à payer (hors livraison)', 'Total to pay (excluding shipping)'), '${total.toInt()} $subtotalSymbol', isTotal: true),
               ],
             ),
           ),
@@ -98,34 +96,21 @@ class OrderSummaryWidget extends ConsumerWidget {
                 ? null
                 : () async {
                     try {
-                      // 1. Enregistrement initial de la commande en base de données
-                      final order = await checkoutNotifier.processOrder(total: total, items: items);
-                      final orderId = order['id']?.toString() ?? '';
+                      // 1. Validation et création de la commande en base de données
+                      await checkoutNotifier.processOrder(total: total, items: items);
 
-                      // 2. Initialisation et traitement du paiement sécurisé via Edge Function Supabase
-                      final paymentService = MarketPaymentService(Supabase.instance.client);
-                      final paymentMethodId = checkout.selectedPayment?['id'] ?? 'cash';
-                      
-                      final paymentSuccess = await paymentService.processOrderPayment(
-                        orderId: orderId,
-                        amount: total,
-                        currency: subtotalSymbol == '\$' ? 'USD' : 'FC',
-                        paymentMethod: paymentMethodId,
-                        phoneNumber: checkout.selectedAddress?['phone']?.toString(),
-                      );
-
-                      if (paymentSuccess && context.mounted) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => OrderConfirmationPage(order: order, currencySymbol: subtotalSymbol),
-                          ),
-                        );
+                      // 2. Passage à l'étape suivante : Choix du moyen de paiement et traitement Edge Function
+                      try {
+                        (checkoutNotifier as dynamic).goToStep('payment');
+                      } catch (_) {
+                        try {
+                          (checkoutNotifier as dynamic).next();
+                        } catch (_) {}
                       }
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+                          SnackBar(content: Text('${_t(context, 'Erreur', 'Error')} : $e'), backgroundColor: Colors.red),
                         );
                       }
                     }
@@ -139,7 +124,7 @@ class OrderSummaryWidget extends ConsumerWidget {
             ),
             child: checkout.isProcessing
                 ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Confirmer la commande', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                : Text(_t(context, 'Confirmer la commande', 'Confirm Order'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           ),
         ),
       ],
