@@ -458,7 +458,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           child: Row(
             children: [
               Text(
-                '\( {notifier.totalResults} résultat \){notifier.totalResults > 1 ? 's' : ''}',
+                '${notifier.totalResults} résultat${notifier.totalResults > 1 ? 's' : ''}',
                 style: const TextStyle(
                   color: mutedText,
                   fontSize: 14,
