@@ -301,7 +301,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   const SliverToBoxAdapter(child: SizedBox(height: 8)),
                   _chatList(state.filtered),
                   if (state.isLoadingMore)
-                    const asl: SliverToBoxAdapter(
+                    const SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 28),
                         child: Center(
@@ -530,7 +530,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
   Widget _chatList(List<ChatConversation> list) {
     if (list.isEmpty) {
-      return const asl: SliverToBoxAdapter(
+      return const SliverToBoxAdapter(
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 80),
           child: Column(
