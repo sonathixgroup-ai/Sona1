@@ -1,6 +1,6 @@
 // lib/presentation/chat/chat_list_page.dart
 import 'dart:ui';
-import 'dart:async'; // 👈 Requis pour le Timer d'inactivité
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,7 +17,7 @@ import 'package:thix_id/features/auth/presentation/providers/auth_controller.dar
 
 // ── PALETTE ENTERPRISE PREMIUM — harmonisée Charte THIX ID ──
 class _C {
-  static const bg = Colors.white; // 👈 Modifié pour le style WhatsApp unifié
+  static const bg = Colors.white;
   static const surface = Colors.white;
   static const surfaceAlt = Color(0xFFF1F5F9);
   static const searchBg = Color(0xFFF1F5F9);
@@ -32,8 +32,7 @@ class _C {
   static const textSoft = Color(0xFF94A3B8);
   static const red = Color(0xFFEF4444);
   static const orange = Color(0xFFF59E0B);
-  static const green = Color(0xFF10B981); // Vert style WhatsApp
-  static const greenLight = Color(0xFFD1FAE5);
+  static const green = Color(0xFF10B981); // Conservé uniquement pour le point de statut "en ligne"
 
   static const gradientHeader = LinearGradient(
     begin: Alignment.topLeft, end: Alignment.bottomRight,
@@ -57,8 +56,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   final _scroll = ScrollController();
   
   int _selectedNav = 1;
-  bool _isNavExpanded = false; // 👈 État du menu central
-  Timer? _navInactivityTimer;  // 👈 Timer pour la rétractation auto
+  bool _isNavExpanded = false;
+  Timer? _navInactivityTimer;
 
   @override
   void initState() {
@@ -78,7 +77,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     super.dispose();
   }
 
-  // 👈 Logique du menu central rétractable
   void _toggleNav() {
     setState(() => _isNavExpanded = !_isNavExpanded);
     _resetNavTimer();
@@ -94,7 +92,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   }
 
   void _openNotifications(int pending) {
-    // (Logique existante conservée...)
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -217,7 +214,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     final currentUser = ref.watch(authControllerProvider).value;
     final currentUserName = currentUser?.displayName ?? '';
     final currentUserId = currentUser?.id ?? '';
-    final currentUserPhoto = currentUser?.photoUrl; // 👈 Récupération de votre photo
+    final currentUserPhoto = currentUser?.photoUrl;
 
     final onlineUserIds = ref.watch(presenceProvider);
 
@@ -228,18 +225,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: _C.bg, // Blanc pur comme WhatsApp
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 90), // Évite le menu central
-        child: FloatingActionButton(
-          onPressed: _showCreateMenu,
-          backgroundColor: _C.green, // 👈 Vert style WhatsApp
-          elevation: 4,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), // 👈 Forme carrée arrondie
-          child: const Icon(Icons.add_comment_rounded, color: Colors.white, size: 26),
-        ),
-      ),
-      // 👈 Utilisation d'un Stack pour superposer le bouton central magique
+      backgroundColor: _C.bg,
       body: Stack(
         children: [
           state.isLoading
@@ -253,7 +239,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     slivers: [
                       SliverToBoxAdapter(child: _buildGradientHeader(currentUserName, currentUserPhoto, onlineContacts, state.pendingEscalations)),
-                      SliverToBoxAdapter(child: _searchCard()), // 👈 Réajusté
+                      SliverToBoxAdapter(child: _searchCard()),
                       if (state.pendingEscalations > 0)
                         SliverToBoxAdapter(child: _escalationBanner(state.pendingEscalations)),
                       SliverToBoxAdapter(child: _filters(state.filterIndex)),
@@ -261,12 +247,11 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       _chatList(state.filtered, currentUserId, onlineUserIds),
                       if (state.isLoadingMore)
                         const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.symmetric(vertical: 28), child: Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 3)))),
-                      const SliverToBoxAdapter(child: SizedBox(height: 140)), // Espace pour le menu
+                      const SliverToBoxAdapter(child: SizedBox(height: 140)), // Espace pour le menu flottant
                     ],
                   ),
                 ),
           
-          // 👈 Le fameux menu central rétractable
           _buildExpandableBottomNav(state.totalUnread),
         ],
       ),
@@ -288,19 +273,33 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        userName.isNotEmpty ? 'Bonjour, $userName' : 'Bonjour',
-                        style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.5),
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'Bonjour,\n',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: -0.2,
                       ),
-                      const SizedBox(height: 2),
-                      const Text('Ravi de vous revoir', style: TextStyle(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w500)),
-                    ],
+                      children: [
+                        TextSpan(
+                          text: userName.isNotEmpty ? userName : 'Utilisateur',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 _headerIcon(icon: Icons.swap_vert_rounded, badge: pending > 0, onTap: () => context.pushNamed('chatEscalationReceived')),
@@ -308,7 +307,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 _headerIcon(icon: Icons.notifications_outlined, badge: pending > 0, onTap: () => _openNotifications(pending)),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             SizedBox(
               height: 78,
               child: ListView.separated(
@@ -317,7 +316,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 separatorBuilder: (_, __) => const SizedBox(width: 14),
                 itemBuilder: (c, i) {
                   if (i == 0) {
-                    // 👈 Affichage de votre propre photo
                     return _onlineAvatar(label: 'Vous', avatarUrl: userPhoto, isSelf: true, isOnline: true);
                   }
                   final conv = online[i - 1];
@@ -392,20 +390,19 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
   Widget _searchCard() {
     return Padding(
-      // 👈 Barre de recherche aplatie et alignée proprement en dessous
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Container(
         height: 48,
         decoration: BoxDecoration(
           color: _C.searchBg,
-          borderRadius: BorderRadius.circular(24), // Plus arrondi
+          borderRadius: BorderRadius.circular(24),
         ),
         child: TextField(
           controller: _searchCtrl,
           onChanged: (v) => ref.read(chatListProvider.notifier).search(v),
           style: const TextStyle(fontSize: 15, color: _C.textMain, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
-            hintText: 'Ask Meta AI or Search', // Inspiré de votre capture
+            hintText: 'Rechercher une conversation...', // Texte réinitialisé et professionnel
             hintStyle: const TextStyle(fontSize: 15, color: _C.textSoft, fontWeight: FontWeight.w400),
             prefixIcon: const Icon(Icons.search_rounded, size: 22, color: _C.textSoft),
             suffixIcon: _searchCtrl.text.isNotEmpty
@@ -438,6 +435,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
+  // Nouveau design premium des filtres (sans le vert WhatsApp)
   Widget _filters(int selected) {
     final tabs = ['Toutes', 'Non lues', 'Équipes', 'Personnelles'];
     return SizedBox(
@@ -449,26 +447,28 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         itemBuilder: (ctx, i) {
           final sel = selected == i;
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 5),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
                 onTap: () => ref.read(chatListProvider.notifier).setFilter(i),
                 borderRadius: BorderRadius.circular(20),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
+                  duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: sel ? _C.greenLight : _C.surfaceAlt,
+                    color: sel ? _C.primary : _C.surfaceAlt,
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: sel ? _C.primary : _C.border, width: 1),
+                    boxShadow: sel ? [BoxShadow(color: _C.primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))] : [],
                   ),
                   child: Text(
                     tabs[i],
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
-                      color: sel ? _C.green : _C.textMuted,
+                      fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                      color: sel ? Colors.white : _C.textMuted,
                     ),
                   ),
                 ),
@@ -480,7 +480,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  // ─────────────────────────── LISTE DES CHATS UNIFIÉE ───────────────────────────
+  // ─────────────────────────── LISTE DES CHATS ───────────────────────────
 
   Widget _chatList(List<ChatConversation> list, String currentUserId, Set<String> onlineUserIds) {
     if (list.isEmpty) {
@@ -516,14 +516,13 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 ref.read(chatListProvider.notifier).refresh();
               },
               child: Container(
-                // 👈 FINI LES SÉPARATIONS : Juste du padding, aucune bordure, aucune ombre
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     Stack(
                       children: [
                         CircleAvatar(
-                          radius: 26, // 👈 Taille ajustée type WhatsApp
+                          radius: 26,
                           backgroundColor: _C.surfaceAlt,
                           backgroundImage: conv.displayAvatar != null ? NetworkImage(conv.displayAvatar!) : null,
                           child: conv.displayAvatar == null
@@ -552,7 +551,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                   conv.displayName,
                                   maxLines: 1, overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                    fontSize: 16.5, // 👈 Taille WhatsApp
+                                    fontSize: 16.5,
                                     fontWeight: FontWeight.w600, 
                                     color: _C.textMain,
                                   ),
@@ -563,8 +562,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                 _fmt(t),
                                 style: TextStyle(
                                   fontSize: 12.5,
-                                  fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
-                                  color: unread ? _C.green : _C.textSoft,
+                                  // L'heure passe au bleu THIX si non lu
+                                  fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
+                                  color: unread ? _C.primary : _C.textSoft,
                                 ),
                               ),
                             ],
@@ -577,7 +577,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                   last?.content ?? 'Nouvelle conversation',
                                   maxLines: 1, overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontSize: 14.5, // 👈 Taille WhatsApp
+                                    fontSize: 14.5,
                                     fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
                                     color: unread ? _C.textMain : _C.textMuted,
                                   ),
@@ -587,7 +587,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                 Container(
                                   margin: const EdgeInsets.only(left: 10),
                                   padding: const EdgeInsets.all(6),
-                                  decoration: const BoxDecoration(color: _C.green, shape: BoxShape.circle),
+                                  // Le badge non-lu passe au bleu THIX
+                                  decoration: const BoxDecoration(color: _C.primary, shape: BoxShape.circle),
                                   child: Text(
                                     '${conv.unreadCount}',
                                     style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
@@ -609,21 +610,21 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  // ────────────────── BARRE DE NAVIGATION MAGIQUE (STYLE HOMEPAGE) ──────────────────
+  // ────────────────── BARRE DE NAVIGATION MAGIQUE & BOUTON NOUVEAU CHAT ──────────────────
 
   Widget _buildExpandableBottomNav(int unread) {
     return Positioned(
-      bottom: 24, // Flotte au-dessus du bord
+      bottom: 24,
       left: 0,
       right: 0,
       child: Center(
         child: GestureDetector(
-          onTap: _resetNavTimer, // Réinitialise le timer si on interagit
+          onTap: _resetNavTimer,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutBack,
             height: 64,
-            width: _isNavExpanded ? MediaQuery.of(context).size.width * 0.9 : 64,
+            width: _isNavExpanded ? MediaQuery.of(context).size.width * 0.92 : 64,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(32),
@@ -640,6 +641,27 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     children: [
                       _navItem(Icons.people_alt_outlined, Icons.people_alt, 'Réseau', 0, unread),
                       _navItem(Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Discussions', 1, unread),
+                      
+                      // 👈 BOUTON FLOTTANT INTÉGRÉ AU CENTRE DU MENU
+                      GestureDetector(
+                        onTap: () {
+                          _resetNavTimer();
+                          _showCreateMenu();
+                        },
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: _C.gradientHeader,
+                            boxShadow: [
+                              BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
+                            ]
+                          ),
+                          child: const Icon(Icons.add_comment_rounded, color: Colors.white, size: 24),
+                        ),
+                      ),
+
                       _navItem(Icons.workspaces_outline, Icons.workspaces_filled, 'Espaces', 2, unread),
                       _navItem(Icons.settings_outlined, Icons.settings, 'Réglages', 3, unread),
                     ],
@@ -653,7 +675,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: RadialGradient(
-                            colors: [_C.goldLight, _C.primary], // Couleurs type bouton central homepage
+                            colors: [_C.goldLight, _C.primary],
                             radius: 0.8,
                           ),
                         ),
@@ -678,7 +700,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         else setState(() => _selectedNav = idx);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
