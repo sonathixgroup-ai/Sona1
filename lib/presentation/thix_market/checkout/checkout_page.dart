@@ -1,3 +1,4 @@
+// lib/presentation/market/checkout_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -102,7 +103,10 @@ class _AddressStep extends StatelessWidget {
         child: SafeArea(
           top: false,
           child: SizedBox(width: double.infinity, height: 52, child: ElevatedButton(
-            onPressed: state.selectedAddress!=null? ()=> notifier.selectAddress(state.selectedAddress!) : null,
+            onPressed: state.selectedAddress!=null? (){
+              notifier.selectAddress(state.selectedAddress!);
+              notifier.nextStep(); // Passage validé vers l'étape suivante
+            } : null,
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5592F), foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey.shade200, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
             child: const Text('Continuer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           )),
