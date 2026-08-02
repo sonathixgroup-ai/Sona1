@@ -1,10 +1,7 @@
-// lib/presentation/market/payment_method_selector.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'checkout_provider.dart';
 import '../cart/cart_provider.dart';
-import '../../../services/market_payment_service.dart';
 
 class PaymentMethodSelector extends ConsumerStatefulWidget {
   const PaymentMethodSelector({super.key});
@@ -14,7 +11,6 @@ class PaymentMethodSelector extends ConsumerStatefulWidget {
 }
 
 class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
-  // Couleurs THIX
   static const Color thixOrange = Color(0xFFE5592F);
   static const Color pureWhite = Color(0xFFFFFFFF);
   static const Color darkText = Color(0xFF10192E);
@@ -48,7 +44,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
     setState(() => _isProcessing = true);
 
     try {
-      // 1. Préparer les items
       final items = cartState.items.map((item) {
         final product = item['product'] as Map?;
         double price = 0;
@@ -60,49 +55,21 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
           'quantity': item['quantity'],
           'price': price,
           'product_name': product?['title']?.toString() ?? 'Produit',
+          'image_url': product != null
+              ? (product['images'] is List && (product['images'] as List).isNotEmpty
+                  ? (product['images'] as List).first.toString()
+                  : product['image_url']?.toString())
+              : null,
         };
       }).toList();
 
       final total = cartNotifier.subtotal;
 
-      // 2. Créer la commande si elle n'existe pas encore
-      String orderId = '';
-      try {
-        final dynState = state as dynamic;
-        orderId = dynState.orderId?.toString() ?? dynState.order?['id']?.toString() ?? '';
-      } catch (_) {}
-
-      if (orderId.isEmpty) {
-        await notifier.processOrder(total: total, items: items);
-        // Récupérer le nouvel orderId
-        final newState = ref.read(checkoutProvider);
-        try {
-          final dyn = newState as dynamic;
-          orderId = dyn.orderId?.toString() ?? dyn.order?['id']?.toString() ?? '';
-        } catch (_) {}
-      }
-
-      if (orderId.isEmpty) {
-        throw Exception(_t(context, 'Impossible de créer la commande', 'Unable to create order'));
-      }
-
-      // 3. Traiter le paiement
-      final paymentService = MarketPaymentService(Supabase.instance.client);
-      final currency = cartNotifier.currencySymbol == '\$' ? 'USD' : 'FC';
-      final baseMethod = state.selectedPayment!['id'] as String;
-      final paymentMethod = _selectedOperator != null ? '${baseMethod}_$_selectedOperator' : baseMethod;
-
-      await paymentService.processOrderPayment(
-        orderId: orderId,
-        amount: total,
-        currency: currency,
-        paymentMethod: paymentMethod,
-        phoneNumber: _phoneController.text.trim(),
-      );
+      // processOrder crée la commande + traite le paiement + vide le panier
+      await notifier.processOrder(total: total, items: items);
 
       if (!mounted) return;
 
-      // 4. Succès → aller au Bon de commande
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_t(context, 'Paiement effectué avec succès !', 'Payment successful!')),
@@ -111,18 +78,7 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
         ),
       );
 
-      // Navigation vers l'étape finale
-      try {
-        (notifier as dynamic).goToStep('bon_de_commande');
-      } catch (_) {
-        try {
-          (notifier as dynamic).goToStep('success');
-        } catch (_) {
-          try {
-            (notifier as dynamic).next();
-          } catch (_) {}
-        }
-      }
+      notifier.goToStep('bon_de_commande');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -156,7 +112,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
         'desc': 'Vodacom • Airtel • Orange • Africell',
         'icon': Icons.phone_android_rounded,
         'color': const Color(0xFF2D6CDF),
-        'badge': 'MM',
       },
       {
         'id': 'cash',
@@ -164,7 +119,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
         'desc': _t(context, 'Règlement en espèces à la réception', 'Pay in cash upon receipt'),
         'icon': Icons.payments_rounded,
         'color': const Color(0xFF00B074),
-        'badge': '\$',
       },
       {
         'id': 'thix_money',
@@ -172,7 +126,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
         'desc': _t(context, 'Paiement instantané sécurisé', 'Secure instant payment'),
         'icon': Icons.account_balance_wallet_rounded,
         'color': thixOrange,
-        'badge': 'TX',
       },
       {
         'id': 'card',
@@ -180,7 +133,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
         'desc': 'Visa • Mastercard',
         'icon': Icons.credit_card_rounded,
         'color': const Color(0xFF0A1F44),
-        'badge': '💳',
       },
     ];
 
@@ -211,9 +163,9 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                 style: const TextStyle(fontSize: 13, color: mutedText, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 20),
-
               ...mainMethods.map((method) {
-                final isSelected = state.selectedPayment != null && state.selectedPayment!['id'] == method['id'];
+                final isSelected =
+                    state.selectedPayment != null && state.selectedPayment!['id'] == method['id'];
                 final color = method['color'] as Color;
 
                 return Column(
@@ -250,7 +202,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                             padding: const EdgeInsets.all(16),
                             child: Row(
                               children: [
-                                // Logo / Badge
                                 Container(
                                   width: 52,
                                   height: 52,
@@ -287,7 +238,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                                     ],
                                   ),
                                 ),
-                                // Radio custom
                                 AnimatedContainer(
                                   duration: const Duration(milliseconds: 200),
                                   width: 24,
@@ -310,8 +260,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                         ),
                       ),
                     ),
-
-                    // Section Mobile Money (opérateurs + téléphone)
                     if (method['id'] == 'mobile_money' && isMobileMoneySelected)
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
@@ -340,8 +288,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                               ],
                             ),
                             const SizedBox(height: 14),
-
-                            // Grille opérateurs avec logos (badges)
                             GridView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
@@ -373,12 +319,17 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                                           width: isOpSelected ? 2 : 1,
                                         ),
                                         boxShadow: isOpSelected
-                                            ? [BoxShadow(color: opColor.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 2))]
+                                            ? [
+                                                BoxShadow(
+                                                  color: opColor.withOpacity(0.15),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 2),
+                                                )
+                                              ]
                                             : null,
                                       ),
                                       child: Row(
                                         children: [
-                                          // Logo badge
                                           Container(
                                             width: 28,
                                             height: 28,
@@ -419,7 +370,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
                                 );
                               },
                             ),
-
                             const SizedBox(height: 18),
                             Text(
                               _t(context, 'Numéro Mobile Money', 'Mobile Money Phone Number'),
@@ -461,8 +411,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
             ],
           ),
         ),
-
-        // Bouton final
         Container(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
           decoration: BoxDecoration(
@@ -479,7 +427,6 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
             top: false,
             child: Column(
               children: [
-                // Résumé montant
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Row(
