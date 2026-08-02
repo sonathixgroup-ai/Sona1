@@ -97,7 +97,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   bool _adding = false;
   int _imgIndex = 0;
 
-  // Dictionnaire de traduction dynamique basé sur la langue du système
   String _t(BuildContext context, String fr, String en) {
     final lang = Localizations.localeOf(context).languageCode;
     return lang == 'fr' ? fr : en;
@@ -191,7 +190,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     final favAsync = ref.watch(isFavoriteProvider(widget.productId));
 
     return detailAsync.when(
-      loading: () => const Scaffold(backgroundColor: _MarketColors.pureWhite, body: Center(child: CircularProgressIndicator(color: _MarketColors.red)))),
+      loading: () => const Scaffold(backgroundColor: _MarketColors.pureWhite, body: Center(child: CircularProgressIndicator(color: _MarketColors.red))),
       error: (e, _) => Scaffold(appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop())), body: Center(child: Text('Erreur $e'))),
       data: (product) {
         final imagesRaw = product['images'] as List?;
@@ -206,7 +205,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         
         bool hasDiscount = product['discount_price'] != null && (product['discount_price'] as num) < (product['price'] as num);
         
-        // Respect dynamique de la devise (USD ou FC / currency système)
         String currency = product['currency']?.toString() ?? 'CDF';
         String symbol = currency == 'USD' ? '\$' : (currency == 'EUR' ? '€' : currency);
         
@@ -293,7 +291,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start, 
                   children: [
-                    // PRIX ET TITRE
                     Container(
                       color: _MarketColors.pureWhite,
                       padding: const EdgeInsets.all(16),
@@ -342,7 +339,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
                     const SizedBox(height: 10),
 
-                    // VARIANTES & QUANTITÉ
                     Container(
                       color: _MarketColors.pureWhite,
                       padding: const EdgeInsets.all(16),
@@ -381,7 +377,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
                     const SizedBox(height: 10),
 
-                    // BOUTIQUE / SHOP (SANS CODE EN DUR)
                     if (shop != null && shop.isNotEmpty)
                       Container(
                         color: _MarketColors.pureWhite,
@@ -460,7 +455,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
                     const SizedBox(height: 10),
 
-                    // PRODUITS SIMILAIRES DE LA BOUTIQUE
                     if (shopId != null)
                       Consumer(
                         builder: (context, ref, _) {
@@ -501,7 +495,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
                     const SizedBox(height: 10),
 
-                    // DESCRIPTION & AVIS CLIENTS
                     Container(
                       color: _MarketColors.pureWhite,
                       padding: const EdgeInsets.all(16),
@@ -543,7 +536,6 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
             ]
           ),
 
-          // BARRE D'ACTIONS INFÉRIEURE
           bottomNavigationBar: Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             decoration: BoxDecoration(
