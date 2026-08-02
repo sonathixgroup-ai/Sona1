@@ -7,9 +7,6 @@ class MarketPaymentService {
 
   MarketPaymentService(this._supabase);
 
-  /// Initie le paiement.
-  /// - Cash / THIX Money → résultat immédiat
-  /// - Mobile Money / Card → asynchrone (needs_waiting = true)
   Future<Map<String, dynamic>> initiatePayment({
     required String orderId,
     required double amount,
@@ -39,19 +36,25 @@ class MarketPaymentService {
         };
       }
 
-      // ========== MOBILE MONEY / CARD (via process-payment) ==========
+      // ========== MOBILE MONEY / CARD ==========
+      // Normalisation de la méthode pour l'Edge Function
+      final methodForGateway = _normalizePaymentMethod(paymentMethod);
+
       final response = await _supabase.functions.invoke(
         'process-payment',
         body: {
           'booking_id': orderId,
           'order_id': orderId,
           'amount': amount,
-          'currency': currency.toUpperCase() == 'FC' ? 'CDF' : currency,
-          'payment_method': paymentMethod,
+          'currency': currency.toUpperCase() == 'FC' ? 'CDF' : currency.toUpperCase(),
+          'payment_method': methodForGateway,
           if (phoneNumber != null && phoneNumber.isNotEmpty) 'phone_number': phoneNumber,
           'type': 'market',
         },
       );
+
+      debugPrint('→ process-payment response status: ${response.status}');
+      debugPrint('→ process-payment data: ${response.data}');
 
       if (response.status == 200 && response.data != null && response.data['success'] == true) {
         return {
@@ -62,11 +65,31 @@ class MarketPaymentService {
         };
       }
 
-      final errorMsg = response.data?['error'] ?? 'Échec de l\'initiation du paiement';
+      // Meilleure extraction de l'erreur
+      final errorMsg = response.data?['error'] ?? 
+                       response.data?['details']?['message'] ?? 
+                       'Échec de l\'initiation du paiement';
+
       throw Exception(errorMsg);
     } catch (e) {
       debugPrint('❌ MarketPaymentService.initiatePayment error: $e');
       rethrow;
+    }
+  }
+
+  String _normalizePaymentMethod(String method) {
+    // On mappe les IDs UI vers ce que l'Edge Function attend
+    switch (method) {
+      case 'orange_money':
+      case 'africell':
+      case 'mtn':
+      case 'mobile_money':
+        return 'mobile_money';
+      case 'card':
+      case 'carte':
+        return 'card';
+      default:
+        return method;
     }
   }
 
