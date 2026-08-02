@@ -42,6 +42,38 @@ class ChatConversation {
     return otherParticipantAvatar;
   }
 
+  /// Copie immuable avec remplacement sélectif des champs.
+  /// Utilisé notamment par ChatListNotifier.markAsRead() pour mettre
+  /// unreadCount à 0 de façon optimiste sans reconstruire tout l'objet
+  /// depuis JSON.
+  ChatConversation copyWith({
+    String? id,
+    bool? isGroup,
+    String? groupName,
+    String? groupAvatar,
+    List<String>? participantIds,
+    String? otherParticipantName,
+    String? otherParticipantAvatar,
+    ChatMessage? lastMessage,
+    int? unreadCount,
+    DateTime? updatedAt,
+    bool? isPinned,
+  }) {
+    return ChatConversation(
+      id: id ?? this.id,
+      isGroup: isGroup ?? this.isGroup,
+      groupName: groupName ?? this.groupName,
+      groupAvatar: groupAvatar ?? this.groupAvatar,
+      participantIds: participantIds ?? this.participantIds,
+      otherParticipantName: otherParticipantName ?? this.otherParticipantName,
+      otherParticipantAvatar: otherParticipantAvatar ?? this.otherParticipantAvatar,
+      lastMessage: lastMessage ?? this.lastMessage,
+      unreadCount: unreadCount ?? this.unreadCount,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isPinned: isPinned ?? this.isPinned,
+    );
+  }
+
   factory ChatConversation.fromJson(Map<String, dynamic> json) {
     return ChatConversation(
       id: json['id'] ?? '',
