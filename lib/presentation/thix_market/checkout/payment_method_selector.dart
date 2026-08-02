@@ -17,7 +17,7 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
   static const Color primaryBlue = Color(0xFF0B3D91);
   static const Color lightBg = Color(0xFFF6F8FB);
   static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF10182B);
+  static const Color darkText = Color(0xFF10192E);
   static const Color mutedText = Color(0xFF7386A8);
   static const Color cardBorder = Color(0xFFEEF1F7);
 
@@ -95,156 +95,162 @@ class _PaymentMethodSelectorState extends ConsumerState<PaymentMethodSelector> {
 
               ...mainMethods.map((method) {
                 final isSelected = state.selectedPayment != null && state.selectedPayment!['id'] == method['id'];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: pureWhite,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isSelected ? primaryBlue : cardBorder, width: isSelected ? 2 : 1),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
-                  ),
-                  child: InkWell(
-                    onTap: () {
-                      notifier.selectPaymentMethod(method);
-                      if (method['id'] != 'mobile_money') {
-                        setState(() => _selectedOperator = null);
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Color(method['color'] as int).withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(method['icon'] as IconData, color: Color(method['color'] as int), size: 24),
+                return Column(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: pureWhite,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: isSelected ? primaryBlue : cardBorder, width: isSelected ? 2 : 1),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+                      ),
+                      child: InkWell(
+                        onTap: () {
+                          notifier.selectPaymentMethod(method);
+                          if (method['id'] != 'mobile_money') {
+                            setState(() => _selectedOperator = null);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Color(method['color'] as int).withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(method['icon'] as IconData, color: Color(method['color'] as int), size: 24),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(method['name'].toString(), style: const TextStyle(fontWeight: FontWeight.w800, color: darkText, fontSize: 15)),
+                                    const SizedBox(height: 4),
+                                    Text(method['desc'].toString(), style: const TextStyle(color: mutedText, fontSize: 12, fontWeight: FontWeight.w500)),
+                                  ],
+                                ),
+                              ),
+                              Radio<Map<String, dynamic>>(
+                                value: method,
+                                groupValue: state.selectedPayment,
+                                onChanged: (v) {
+                                  if (v != null) {
+                                    notifier.selectPaymentMethod(v);
+                                    if (v['id'] != 'mobile_money') setState(() => _selectedOperator = null);
+                                  }
+                                },
+                                activeColor: primaryBlue,
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(method['name'].toString(), style: const TextStyle(fontWeight: FontWeight.w800, color: darkText, fontSize: 15)),
-                                const SizedBox(height: 4),
-                                Text(method['desc'].toString(), style: const TextStyle(color: mutedText, fontSize: 12, fontWeight: FontWeight.w500)),
-                              ],
-                            ),
-                          ),
-                          Radio<Map<String, dynamic>>(
-                            value: method,
-                            groupValue: state.selectedPayment,
-                            onChanged: (v) {
-                              if (v != null) {
-                                notifier.selectPaymentMethod(v);
-                                if (v['id'] != 'mobile_money') setState(() => _selectedOperator = null);
-                              }
-                            },
-                            activeColor: primaryBlue,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }),
 
-              if (isMobileMoneySelected) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: lightBg,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: primaryBlue.withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.signal_cellular_alt_rounded, size: 16, color: primaryBlue),
-                          const SizedBox(width: 8),
-                          Text(
-                            _t(context, 'Sélectionnez votre opérateur (RDC)', 'Select your operator (DRC)'),
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: primaryBlue),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                          childAspectRatio: 2.8,
+                    // Affichage conditionnel des opérateurs et du champ téléphone juste en dessous si Mobile Money est sélectionné
+                    if (method['id'] == 'mobile_money' && isMobileMoneySelected) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16, left: 8, right: 8),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: lightBg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: primaryBlue.withOpacity(0.3)),
                         ),
-                        itemCount: mobileOperators.length,
-                        itemBuilder: (context, i) {
-                          final op = mobileOperators[i];
-                          final isOpSelected = _selectedOperator == op['id'];
-                          final opColor = Color(op['color'] as int);
-
-                          return InkWell(
-                            onTap: () => setState(() => _selectedOperator = op['id']),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isOpSelected ? opColor.withOpacity(0.12) : pureWhite,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: isOpSelected ? opColor : cardBorder, width: isOpSelected ? 2 : 1),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.signal_cellular_alt_rounded, size: 16, color: primaryBlue),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _t(context, 'Sélectionnez votre opérateur (RDC)', 'Select your operator (DRC)'),
+                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: primaryBlue),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 10,
+                                childAspectRatio: 2.8,
                               ),
-                              child: Row(
-                                children: [
-                                  Container(width: 10, height: 10, decoration: BoxDecoration(color: opColor, shape: BoxShape.circle)),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      op['name'] as String,
-                                      style: TextStyle(fontSize: 11.5, fontWeight: isOpSelected ? FontWeight.w900 : FontWeight.w700, color: darkText),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                              itemCount: mobileOperators.length,
+                              itemBuilder: (context, i) {
+                                final op = mobileOperators[i];
+                                final isOpSelected = _selectedOperator == op['id'];
+                                final opColor = Color(op['color'] as int);
+
+                                return InkWell(
+                                  onTap: () => setState(() => _selectedOperator = op['id']),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: isOpSelected ? opColor.withOpacity(0.12) : pureWhite,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: isOpSelected ? opColor : cardBorder, width: isOpSelected ? 2 : 1),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(width: 10, height: 10, decoration: BoxDecoration(color: opColor, shape: BoxShape.circle)),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            op['name'] as String,
+                                            style: TextStyle(fontSize: 11.5, fontWeight: isOpSelected ? FontWeight.w900 : FontWeight.w700, color: darkText),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (isOpSelected) Icon(Icons.check_circle_rounded, size: 16, color: opColor),
+                                      ],
                                     ),
                                   ),
-                                  if (isOpSelected) Icon(Icons.check_circle_rounded, size: 16, color: opColor),
-                                ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _t(context, 'Numéro de téléphone Mobile Money', 'Mobile Money Phone Number'),
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: darkText),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone,
+                              decoration: InputDecoration(
+                                hintText: 'Ex: +243XXXXXXXXX',
+                                filled: true,
+                                fillColor: pureWhite,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: cardBorder)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: cardBorder)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               ),
                             ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _t(context, 'Numéro de téléphone Mobile Money', 'Mobile Money Phone Number'),
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: darkText),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                          hintText: 'Ex: +243XXXXXXXXX',
-                          filled: true,
-                          fillColor: pureWhite,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: cardBorder)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: cardBorder)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ],
                         ),
                       ),
                     ],
-                  ),
-                ),
-              ],
+                  ],
+                );
+              }),
             ],
           ),
         ),
 
+        // Bouton de Paiement Final via Edge Function Supabase
         Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           decoration: BoxDecoration(
