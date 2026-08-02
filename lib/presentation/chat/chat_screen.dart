@@ -31,10 +31,7 @@ import 'package:thix_id/presentation/chat/encryption_service.dart';
 import 'package:thix_id/models/chat/call_status.dart';
 import 'package:thix_id/presentation/chat/call/call_page.dart';
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
-
-// Import du provider de la liste (ajuste le chemin si besoin)
-import 'package:thix_id/presentation/chat/chat_list_provider.dart'; // ← adapte selon ton projet
-
+import 'package:thix_id/presentation/chat/providers/chat_list_provider.dart';
 class _C {
   static const bg = Color(0xFFF0F2F5);
   static const surface = Colors.white;
