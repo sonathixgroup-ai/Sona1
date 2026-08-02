@@ -336,7 +336,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
       }
     } catch (e) {
       debugPrint('Error submitting form: $e');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t.genericErrorPrefix}${e.toString()}'), backgroundColor: thixRed));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t.error}: ${e.toString()}'), backgroundColor: thixRed));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
