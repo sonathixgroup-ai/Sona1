@@ -9,7 +9,8 @@ import 'chat_code_snippet.dart';
 import 'chat_ephemeral_timer.dart';
 import 'package:thix_id/models/chat/sentiment.dart';
 import 'package:thix_id/presentation/chat/widgets/sentiment_indicator.dart';
-// import 'message_status_ticks.dart'; // Importez le widget si nécessaire selon sa localisation
+// Assurez-vous d'importer le widget s'il est dans un autre fichier, ou définissez-le ci-dessous :
+// import 'message_status_ticks.dart'; 
 
 class _C {
   static const bg = Colors.white;
@@ -241,7 +242,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                 Text(DateFormat('HH:mm').format(msg.createdAt), style: const TextStyle(fontSize: 10, color: _C.textMuted, fontWeight: FontWeight.w500)),
                 if (isOwn) ...[
                   const SizedBox(width: 4),
-                  MessageStatusTicks(isRead: message.isRead),
+                  MessageStatusTicks(isRead: widget.message.isRead),
                 ],
               ],
             ),
@@ -458,6 +459,21 @@ class FullScreenImagePage extends StatelessWidget {
           )
         )
       )
+    );
+  }
+}
+
+// Assurez-vous que ce widget existe (déclarez-le ici ou importez-le depuis son fichier d'origine s'il manque)
+class MessageStatusTicks extends StatelessWidget {
+  final bool isRead;
+  const MessageStatusTicks({super.key, required this.isRead});
+
+  @override
+  Widget build(BuildContext context) {
+    return Icon(
+      isRead ? Icons.done_all_rounded : Icons.check_rounded,
+      size: 12,
+      color: isRead ? _C.primary : _C.textMuted,
     );
   }
 }
