@@ -13,12 +13,14 @@ class _C {
 }
 
 class PhotoPreviewEditPage extends StatefulWidget {
-  final dynamic imageFile; // Peut être File (mobile) ou Uint8List/String (web)
+  final dynamic imageFile;
+  final dynamic attachments;
   final Function(String caption)? onSend;
 
   const PhotoPreviewEditPage({
     super.key,
-    required this.imageFile,
+    this.imageFile,
+    this.attachments,
     this.onSend,
   });
 
@@ -39,8 +41,6 @@ class _PhotoPreviewEditPageState extends State<PhotoPreviewEditPage> {
   void _handleSend() {
     if (_isSending) return;
     setState(() => _isSending = true);
-
-    // Retourne le texte de la légende à l'écran précédent
     Navigator.pop(context, _captionController.text.trim());
   }
 
@@ -59,7 +59,6 @@ class _PhotoPreviewEditPageState extends State<PhotoPreviewEditPage> {
       ),
       body: Column(
         children: [
-          // Zone d'affichage de l'image
           Expanded(
             child: Center(
               child: InteractiveViewer(
@@ -69,8 +68,6 @@ class _PhotoPreviewEditPageState extends State<PhotoPreviewEditPage> {
               ),
             ),
           ),
-
-          // Barre de saisie de légende et bouton d'envoi
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             decoration: const BoxDecoration(
@@ -128,7 +125,16 @@ class _PhotoPreviewEditPageState extends State<PhotoPreviewEditPage> {
   }
 
   Widget _buildImageWidget() {
-    final img = widget.imageFile;
+    final target = widget.attachments ?? widget.imageFile;
+    if (target == null) {
+      return const Icon(Icons.broken_image, color: _C.textMuted, size: 64);
+    }
+
+    var img = target;
+    if (target is List && target.isNotEmpty) {
+      img = target.first;
+    }
+
     if (kIsWeb) {
       if (img is String) {
         return Image.network(img, fit: BoxFit.contain);
