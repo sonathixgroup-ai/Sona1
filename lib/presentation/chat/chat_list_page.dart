@@ -11,8 +11,9 @@ import 'chat_screen.dart';
 import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
 import 'settings/chat_settings_page.dart';
+import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 
-// ── PALETTE ENTERPRISE PREMIUM ──
+// ── PALETTE ENTERPRISE PREMIUM — harmonisée Charte THIX ID ──
 class _C {
   static const bg = Color(0xFFF8FAFC);
   static const surface = Colors.white;
@@ -20,13 +21,25 @@ class _C {
   static const searchBg = Color(0xFFF1F5F9);
   static const border = Color(0xFFE2E8F0);
   static const primary = Color(0xFF1D4ED8);
+  static const primaryDeep = Color(0xFF0F1E4D);
   static const primarySoft = Color(0xFFEFF6FF);
+  static const gold = Color(0xFFE3B23C);
+  static const goldLight = Color(0xFFF3D999);
   static const textMain = Color(0xFF0F172A);
   static const textMuted = Color(0xFF64748B);
   static const textSoft = Color(0xFF94A3B8);
   static const red = Color(0xFFEF4444);
   static const orange = Color(0xFFF59E0B);
   static const green = Color(0xFF10B981);
+
+  static const gradientHeader = LinearGradient(
+    begin: Alignment.topLeft, end: Alignment.bottomRight,
+    colors: [primaryDeep, primary],
+  );
+  static const gradientOnlineRing = LinearGradient(
+    begin: Alignment.topLeft, end: Alignment.bottomRight,
+    colors: [gold, goldLight],
+  );
 }
 
 class ChatListPage extends ConsumerStatefulWidget {
@@ -108,7 +121,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: _C.red.withOpacity(0.1),
+                          color: _C.red.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(Icons.swap_vert_rounded, color: _C.red, size: 24),
@@ -263,6 +276,14 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(chatListProvider);
     final notifier = ref.read(chatListProvider.notifier);
+    // ⚠️ Suppose que authControllerProvider expose un champ `.name`.
+    final currentUserName = ref.watch(authControllerProvider).value?.name ?? '';
+
+    // ⚠️ Suppose que ChatConversation expose `isOnline`. Ne garde que les
+    // contacts individuels (pas les groupes) actuellement connectés.
+    final onlineContacts = state.filtered
+        .where((c) => !c.isGroup && c.isOnline)
+        .toList();
 
     return Scaffold(
       backgroundColor: _C.bg,
@@ -292,9 +313,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   parent: AlwaysScrollableScrollPhysics(),
                 ),
                 slivers: [
-                  _buildCorporateAppBar(state.pendingEscalations),
-                  const SliverToBoxAdapter(child: SizedBox(height: 4)),
-                  SliverToBoxAdapter(child: _searchBar()),
+                  SliverToBoxAdapter(child: _buildGradientHeader(currentUserName, onlineContacts, state.pendingEscalations)),
+                  SliverToBoxAdapter(child: _searchCard()),
                   if (state.pendingEscalations > 0)
                     SliverToBoxAdapter(child: _escalationBanner(state.pendingEscalations)),
                   SliverToBoxAdapter(child: _filters(state.filterIndex)),
@@ -319,121 +339,169 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  Widget _buildCorporateAppBar(int pending) {
-    return SliverAppBar(
-      backgroundColor: _C.bg,
-      pinned: true,
-      elevation: 0,
-      scrolledUnderElevation: 0.5,
-      surfaceTintColor: Colors.transparent,
-      titleSpacing: 24,
-      title: const Text(
-        'THIX CHAT',
-        style: TextStyle(
-          color: _C.textMain,
-          fontSize: 26,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.8,
+  // ─────────────────────── EN-TÊTE DÉGRADÉ + EN LIGNE ───────────────────────
+
+  Widget _buildGradientHeader(String userName, List<ChatConversation> online, int pending) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
+      decoration: const BoxDecoration(
+        gradient: _C.gradientHeader,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        userName.isNotEmpty ? 'Bonjour, $userName' : 'Bonjour',
+                        style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      const Text('Ravi de vous revoir', style: TextStyle(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                ),
+                _headerIcon(icon: Icons.swap_vert_rounded, badge: pending > 0, onTap: () => context.pushNamed('chatEscalationReceived')),
+                const SizedBox(width: 8),
+                _headerIcon(icon: Icons.notifications_outlined, badge: pending > 0, onTap: () => _openNotifications(pending)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 78,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: online.length + 1,
+                separatorBuilder: (_, __) => const SizedBox(width: 14),
+                itemBuilder: (c, i) {
+                  if (i == 0) {
+                    return _onlineAvatar(label: 'Vous', avatarUrl: null, isSelf: true, isOnline: true);
+                  }
+                  final conv = online[i - 1];
+                  return _onlineAvatar(
+                    label: conv.displayName.split(' ').first,
+                    avatarUrl: conv.displayAvatar,
+                    isSelf: false,
+                    isOnline: true,
+                    onTap: () async {
+                      await Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv)));
+                      ref.read(chatListProvider.notifier).refresh();
+                    },
+                  );
+                },
+              ),
+            ),
+            if (online.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Text('Aucun contact en ligne actuellement', style: TextStyle(color: Colors.white60, fontSize: 11.5)),
+              ),
+          ],
         ),
       ),
-      actions: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.swap_vert_rounded, color: _C.textMain, size: 24),
-              onPressed: () => context.pushNamed('chatEscalationReceived'),
-              splashRadius: 22,
-            ),
-            if (pending > 0)
-              Positioned(
-                right: 10,
-                top: 10,
-                child: Container(
-                  width: 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    color: _C.red,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_outlined, color: _C.textMain, size: 24),
-              onPressed: () => _openNotifications(pending),
-              splashRadius: 22,
-            ),
-            if (pending > 0)
-              Positioned(
-                right: 12,
-                top: 12,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: _C.red,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(width: 8),
-      ],
     );
   }
 
-  Widget _searchBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+  Widget _headerIcon({required IconData icon, required VoidCallback onTap, bool badge = false}) {
+    return GestureDetector(
+      onTap: onTap,
       child: Container(
-        height: 48,
-        decoration: BoxDecoration(
-          color: _C.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _C.border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
+        width: 38, height: 38,
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), shape: BoxShape.circle),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(icon, size: 19, color: Colors.white),
+            if (badge)
+              Positioned(
+                top: 6, right: 7,
+                child: Container(width: 8, height: 8, decoration: BoxDecoration(color: _C.gold, shape: BoxShape.circle, border: Border.all(color: _C.primaryDeep, width: 1.5))),
+              ),
           ],
         ),
-        child: TextField(
-          controller: _searchCtrl,
-          onChanged: (v) => ref.read(chatListProvider.notifier).search(v),
-          style: const TextStyle(
-            fontSize: 15,
-            color: _C.textMain,
-            fontWeight: FontWeight.w500,
-          ),
-          decoration: InputDecoration(
-            hintText: 'Rechercher une conversation...',
-            hintStyle: const TextStyle(
-              fontSize: 15,
-              color: _C.textSoft,
-              fontWeight: FontWeight.w400,
+      ),
+    );
+  }
+
+  Widget _onlineAvatar({required String label, required String? avatarUrl, required bool isSelf, required bool isOnline, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(children: [
+        Stack(clipBehavior: Clip.none, children: [
+          Container(
+            padding: const EdgeInsets.all(2.4),
+            decoration: BoxDecoration(shape: BoxShape.circle, gradient: isOnline ? _C.gradientOnlineRing : null, color: isOnline ? null : Colors.white24),
+            child: CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.white24,
+              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+              child: (avatarUrl == null || avatarUrl.isEmpty)
+                  ? Icon(isSelf ? Icons.person_rounded : Icons.person_outline_rounded, color: Colors.white, size: 22)
+                  : null,
             ),
-            prefixIcon: const Icon(Icons.search_rounded, size: 22, color: _C.textSoft),
-            suffixIcon: _searchCtrl.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 18, color: _C.textSoft),
-                    onPressed: () {
-                      _searchCtrl.clear();
-                      ref.read(chatListProvider.notifier).search('');
-                    },
-                  )
-                : null,
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+          if (isOnline)
+            Positioned(
+              right: 0, bottom: 1,
+              child: Container(width: 12, height: 12, decoration: BoxDecoration(color: _C.green, shape: BoxShape.circle, border: Border.all(color: _C.primaryDeep, width: 2))),
+            ),
+        ]),
+        const SizedBox(height: 5),
+        SizedBox(
+          width: 56,
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Colors.white)),
+        ),
+      ]),
+    );
+  }
+
+  // ─────────────────────────── RECHERCHE ───────────────────────────
+  // Carte blanche qui chevauche légèrement le bas de l'en-tête dégradé.
+
+  Widget _searchCard() {
+    return Transform.translate(
+      offset: const Offset(0, -18),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+        child: Container(
+          height: 50,
+          decoration: BoxDecoration(
+            color: _C.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _C.border),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 14, offset: const Offset(0, 6)),
+            ],
+          ),
+          child: TextField(
+            controller: _searchCtrl,
+            onChanged: (v) => ref.read(chatListProvider.notifier).search(v),
+            style: const TextStyle(fontSize: 15, color: _C.textMain, fontWeight: FontWeight.w500),
+            decoration: InputDecoration(
+              hintText: 'Rechercher une conversation...',
+              hintStyle: const TextStyle(fontSize: 15, color: _C.textSoft, fontWeight: FontWeight.w400),
+              prefixIcon: const Icon(Icons.search_rounded, size: 22, color: _C.primary),
+              suffixIcon: _searchCtrl.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 18, color: _C.textSoft),
+                      onPressed: () {
+                        _searchCtrl.clear();
+                        ref.read(chatListProvider.notifier).search('');
+                      },
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+            ),
           ),
         ),
       ),
@@ -447,9 +515,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: _C.red.withOpacity(0.07),
+          color: _C.red.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _C.red.withOpacity(0.18)),
+          border: Border.all(color: _C.red.withValues(alpha: 0.18)),
         ),
         child: Row(
           children: [
@@ -457,7 +525,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: _C.red.withOpacity(0.12),
+                color: _C.red.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.warning_amber_rounded, color: _C.red, size: 20),
@@ -503,7 +571,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 18),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: sel ? _C.primary : Colors.transparent,
+                    color: sel ? _C.primarySoft : Colors.transparent,
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(
                       color: sel ? _C.primary : _C.border,
@@ -515,7 +583,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: sel ? FontWeight.w700 : FontWeight.w600,
-                      color: sel ? Colors.white : _C.textMuted,
+                      color: sel ? _C.primary : _C.textMuted,
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -581,12 +649,12 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   color: _C.surface,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: unread ? _C.primary.withOpacity(0.18) : _C.border,
+                    color: unread ? _C.primary.withValues(alpha: 0.18) : _C.border,
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.025),
+                      color: Colors.black.withValues(alpha: 0.025),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -624,6 +692,20 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                 )
                               : null,
                         ),
+                        if (!conv.isGroup && conv.isOnline)
+                          Positioned(
+                            right: -1,
+                            bottom: -1,
+                            child: Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: _C.green,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2.5),
+                              ),
+                            ),
+                          ),
                         if (unread)
                           Positioned(
                             right: -1,
@@ -740,7 +822,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 16,
             offset: const Offset(0, -4),
           ),
