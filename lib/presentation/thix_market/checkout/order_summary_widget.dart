@@ -26,8 +26,12 @@ class OrderSummaryWidget extends ConsumerWidget {
 
     final subtotalSymbol = cartNotifier.currencySymbol;
     final total = cartNotifier.subtotal;
-    final shippingLabel = checkout.selectedShipping != null ? (checkout.selectedShipping!['price_label'] ?? _t(context, 'À déterminer', 'To be determined')).toString() : _t(context, 'À déterminer', 'To be determined');
-    final shippingName = checkout.selectedShipping != null ? (checkout.selectedShipping!['name'] ?? _t(context, 'Livraison', 'Shipping')).toString() : _t(context, 'Livraison', 'Shipping');
+    final shippingLabel = checkout.selectedShipping != null
+        ? (checkout.selectedShipping!['price_label'] ?? _t(context, 'À déterminer', 'To be determined')).toString()
+        : _t(context, 'À déterminer', 'To be determined');
+    final shippingName = checkout.selectedShipping != null
+        ? (checkout.selectedShipping!['name'] ?? _t(context, 'Livraison', 'Shipping')).toString()
+        : _t(context, 'Livraison', 'Shipping');
 
     final items = cartState.items.map((item) {
       final product = item['product'] as Map?;
@@ -39,8 +43,14 @@ class OrderSummaryWidget extends ConsumerWidget {
         'product_id': product != null ? product['id'] : item['product_id'],
         'quantity': item['quantity'],
         'price': price,
-        'product_name': product != null && product['title'] != null ? product['title'].toString() : _t(context, 'Produit', 'Product'),
-        'image_url': product != null ? (product['images'] is List && (product['images'] as List).isNotEmpty ? (product['images'] as List).first.toString() : product['image_url']?.toString()) : null,
+        'product_name': product != null && product['title'] != null
+            ? product['title'].toString()
+            : _t(context, 'Produit', 'Product'),
+        'image_url': product != null
+            ? (product['images'] is List && (product['images'] as List).isNotEmpty
+                ? (product['images'] as List).first.toString()
+                : product['image_url']?.toString())
+            : null,
       };
     }).toList();
 
@@ -52,67 +62,115 @@ class OrderSummaryWidget extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Adresse
                 _section(_t(context, 'Adresse de livraison', 'Delivery Address'), [
-                  Text(checkout.selectedAddress != null ? (checkout.selectedAddress!['full_name'] ?? '').toString() : '', style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text(checkout.selectedAddress != null ? (checkout.selectedAddress!['address_line'] ?? '').toString() : ''),
-                  Text(checkout.selectedAddress != null ? '${checkout.selectedAddress!['commune'] ?? ''}, ${checkout.selectedAddress!['city'] ?? ''}' : ''),
-                  if (checkout.selectedAddress != null && checkout.selectedAddress!['landmark'] != null && checkout.selectedAddress!['landmark'].toString().isNotEmpty)
-                    Text('${_t(context, 'Repère', 'Landmark')}: ${checkout.selectedAddress!['landmark']}', style: const TextStyle(fontStyle: FontStyle.italic)),
-                  Text('${_t(context, 'Tél', 'Phone')}: ${checkout.selectedAddress != null ? checkout.selectedAddress!['phone'] ?? '' : ''}'),
+                  Text(
+                    checkout.selectedAddress != null
+                        ? (checkout.selectedAddress!['full_name'] ?? '').toString()
+                        : '',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    checkout.selectedAddress != null
+                        ? (checkout.selectedAddress!['address_line'] ?? '').toString()
+                        : '',
+                  ),
+                  Text(
+                    checkout.selectedAddress != null
+                        ? '${checkout.selectedAddress!['commune'] ?? ''}, ${checkout.selectedAddress!['city'] ?? ''}'
+                        : '',
+                  ),
+                  if (checkout.selectedAddress != null &&
+                      checkout.selectedAddress!['landmark'] != null &&
+                      checkout.selectedAddress!['landmark'].toString().isNotEmpty)
+                    Text(
+                      '${_t(context, 'Repère', 'Landmark')}: ${checkout.selectedAddress!['landmark']}',
+                      style: const TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                  Text(
+                    '${_t(context, 'Tél', 'Phone')}: ${checkout.selectedAddress != null ? checkout.selectedAddress!['phone'] ?? '' : ''}',
+                  ),
                 ]),
                 const SizedBox(height: 16),
+
+                // Mode de livraison
                 _section(_t(context, 'Mode de livraison', 'Shipping Method'), [
                   Text(shippingName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text('${_t(context, 'Frais', 'Fees')} : $shippingLabel', style: const TextStyle(color: thixOrange, fontWeight: FontWeight.w500)),
+                  Text(
+                    '${_t(context, 'Frais', 'Fees')} : $shippingLabel',
+                    style: const TextStyle(color: thixOrange, fontWeight: FontWeight.w500),
+                  ),
                 ]),
                 const SizedBox(height: 16),
-                Text(_t(context, 'Articles', 'Items'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
+
+                // Articles
+                Text(
+                  _t(context, 'Articles', 'Items'),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText),
+                ),
                 const SizedBox(height: 8),
                 ...items.map((item) => ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: item['image_url'] != null
-                            ? Image.network(item['image_url'].toString(), width: 50, height: 50, fit: BoxFit.cover)
-                            : Container(width: 50, height: 50, color: Colors.grey.shade200, child: const Icon(Icons.image_rounded, color: mutedText)),
+                            ? Image.network(
+                                item['image_url'].toString(),
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.cover,
+                              )
+                            : Container(
+                                width: 50,
+                                height: 50,
+                                color: Colors.grey.shade200,
+                                child: const Icon(Icons.image_rounded, color: mutedText),
+                              ),
                       ),
-                      title: Text(item['product_name'].toString(), style: const TextStyle(fontWeight: FontWeight.w600, color: darkText, fontSize: 14)),
-                      subtitle: Text('${_t(context, 'Qté', 'Qty')}: ${item['quantity']}', style: const TextStyle(color: mutedText, fontSize: 12)),
-                      trailing: Text('${((item['price'] as num) * (item['quantity'] as num)).toInt()} $subtotalSymbol', style: const TextStyle(fontWeight: FontWeight.w800, color: darkText)),
+                      title: Text(
+                        item['product_name'].toString(),
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: darkText, fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        '${_t(context, 'Qté', 'Qty')}: ${item['quantity']}',
+                        style: const TextStyle(color: mutedText, fontSize: 12),
+                      ),
+                      trailing: Text(
+                        '${((item['price'] as num) * (item['quantity'] as num)).toInt()} $subtotalSymbol',
+                        style: const TextStyle(fontWeight: FontWeight.w800, color: darkText),
+                      ),
                     )),
-                const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(),
+                ),
                 _priceRow(_t(context, 'Sous-total', 'Subtotal'), '${total.toInt()} $subtotalSymbol'),
                 _priceRow(_t(context, 'Livraison', 'Shipping'), shippingLabel, isHighlight: true),
                 const Divider(height: 24),
-                _priceRow(_t(context, 'Total à payer (hors livraison)', 'Total to pay (excluding shipping)'), '${total.toInt()} $subtotalSymbol', isTotal: true),
+                _priceRow(
+                  _t(context, 'Total à payer (hors livraison)', 'Total to pay (excluding shipping)'),
+                  '${total.toInt()} $subtotalSymbol',
+                  isTotal: true,
+                ),
               ],
             ),
           ),
         ),
+
+        // Bouton → va UNIQUEMENT vers le paiement (pas de processOrder ici)
         Padding(
           padding: const EdgeInsets.all(16),
           child: ElevatedButton(
             onPressed: checkout.isProcessing
                 ? null
-                : () async {
+                : () {
+                    // Juste avancer vers l'étape paiement
                     try {
-                      // 1. Validation et création de la commande en base de données
-                      await checkoutNotifier.processOrder(total: total, items: items);
-
-                      // 2. Passage à l'étape suivante : Choix du moyen de paiement et traitement Edge Function
+                      (checkoutNotifier as dynamic).goToStep('payment');
+                    } catch (_) {
                       try {
-                        (checkoutNotifier as dynamic).goToStep('payment');
-                      } catch (_) {
-                        try {
-                          (checkoutNotifier as dynamic).next();
-                        } catch (_) {}
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('${_t(context, 'Erreur', 'Error')} : $e'), backgroundColor: Colors.red),
-                        );
-                      }
+                        (checkoutNotifier as dynamic).next();
+                      } catch (_) {}
                     }
                   },
             style: ElevatedButton.styleFrom(
@@ -123,8 +181,15 @@ class OrderSummaryWidget extends ConsumerWidget {
               elevation: 0,
             ),
             child: checkout.isProcessing
-                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(_t(context, 'Confirmer la commande', 'Confirm Order'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : Text(
+                    _t(context, 'Continuer vers le paiement', 'Continue to Payment'),
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
           ),
         ),
       ],
@@ -134,7 +199,11 @@ class OrderSummaryWidget extends ConsumerWidget {
   Widget _section(String title, List<Widget> children) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -145,13 +214,28 @@ class OrderSummaryWidget extends ConsumerWidget {
         ),
       );
 
-  Widget _priceRow(String label, String value, {bool isTotal = false, bool isHighlight = false}) => Padding(
+  Widget _priceRow(String label, String value, {bool isTotal = false, bool isHighlight = false}) =>
+      Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(fontWeight: isTotal ? FontWeight.w800 : FontWeight.w500, fontSize: isTotal ? 16 : 14, color: isTotal ? darkText : mutedText)),
-            Text(value, style: TextStyle(fontWeight: isTotal ? FontWeight.w800 : (isHighlight ? FontWeight.w600 : FontWeight.w700), fontSize: isTotal ? 18 : 14, color: isTotal ? darkText : (isHighlight ? thixOrange : darkText))),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: isTotal ? FontWeight.w800 : FontWeight.w500,
+                fontSize: isTotal ? 16 : 14,
+                color: isTotal ? darkText : mutedText,
+              ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                fontWeight: isTotal ? FontWeight.w800 : (isHighlight ? FontWeight.w600 : FontWeight.w700),
+                fontSize: isTotal ? 18 : 14,
+                color: isTotal ? darkText : (isHighlight ? thixOrange : darkText),
+              ),
+            ),
           ],
         ),
       );
