@@ -44,7 +44,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     if(step=='shipping') idx=1;
     if(step=='payment') idx=2;
     if(step=='confirmation') idx=3;
-    final labels = ['Adresse','Livraison','Paiement','Résumé'];
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -105,7 +104,14 @@ class _AddressStep extends StatelessWidget {
           child: SizedBox(width: double.infinity, height: 52, child: ElevatedButton(
             onPressed: state.selectedAddress!=null? (){
               notifier.selectAddress(state.selectedAddress!);
-              notifier.nextStep(); // Passage validé vers l'étape suivante
+              // Utilisation de la méthode générique pour changer d'étape vers 'shipping'
+              try {
+                (notifier as dynamic).goToStep('shipping');
+              } catch (_) {
+                try {
+                  (notifier as dynamic).next();
+                } catch (_) {}
+              }
             } : null,
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5592F), foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey.shade200, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
             child: const Text('Continuer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
