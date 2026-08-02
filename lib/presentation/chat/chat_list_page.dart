@@ -1,5 +1,6 @@
 // lib/presentation/chat/chat_list_page.dart
 import 'dart:ui';
+import 'dart:async'; // 👈 Requis pour le Timer d'inactivité
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,7 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/chat/chat_conversation.dart';
 import 'providers/chat_list_provider.dart';
-import 'providers/presence_provider.dart'; // 👈 AJOUT DU PROVIDER DE PRESENCE
+import 'providers/presence_provider.dart';
 import 'chat_screen.dart';
 import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
@@ -16,7 +17,7 @@ import 'package:thix_id/features/auth/presentation/providers/auth_controller.dar
 
 // ── PALETTE ENTERPRISE PREMIUM — harmonisée Charte THIX ID ──
 class _C {
-  static const bg = Color(0xFFF8FAFC);
+  static const bg = Colors.white; // 👈 Modifié pour le style WhatsApp unifié
   static const surface = Colors.white;
   static const surfaceAlt = Color(0xFFF1F5F9);
   static const searchBg = Color(0xFFF1F5F9);
@@ -31,7 +32,8 @@ class _C {
   static const textSoft = Color(0xFF94A3B8);
   static const red = Color(0xFFEF4444);
   static const orange = Color(0xFFF59E0B);
-  static const green = Color(0xFF10B981);
+  static const green = Color(0xFF10B981); // Vert style WhatsApp
+  static const greenLight = Color(0xFFD1FAE5);
 
   static const gradientHeader = LinearGradient(
     begin: Alignment.topLeft, end: Alignment.bottomRight,
@@ -53,7 +55,10 @@ class ChatListPage extends ConsumerStatefulWidget {
 class _ChatListPageState extends ConsumerState<ChatListPage> {
   final _searchCtrl = TextEditingController();
   final _scroll = ScrollController();
+  
   int _selectedNav = 1;
+  bool _isNavExpanded = false; // 👈 État du menu central
+  Timer? _navInactivityTimer;  // 👈 Timer pour la rétractation auto
 
   @override
   void initState() {
@@ -69,10 +74,27 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   void dispose() {
     _searchCtrl.dispose();
     _scroll.dispose();
+    _navInactivityTimer?.cancel();
     super.dispose();
   }
 
+  // 👈 Logique du menu central rétractable
+  void _toggleNav() {
+    setState(() => _isNavExpanded = !_isNavExpanded);
+    _resetNavTimer();
+  }
+
+  void _resetNavTimer() {
+    _navInactivityTimer?.cancel();
+    if (_isNavExpanded) {
+      _navInactivityTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) setState(() => _isNavExpanded = false);
+      });
+    }
+  }
+
   void _openNotifications(int pending) {
+    // (Logique existante conservée...)
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -88,12 +110,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           children: [
             const SizedBox(height: 14),
             Container(
-              width: 42,
-              height: 5,
-              decoration: BoxDecoration(
-                color: _C.border,
-                borderRadius: BorderRadius.circular(3),
-              ),
+              width: 42, height: 5,
+              decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(3)),
             ),
             const Padding(
               padding: EdgeInsets.fromLTRB(24, 22, 24, 16),
@@ -101,15 +119,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 children: [
                   Icon(Icons.notifications_rounded, color: _C.textMain, size: 22),
                   SizedBox(width: 12),
-                  Text(
-                    'Notifications',
-                    style: TextStyle(
-                      color: _C.textMain,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
+                  Text('Notifications', style: TextStyle(color: _C.textMain, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
                 ],
               ),
             ),
@@ -119,43 +129,18 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   ? ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                       leading: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: _C.red.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+                        width: 48, height: 48,
+                        decoration: BoxDecoration(color: _C.red.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
                         child: const Icon(Icons.swap_vert_rounded, color: _C.red, size: 24),
                       ),
-                      title: Text(
-                        '$pending escalade(s) en attente',
-                        style: const TextStyle(
-                          color: _C.textMain,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                        ),
-                      ),
-                      subtitle: const Padding(
-                        padding: EdgeInsets.only(top: 3),
-                        child: Text(
-                          'Nécessite une action de votre part',
-                          style: TextStyle(color: _C.textMuted, fontSize: 13),
-                        ),
-                      ),
+                      title: Text('$pending escalade(s) en attente', style: const TextStyle(color: _C.textMain, fontWeight: FontWeight.w700, fontSize: 15)),
+                      subtitle: const Padding(padding: EdgeInsets.only(top: 3), child: Text('Nécessite une action de votre part', style: TextStyle(color: _C.textMuted, fontSize: 13))),
                       trailing: const Icon(Icons.chevron_right_rounded, color: _C.textSoft),
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        context.pushNamed('chatEscalationReceived');
-                      },
+                      onTap: () { Navigator.pop(ctx); context.pushNamed('chatEscalationReceived'); },
                     )
                   : const Padding(
                       padding: EdgeInsets.symmetric(vertical: 48),
-                      child: Center(
-                        child: Text(
-                          'Aucune notification récente',
-                          style: TextStyle(color: _C.textMuted, fontSize: 14),
-                        ),
-                      ),
+                      child: Center(child: Text('Aucune notification récente', style: TextStyle(color: _C.textMuted, fontSize: 14))),
                     ),
             ),
             const SizedBox(height: 24),
@@ -178,34 +163,11 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 42,
-              height: 5,
-              decoration: BoxDecoration(
-                color: _C.border,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
+            Container(width: 42, height: 5, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(3))),
             const SizedBox(height: 28),
-            _sheetOpt(
-              Icons.chat_bubble_outline_rounded,
-              'Nouvelle discussion',
-              'Démarrer une conversation privée',
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const NewConversationPage()),
-              ),
-            ),
+            _sheetOpt(Icons.chat_bubble_outline_rounded, 'Nouvelle discussion', 'Démarrer une conversation privée', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage()))),
             const SizedBox(height: 14),
-            _sheetOpt(
-              Icons.group_add_outlined,
-              'Créer un groupe',
-              'Collaborer en équipe',
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const GroupCreatePage()),
-              ),
-            ),
+            _sheetOpt(Icons.group_add_outlined, 'Créer un groupe', 'Collaborer en équipe', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupCreatePage()))),
           ],
         ),
       ),
@@ -216,27 +178,16 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          Navigator.pop(context);
-          tap();
-        },
+        onTap: () { Navigator.pop(context); tap(); },
         borderRadius: BorderRadius.circular(18),
         child: Container(
           padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: _C.surface,
-            border: Border.all(color: _C.border),
-            borderRadius: BorderRadius.circular(18),
-          ),
+          decoration: BoxDecoration(color: _C.surface, border: Border.all(color: _C.border), borderRadius: BorderRadius.circular(18)),
           child: Row(
             children: [
               Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: _C.primarySoft,
-                  borderRadius: BorderRadius.circular(14),
-                ),
+                width: 52, height: 52,
+                decoration: BoxDecoration(color: _C.primarySoft, borderRadius: BorderRadius.circular(14)),
                 child: Icon(icon, size: 24, color: _C.primary),
               ),
               const SizedBox(width: 16),
@@ -244,24 +195,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: _C.textMain,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
+                    Text(title, style: const TextStyle(color: _C.textMain, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.2)),
                     const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: _C.textMuted,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    Text(subtitle, style: const TextStyle(color: _C.textMuted, fontSize: 13, fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),
@@ -278,85 +214,70 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     final state = ref.watch(chatListProvider);
     final notifier = ref.read(chatListProvider.notifier);
     
-    // 👈 CORRECTION 1: Utilisation de displayName et récupération de l'ID actuel
     final currentUser = ref.watch(authControllerProvider).value;
     final currentUserName = currentUser?.displayName ?? '';
     final currentUserId = currentUser?.id ?? '';
+    final currentUserPhoto = currentUser?.photoUrl; // 👈 Récupération de votre photo
 
-    // 👈 CORRECTION 2: Écoute des utilisateurs en ligne via le provider Supabase Realtime
     final onlineUserIds = ref.watch(presenceProvider);
 
-    // 👈 CORRECTION 3: Filtrage propre des contacts en ligne
     final onlineContacts = state.filtered.where((c) {
       if (c.isGroup) return false;
-      // On cherche l'ID de l'autre participant
-      final otherUserId = c.participantIds.firstWhere(
-        (id) => id != currentUserId,
-        orElse: () => ''
-      );
+      final otherUserId = c.participantIds.firstWhere((id) => id != currentUserId, orElse: () => '');
       return onlineUserIds.contains(otherUserId);
     }).toList();
 
     return Scaffold(
-      backgroundColor: _C.bg,
-      bottomNavigationBar: _corporateBottomNav(state.totalUnread),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateMenu,
-        backgroundColor: _C.primary,
-        elevation: 6,
-        highlightElevation: 10,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        child: const Icon(Icons.edit_square, color: Colors.white, size: 22),
+      backgroundColor: _C.bg, // Blanc pur comme WhatsApp
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 90), // Évite le menu central
+        child: FloatingActionButton(
+          onPressed: _showCreateMenu,
+          backgroundColor: _C.green, // 👈 Vert style WhatsApp
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), // 👈 Forme carrée arrondie
+          child: const Icon(Icons.add_comment_rounded, color: Colors.white, size: 26),
+        ),
       ),
-      body: state.isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: _C.primary,
-                strokeWidth: 3,
-              ),
-            )
-          : RefreshIndicator(
-              color: _C.primary,
-              backgroundColor: Colors.white,
-              onRefresh: () async => notifier.refresh(),
-              child: CustomScrollView(
-                controller: _scroll,
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
+      // 👈 Utilisation d'un Stack pour superposer le bouton central magique
+      body: Stack(
+        children: [
+          state.isLoading
+              ? const Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 3))
+              : RefreshIndicator(
+                  color: _C.primary,
+                  backgroundColor: Colors.white,
+                  onRefresh: () async => notifier.refresh(),
+                  child: CustomScrollView(
+                    controller: _scroll,
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                    slivers: [
+                      SliverToBoxAdapter(child: _buildGradientHeader(currentUserName, currentUserPhoto, onlineContacts, state.pendingEscalations)),
+                      SliverToBoxAdapter(child: _searchCard()), // 👈 Réajusté
+                      if (state.pendingEscalations > 0)
+                        SliverToBoxAdapter(child: _escalationBanner(state.pendingEscalations)),
+                      SliverToBoxAdapter(child: _filters(state.filterIndex)),
+                      const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                      _chatList(state.filtered, currentUserId, onlineUserIds),
+                      if (state.isLoadingMore)
+                        const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.symmetric(vertical: 28), child: Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 3)))),
+                      const SliverToBoxAdapter(child: SizedBox(height: 140)), // Espace pour le menu
+                    ],
+                  ),
                 ),
-                slivers: [
-                  SliverToBoxAdapter(child: _buildGradientHeader(currentUserName, onlineContacts, state.pendingEscalations)),
-                  SliverToBoxAdapter(child: _searchCard()),
-                  if (state.pendingEscalations > 0)
-                    SliverToBoxAdapter(child: _escalationBanner(state.pendingEscalations)),
-                  SliverToBoxAdapter(child: _filters(state.filterIndex)),
-                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                  // On passe l'ID courant et la liste des connectés à _chatList
-                  _chatList(state.filtered, currentUserId, onlineUserIds),
-                  if (state.isLoadingMore)
-                    const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 28),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: _C.primary,
-                            strokeWidth: 3,
-                          ),
-                        ),
-                      ),
-                    ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                ],
-              ),
-            ),
+          
+          // 👈 Le fameux menu central rétractable
+          _buildExpandableBottomNav(state.totalUnread),
+        ],
+      ),
     );
   }
 
-  // ─────────────────────── EN-TÊTE DÉGRADÉ + EN LIGNE ───────────────────────
+  // ─────────────────────── EN-TÊTE & RECHERCHE ───────────────────────
 
-  Widget _buildGradientHeader(String userName, List<ChatConversation> online, int pending) {
+  Widget _buildGradientHeader(String userName, String? userPhoto, List<ChatConversation> online, int pending) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       decoration: const BoxDecoration(
         gradient: _C.gradientHeader,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
@@ -375,8 +296,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       Text(
                         userName.isNotEmpty ? 'Bonjour, $userName' : 'Bonjour',
                         style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.5),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       const Text('Ravi de vous revoir', style: TextStyle(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w500)),
@@ -397,14 +317,15 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 separatorBuilder: (_, __) => const SizedBox(width: 14),
                 itemBuilder: (c, i) {
                   if (i == 0) {
-                    return _onlineAvatar(label: 'Vous', avatarUrl: null, isSelf: true, isOnline: true);
+                    // 👈 Affichage de votre propre photo
+                    return _onlineAvatar(label: 'Vous', avatarUrl: userPhoto, isSelf: true, isOnline: true);
                   }
                   final conv = online[i - 1];
                   return _onlineAvatar(
                     label: conv.displayName.split(' ').first,
                     avatarUrl: conv.displayAvatar,
                     isSelf: false,
-                    isOnline: true, // Garanti vrai car filtré plus haut
+                    isOnline: true,
                     onTap: () async {
                       await Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv)));
                       ref.read(chatListProvider.notifier).refresh();
@@ -413,11 +334,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 },
               ),
             ),
-            if (online.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 2),
-                child: Text('Aucun contact en ligne actuellement', style: TextStyle(color: Colors.white60, fontSize: 11.5)),
-              ),
           ],
         ),
       ),
@@ -429,16 +345,13 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       onTap: onTap,
       child: Container(
         width: 38, height: 38,
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), shape: BoxShape.circle),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), shape: BoxShape.circle),
         child: Stack(
           alignment: Alignment.center,
           children: [
             Icon(icon, size: 19, color: Colors.white),
             if (badge)
-              Positioned(
-                top: 6, right: 7,
-                child: Container(width: 8, height: 8, decoration: BoxDecoration(color: _C.gold, shape: BoxShape.circle, border: Border.all(color: _C.primaryDeep, width: 1.5))),
-              ),
+              Positioned(top: 6, right: 7, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: _C.gold, shape: BoxShape.circle, border: Border.all(color: _C.primaryDeep, width: 1.5)))),
           ],
         ),
       ),
@@ -477,43 +390,29 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  // ─────────────────────────── RECHERCHE ───────────────────────────
-
   Widget _searchCard() {
-    return Transform.translate(
-      offset: const Offset(0, -18),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-        child: Container(
-          height: 50,
-          decoration: BoxDecoration(
-            color: _C.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _C.border),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 14, offset: const Offset(0, 6)),
-            ],
-          ),
-          child: TextField(
-            controller: _searchCtrl,
-            onChanged: (v) => ref.read(chatListProvider.notifier).search(v),
-            style: const TextStyle(fontSize: 15, color: _C.textMain, fontWeight: FontWeight.w500),
-            decoration: InputDecoration(
-              hintText: 'Rechercher une conversation...',
-              hintStyle: const TextStyle(fontSize: 15, color: _C.textSoft, fontWeight: FontWeight.w400),
-              prefixIcon: const Icon(Icons.search_rounded, size: 22, color: _C.primary),
-              suffixIcon: _searchCtrl.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 18, color: _C.textSoft),
-                      onPressed: () {
-                        _searchCtrl.clear();
-                        ref.read(chatListProvider.notifier).search('');
-                      },
-                    )
-                  : null,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14),
-            ),
+    return Padding(
+      // 👈 Barre de recherche aplatie et alignée proprement en dessous
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: _C.searchBg,
+          borderRadius: BorderRadius.circular(24), // Plus arrondi
+        ),
+        child: TextField(
+          controller: _searchCtrl,
+          onChanged: (v) => ref.read(chatListProvider.notifier).search(v),
+          style: const TextStyle(fontSize: 15, color: _C.textMain, fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            hintText: 'Ask Meta AI or Search', // Inspiré de votre capture
+            hintStyle: const TextStyle(fontSize: 15, color: _C.textSoft, fontWeight: FontWeight.w400),
+            prefixIcon: const Icon(Icons.search_rounded, size: 22, color: _C.textSoft),
+            suffixIcon: _searchCtrl.text.isNotEmpty
+                ? IconButton(icon: const Icon(Icons.close_rounded, size: 18, color: _C.textSoft), onPressed: () { _searchCtrl.clear(); ref.read(chatListProvider.notifier).search(''); })
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 14),
           ),
         ),
       ),
@@ -524,35 +423,14 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     return GestureDetector(
       onTap: () => context.pushNamed('chatEscalationReceived'),
       child: Container(
-        margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: _C.red.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _C.red.withValues(alpha: 0.18)),
-        ),
+        decoration: BoxDecoration(color: _C.red.withOpacity(0.07), borderRadius: BorderRadius.circular(16)),
         child: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: _C.red.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.warning_amber_rounded, color: _C.red, size: 20),
-            ),
+            const Icon(Icons.warning_amber_rounded, color: _C.red, size: 20),
             const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                '$pending escalade(s) en attente',
-                style: const TextStyle(
-                  color: _C.red,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-              ),
-            ),
+            Expanded(child: Text('$pending escalade(s) en attente', style: const TextStyle(color: _C.red, fontWeight: FontWeight.w700, fontSize: 14))),
             const Icon(Icons.arrow_forward_ios_rounded, color: _C.red, size: 13),
           ],
         ),
@@ -563,9 +441,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   Widget _filters(int selected) {
     final tabs = ['Toutes', 'Non lues', 'Équipes', 'Personnelles'];
     return SizedBox(
-      height: 46,
+      height: 40,
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         scrollDirection: Axis.horizontal,
         itemCount: tabs.length,
         itemBuilder: (ctx, i) {
@@ -576,27 +454,21 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               color: Colors.transparent,
               child: InkWell(
                 onTap: () => ref.read(chatListProvider.notifier).setFilter(i),
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(20),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: sel ? _C.primarySoft : Colors.transparent,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: sel ? _C.primary : _C.border,
-                      width: 1.2,
-                    ),
+                    color: sel ? _C.greenLight : _C.surfaceAlt,
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     tabs[i],
                     style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: sel ? FontWeight.w700 : FontWeight.w600,
-                      color: sel ? _C.primary : _C.textMuted,
-                      letterSpacing: -0.2,
+                      fontSize: 14,
+                      fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
+                      color: sel ? _C.green : _C.textMuted,
                     ),
                   ),
                 ),
@@ -608,7 +480,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  // 👈 CORRECTION 4: Signature mise à jour pour inclure les paramètres dynamiques de présence
+  // ─────────────────────────── LISTE DES CHATS UNIFIÉE ───────────────────────────
+
   Widget _chatList(List<ChatConversation> list, String currentUserId, Set<String> onlineUserIds) {
     if (list.isEmpty) {
       return const SliverToBoxAdapter(
@@ -618,14 +491,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
             children: [
               Icon(Icons.chat_bubble_outline_rounded, size: 48, color: _C.textSoft),
               SizedBox(height: 16),
-              Text(
-                'Aucune conversation trouvée',
-                style: TextStyle(
-                  color: _C.textMuted,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              Text('Aucune conversation trouvée', style: TextStyle(color: _C.textMuted, fontSize: 15, fontWeight: FontWeight.w500)),
             ],
           ),
         ),
@@ -639,106 +505,37 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           final last = conv.lastMessage;
           final t = last != null ? last.createdAt : conv.updatedAt;
           final unread = conv.unreadCount > 0;
-
-          // Détermination de la présence pour cet item précis
-          final otherUserId = conv.participantIds.firstWhere(
-            (id) => id != currentUserId,
-            orElse: () => ''
-          );
+          final otherUserId = conv.participantIds.firstWhere((id) => id != currentUserId, orElse: () => '');
           final isOnline = onlineUserIds.contains(otherUserId);
 
           return Material(
             color: Colors.transparent,
             child: InkWell(
               onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChatScreen(
-                      conversationId: conv.id,
-                      conversation: conv,
-                    ),
-                  ),
-                );
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv)));
                 ref.read(chatListProvider.notifier).refresh();
               },
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                decoration: BoxDecoration(
-                  color: _C.surface,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: unread ? _C.primary.withValues(alpha: 0.18) : _C.border,
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.025),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
+                // 👈 FINI LES SÉPARATIONS : Juste du padding, aucune bordure, aucune ombre
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     Stack(
                       children: [
-                        Container(
-                          width: 54,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            color: _C.surfaceAlt,
-                            borderRadius: BorderRadius.circular(16),
-                            image: conv.displayAvatar != null
-                                ? DecorationImage(
-                                    image: NetworkImage(conv.displayAvatar!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                          ),
+                        CircleAvatar(
+                          radius: 26, // 👈 Taille ajustée type WhatsApp
+                          backgroundColor: _C.surfaceAlt,
+                          backgroundImage: conv.displayAvatar != null ? NetworkImage(conv.displayAvatar!) : null,
                           child: conv.displayAvatar == null
-                              ? Center(
-                                  child: Text(
-                                    conv.displayName.isNotEmpty
-                                        ? conv.displayName[0].toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      color: _C.textMuted,
-                                      fontSize: 20,
-                                    ),
-                                  ),
-                                )
+                              ? Text(conv.displayName.isNotEmpty ? conv.displayName[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.w600, color: _C.textMuted, fontSize: 22))
                               : null,
                         ),
-                        // Affichage conditionnel du point vert
                         if (!conv.isGroup && isOnline)
                           Positioned(
-                            right: -1,
-                            bottom: -1,
+                            right: 0, bottom: 0,
                             child: Container(
-                              width: 14,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color: _C.green,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2.5),
-                              ),
-                            ),
-                          ),
-                        if (unread)
-                          Positioned(
-                            right: -1,
-                            top: -1,
-                            child: Container(
-                              width: 15,
-                              height: 15,
-                              decoration: BoxDecoration(
-                                color: _C.primary,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2.5),
-                              ),
+                              width: 14, height: 14,
+                              decoration: BoxDecoration(color: _C.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
                             ),
                           ),
                       ],
@@ -751,54 +548,36 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                           Row(
                             children: [
                               Expanded(
-                                child: Row(
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        conv.displayName,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 15.5,
-                                          fontWeight: unread ? FontWeight.w800 : FontWeight.w700,
-                                          color: _C.textMain,
-                                          letterSpacing: -0.3,
-                                        ),
-                                      ),
-                                    ),
-                                    if (conv.isGroup)
-                                      const Padding(
-                                        padding: EdgeInsets.only(left: 6),
-                                        child: Icon(
-                                          Icons.groups_rounded,
-                                          size: 16,
-                                          color: _C.textSoft,
-                                        ),
-                                      ),
-                                  ],
+                                child: Text(
+                                  conv.displayName,
+                                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 16.5, // 👈 Taille WhatsApp
+                                    fontWeight: FontWeight.w600, 
+                                    color: _C.textMain,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 _fmt(t),
                                 style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: unread ? FontWeight.w700 : FontWeight.w500,
-                                  color: unread ? _C.primary : _C.textSoft,
+                                  fontSize: 12.5,
+                                  fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
+                                  color: unread ? _C.green : _C.textSoft,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 5),
+                          const SizedBox(height: 4),
                           Row(
                             children: [
                               Expanded(
                                 child: Text(
                                   last?.content ?? 'Nouvelle conversation',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1, overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontSize: 13.5,
+                                    fontSize: 14.5, // 👈 Taille WhatsApp
                                     fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
                                     color: unread ? _C.textMain : _C.textMuted,
                                   ),
@@ -807,18 +586,11 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                               if (unread)
                                 Container(
                                   margin: const EdgeInsets.only(left: 10),
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: _C.primary,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(color: _C.green, shape: BoxShape.circle),
                                   child: Text(
                                     '${conv.unreadCount}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
                                   ),
                                 ),
                             ],
@@ -837,111 +609,85 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  Widget _corporateBottomNav(int unread) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, -4),
+  // ────────────────── BARRE DE NAVIGATION MAGIQUE (STYLE HOMEPAGE) ──────────────────
+
+  Widget _buildExpandableBottomNav(int unread) {
+    return Positioned(
+      bottom: 24, // Flotte au-dessus du bord
+      left: 0,
+      right: 0,
+      child: Center(
+        child: GestureDetector(
+          onTap: _resetNavTimer, // Réinitialise le timer si on interagit
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutBack,
+            height: 64,
+            width: _isNavExpanded ? MediaQuery.of(context).size.width * 0.9 : 64,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.12),
+                  blurRadius: 20, offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: _isNavExpanded
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _navItem(Icons.people_alt_outlined, Icons.people_alt, 'Réseau', 0, unread),
+                      _navItem(Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Discussions', 1, unread),
+                      _navItem(Icons.workspaces_outline, Icons.workspaces_filled, 'Espaces', 2, unread),
+                      _navItem(Icons.settings_outlined, Icons.settings, 'Réglages', 3, unread),
+                    ],
+                  )
+                : Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _toggleNav,
+                      borderRadius: BorderRadius.circular(32),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [_C.goldLight, _C.primary], // Couleurs type bouton central homepage
+                            radius: 0.8,
+                          ),
+                        ),
+                        child: const Icon(Icons.grid_view_rounded, color: Colors.white, size: 28),
+                      ),
+                    ),
+                  ),
           ),
-        ],
+        ),
       ),
-      child: SafeArea(
-        top: false,
-        child: BottomNavigationBar(
-          currentIndex: _selectedNav,
-          onTap: (idx) {
-            if (idx == 0) {
-              context.pushNamed('connections');
-            } else if (idx == 2) {
-              context.pushNamed('workspaces');
-            } else if (idx == 3) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ChatSettingsPage()),
-              );
-            } else {
-              setState(() => _selectedNav = idx);
-            }
-          },
-          backgroundColor: Colors.white,
-          elevation: 0,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: _C.primary,
-          unselectedItemColor: _C.textSoft,
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          selectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w700,
-            height: 1.6,
-            letterSpacing: -0.2,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w500,
-            height: 1.6,
-          ),
-          items: [
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.people_alt_outlined),
-              activeIcon: Icon(Icons.people_alt),
-              label: 'Réseau',
-            ),
-            BottomNavigationBarItem(
-              icon: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(Icons.chat_bubble_outline_rounded),
-                  if (unread > 0)
-                    Positioned(
-                      right: -3,
-                      top: -3,
-                      child: Container(
-                        width: 9,
-                        height: 9,
-                        decoration: BoxDecoration(
-                          color: _C.red,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5),
-                        ),
-                      ),
-                    ),
-                ],
+    );
+  }
+
+  Widget _navItem(IconData iconOutlined, IconData iconFilled, String label, int idx, int unread) {
+    final isSelected = _selectedNav == idx;
+    return InkWell(
+      onTap: () {
+        _resetNavTimer();
+        if (idx == 0) context.pushNamed('connections');
+        else if (idx == 2) context.pushNamed('workspaces');
+        else if (idx == 3) Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatSettingsPage()));
+        else setState(() => _selectedNav = idx);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(isSelected ? iconFilled : iconOutlined, color: isSelected ? _C.primary : _C.textSoft, size: 26),
+            if (idx == 1 && unread > 0)
+              Positioned(
+                right: -4, top: -4,
+                child: Container(width: 10, height: 10, decoration: BoxDecoration(color: _C.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2))),
               ),
-              activeIcon: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(Icons.chat_bubble_rounded),
-                  if (unread > 0)
-                    Positioned(
-                      right: -3,
-                      top: -3,
-                      child: Container(
-                        width: 9,
-                        height: 9,
-                        decoration: BoxDecoration(
-                          color: _C.red,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              label: 'Discussions',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.workspaces_outline),
-              activeIcon: Icon(Icons.workspaces_filled),
-              label: 'Espaces',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined),
-              activeIcon: Icon(Icons.settings),
-              label: 'Réglages',
-            ),
           ],
         ),
       ),
@@ -952,12 +698,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     final now = DateTime.now();
     final day = DateTime(d.year, d.month, d.day);
     final today = DateTime(now.year, now.month, now.day);
-
     if (day == today) return DateFormat('HH:mm').format(d);
     if (day == today.subtract(const Duration(days: 1))) return 'Hier';
-    if (now.difference(d).inDays < 7) {
-      return DateFormat('EEEE', 'fr_FR').format(d);
-    }
+    if (now.difference(d).inDays < 7) return DateFormat('EEEE', 'fr_FR').format(d);
     return DateFormat('dd/MM/yy').format(d);
   }
 }
