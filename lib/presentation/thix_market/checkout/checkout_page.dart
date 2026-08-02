@@ -14,6 +14,11 @@ class CheckoutPage extends ConsumerStatefulWidget {
 }
 
 class _CheckoutPageState extends ConsumerState<CheckoutPage> {
+  String _t(BuildContext context, String fr, String en) {
+    final lang = Localizations.localeOf(context).languageCode;
+    return lang == 'fr' ? fr : en;
+  }
+
   @override void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -30,8 +35,14 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF0A1931)), onPressed: ()=> context.pop()),
-        title: const Text('Validation de commande', style: TextStyle(color: Color(0xFF0A1931), fontWeight: FontWeight.w900, fontSize: 18)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF0A1931)), 
+          onPressed: () => context.pop(),
+        ),
+        title: Text(
+          _t(context, 'Validation de commande', 'Checkout Validation'), 
+          style: const TextStyle(color: Color(0xFF0A1931), fontWeight: FontWeight.w900, fontSize: 18),
+        ),
         bottom: PreferredSize(preferredSize: const Size.fromHeight(56), child: _stepper(state.currentStep)),
       ),
       body: _buildBody(state, notifier),
@@ -52,8 +63,20 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         bool active = i<=idx;
         bool current = i==idx;
         return Expanded(child: Row(children: [
-          Container(width: 28, height: 28, decoration: BoxDecoration(color: active? const Color(0xFFE5592F) : Colors.grey.shade200, shape: BoxShape.circle, border: current? Border.all(color: const Color(0xFFE5592F), width: 2) : null), child: Center(child: i<idx? const Icon(Icons.check, size: 16, color: Colors.white) : Text('${i+1}', style: TextStyle(color: active? Colors.white : Colors.grey, fontWeight: FontWeight.w800, fontSize: 12)))),
-          if(i<3) Expanded(child: Container(height: 3, margin: const EdgeInsets.symmetric(horizontal: 6), decoration: BoxDecoration(color: i<idx? const Color(0xFFE5592F) : Colors.grey.shade200, borderRadius: BorderRadius.circular(2)))),
+          Container(
+            width: 28, height: 28, 
+            decoration: BoxDecoration(
+              color: active ? const Color(0xFFE5592F) : Colors.grey.shade200, 
+              shape: BoxShape.circle, 
+              border: current ? Border.all(color: const Color(0xFFE5592F), width: 2) : null,
+            ), 
+            child: Center(
+              child: i<idx 
+                ? const Icon(Icons.check, size: 16, color: Colors.white) 
+                : Text('${i+1}', style: TextStyle(color: active ? Colors.white : Colors.grey, fontWeight: FontWeight.w800, fontSize: 12)),
+            ),
+          ),
+          if(i<3) Expanded(child: Container(height: 3, margin: const EdgeInsets.symmetric(horizontal: 6), decoration: BoxDecoration(color: i<idx ? const Color(0xFFE5592F) : Colors.grey.shade200, borderRadius: BorderRadius.circular(2)))),
         ]));
       })),
     );
@@ -69,7 +92,12 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         const SizedBox(height: 16),
         Text(state.error!, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 24),
-        ElevatedButton.icon(onPressed: ()=> notifier.loadCheckoutData(), icon: const Icon(Icons.refresh), label: const Text('Réessayer'), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5592F), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))),
+        ElevatedButton.icon(
+          onPressed: () => notifier.loadCheckoutData(), 
+          icon: const Icon(Icons.refresh), 
+          label: Text(_t(context, 'Réessayer', 'Retry')), 
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5592F), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        ),
       ])));
     }
     try{
@@ -83,8 +111,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     switch(state.currentStep){
       case 'address': return _AddressStep(state: state, notifier: notifier);
       case 'shipping': return const ShippingMethodSelector();
-      case 'summary': return const OrderSummaryWidget(); // Étape 3 : Résumé et Validation initiale de la commande
-      case 'payment': return const PaymentMethodSelector(); // Étape 4 : Sélection du mode de paiement et Paiement via Edge Function
+      case 'summary': return const OrderSummaryWidget(); // Étape 3 : Résumé et validation
+      case 'payment': return const PaymentMethodSelector(); // Étape 4 : Paiement final (Edge Function)
       default: return Center(child: Text('Étape inconnue: ${state.currentStep}'));
     }
   }
@@ -94,6 +122,12 @@ class _AddressStep extends StatelessWidget {
   final CheckoutState state;
   final CheckoutNotifier notifier;
   const _AddressStep({required this.state, required this.notifier});
+
+  String _t(BuildContext context, String fr, String en) {
+    final lang = Localizations.localeOf(context).languageCode;
+    return lang == 'fr' ? fr : en;
+  }
+
   @override Widget build(BuildContext context){
     return Column(children: [
       Expanded(child: Padding(padding: const EdgeInsets.all(16), child: DeliveryAddressSelector(onAddressSelected: (address){ notifier.selectAddress(address); }))),
@@ -108,7 +142,7 @@ class _AddressStep extends StatelessWidget {
               try { (notifier as dynamic).goToStep('shipping'); } catch (_) { try { (notifier as dynamic).next(); } catch (_) {} }
             } : null,
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5592F), foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey.shade200, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
-            child: const Text('Continuer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            child: Text(_t(context, 'Continuer', 'Continue'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           )),
         ),
       ),
