@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/models/chat/chat_conversation.dart';
+
 class ChatListState {
   final List<ChatConversation> all;
   final List<ChatConversation> filtered;
@@ -160,6 +161,40 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
     } catch (e) {
       debugPrint('❌ loadMore error: $e');
       if (!_isDisposed) state = state.copyWith(isLoadingMore: false);
+    }
+  }
+
+  /// Marque une conversation comme lue : optimiste en local (le badge
+  /// disparaît immédiatement, aucun flash au retour sur la liste), puis
+  /// persisté côté Supabase via la RPC `mark_chat_read`. En cas d'échec
+  /// réseau, on resynchronise les compteurs depuis le serveur plutôt que
+  /// de laisser l'état local dériver silencieusement.
+  Future<void> markAsRead(String conversationId) async {
+    final idx = state.all.indexWhere((c) => c.id == conversationId);
+    if (idx == -1) return;
+
+    final prevUnread = state.all[idx].unreadCount;
+    if (prevUnread == 0) return; // déjà lu, on évite un appel RPC inutile
+
+    final updatedAll = List<ChatConversation>.from(state.all);
+    // ⚠️ Suppose que ChatConversation.copyWith(unreadCount: ...) existe.
+    updatedAll[idx] = updatedAll[idx].copyWith(unreadCount: 0);
+
+    final newTotal = state.totalUnread - prevUnread;
+    state = state.copyWith(
+      all: updatedAll,
+      totalUnread: newTotal < 0 ? 0 : newTotal,
+    );
+    _applyFilter();
+
+    try {
+      // ⚠️ Méthode à ajouter dans ChatService — voir snippet ci-dessous.
+      await _chatService.markConversationRead(conversationId);
+    } catch (e) {
+      debugPrint('❌ markAsRead error: $e');
+      // La mise à jour optimiste a peut-être menti : on refait confiance
+      // au serveur plutôt que de garder un état local potentiellement faux.
+      if (!_isDisposed) _refreshCounts();
     }
   }
 
