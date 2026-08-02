@@ -16,12 +16,14 @@ class PhotoPreviewEditPage extends StatefulWidget {
   final dynamic imageFile;
   final dynamic attachments;
   final Function(String caption)? onSend;
+  final int initialIndex;
 
   const PhotoPreviewEditPage({
     super.key,
     this.imageFile,
     this.attachments,
     this.onSend,
+    this.initialIndex = 0,
   });
 
   @override
@@ -31,10 +33,18 @@ class PhotoPreviewEditPage extends StatefulWidget {
 class _PhotoPreviewEditPageState extends State<PhotoPreviewEditPage> {
   final TextEditingController _captionController = TextEditingController();
   bool _isSending = false;
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
 
   @override
   void dispose() {
     _captionController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -130,11 +140,30 @@ class _PhotoPreviewEditPageState extends State<PhotoPreviewEditPage> {
       return const Icon(Icons.broken_image, color: _C.textMuted, size: 64);
     }
 
-    var img = target;
+    var images = <dynamic>[];
     if (target is List && target.isNotEmpty) {
-      img = target.first;
+      images = target;
+    } else {
+      images = [target];
     }
 
+    if (images.isEmpty) {
+      return const Icon(Icons.broken_image, color: _C.textMuted, size: 64);
+    }
+
+    // Build PageView for multiple images or single image
+    if (images.length > 1) {
+      return PageView.builder(
+        controller: _pageController,
+        itemCount: images.length,
+        itemBuilder: (context, index) => _buildSingleImage(images[index]),
+      );
+    } else {
+      return _buildSingleImage(images.first);
+    }
+  }
+
+  Widget _buildSingleImage(dynamic img) {
     if (kIsWeb) {
       if (img is String) {
         return Image.network(img, fit: BoxFit.contain);
