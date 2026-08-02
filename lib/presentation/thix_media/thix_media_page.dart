@@ -194,7 +194,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
   final Map<String, int> _localLikeCounts = {}; 
   final Map<String, int> _localViewCounts = {}; 
   
-  // NOUVEAU : Gère les vidéos payantes débloquées localement durant la session
   final Set<String> _unlockedPaidVideos = {}; 
   
   bool _immersive = false;
@@ -449,7 +448,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
     _registerView(_filItems[index]);
   }
 
-  // NOUVEAU : BUILDER DYNAMIQUE (Gère Paywall + Séries + Vidéo classique)
   Widget _buildMediaContentLayer(MediaContent item, bool isFocused) {
     final requiresPayment = item.isPaid && !_unlockedPaidVideos.contains(item.id);
     final allEpisodes = [item.videoUrl, ...item.episodesUrls].where((url) => url.isNotEmpty).toList();
@@ -469,7 +467,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
               }
             )
           else
-            // Écran de Verrouillage (Paywall)
             Container(
               decoration: BoxDecoration(
                 image: DecorationImage(image: NetworkImage(item.coverUrl), fit: BoxFit.cover),
@@ -501,8 +498,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))
                         ),
                         onPressed: () {
-                          // TODO: Intégrer l'API de Paiement ici (Stripe/Mobile Money)
-                          // Pour l'instant, on débloque en simulant un succès :
                           setState(() => _unlockedPaidVideos.add(item.id));
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vidéo débloquée avec succès !'), backgroundColor: Colors.green));
                         },
@@ -513,8 +508,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                 ),
               ),
             ),
-
-            // Indicateur de Série
             if (isSeries)
               Positioned(
                 top: 100, 
@@ -543,7 +536,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         itemBuilder: (context, index) => buildVideoOrPaywall(allEpisodes[index], index, allEpisodes.length),
       );
     } else {
-      // Cas classique (ou verrouillé, où on empêche le scroll horizontal)
       return buildVideoOrPaywall(item.videoUrl, 0, 1);
     }
   }
@@ -672,7 +664,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
         children: [
           NotificationListener<ScrollNotification>(
             onNotification: (n) {
-              // Ignore les scrolls horizontaux (Séries) pour l'immersif
               if (n.metrics.axis == Axis.vertical && (n is ScrollUpdateNotification || n is ScrollStartNotification)) {
                 if (!_immersive) setState(() => _immersive = true);
               }
@@ -697,11 +688,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                 return Stack(
                   fit: StackFit.expand, 
                   children: [
-                    
-                    // LECTEUR INTELLIGENT (Paywall / Série)
                     _buildMediaContentLayer(item, isFocused),
-
-                    // METADATA (Titres, Filtres, Prix)
                     Positioned(
                       left: 20, 
                       bottom: textBottom, 
@@ -710,7 +697,6 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start, 
                           children: [
-                            // Badges Row
                             Row(
                               children: [
                                 Container(
@@ -1028,13 +1014,12 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       displayViews = _localViewCounts[cur.id] ?? live?.viewCount ?? cur.viewCount;
     }
     
-    final creatorId = cur != null ? ref.watch(mediaCreatorIdProvider(cur.id)).valueOrNull ?? '' : '';
-    final creatorProfile = ref.watch(userProfileProvider(creatorId)).valueOrNull;
+    final creatorId = cur?.userId ?? ''; 
+    final creatorProfile = creatorId.isNotEmpty ? ref.watch(userProfileProvider(creatorId)).valueOrNull : null;
     final currentUid = Supabase.instance.client.auth.currentUser?.id;
-    final isFollowing = ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true; 
+    final isFollowing = creatorId.isNotEmpty ? (ref.watch(isFollowingProvider(creatorId)).valueOrNull ?? true) : true; 
 
-    final creatorRole = creatorProfile?['role'] as String?;
-    final creatorIsOfficial = creatorId.isEmpty || creatorRole == 'admin' || creatorRole == 'superadmin';
+    final creatorIsOfficial = creatorId.isEmpty;
 
     final showPlusBtn = !creatorIsOfficial 
         && creatorId.isNotEmpty 
@@ -1086,11 +1071,11 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white70, width: 1.5),
                           boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 6)],
-                          image: creatorProfile != null && creatorProfile['avatar_url'] != null && creatorProfile['avatar_url'].isNotEmpty
+                          image: creatorProfile != null && creatorProfile['avatar_url'] != null && creatorProfile['avatar_url'].toString().isNotEmpty
                               ? DecorationImage(image: NetworkImage(creatorProfile['avatar_url']), fit: BoxFit.cover)
                               : null,
                         ),
-                        child: creatorProfile == null || creatorProfile['avatar_url'] == null || creatorProfile['avatar_url'].isEmpty
+                        child: creatorProfile == null || creatorProfile['avatar_url'] == null || creatorProfile['avatar_url'].toString().isEmpty
                             ? const Icon(Icons.person, size: 14, color: Colors.white70)
                             : null,
                       ),
@@ -1168,7 +1153,7 @@ class _ThixMediaPageState extends ConsumerState<ThixMediaPage> {
       ),
     ); 
   }
-
+ 
   Widget _navItem(IconData icon, String label, bool sel, int idx, {Color? color, required VoidCallback onTap}) => InkWell(
     onTap: onTap, 
     child: Column(
