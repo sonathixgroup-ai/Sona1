@@ -135,7 +135,7 @@ class AppLocalizations {
       // Chat
       'chatTitle': 'Messages', 'chat_new_message': 'Nouveau message',
       'chat_type_message': 'Écrivez un message...',
-      'chat_messages_empty': 'Aucun message pour l'instant',
+      'chat_messages_empty': "Aucun message pour l'instant",
       'chat_send': 'Envoyer',
       // Education / Events / Transport
       'educationTitle': 'Formations', 'busTitle': 'Réservation Bus',
@@ -158,7 +158,7 @@ class AppLocalizations {
       'network_followers': 'Abonnés',
       'network_following': 'Abonnements',
       // Jobs
-      'jobs_title': 'Offres d'emploi',
+      'jobs_title': "Offres d'emploi",
       'jobs_apply': 'Postuler',
       'jobs_applied': 'Candidature envoyée',
       'jobs_deadline': 'Date limite : {date}',
