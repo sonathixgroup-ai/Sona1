@@ -1,429 +1,480 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
 
 class OrderHistoryPage extends StatefulWidget {
   const OrderHistoryPage({super.key});
-
-  @override
+  @override 
   State<OrderHistoryPage> createState() => _OrderHistoryPageState();
 }
 
 class _OrderHistoryPageState extends State<OrderHistoryPage> {
-  List<Map<String, dynamic>> _orders = [];
-  bool _isLoading = true;
-  String? _error;
-  String _filter = 'all'; // all, pending, processing, shipped, delivered, cancelled
+  List<Map<String,dynamic>> _orders = [];
+  bool _loading = true;
+  String _filter = 'all';
 
-  static const Color primaryBlue = Color(0xFF1A73E8);
-  static const Color bgLight = Color(0xFFF8F9FA);
+  static const navy = Color(0xFF0A1931);
+  static const red = Color(0xFFD81E2C);
+  static const gold = Color(0xFFF0A93B);
+  static const blue = Color(0xFF2D6CDF);
+  static const bg = Color(0xFFF7F8FC);
+
+  // Formateur dynamique de devise selon la valeur stockée
+  String _cur(dynamic c) {
+    final v = (c ?? 'FC').toString().toUpperCase();
+    if (v == 'XOF' || v == 'CDF' || v == 'FCFA') return 'FC';
+    if (v == 'USD' || v == '\$') return '\$'; // Dynamique : Affiche $ ou FC proprement
+    return v;
+  }
+
+  Color _statusColor(String s) { 
+    switch(s) { 
+      case 'delivered': return const Color(0xFF00B074); 
+      case 'cancelled': return red; 
+      case 'shipped': return blue; 
+      case 'confirmed': 
+      case 'processing': return const Color(0xFF8B5CF6); 
+      default: return gold; 
+    }
+  }
+
+  String _statusLabel(String s) { 
+    switch(s) { 
+      case 'pending': return 'En attente'; 
+      case 'confirmed': return 'Confirmée'; 
+      case 'processing': return 'Préparation'; 
+      case 'shipped': return 'Expédiée'; 
+      case 'delivered': return 'Livrée'; 
+      case 'cancelled': return 'Annulée'; 
+      default: return s; 
+    }
+  }
 
   @override
-  void initState() {
-    super.initState();
-    _loadOrders();
+  void initState() { 
+    super.initState(); 
+    _load(); 
   }
 
-  Future<void> _loadOrders() async {
-    setState(() => _isLoading = true);
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) {
+      final supa = Supabase.instance.client;
+      final uid = supa.auth.currentUser!.id;
+      
+      var q = supa.from('orders').select('*').eq('user_id', uid);
+      if (_filter != 'all') q = q.eq('status', _filter);
+      
+      final res = await q.order('created_at', ascending: false);
+      final list = List<Map<String, dynamic>>.from(res as List);
+      final full = [];
+
+      for (var o in list) {
+        List<dynamic> items = [];
+        // 1. Protection de la requête des articles (items)
+        try {
+          items = await supa.from('order_items')
+              .select('*, product:products(title,image_url)')
+              .eq('order_id', o['id'])
+              .limit(3);
+        } catch (e) {
+          debugPrint('⚠️ Erreur items pour commande ${o['id']}: $e');
+          try {
+             items = await supa.from('order_items').select('*').eq('order_id', o['id']).limit(3);
+          } catch (_) {}
+        }
+
+        Map<String, dynamic>? shop;
+        // 2. Protection de la requête de la boutique (Sans 'ville' pour éviter l'erreur 42703)
+        if (o['shop_id'] != null) {
+          try {
+            shop = await supa.from('shops')
+                .select('id,name,logo_url,city,is_verified')
+                .eq('id', o['shop_id'])
+                .maybeSingle();
+          } catch (e) {
+            debugPrint('⚠️ Erreur shop pour commande ${o['id']}: $e');
+            try {
+              shop = await supa.from('shops').select('id,name,logo_url,city').eq('id', o['shop_id']).maybeSingle();
+            } catch (_) {}
+          }
+        }
+        
+        full.add({...o, 'currency': _cur(o['currency']), 'items': items, 'shop': shop});
+      }
+      
+      if (mounted) {
         setState(() {
-          _orders = [];
-          _isLoading = false;
+          _orders = List<Map<String, dynamic>>.from(full);
+          _loading = false;
         });
-        return;
       }
-
-      // Construire la requête avec les filtres
-      var query = Supabase.instance.client
-          .from('orders')
-          .select('''
-            *,
-            items:order_items(*),
-            shop:shops(name, logo_url)
-          ''')
-          .eq('user_id', userId);
-
-      if (_filter != 'all') {
-        query = query.eq('status', _filter);
-      }
-
-      // ✅ CORRECTION : on appelle .order() directement dans le await
-      final response = await query.order('created_at', ascending: false);
-
-      setState(() {
-        _orders = List<Map<String, dynamic>>.from(response);
-        _isLoading = false;
-      });
     } catch (e) {
-      setState(() {
-        _error = 'Impossible de charger vos commandes';
-        _isLoading = false;
-      });
+      debugPrint('🚨 ERREUR GLOBALE CHARGEMENT COMMANDES : $e');
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de charger les commandes')),
+        );
+      }
     }
   }
 
-  String _formatDate(String? dateStr) {
-    if (dateStr == null) return '';
-    try {
-      final date = DateTime.parse(dateStr);
-      return DateFormat('dd MMM yyyy, HH:mm').format(date);
-    } catch (_) {
-      return dateStr;
+  Future<void> _cancel(String id) async {
+    final ok = await showDialog<bool>(
+      context: context, 
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(20), 
+          child: Column(
+            mainAxisSize: MainAxisSize.min, 
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14), 
+                decoration: const BoxDecoration(color: Color(0xFFFFF0F0), shape: BoxShape.circle), 
+                child: const Icon(Icons.warning_amber_rounded, color: red, size: 32)
+              ),
+              const SizedBox(height: 14), 
+              const Text('Annuler la commande?', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), 
+              const SizedBox(height: 6),
+              const Text('Le stock sera rendu à la boutique.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false), 
+                      style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), 
+                      child: const Text('Garder')
+                    )
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true), 
+                      style: ElevatedButton.styleFrom(backgroundColor: red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), 
+                      child: const Text('Oui, annuler', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800))
+                    )
+                  ),
+                ]
+              )
+            ]
+          )
+        ),
+      )
+    );
+    
+    if (ok != true) return;
+    
+    try { 
+      await supaRpc(id); 
+    } catch (_) { 
+      await Supabase.instance.client.from('orders').update({'status':'cancelled'}).eq('id', id); 
     }
+    _load();
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'pending':
-        return Colors.orange;
-      case 'processing':
-        return Colors.blue;
-      case 'shipped':
-        return Colors.purple;
-      case 'delivered':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getStatusLabel(String status) {
-    switch (status) {
-      case 'pending':
-        return 'En attente';
-      case 'processing':
-        return 'En préparation';
-      case 'shipped':
-        return 'Expédiée';
-      case 'delivered':
-        return 'Livrée';
-      case 'cancelled':
-        return 'Annulée';
-      default:
-        return status;
-    }
-  }
+  Future supaRpc(String id) => Supabase.instance.client.rpc(
+    'cancel_order', 
+    params: {'p_order_id': id, 'p_reason_code': 'client_request', 'p_reason': 'Client depuis historique'}
+  );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgLight,
+      backgroundColor: bg,
       appBar: AppBar(
-        title: const Text(
-          'Historique des commandes',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black87),
-            onPressed: _loadOrders,
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: _buildFilterChips(),
-        ),
+        backgroundColor: Colors.white, elevation: 0, scrolledUnderElevation: 0,
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: navy), onPressed: () => context.pop()),
+        title: const Text('Mes commandes', style: TextStyle(fontWeight: FontWeight.w900, color: navy, fontSize: 18)),
+        actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded, color: navy))],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildErrorState()
-              : _orders.isEmpty
-                  ? _buildEmptyState()
+      body: Column(
+        children: [
+          _filterBar(),
+          Expanded(
+            child: _loading 
+              ? const Center(child: CircularProgressIndicator(color: navy))
+              : _orders.isEmpty 
+                  ? _empty()
                   : RefreshIndicator(
-                      onRefresh: _loadOrders,
+                      color: navy, 
+                      onRefresh: _load, 
                       child: ListView.builder(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _orders.length,
-                        itemBuilder: (context, index) {
-                          final order = _orders[index];
-                          return _buildOrderCard(order);
-                        },
-                      ),
-                    ),
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24), 
+                        itemCount: _orders.length, 
+                        itemBuilder: (_, i) => _orderCard(_orders[i])
+                      )
+                    )
+          ),
+        ]
+      ),
     );
   }
 
-  Widget _buildFilterChips() {
-    final filters = [
-      {'key': 'all', 'label': 'Tous'},
-      {'key': 'pending', 'label': 'En attente'},
-      {'key': 'processing', 'label': 'Préparation'},
-      {'key': 'shipped', 'label': 'Expédiée'},
-      {'key': 'delivered', 'label': 'Livrée'},
-      {'key': 'cancelled', 'label': 'Annulée'},
+  Widget _filterBar() {
+    final tabs = [
+      {'k': 'all', 'l': 'Tous'},
+      {'k': 'pending', 'l': 'En attente'},
+      {'k': 'confirmed', 'l': 'Confirmée'},
+      {'k': 'shipped', 'l': 'Expédiée'},
+      {'k': 'delivered', 'l': 'Livrée'},
+      {'k': 'cancelled', 'l': 'Annulée'}
     ];
+    return Container(
+      color: Colors.white, 
+      padding: const EdgeInsets.only(bottom: 10), 
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal, 
+        padding: const EdgeInsets.symmetric(horizontal: 12), 
+        child: Row(
+          children: tabs.map((t) {
+            final sel = _filter == t['k'];
+            return GestureDetector(
+              onTap: () { setState(() => _filter = t['k']!); _load(); }, 
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200), 
+                margin: const EdgeInsets.only(right: 8), 
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                decoration: BoxDecoration(
+                  color: sel ? navy : const Color(0xFFF3F4F6), 
+                  borderRadius: BorderRadius.circular(24), 
+                  border: sel ? null : Border.all(color: const Color(0xFFE5E7EB))
+                ),
+                child: Text(
+                  t['l']!, 
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: sel ? Colors.white : const Color(0xFF6B7280))
+                )
+              )
+            ); 
+          }).toList()
+        )
+      )
+    );
+  }
+
+  Widget _empty() => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center, 
+      children: [
+        Container(
+          padding: const EdgeInsets.all(26), 
+          decoration: BoxDecoration(
+            color: Colors.white, 
+            shape: BoxShape.circle, 
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 16)]
+          ), 
+          child: const Icon(Icons.receipt_long_rounded, size: 56, color: Color(0xFFD1D5DB))
+        ),
+        const SizedBox(height: 14), 
+        const Text('Aucune commande', style: TextStyle(fontWeight: FontWeight.w800, color: navy)), 
+        const SizedBox(height: 6), 
+        const Text('Vos commandes apparaîtront ici', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+      ]
+    )
+  );
+
+  Widget _orderCard(Map<String,dynamic> o) {
+    final status = (o['status'] ?? 'pending').toString();
+    
+    // Récupération dynamique du montant total et de la devise
+    final total = ((o['total'] ?? o['total_amount'] ?? 0) as num);
+    final cur = _cur(o['currency']);
+    
+    final items = List<Map<String, dynamic>>.from(o['items'] ?? []);
+    final shop = o['shop'] as Map?;
+    final shopName = shop?['name'] ?? 'Boutique';
+    final city = shop?['city'] ?? 'RDC';
+    final date = DateTime.tryParse(o['created_at'].toString());
+    final color = _statusColor(status);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: filters.map((filter) {
-            final isSelected = _filter == filter['key'];
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                label: Text(filter['label'] as String),
-                selected: isSelected,
-                onSelected: (_) {
-                  setState(() => _filter = filter['key'] as String);
-                  _loadOrders();
-                },
-                selectedColor: primaryBlue,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.black87,
-                ),
-                backgroundColor: isSelected ? primaryBlue : Colors.white,
-                side: BorderSide(
-                  color: isSelected ? primaryBlue : Colors.grey[300]!,
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOrderCard(Map<String, dynamic> order) {
-    final status = order['status'] ?? 'pending';
-    final total = (order['total'] as num?)?.toDouble() ?? 0;
-    final createdAt = _formatDate(order['created_at']);
-    final items = List<Map<String, dynamic>>.from(order['items'] ?? []);
-    final shop = order['shop'] as Map?;
-    final statusColor = _getStatusColor(status);
-
-    return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[200]!),
+      decoration: BoxDecoration(
+        color: Colors.white, 
+        borderRadius: BorderRadius.circular(20), 
+        border: Border.all(color: const Color(0xFFF0F0F0)), 
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 3))]
       ),
-      child: InkWell(
-        onTap: () => context.push('/market/order/${order['id']}'),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // En-tête : numéro, date, statut
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Commande #${order['id']}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _getStatusLabel(status),
-                      style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // Date
-              Row(
-                children: [
-                  Icon(Icons.access_time, size: 14, color: Colors.grey[500]),
-                  const SizedBox(width: 4),
-                  Text(
-                    createdAt,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Boutique
-              if (shop != null)
+      child: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 0), 
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+              children: [
                 Row(
                   children: [
-                    CircleAvatar(
-                      radius: 14,
-                      backgroundImage: shop['logo_url'] != null
-                          ? CachedNetworkImageProvider(shop['logo_url'])
-                          : null,
-                      child: shop['logo_url'] == null
-                          ? const Icon(Icons.store, size: 14)
-                          : null,
+                    Container(
+                      width: 36, height: 36, 
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6), 
+                        borderRadius: BorderRadius.circular(10), 
+                        image: shop?['logo_url'] != null ? DecorationImage(image: NetworkImage(shop!['logo_url']), fit: BoxFit.cover) : null
+                      ), 
+                      child: shop?['logo_url'] == null ? const Icon(Icons.storefront_rounded, size: 18, color: Color(0xFF9CA3AF)) : null
                     ),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        shop['name'] ?? 'Boutique',
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                  ],
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start, 
+                      children: [
+                        Row(
+                          children: [ 
+                            Flexible(child: Text(shopName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: navy))), 
+                            if (shop?['is_verified'] == true) ...[const SizedBox(width: 4), const Icon(Icons.verified_rounded, size: 12, color: blue)] 
+                          ]
+                        ),
+                        Row(
+                          children: [ 
+                            const Icon(Icons.location_on_outlined, size: 11, color: Color(0xFF9CA3AF)), 
+                            const SizedBox(width: 2), 
+                            Text(city, style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))) 
+                          ]
+                        ),
+                      ]
+                    )
+                  ]
                 ),
-              const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), 
+                  decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(20)), 
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min, 
+                    children: [ 
+                      Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)), 
+                      const SizedBox(width: 5), 
+                      Text(_statusLabel(status), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: color)) 
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14), 
+            child: Divider(height: 22, color: Color(0xFFF3F4F6))
+          ),
 
-              // Articles (max 2)
-              if (items.isNotEmpty) ...[
-                ...items.take(2).map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
+          // Items preview
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14), 
+            child: Column(
+              children: items.take(2).map((it) {
+                final img = it['product_image'] ?? it['product']?['image_url'] ?? '';
+                final name = it['product_name'] ?? it['product']?['title'] ?? 'Produit';
+                final qty = it['quantity'] ?? 1; 
+                final itemPrice = (it['price'] as num?) ?? 0;
+                
+                // Affichage dynamique du prix unitaire selon la devise de la commande
+                final formattedItemPrice = cur == '\$' ? itemPrice.toStringAsFixed(2) : itemPrice.toInt().toString();
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8), 
                   child: Row(
                     children: [
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: item['product_image'] != null
-                            ? CachedNetworkImage(
-                                imageUrl: item['product_image'],
-                                width: 40,
-                                height: 40,
-                                fit: BoxFit.cover,
-                                errorWidget: (_, __, ___) => Container(
-                                  width: 40,
-                                  height: 40,
-                                  color: Colors.grey[200],
-                                  child: const Icon(Icons.image, size: 20),
-                                ),
-                              )
-                            : Container(
-                                width: 40,
-                                height: 40,
-                                color: Colors.grey[200],
-                                child: const Icon(Icons.image, size: 20),
-                              ),
+                        borderRadius: BorderRadius.circular(10), 
+                        child: Image.network(
+                          img, 
+                          width: 48, height: 48, fit: BoxFit.cover, 
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return Container(width: 48, height: 48, color: const Color(0xFFF3F4F6), child: const Center(child: CircularProgressIndicator(strokeWidth: 2)));
+                          },
+                          errorBuilder: (_, __, ___) => Container(width: 48, height: 48, color: const Color(0xFFF3F4F6), child: const Icon(Icons.image_outlined, size: 18))
+                        )
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start, 
                           children: [
-                            Text(
-                              item['product_name'] ?? 'Produit',
-                              style: const TextStyle(fontWeight: FontWeight.w500),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              '${item['quantity']} x ${item['price']?.toInt() ?? 0} FCFA',
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
+                            Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: navy)),
+                            const SizedBox(height: 2),
+                            Text('$qty x $formattedItemPrice $cur', style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B7280))),
+                          ]
+                        )
                       ),
-                    ],
-                  ),
-                )),
-                if (items.length > 2)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'et ${items.length - 2} autre(s) article(s)',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                  ),
-              ],
-              const Divider(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Total',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    '${total.toInt()} FCFA',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: primaryBlue,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                    ]
+                  )
+                );
+              }).toList()
+            )
           ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildErrorState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, size: 60, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            _error!,
-            style: const TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _loadOrders,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryBlue,
+          if(items.length > 2) 
+            Padding(
+              padding: const EdgeInsets.only(left: 14, right: 14, bottom: 4), 
+              child: Align(
+                alignment: Alignment.centerLeft, 
+                child: Text('+ ${items.length - 2} article(s)', style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF), fontStyle: FontStyle.italic))
+              )
             ),
-            child: const Text('Réessayer'),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.shopping_bag_outlined, size: 60, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          const Text(
-            'Aucune commande',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Vos commandes apparaîtront ici',
-            style: TextStyle(color: Colors.grey[500]),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => context.push('/market/buy'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryBlue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
+          // Footer Total + Actions
+          Container(
+            margin: const EdgeInsets.fromLTRB(14, 8, 14, 14), 
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), 
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB), 
+              borderRadius: BorderRadius.circular(14), 
+              border: Border.all(color: const Color(0xFFF0F0F0))
             ),
-            child: const Text('Découvrir des produits'),
-          ),
-        ],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, 
+                  children: [
+                    Text(date != null ? '${date.day}/${date.month}/${date.year}' : '', style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
+                    const SizedBox(height: 2),
+                    Text('#${o['id'].toString().substring(0, 8).toUpperCase()}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: navy)),
+                  ]
+                ),
+                Row(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end, 
+                      children: [
+                        const Text('Total', style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))), 
+                        const SizedBox(height: 1),
+                        // Affichage dynamique du total (avec décimales si USD, entier si FC)
+                        Text(
+                          '${cur == '\$' ? total.toStringAsFixed(2) : total.toInt()} $cur', 
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: navy),
+                        ),
+                      ]
+                    ),
+                    const SizedBox(width: 12),
+                    if (status == 'pending' || status == 'confirmed')
+                      InkWell(
+                        onTap: () => _cancel(o['id']), 
+                        borderRadius: BorderRadius.circular(10), 
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFFFD0D0))), 
+                          child: const Text('Annuler', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: red))
+                        )
+                      ),
+                    if (status != 'pending' && status != 'confirmed')
+                      InkWell(
+                        onTap: () => context.pushNamed('marketOrderDetail', pathParameters: {'orderId': o['id'].toString()}), 
+                        borderRadius: BorderRadius.circular(10), 
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
+                          decoration: BoxDecoration(color: navy, borderRadius: BorderRadius.circular(10)), 
+                          child: const Text('Détails', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white))
+                        )
+                      ),
+                  ]
+                )
+              ]
+            ),
+          )
+        ]
       ),
     );
   }

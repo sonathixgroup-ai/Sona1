@@ -1,170 +1,269 @@
+// lib/presentation/thix_market/pages/market_home_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/market_provider.dart';
-import '../providers/shop_provider.dart';
-import '../widgets/market/category_grid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/market_colors.dart';
+import '../providers/market_providers.dart';
+import '../widgets/products/wishlist_button.dart';
 import '../widgets/market/flash_sale_timer.dart';
-import '../vendor/vendor_dashboard.dart';
 
-class MarketHomePage extends StatefulWidget {
+class MarketHomePage extends ConsumerStatefulWidget {
   const MarketHomePage({super.key});
-
   @override
-  State<MarketHomePage> createState() => _MarketHomePageState();
+  ConsumerState<MarketHomePage> createState() => _MarketHomePageState();
 }
 
-class _MarketHomePageState extends State<MarketHomePage> {
-  final ScrollController _scrollController = ScrollController();
-  final PageController _bannerController = PageController();
+class _MarketHomePageState extends ConsumerState<MarketHomePage> {
+  final ScrollController _scroll = ScrollController();
+  final PageController _bannerCtrl = PageController(viewportFraction: 0.94);
+  final ScrollController _flashScrollCtrl = ScrollController();
+
   Timer? _bannerTimer;
-  int _currentBannerIndex = 0;
+  Timer? _flashTimer;
 
-  // ============================================================
-  // CHARTE THIX MARKET — Élite Institutionnel Bleu / Blanc
-  // ============================================================
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color navy = Color(0xFF123B7A);
-  static const Color primaryBlue = Color(0xFF2D6CDF);
-  static const Color electricBlue = Color(0xFF4E8CFF);
-  static const Color softBlue = Color(0xFFEFF5FF);
-  static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF10192E);
-  static const Color mutedText = Color(0xFF7386A8);
-  static const Color gold = Color(0xFFE3B23C);
-  static const Color glow = Color(0xFF2D6CDF);
-  static const Color green = Color(0xFF059669);
+  bool _bannerReady = false;
+  bool _flashReady = false;
+  bool _flashPaused = false;
 
-  // ✅ Supermarchés fictifs — logos générés par initiales + dégradé de couleur
-  static const List<Map<String, dynamic>> _supermarkets = [
-    {'name': 'Kin Frais', 'tagline': 'Produits frais & légumes', 'color': Color(0xFF2D6CDF), 'time': '35 min'},
-    {'name': 'AlimentPlus', 'tagline': 'Épicerie complète', 'color': Color(0xFFE3B23C), 'time': '40 min'},
-    {'name': 'ÉpiCash', 'tagline': 'Prix bas garantis', 'color': Color(0xFF059669), 'time': '30 min'},
-    {'name': 'MaxiMarché', 'tagline': 'Supermarché familial', 'color': Color(0xFF7C4DFF), 'time': '45 min'},
-    {'name': 'SuperGo', 'tagline': 'Livraison express', 'color': Color(0xFFE5484D), 'time': '25 min'},
-  ];
+  int _currentBanner = 0;
+  int _selectedNav = 0;
+
+  static const double _flashStep = 1.1; // px par tick — vitesse du défilement continu
+  static const Duration _flashTick = Duration(milliseconds: 16);
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(() {});
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<MarketProvider>().loadHomeData();
-      context.read<ShopProvider>().loadMyShops();
-    });
+    _scroll.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 700) {
+      ref.read(forYouProvider.notifier).loadMore();
+    }
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
-    _bannerController.dispose();
+    _scroll.dispose();
+    _bannerCtrl.dispose();
+    _flashScrollCtrl.dispose();
     _bannerTimer?.cancel();
+    _flashTimer?.cancel();
     super.dispose();
   }
 
-  void _goToVendor() => context.push('/market/vendor/dashboard');
-  void _goToCart() => context.push('/market/cart');
-  void _goToWishlist() => context.push('/market/buy');
-
-  Widget _networkImage(String? url, {BoxFit fit = BoxFit.cover}) {
-    if (url == null || url.trim().isEmpty) {
-      return Container(color: softBlue, alignment: Alignment.center, child: Icon(Icons.image_outlined, color: mutedText));
+  void _safeNavigate(String name, String path) {
+    try {
+      context.pushNamed(name);
+    } catch (_) {
+      try {
+        context.push(path);
+      } catch (_) {}
     }
-    return CachedNetworkImage(
-      imageUrl: url,
-      fit: fit,
-      placeholder: (_, __) => Container(color: softBlue, child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: primaryBlue))),
-      errorWidget: (_, __, ___) => Container(color: softBlue, child: Icon(Icons.image_not_supported_outlined, color: mutedText)),
-    );
   }
 
-  // ============================================================
-  // BANNIÈRE : autoplay toutes les 6 secondes
-  // ============================================================
-  void _startBannerAutoplay(List<dynamic> banners) {
-    if (banners.isEmpty) return;
-    _bannerTimer?.cancel();
-    _bannerTimer = Timer.periodic(const Duration(seconds: 6), (timer) {
-      if (_bannerController.hasClients && banners.isNotEmpty) {
-        final nextPage = (_currentBannerIndex + 1) % banners.length;
-        _bannerController.animateToPage(
-          nextPage,
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOutCubic,
-        );
-        setState(() => _currentBannerIndex = nextPage);
+  // --------------------------------------------------------
+  // HERO BANNER — auto-scroll toutes les 4s, cible le produit
+  // choisi comme destination au moment de la publication.
+  // --------------------------------------------------------
+  void _startBannerAuto(int count) {
+    if (_bannerReady) return;
+    if (count <= 1) return;
+    _bannerReady = true;
+    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!_bannerCtrl.hasClients) return;
+      _currentBanner = (_currentBanner + 1) % count;
+      _bannerCtrl.animateToPage(
+        _currentBanner,
+        duration: const Duration(milliseconds: 700),
+        curve: Curves.easeOutCubic,
+      );
+      if (mounted) setState(() {});
+    });
+  }
+
+  /// Extrait l'ID du produit/destination choisi lors de la publication
+  /// du banner. Supporte plusieurs noms de champs possibles selon
+  /// comment le banner a été créé côté admin/Supabase.
+  String? _bannerTargetId(Map<String, dynamic>? b) {
+    if (b == null) return null;
+    final candidates = [
+      b['product_id'],
+      b['target_product_id'],
+      b['destination_product_id'],
+      b['linked_product_id'],
+      b['id'],
+      b['target_url'],
+    ];
+    for (final c in candidates) {
+      if (c != null && c.toString().trim().isNotEmpty) return c.toString();
+    }
+    return null;
+  }
+
+  // --------------------------------------------------------
+  // FLASH SALES — défilement continu (type marquee), actif
+  // uniquement si plus de 4 produits. Pause si l'utilisateur
+  // interagit manuellement avec la liste.
+  // --------------------------------------------------------
+  void _startFlashAutoScroll(int flashCount) {
+    if (_flashReady) return;
+    if (flashCount <= 4) return;
+    _flashReady = true;
+    _flashTimer = Timer.periodic(_flashTick, (_) {
+      if (!_flashScrollCtrl.hasClients || _flashPaused) return;
+      final maxExt = _flashScrollCtrl.position.maxScrollExtent;
+      final next = _flashScrollCtrl.offset + _flashStep;
+      if (next >= maxExt) {
+        _flashScrollCtrl.jumpTo(0);
+      } else {
+        _flashScrollCtrl.jumpTo(next);
       }
     });
   }
 
+  void _pauseFlashAuto() => _flashPaused = true;
+
+  void _resumeFlashAutoAfterDelay() {
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) _flashPaused = false;
+    });
+  }
+
+  String _shopName(Map<String, dynamic> p) => (p['shop_name'] ?? p['shops']?['name'] ?? 'Boutique THIX').toString();
+  String _location(Map<String, dynamic> p) => (p['city'] ?? p['location'] ?? 'RDC').toString();
+
+  String _currencySymbol(Map<String, dynamic> p) {
+    final cur = (p['currency'] ?? 'CDF').toString().toUpperCase();
+    if (cur == 'USD' || cur == '\$') return '\$';
+    return 'FC';
+  }
+
+  String _greetingName() {
+    final user = Supabase.instance.client.auth.currentUser;
+    final full = user?.userMetadata?['full_name'] ?? user?.userMetadata?['name'];
+    if (full != null && (full as String).trim().isNotEmpty) return full.trim().split(' ').first;
+    final email = user?.email;
+    if (email != null && email.contains('@')) return email.split('@').first;
+    return 'Client';
+  }
+
+  double _price(dynamic v) {
+    if (v is num) return v.toDouble();
+    return double.tryParse(v?.toString() ?? '') ?? 0;
+  }
+
+  String? _extractImage(Map<String, dynamic>? data) {
+    if (data == null) return null;
+    if (data['image_url'] != null && data['image_url'].toString().isNotEmpty) return data['image_url'].toString();
+    if (data['banner_url'] != null && data['banner_url'].toString().isNotEmpty) return data['banner_url'].toString();
+    if (data['images'] is List && (data['images'] as List).isNotEmpty) return (data['images'] as List)[0].toString();
+    return null;
+  }
+
+  Widget _img(String? url) {
+    if (url == null || url.isEmpty) {
+      return Container(color: MarketColors.lightBg, child: const Icon(Icons.image_outlined, color: MarketColors.mutedText));
+    }
+    return Image.network(url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) =>
+            Container(color: MarketColors.lightBg, child: const Icon(Icons.image_not_supported_outlined, color: MarketColors.mutedText)));
+  }
+
+  void _showComing(String f) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$f : Bientôt disponible!'), backgroundColor: MarketColors.gold));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final marketProvider = context.watch<MarketProvider>();
-    final shopProvider = context.watch<ShopProvider>();
+    final bannersAsync = ref.watch(bannersProvider);
+    final flashAsync = ref.watch(flashSalesProvider);
+    final forYouAsync = ref.watch(forYouProvider);
+    final all = ref.watch(allMarketProductsProvider);
+    final hasMore = ref.read(forYouProvider.notifier).hasMore;
 
-    final Map<String, dynamic> allById = {};
-    for (final p in [
-      ...marketProvider.flashSales,
-      ...marketProvider.recommendedProducts,
-      ...marketProvider.forYouProducts,
-    ]) {
-      allById[p['id'].toString()] = p;
-    }
-    final allProducts = allById.values.toList();
-    final banners = marketProvider.promoBanners;
-
-    // Démarrer l'autoplay dès que les bannières sont chargées
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (banners.isNotEmpty) _startBannerAutoplay(banners);
-    });
+    bannersAsync.whenData((b) => WidgetsBinding.instance.addPostFrameCallback((_) => _startBannerAuto(b.length)));
+    flashAsync.whenData((f) => WidgetsBinding.instance.addPostFrameCallback((_) => _startFlashAutoScroll(f.length)));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FAFF),
+      backgroundColor: MarketColors.lightBg,
       body: RefreshIndicator(
-        color: primaryBlue,
-        onRefresh: () => marketProvider.refresh(),
+        color: MarketColors.red,
+        onRefresh: () async {
+          ref.invalidate(bannersProvider);
+          ref.invalidate(flashSalesProvider);
+          ref.invalidate(featuredShopsProvider);
+          await ref.read(forYouProvider.notifier).refresh();
+        },
         child: CustomScrollView(
-          controller: _scrollController,
+          controller: _scroll,
           slivers: [
-            _buildAppBar(),
+            SliverToBoxAdapter(child: _buildTopBar()),
+            SliverToBoxAdapter(child: _buildHero(bannersAsync)),
+            SliverToBoxAdapter(child: _buildTrustBadges()),
+            SliverToBoxAdapter(child: _buildSearchBar()),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: _buildSupermarketSection()),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: _buildPromoBannersRow()),
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            SliverToBoxAdapter(child: _buildB2BTools()),
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+            // BANDEAU DÉFILANT ROUGE AVEC MINUTEUR AU DÉBUT
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 14),
-                    // Bannières rectangulaires, agrandies
-                    if (banners.isNotEmpty) ...[
-                      _buildBannerCarousel(banners),
-                      const SizedBox(height: 18),
+                child: flashAsync.maybeWhen(
+              data: (list) {
+                if (list.isEmpty) return const SizedBox.shrink();
+
+                DateTime? timerEnd;
+                for (var p in list) {
+                  if (p['expires_at'] != null) {
+                    final dt = DateTime.tryParse(p['expires_at'].toString());
+                    if (dt != null && dt.isAfter(DateTime.now())) {
+                      if (timerEnd == null || dt.isBefore(timerEnd)) timerEnd = dt;
+                    }
+                  }
+                }
+                timerEnd ??= DateTime.now().add(const Duration(hours: 2, minutes: 45));
+
+                return Container(
+                  color: MarketColors.red,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12, right: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                          child: FlashSaleTimer(endTime: timerEnd),
+                        ),
+                      ),
+                      const Expanded(
+                        child: ClipRect(
+                          child: _MarqueeWidget(text: "⚡ VENTE FLASH EN COURS • JUSQU'À -50% SUR UNE SÉLECTION DE PRODUITS • PROFITEZ-EN VITE ⚡"),
+                        ),
+                      ),
                     ],
-                    // ✅ Supermarchés — remplace la grille de catégories
-                    _buildSupermarketsSection(),
-                    const SizedBox(height: 14),
-                    // ✅ Catégories — conservées, version compacte (chips fines)
-                    _buildCategoryChipsSection(),
-                    const SizedBox(height: 18),
-                    if (marketProvider.flashSales.isNotEmpty) ...[
-                      _buildFlashSaleSection(marketProvider.flashSales),
-                      const SizedBox(height: 18),
-                    ],
-                    if (marketProvider.recommendedProducts.isNotEmpty) ...[
-                      _buildRecommendedSection(marketProvider.recommendedProducts),
-                      const SizedBox(height: 18),
-                    ],
-                    if (allProducts.isNotEmpty) ...[
-                      _sectionHeader('Tous les produits', onSeeAll: () => context.push('/market/buy')),
-                      const SizedBox(height: 8),
-                      _productGrid(allProducts),
-                    ],
-                    const SizedBox(height: 100),
-                  ],
-                ),
-              ),
-            ),
+                  ),
+                );
+              },
+              orElse: () => const SizedBox.shrink(),
+            )),
+
+            SliverToBoxAdapter(child: _buildFlashSaleSection(flashAsync)),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: _buildSectionHeader('Tous les produits', () {})),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            _buildGrid(forYouAsync, all, hasMore),
+            const SliverToBoxAdapter(child: SizedBox(height: 110)),
           ],
         ),
       ),
@@ -172,654 +271,548 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // APP BAR — « THIX MARKET » au lieu de la localisation
-  // ============================================================
-  Widget _buildAppBar() {
-    return SliverAppBar(
-      pinned: true,
-      floating: true,
-      elevation: 0,
-      toolbarHeight: 72,
-      backgroundColor: navyDeep,
-      surfaceTintColor: navyDeep,
-      automaticallyImplyLeading: false,
-      flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [navyDeep, navy, primaryBlue],
-          ),
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(26),
-            bottomRight: Radius.circular(26),
-          ),
-          boxShadow: [
-            BoxShadow(color: Color(0x332D6CDF), blurRadius: 22, offset: Offset(0, 10)),
-          ],
-        ),
-      ),
-      title: Row(
+  Widget _buildTopBar() {
+    return Container(
+      color: MarketColors.white,
+      padding: const EdgeInsets.fromLTRB(16, 54, 16, 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(9)),
-            child: const Icon(Icons.storefront_rounded, size: 16, color: gold),
-          ),
-          const SizedBox(width: 7),
-          const Text(
-            'THIX MARKET',
-            style: TextStyle(
-              fontSize: 15.5,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const Spacer(),
-          _buildIconButton(Icons.search_rounded, () => context.push('/market/search')),
-          _buildIconButton(Icons.notifications_none_rounded, () => context.push('/market/notifications')),
-          _buildIconButton(Icons.storefront_rounded, _goToVendor),
+          Row(children: [
+            Container(
+                width: 44,
+                height: 44,
+                decoration:
+                    BoxDecoration(color: MarketColors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: MarketColors.cardBorder)),
+                child: const Icon(Icons.shopping_bag_rounded, color: MarketColors.red, size: 22)),
+            const SizedBox(width: 10),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              RichText(
+                  text: const TextSpan(children: [
+                TextSpan(text: 'THIX ', style: TextStyle(color: MarketColors.red, fontWeight: FontWeight.w900, fontSize: 19)),
+                TextSpan(text: 'MARKET', style: TextStyle(color: MarketColors.gold, fontWeight: FontWeight.w900, fontSize: 19))
+              ])),
+              const Text('Achetez. Vendez. Évoluez.', style: TextStyle(color: MarketColors.mutedText, fontSize: 11.5))
+            ]),
+          ]),
+          Row(children: [
+            InkWell(
+                onTap: () => context.push('/market/notifications'),
+                child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: MarketColors.cardBorder)),
+                    child: const Icon(Icons.notifications_none_rounded, size: 20))),
+            const SizedBox(width: 10),
+            InkWell(
+                onTap: () => context.push('/user/dashboard'),
+                child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(color: MarketColors.red, shape: BoxShape.circle),
+                    child: const Icon(Icons.person_rounded, color: Colors.white, size: 20))),
+          ]),
         ],
       ),
     );
   }
 
-  Widget _buildIconButton(IconData icon, VoidCallback onTap) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(11),
-      onTap: onTap,
-      child: Container(
-        width: 34,
-        height: 34,
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.14),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.18)),
-        ),
-        child: Icon(icon, size: 16, color: Colors.white),
-      ),
+  Widget _buildHero(AsyncValue<List<Map<String, dynamic>>> async) {
+    return async.when(
+      loading: () => const SizedBox(height: 230, child: Center(child: CircularProgressIndicator(color: MarketColors.red))),
+      error: (_, __) => _buildHeroContent([null]),
+      data: (b) => _buildHeroContent(b),
     );
   }
 
-  // ============================================================
-  // BANNIÈRE : rectangle, bord droit, plus haute, autoplay 6s
-  // ============================================================
-  Widget _buildBannerCarousel(List<dynamic> banners) {
-    return SizedBox(
-      height: 170,
-      child: PageView.builder(
-        controller: _bannerController,
-        itemCount: banners.length,
-        onPageChanged: (index) {
-          setState(() => _currentBannerIndex = index);
-        },
-        itemBuilder: (context, index) {
-          final banner = banners[index];
-          return GestureDetector(
-            onTap: () {
-              context.push('/market/flash-sales');
-            },
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(0),
-                boxShadow: [
-                  BoxShadow(color: navyDeep.withOpacity(0.14), blurRadius: 20, offset: const Offset(0, 10)),
-                ],
-                image: DecorationImage(
-                  image: NetworkImage(banner['image_url'] ?? ''),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+  Widget _buildHeroContent(List<dynamic> banners) {
+    final slides = banners.isEmpty ? [null] : banners;
+    return Column(children: [
+      SizedBox(
+        height: 230,
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (n) {
+            // Pause l'auto-scroll pendant que l'utilisateur glisse manuellement,
+            // puis reprend automatiquement le cycle.
+            if (n is ScrollStartNotification) {
+              _bannerTimer?.cancel();
+              _bannerReady = false;
+            } else if (n is ScrollEndNotification) {
+              Future.delayed(const Duration(seconds: 2), () {
+                if (mounted) {
+                  final count = slides.length;
+                  _startBannerAuto(count);
+                }
+              });
+            }
+            return false;
+          },
+          child: PageView.builder(
+            controller: _bannerCtrl,
+            itemCount: slides.length,
+            onPageChanged: (i) => setState(() => _currentBanner = i),
+            itemBuilder: (_, index) {
+              final b = slides[index] as Map<String, dynamic>?;
+              final imageUrl = _extractImage(b);
+              final title = b?['title'] ?? 'Votre marketplace\npremium et sécurisée';
+              final subtitle = b?['description'] ?? b?['subtitle'] ?? 'Des milliers de produits, des vendeurs vérifiés, une expérience unique.';
+              final targetId = _bannerTargetId(b);
 
-  // ============================================================
-  // ✅ SUPERMARCHÉS — « Faites vos courses à domicile »
-  // ============================================================
-  Widget _buildSupermarketsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('Supermarchés', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, color: darkText)),
-                SizedBox(height: 2),
-                Text('Faites vos courses à domicile', style: TextStyle(fontSize: 10.5, color: mutedText, fontWeight: FontWeight.w500)),
-              ],
-            ),
-            TextButton(
-              onPressed: () => context.push('/market/search'),
-              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-              child: const Text('Voir tout', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w700, fontSize: 12)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 96,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _supermarkets.length,
-            itemBuilder: (context, index) {
-              final s = _supermarkets[index];
-              final Color c = s['color'] as Color;
-              final initials = (s['name'] as String)
-                  .split(' ')
-                  .map((w) => w.isNotEmpty ? w[0] : '')
-                  .take(2)
-                  .join()
-                  .toUpperCase();
-
-              return GestureDetector(
-                onTap: () => context.push('/market/search?shop=${Uri.encodeComponent(s['name'] as String)}'),
-                child: Container(
-                  width: 172,
-                  margin: const EdgeInsets.only(right: 10),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: pureWhite,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: softBlue, width: 1),
-                    boxShadow: [
-                      BoxShadow(color: navyDeep.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 6)),
-                    ],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: GestureDetector(
+                  onTap: () {
+                    if (targetId != null && targetId.isNotEmpty) {
+                      context.push('/market/product/$targetId');
+                    } else {
+                      context.push('/market/flash-sales');
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(22, 22, 16, 22),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      color: MarketColors.redDark,
+                      image: imageUrl != null
+                          ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover, colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.55), BlendMode.darken))
+                          : null,
+                      gradient: imageUrl == null ? const LinearGradient(colors: [MarketColors.redDark, MarketColors.red]) : null,
+                    ),
+                    child: Stack(children: [
+                      if (imageUrl == null)
+                        const Positioned(right: -10, bottom: -10, child: Opacity(opacity: 0.18, child: Icon(Icons.shopping_cart_rounded, size: 140, color: Colors.white))),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          if (index == 0 && imageUrl == null)
+                            Text('Bonjour, ${_greetingName()} 👋', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1.2)),
+                          const SizedBox(height: 8),
+                          SizedBox(width: 210, child: Text(subtitle, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12))),
+                          const SizedBox(height: 16),
                           Container(
-                            width: 42,
-                            height: 42,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(colors: [c, c.withOpacity(0.72)]),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [BoxShadow(color: c.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))],
-                            ),
-                            child: Text(
-                              initials,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: -2,
-                            right: -2,
-                            child: Container(
-                              width: 11,
-                              height: 11,
-                              decoration: BoxDecoration(
-                                color: green,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
-                              ),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                            decoration: BoxDecoration(color: MarketColors.gold, borderRadius: BorderRadius.circular(14)),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(targetId != null ? Icons.visibility_rounded : Icons.search_rounded, size: 16, color: MarketColors.redDark),
+                              const SizedBox(width: 8),
+                              Text(targetId != null ? 'Voir l\'offre' : 'Explorer le marché', style: const TextStyle(color: MarketColors.redDark, fontWeight: FontWeight.w800, fontSize: 12.5))
+                            ]),
                           ),
                         ],
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              s['name'] as String,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: darkText),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              s['tagline'] as String,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 9, color: mutedText, height: 1.2),
-                            ),
-                            const SizedBox(height: 5),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: softBlue, borderRadius: BorderRadius.circular(20)),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.delivery_dining_rounded, size: 10, color: primaryBlue),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    s['time'] as String,
-                                    style: const TextStyle(fontSize: 8.5, color: primaryBlue, fontWeight: FontWeight.w700),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ]),
                   ),
                 ),
               );
             },
           ),
         ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // ✅ CATÉGORIES — version compacte (chips), fonctionnalité conservée
-  // ============================================================
-  Widget _buildCategoryChipsSection() {
-    final categories = [
-      {'icon': Icons.checkroom_rounded, 'label': 'Mode', 'id': 'fashion'},
-      {'icon': Icons.phone_android_rounded, 'label': 'Électronique', 'id': 'electronics'},
-      {'icon': Icons.chair_rounded, 'label': 'Maison', 'id': 'home'},
-      {'icon': Icons.build_rounded, 'label': 'Services', 'id': 'services'},
-      {'icon': Icons.directions_car_rounded, 'label': 'Véhicules', 'id': 'vehicles'},
-      {'icon': Icons.house_rounded, 'label': 'Immobilier', 'id': 'realestate'},
-    ];
-
-    return SizedBox(
-      height: 34,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: categories.length,
-        itemBuilder: (context, index) {
-          final cat = categories[index];
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () => context.push('/market/category/${cat['id']}'),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: pureWhite,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: softBlue, width: 1),
-                  boxShadow: [
-                    BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 3)),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(cat['icon'] as IconData, size: 13, color: navy),
-                    const SizedBox(width: 5),
-                    Text(
-                      cat['label'] as String,
-                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: darkText),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
       ),
-    );
+      const SizedBox(height: 10),
+      Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(slides.length, (i) {
+            final a = i == _currentBanner;
+            return AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                height: 6,
+                width: a ? 18 : 6,
+                decoration: BoxDecoration(color: a ? MarketColors.red : Colors.grey.shade300, borderRadius: BorderRadius.circular(10)));
+          })),
+    ]);
   }
 
-  // ============================================================
-  // FLASH SALE
-  // ============================================================
-  Widget _buildFlashSaleSection(List<dynamic> flashSales) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Offres Flash', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, color: darkText)),
-            FlashSaleTimer(endTime: DateTime.now().add(const Duration(hours: 2, minutes: 45))),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 180,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: flashSales.take(6).length,
-            itemBuilder: (context, index) {
-              final product = flashSales[index];
-              return _buildProductHorizontalCard(product, isFlash: true);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // RECOMMANDÉ
-  // ============================================================
-  Widget _buildRecommendedSection(List<dynamic> products) {
-    if (products.isEmpty) return const SizedBox();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Recommandé', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, color: darkText)),
-            TextButton(
-              onPressed: () => context.push('/market/buy'),
-              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-              child: const Text('Voir tout', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w700, fontSize: 12)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 180,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: products.take(6).length,
-            itemBuilder: (context, index) {
-              final product = products[index];
-              return _buildProductHorizontalCard(product);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // CARTE PRODUIT HORIZONTALE
-  // ============================================================
-  Widget _buildProductHorizontalCard(Map<String, dynamic> product, {bool isFlash = false}) {
-    final currency = product['currency'] ?? 'FC';
-    final symbol = currency == 'USD' ? '\$' : 'FC';
-    final price = (product['price'] as num).toInt();
-
-    return GestureDetector(
-      onTap: () => context.push('/market/product/${product['id']}'),
-      child: Container(
-        width: 130,
-        margin: const EdgeInsets.only(right: 10),
-        decoration: BoxDecoration(
-          color: pureWhite,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: softBlue, width: 1),
-          boxShadow: [
-            BoxShadow(color: navyDeep.withOpacity(0.07), blurRadius: 14, offset: const Offset(0, 7)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _networkImage(product['image_url']),
-                    if (isFlash)
-                      Positioned(
-                        top: 7,
-                        left: 7,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: [Color(0xFFFF5B3D), Color(0xFFFF8A3D)]),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [BoxShadow(color: const Color(0xFFFF5B3D).withOpacity(0.4), blurRadius: 7, offset: const Offset(0, 3))],
-                          ),
-                          child: const Text('FLASH', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product['title'] ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: darkText),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$price $symbol',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: navyDeep),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Icon(Icons.location_on_rounded, size: 10, color: mutedText),
-                      const SizedBox(width: 2),
-                      Expanded(
-                        child: Text(
-                          product['city'] ?? 'Abidjan',
-                          style: TextStyle(fontSize: 9, color: mutedText),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // GRILLE PRODUITS
-  // ============================================================
-  Widget _productGrid(List<dynamic> products) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 0.7,
-      ),
-      itemCount: products.length > 8 ? 8 : products.length,
-      itemBuilder: (context, index) => _buildProductCard(products[index]),
-    );
-  }
-
-  Widget _buildProductCard(Map<String, dynamic> product) {
-    final hasDiscount = product['discount_price'] != null && product['discount_price'] < product['price'];
-    final price = (hasDiscount ? product['discount_price'] : product['price']).toDouble();
-    final originalPrice = product['price'].toDouble();
-    final currency = product['currency'] ?? 'FC';
-    final symbol = currency == 'USD' ? '\$' : 'FC';
-
-    return GestureDetector(
-      onTap: () => context.push('/market/product/${product['id']}'),
-      child: Container(
-        decoration: BoxDecoration(
-          color: pureWhite,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: softBlue, width: 1),
-          boxShadow: [
-            BoxShadow(color: navyDeep.withOpacity(0.06), blurRadius: 14, offset: const Offset(0, 7)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _networkImage(product['image_url']),
-                    if (hasDiscount)
-                      Positioned(
-                        top: 7,
-                        left: 7,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: [Color(0xFFFF5B3D), Color(0xFFFF8A3D)]),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '-${((1 - price / originalPrice) * 100).round()}%',
-                            style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                      ),
-                    Positioned(
-                      top: 7,
-                      right: 7,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.1), blurRadius: 5)],
-                        ),
-                        child: const Icon(Icons.bookmark_border_rounded, size: 13, color: navy),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product['title'] ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: darkText),
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Text(
-                        '${price.toInt()} $symbol',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: navyDeep),
-                      ),
-                      if (hasDiscount)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 5),
-                          child: Text(
-                            '${originalPrice.toInt()} $symbol',
-                            style: TextStyle(
-                              decoration: TextDecoration.lineThrough,
-                              fontSize: 9.5,
-                              color: mutedText,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Icon(Icons.location_on_rounded, size: 9.5, color: mutedText),
-                      const SizedBox(width: 2),
-                      Expanded(
-                        child: Text(
-                          product['city'] ?? 'Abidjan',
-                          style: TextStyle(fontSize: 8.5, color: mutedText),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Icon(Icons.store_rounded, size: 9.5, color: mutedText),
-                      const SizedBox(width: 2),
-                      Expanded(
-                        child: Text(
-                          product['shop']?['name'] ?? 'Vendeur',
-                          style: TextStyle(fontSize: 8.5, color: mutedText),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionHeader(String title, {VoidCallback? onSeeAll}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, color: darkText)),
-        if (onSeeAll != null)
-          TextButton(
-            onPressed: onSeeAll,
-            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-            child: const Text('Voir tout', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w700, fontSize: 12)),
-          ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // BOTTOM NAV BAR
-  // ============================================================
-  Widget _buildBottomNavBar() {
+  Widget _buildTrustBadges() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(color: navyDeep.withOpacity(0.12), blurRadius: 22, offset: const Offset(0, 9)),
+      color: MarketColors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          Row(children: [Icon(Icons.lock_outline_rounded, size: 15, color: MarketColors.red), SizedBox(width: 5), Text('Paiement sécurisé', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))]),
+          Row(children: [Icon(Icons.verified_user_outlined, size: 15, color: MarketColors.red), SizedBox(width: 5), Text('Vendeurs vérifiés', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))]),
+          Row(children: [Icon(Icons.local_shipping_outlined, size: 15, color: MarketColors.red), SizedBox(width: 5), Text('Livraison fiable', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))]),
+          Row(children: [Icon(Icons.headset_mic_outlined, size: 15, color: MarketColors.red), SizedBox(width: 5), Text('Support 24/7', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))]),
         ],
       ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      color: MarketColors.white,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      child: Row(children: [
+        Expanded(
+            child: GestureDetector(
+                onTap: () => context.push('/market/search'),
+                child: Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), border: Border.all(color: MarketColors.cardBorder, width: 1.4)),
+                    child: const Row(children: [
+                      Icon(Icons.search_rounded, size: 20, color: MarketColors.red),
+                      SizedBox(width: 10),
+                      Expanded(child: Text('Rechercher un produit, une marque...', style: TextStyle(fontSize: 12.5, color: MarketColors.mutedText)))
+                    ])))),
+        const SizedBox(width: 10),
+        InkWell(
+            onTap: () => context.push('/market/search'),
+            child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                decoration: BoxDecoration(color: MarketColors.red, borderRadius: BorderRadius.circular(24)),
+                child: const Center(child: Text('Rechercher', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12.5))))),
+      ]),
+    );
+  }
+
+  Widget _buildSupermarketSection() {
+    final shopsAsync = ref.watch(featuredShopsProvider);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Text('Supermarchés à domicile', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          GestureDetector(onTap: () => _safeNavigate('marketShops', '/market/shops'), child: const Text('Tout voir', style: TextStyle(color: MarketColors.red, fontSize: 12, fontWeight: FontWeight.w800)))
+        ]),
+        const SizedBox(height: 16),
+        shopsAsync.when(
+          loading: () => const SizedBox(height: 64, child: Center(child: CircularProgressIndicator(color: MarketColors.red))),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (shops) {
+            if (shops.isEmpty) return const Text('Aucun supermarché', style: TextStyle(color: MarketColors.mutedText, fontSize: 12));
+            return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: shops.take(4).map((s) {
+                  return GestureDetector(
+                      onTap: () => context.push('/market/shop/${s['id']}'),
+                      child: Column(children: [
+                        Container(
+                            height: 64,
+                            width: 64,
+                            decoration: BoxDecoration(
+                                shape: BoxShape.circle, color: MarketColors.red, image: s['logo_url'] != null ? DecorationImage(image: NetworkImage(s['logo_url']), fit: BoxFit.cover) : null),
+                            child: s['logo_url'] == null ? const Icon(Icons.storefront_rounded, color: Colors.white, size: 28) : null),
+                        const SizedBox(height: 8),
+                        Text((s['name'] ?? 'Shop').toString(), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700))
+                      ]));
+                }).toList());
+          },
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildPromoBannersRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(children: [
+        Expanded(
+            child: GestureDetector(
+                onTap: () => _safeNavigate('marketFlashSales', '/market/flash-sales'),
+                child: Container(
+                    height: 150,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(gradient: const LinearGradient(colors: [MarketColors.redDark, MarketColors.red]), borderRadius: BorderRadius.circular(20)),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('OFFRES EXCLUSIVES', style: TextStyle(color: MarketColors.gold, fontWeight: FontWeight.w800, fontSize: 10)),
+                      const SizedBox(height: 6),
+                      const Text('Jusqu\'à -50%', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 19)),
+                      const Text('sur une sélection premium', style: TextStyle(color: Colors.white70, fontSize: 10.5)),
+                      const Spacer(),
+                      Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(color: MarketColors.gold, borderRadius: BorderRadius.circular(10)),
+                          child: const Text('Découvrir', style: TextStyle(color: MarketColors.redDark, fontWeight: FontWeight.w800, fontSize: 11)))
+                    ])))),
+        const SizedBox(width: 12),
+        Expanded(
+            child: GestureDetector(
+                onTap: () => _safeNavigate('vendorDashboard', '/market/vendor/dashboard'),
+                child: Container(
+                    height: 150,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: MarketColors.creamBg, borderRadius: BorderRadius.circular(20)),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('VENDEZ AVEC THIX', style: TextStyle(color: Color(0xFFC9862B), fontWeight: FontWeight.w800, fontSize: 10)),
+                      const SizedBox(height: 6),
+                      const Text('Développez votre\nbusiness aujourd\'hui', style: TextStyle(color: MarketColors.darkText, fontWeight: FontWeight.w900, fontSize: 15, height: 1.15)),
+                      const Spacer(),
+                      Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(color: MarketColors.gold, borderRadius: BorderRadius.circular(10)),
+                          child: const Text('Commencer', style: TextStyle(color: MarketColors.redDark, fontWeight: FontWeight.w800, fontSize: 11)))
+                    ])))),
+      ]),
+    );
+  }
+
+  Widget _buildB2BTools() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(color: MarketColors.white, borderRadius: BorderRadius.circular(16)),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _b2bItem(Icons.compare_arrows_rounded, 'Comparer', () => _safeNavigate('marketProductComparator', '/market/compare')),
+            _b2bItem(Icons.notifications_active_rounded, 'Alerte Prix', () => _safeNavigate('marketPriceAlerts', '/market/price-alerts')),
+            _b2bItem(Icons.request_quote_rounded, 'Devis B2B', () => _showComing('Devis B2B')),
+            _b2bItem(Icons.favorite_rounded, 'Wishlist', () => _safeNavigate('marketWishlist', '/market/wishlist')),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _b2bItem(IconData icon, String label, VoidCallback onTap) {
+    return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Column(children: [Icon(icon, color: MarketColors.red, size: 24), const SizedBox(height: 6), Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800))])));
+  }
+
+  // --------------------------------------------------------
+  // SECTION FLASH SALES — liste horizontale en défilement
+  // continu (marquee) si plus de 4 produits, pause au toucher.
+  // --------------------------------------------------------
+  Widget _buildFlashSaleSection(AsyncValue<List<Map<String, dynamic>>> async) {
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (list) {
+        if (list.isEmpty) return const SizedBox.shrink();
+        final autoScrollActive = list.length > 4;
+
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(children: [
+              const Icon(Icons.bolt_rounded, color: MarketColors.gold, size: 22),
+              const SizedBox(width: 6),
+              const Text('Offres flash', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+              if (autoScrollActive) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: MarketColors.gold.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                  child: const Text('En direct', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: MarketColors.gold)),
+                ),
+              ],
+            ]),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 245,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (n) {
+                if (!autoScrollActive) return false;
+                if (n is ScrollStartNotification) {
+                  _pauseFlashAuto();
+                } else if (n is ScrollEndNotification) {
+                  _resumeFlashAutoAfterDelay();
+                }
+                return false;
+              },
+              child: ListView.separated(
+                controller: _flashScrollCtrl,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: list.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (_, i) => _buildProductHorizontalCard(list[i]),
+              ),
+            ),
+          ),
+        ]);
+      },
+    );
+  }
+
+  Widget _buildSectionHeader(String title, VoidCallback onTap) {
+    return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          GestureDetector(
+              onTap: onTap,
+              child: const Row(children: [
+                Text('Voir tout', style: TextStyle(color: MarketColors.red, fontSize: 12, fontWeight: FontWeight.w800)),
+                SizedBox(width: 4),
+                Icon(Icons.arrow_forward_ios_rounded, size: 10, color: MarketColors.red)
+              ]))
+        ]));
+  }
+
+  Widget _buildProductHorizontalCard(Map<String, dynamic> p) {
+    final price = _price(p['price']);
+    final currencySymbol = _currencySymbol(p);
+    final imageUrl = _extractImage(p);
+
+    return GestureDetector(
+      onTap: () => context.push('/market/product/${p['id']}'),
+      child: Container(
+        width: 155,
+        decoration: BoxDecoration(color: MarketColors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFD81E2C).withValues(alpha: 0.25))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+              flex: 5,
+              child: Stack(fit: StackFit.expand, children: [
+                ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), child: _img(imageUrl)),
+                Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: MarketColors.red, borderRadius: BorderRadius.circular(8)),
+                        child: Text('-${p['discount_percent'] ?? 0}%', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)))),
+                Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                        child: WishlistButton(productId: p['id'].toString(), size: 20))),
+              ])),
+          Expanded(
+              flex: 5,
+              child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(p['title'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, height: 1.2)),
+                    const Spacer(),
+                    Row(children: [
+                      const Icon(Icons.storefront_rounded, size: 11, color: MarketColors.mutedText),
+                      const SizedBox(width: 3),
+                      Expanded(child: Text(_shopName(p), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9.5, color: MarketColors.mutedText)))
+                    ]),
+                    Text('${price.toInt()} $currencySymbol', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: MarketColors.red)),
+                  ]))),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildGrid(AsyncValue<List<Map<String, dynamic>>> forYouAsync, List<Map<String, dynamic>> all, bool hasMore) {
+    return forYouAsync.when(
+      loading: () => const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(60), child: Center(child: CircularProgressIndicator(color: MarketColors.red)))),
+      error: (e, _) => SliverToBoxAdapter(child: Center(child: Text('Erreur $e'))),
+      data: (_) => SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        sliver: SliverGrid(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.62),
+          delegate: SliverChildBuilderDelegate((_, i) {
+            if (i >= all.length) return const Center(child: CircularProgressIndicator(color: MarketColors.red));
+            return _buildProductCard(all[i]);
+          }, childCount: all.length + (hasMore ? 1 : 0)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductCard(Map<String, dynamic> p) {
+    final price = _price(p['discount_price'] ?? p['price']);
+    final orig = _price(p['price']);
+    final hasDisc = p['discount_price'] != null && price < orig;
+    final currencySymbol = _currencySymbol(p);
+    final imageUrl = _extractImage(p);
+
+    return GestureDetector(
+      onTap: () => context.push('/market/product/${p['id']}'),
+      child: Container(
+        decoration: BoxDecoration(color: MarketColors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: MarketColors.cardBorder)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+              flex: 5,
+              child: Stack(fit: StackFit.expand, children: [
+                ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(18)), child: _img(imageUrl)),
+                if (hasDisc)
+                  Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          decoration: BoxDecoration(color: MarketColors.red, borderRadius: BorderRadius.circular(8)),
+                          child: Text('-${((1 - price / orig) * 100).round()}%', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)))),
+                Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                        child: WishlistButton(productId: p['id'].toString(), size: 20))),
+              ])),
+          Expanded(
+            flex: 5,
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(p['title'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, height: 1.2)),
+                const SizedBox(height: 3),
+                Row(children: [
+                  const Icon(Icons.storefront_rounded, size: 11, color: MarketColors.mutedText),
+                  const SizedBox(width: 3),
+                  Expanded(child: Text(_shopName(p), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9.5, color: MarketColors.mutedText)))
+                ]),
+                Row(children: [
+                  const Icon(Icons.location_on_outlined, size: 11, color: MarketColors.mutedText),
+                  const SizedBox(width: 3),
+                  Expanded(child: Text(_location(p), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9.5, color: MarketColors.mutedText)))
+                ]),
+                const Spacer(),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    if (hasDisc) Text('${orig.toInt()} $currencySymbol', style: const TextStyle(decoration: TextDecoration.lineThrough, fontSize: 10, color: MarketColors.mutedText)),
+                    Text('${price.toInt()} $currencySymbol', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: MarketColors.red))
+                  ]),
+                  Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: MarketColors.creamBg, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.add_shopping_cart_rounded, size: 16, color: MarketColors.red)),
+                ]),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavBar() {
+    return Container(
+      color: MarketColors.white,
+      padding: const EdgeInsets.only(top: 6),
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 7),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+        child: SizedBox(
+          height: 64,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
             children: [
-              _buildNavItem(Icons.home_rounded, 'Accueil', true, () {}),
-              _buildNavItem(Icons.favorite_border_rounded, 'Wishlist', false, _goToWishlist),
-              _buildNavItem(Icons.shopping_cart_rounded, 'Panier', false, _goToCart),
-              _buildNavItem(Icons.chat_rounded, 'Chat', false, () => context.push('/market/messages')),
-              _buildNavItem(Icons.person_outline_rounded, 'Profil', false, () => context.push('/market/activity')),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                _navItem(Icons.home_rounded, 'Accueil', 0),
+                _navItem(Icons.receipt_long_rounded, 'Commandes', 1),
+                const SizedBox(width: 60),
+                _navItem(Icons.favorite_rounded, 'Wishlist', 3),
+                _navItem(Icons.notifications_active_rounded, 'Alertes', 4)
+              ]),
+              Positioned(
+                  top: -20,
+                  child: GestureDetector(
+                      onTap: () => context.push('/market/cart'),
+                      child: Container(
+                          width: 60,
+                          height: 60,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(color: MarketColors.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 4)),
+                          child: const Icon(Icons.shopping_bag_rounded, color: Colors.white, size: 26)))),
             ],
           ),
         ),
@@ -827,34 +820,89 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool isSelected, VoidCallback onTap) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: isSelected ? softBlue : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: isSelected ? primaryBlue : mutedText, size: 20),
-            ),
+  Widget _navItem(IconData icon, String label, int index) {
+    final sel = _selectedNav == index;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        setState(() => _selectedNav = index);
+        if (index == 0) _scroll.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+        if (index == 1) context.push('/market/orders');
+        if (index == 3) context.push('/market/wishlist');
+        if (index == 4) context.push('/market/price-alerts');
+      },
+      child: Container(
+          width: 65,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, color: sel ? MarketColors.red : MarketColors.mutedText, size: 24),
             const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9.5,
-                color: isSelected ? primaryBlue : mutedText,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+            Text(label, maxLines: 1, style: TextStyle(fontSize: 10, color: sel ? MarketColors.red : MarketColors.mutedText, fontWeight: sel ? FontWeight.w800 : FontWeight.w500))
+          ])),
+    );
+  }
+}
+
+class _MarqueeWidget extends StatefulWidget {
+  final String text;
+  const _MarqueeWidget({required this.text});
+  @override
+  _MarqueeWidgetState createState() => _MarqueeWidgetState();
+}
+
+class _MarqueeWidgetState extends State<_MarqueeWidget> {
+  late ScrollController _marqueeScrollCtrl;
+  late Timer _marqueeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _marqueeScrollCtrl = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startMarquee());
+  }
+
+  void _startMarquee() {
+    _marqueeTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      if (_marqueeScrollCtrl.hasClients) {
+        double maxScroll = _marqueeScrollCtrl.position.maxScrollExtent;
+        double currentScroll = _marqueeScrollCtrl.offset;
+        if (currentScroll >= maxScroll) {
+          _marqueeScrollCtrl.jumpTo(0);
+        } else {
+          _marqueeScrollCtrl.jumpTo(currentScroll + 2.0);
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _marqueeTimer.cancel();
+    _marqueeScrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 24,
+      child: ListView.builder(
+        controller: _marqueeScrollCtrl,
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              widget.text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

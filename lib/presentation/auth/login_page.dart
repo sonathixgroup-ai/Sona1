@@ -1,19 +1,19 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+// lib/features/auth/presentation/pages/login_page.dart
+import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../../theme.dart';
-import '../../nav.dart';
-import 'package:thix_id/auth/auth_controller.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:thix_id/nav.dart';
+import 'package:thix_id/theme.dart';
 import 'package:thix_id/models/app_user.dart';
+import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 
-// ---------------------------------------------------------------------------
-// Phone Auth Session Type (placeholder for Supabase phone auth)
-// ---------------------------------------------------------------------------
 typedef PhoneAuthSession = dynamic;
 
 // ---------------------------------------------------------------------------
-// Constantes de design alignées sur la homepage (HomePagePremium)
+// Constantes de design
 // ---------------------------------------------------------------------------
 class _LoginColors {
   static const Color primaryBlue = Color(0xFF1877F2);
@@ -56,177 +56,95 @@ class _LoginShadows {
 }
 
 // ---------------------------------------------------------------------------
-// Composants internes légers
+// Page de connexion principale (Transformation en ConsumerStatefulWidget)
 // ---------------------------------------------------------------------------
-class _LoginHeader extends StatelessWidget {
-  const _LoginHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Icône plus petite, fond gold + ombre douce
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: _LoginColors.goldBadge,
-            borderRadius: BorderRadius.circular(_LoginRadius.avatar),
-            boxShadow: _LoginShadows.card,
-          ),
-          alignment: Alignment.center,
-          child: const Icon(
-            Icons.fingerprint_rounded,
-            color: _LoginColors.darkNavy,
-            size: 28,
-          ),
-        ),
-        const SizedBox(height: _LoginSpacing.m),
-        Text(
-          'THIX ID',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            color: _LoginColors.darkNavy,
-            fontWeight: FontWeight.w800,
-            fontSize: 22,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: _LoginSpacing.xs),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: _LoginColors.goldBadge.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(_LoginRadius.chip),
-            border: Border.all(
-              color: _LoginColors.goldBadge.withValues(alpha: 0.25),
-            ),
-          ),
-          child: Text(
-            'IDENTITÉ SÉCURISÉE • AVENIR DE CONFIANCE',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: _LoginColors.darkNavy,
-              fontWeight: FontWeight.w700,
-              fontSize: 10,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SecureInput extends StatelessWidget {
-  final String label;
-  final String hint;
-  final IconData icon;
-  final bool isPassword;
-  final TextInputType type;
-  final TextEditingController controller;
-  final TextInputAction textInputAction;
-
-  const _SecureInput({
-    required this.label,
-    required this.hint,
-    required this.icon,
-    required this.isPassword,
-    required this.type,
-    required this.controller,
-    required this.textInputAction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: _LoginSpacing.m),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: _LoginColors.textSecondary),
-              const SizedBox(width: _LoginSpacing.xs),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: _LoginColors.darkNavy,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: _LoginSpacing.s),
-          Container(
-            height: 52,
-            decoration: BoxDecoration(
-              color: _LoginColors.white,
-              borderRadius: BorderRadius.circular(_LoginRadius.input),
-              border: Border.all(color: _LoginColors.cardBorder),
-              boxShadow: _LoginShadows.card,
-            ),
-            child: TextField(
-              controller: controller,
-              obscureText: isPassword,
-              keyboardType: type,
-              textInputAction: textInputAction,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: _LoginColors.darkNavy,
-              ),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(
-                  color: _LoginColors.textSecondary,
-                  fontSize: 14,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: _LoginSpacing.l),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Page de connexion principale
-// ---------------------------------------------------------------------------
-class LoginPage extends StatelessWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const _LoginPageBody();
-  }
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageBody extends StatefulWidget {
-  const _LoginPageBody();
-
-  @override
-  State<_LoginPageBody> createState() => _LoginPageBodyState();
-}
-
-class _LoginPageBodyState extends State<_LoginPageBody> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final _identifierC = TextEditingController();
   final _passwordC = TextEditingController();
   bool _rememberMe = true;
-  bool _isLoading = false;
   PhoneAuthSession? _phoneSession;
+
+  // L'état isLoading a été supprimé ! Riverpod s'en charge.
+
+  // ---------- Anti brute-force (soft lockout) ----------
+  int _failedAttempts = 0;
+  int _lockoutSecondsLeft = 0;
+  Timer? _lockoutTimer;
+  static const int _lockoutThreshold = 5;
+  static const int _lockoutDuration = 30;
+
+  // ---------- Réinitialisation de mot de passe ----------
+  int _resetCooldown = 0;
+  Timer? _resetCooldownTimer;
+  static const int _resetCooldownDuration = 45;
+
+  @override
+  void initState() {
+    super.initState();
+    _identifierC.addListener(_onIdentifierChanged);
+  }
+
+  void _onIdentifierChanged() {
+    if (_phoneSession != null) {
+      setState(() => _phoneSession = null);
+    }
+  }
 
   @override
   void dispose() {
+    _identifierC.removeListener(_onIdentifierChanged);
     _identifierC.dispose();
     _passwordC.dispose();
+    _lockoutTimer?.cancel();
+    _resetCooldownTimer?.cancel();
     super.dispose();
   }
 
+  String _userFacingError(Object e) {
+    if (kDebugMode) debugPrint('[Login] erreur brute: $e');
+    if (e is AuthException) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('rate limit') || msg.contains('too many')) {
+        return 'Trop de tentatives. Merci de patienter quelques instants.';
+      }
+      if (msg.contains('network') || msg.contains('connection')) {
+        return 'Problème de connexion. Vérifiez votre réseau et réessayez.';
+      }
+      return 'Identifiant ou mot de passe incorrect.';
+    }
+    return 'Une erreur est survenue. Vérifiez vos identifiants et réessayez.';
+  }
+
+  void _startLockoutTimer() {
+    _lockoutTimer?.cancel();
+    setState(() => _lockoutSecondsLeft = _lockoutDuration);
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_lockoutSecondsLeft <= 1) {
+        timer.cancel();
+        setState(() {
+          _lockoutSecondsLeft = 0;
+          _failedAttempts = 0;
+        });
+      } else {
+        setState(() => _lockoutSecondsLeft -= 1);
+      }
+    });
+  }
+
   Future<void> _signIn() async {
-    final auth = context.read<AuthController>();
+    if (_lockoutSecondsLeft > 0) return;
+
     final identifier = _identifierC.text.trim();
     final password = _passwordC.text;
     if (identifier.isEmpty || password.isEmpty) {
@@ -235,7 +153,10 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
       );
       return;
     }
-    setState(() => _isLoading = true);
+
+    // MODERNITÉ : On utilise le notifier Riverpod pour lancer l'action
+    final authNotifier = ref.read(authControllerProvider.notifier);
+
     try {
       if (_looksLikePhone(identifier) && !identifier.contains('@')) {
         if (kIsWeb) {
@@ -245,46 +166,153 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
           return;
         }
         if (_phoneSession == null) {
-          _phoneSession = await auth.startPhoneAuth(phoneNumber: identifier);
+          final session = await authNotifier.startPhoneAuth(phoneNumber: identifier);
           if (!mounted) return;
+          setState(() => _phoneSession = session);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('SMS envoyé. Entrez le code dans le champ Mot de passe puis validez.')),
+            const SnackBar(content: Text('SMS envoyé. Entrez le code reçu ci-dessous puis validez.')),
           );
           return;
         }
-        final u = await auth.confirmPhoneCode(session: _phoneSession!, smsCode: password);
-        if (!mounted) return;
-        final target = u.accountType == AccountType.enterprise
+        await authNotifier.confirmPhoneCode(session: _phoneSession!, smsCode: password);
+      } else {
+        // Appelle la méthode moderne signIn (pas besoin de setState isLoading)
+        await authNotifier.signIn(
+          identifier: identifier,
+          password: password,
+          rememberMe: _rememberMe,
+        );
+      }
+
+      // Si on arrive ici, Riverpod a réussi sans erreur. On vérifie l'état actuel :
+      if (!mounted) return;
+      
+      // On lit la donnée depuis l'état Riverpod mis à jour
+      final user = ref.read(authControllerProvider).value;
+      if (user != null) {
+        _failedAttempts = 0;
+        final target = user.accountType == AccountType.enterprise
             ? AppRoutes.enterpriseDashboard
             : AppRoutes.userDashboard;
         context.go(target);
-        return;
       }
-
-      final u = await auth.signIn(
-        identifier: identifier,
-        password: password,
-        rememberMe: _rememberMe,
-      );
-      if (!mounted) return;
-      final target = u.accountType == AccountType.enterprise
-          ? AppRoutes.enterpriseDashboard
-          : AppRoutes.userDashboard;
-      context.go(target);
+      
     } catch (e) {
       debugPrint('Login failed: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      _failedAttempts += 1;
+      if (_failedAttempts >= _lockoutThreshold) {
+        _startLockoutTimer();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Trop de tentatives échouées. Réessayez dans ${_lockoutDuration}s.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_userFacingError(e))),
+        );
+      }
     }
   }
 
-  bool _looksLikePhone(String s) =>
-      RegExp(r'^\+?[0-9][0-9\s\-]{7,}$').hasMatch(s.trim());
+  bool _looksLikePhone(String s) => RegExp(r'^\+?[0-9][0-9\s\-]{7,}$').hasMatch(s.trim());
+  bool _looksLikeEmail(String s) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(s.trim());
+
+  // ---------- Réinitialisation de mot de passe ----------
+  void _startResetCooldown() {
+    _resetCooldownTimer?.cancel();
+    setState(() => _resetCooldown = _resetCooldownDuration);
+    _resetCooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      if (_resetCooldown <= 1) { timer.cancel(); setState(() => _resetCooldown = 0); } 
+      else { setState(() => _resetCooldown -= 1); }
+    });
+  }
+
+  Future<bool> _sendPasswordReset(String email) async {
+    try { await Supabase.instance.client.auth.resetPasswordForEmail(email); } catch (e) { /* Ignore */ }
+    _startResetCooldown();
+    return true;
+  }
+
+  void _openForgotPasswordDialog() {
+    final prefill = _looksLikeEmail(_identifierC.text) ? _identifierC.text.trim() : '';
+    final emailC = TextEditingController(text: prefill);
+    bool isSending = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final canSend = !isSending && _resetCooldown == 0;
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(color: _LoginColors.white, borderRadius: BorderRadius.circular(_LoginRadius.card)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.lock_reset_rounded, color: _LoginColors.primaryBlue),
+                        const SizedBox(width: _LoginSpacing.s),
+                        Expanded(child: Text('Réinitialiser le mot de passe', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 16, color: _LoginColors.darkNavy))),
+                      ],
+                    ),
+                    const SizedBox(height: _LoginSpacing.m),
+                    Text('Entrez l\'email associé à votre compte. Si un compte existe, un lien de réinitialisation vous sera envoyé.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _LoginColors.textSecondary, fontSize: 12.5)),
+                    const SizedBox(height: _LoginSpacing.l),
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(color: _LoginColors.lightGrayBg, borderRadius: BorderRadius.circular(_LoginRadius.input), border: Border.all(color: _LoginColors.cardBorder)),
+                      child: TextField(
+                        controller: emailC, keyboardType: TextInputType.emailAddress,
+                        style: const TextStyle(fontSize: 14, color: _LoginColors.darkNavy),
+                        decoration: const InputDecoration(hintText: 'votre@email.com', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: _LoginSpacing.l)),
+                      ),
+                    ),
+                    const SizedBox(height: _LoginSpacing.l),
+                    Row(
+                      children: [
+                        Expanded(child: TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Annuler'))),
+                        const SizedBox(width: _LoginSpacing.s),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: canSend ? () async {
+                              final email = emailC.text.trim();
+                              if (!_looksLikeEmail(email)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email invalide.'))); return; }
+                              setDialogState(() => isSending = true);
+                              await _sendPasswordReset(email);
+                              if (!dialogContext.mounted) return;
+                              Navigator.of(dialogContext).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Si un compte existe avec cet email, un lien vient d\'être envoyé.')));
+                            } : null,
+                            style: ElevatedButton.styleFrom(backgroundColor: _LoginColors.primaryBlue, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_LoginRadius.button))),
+                            child: Text(!canSend && _resetCooldown > 0 ? 'Patientez ${_resetCooldown}s' : (isSending ? 'Envoi...' : 'Envoyer le lien')),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final inPhoneCodeMode = _phoneSession != null;
+    
+    // MODERNITÉ : On écoute l'état d'authentification généré
+    final authState = ref.watch(authControllerProvider);
+    final isLoading = authState.isLoading;
+
     return Scaffold(
       backgroundColor: _LoginColors.lightGrayBg,
       body: SafeArea(
@@ -295,7 +323,6 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
               const SizedBox(height: 12),
               const _LoginHeader(),
               const SizedBox(height: _LoginSpacing.xxl),
-              // Carte de connexion
               Container(
                 decoration: BoxDecoration(
                   color: _LoginColors.white,
@@ -307,268 +334,107 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'Connexion',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                        color: _LoginColors.darkNavy,
-                      ),
-                    ),
+                    Text('Connexion', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 18, color: _LoginColors.darkNavy)),
                     const SizedBox(height: 4),
-                    Text(
-                      'Connectez-vous avec votre email ou votre identifiant THIX (TX-XXX-XXX)',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: _LoginColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
+                    Text('Connectez-vous avec votre email ou votre identifiant THIX (TX-XXX-XXX)', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _LoginColors.textSecondary, fontSize: 12)),
                     const SizedBox(height: _LoginSpacing.xl),
                     _SecureInput(
-                      label: 'Identifiant THIX ID',
-                      hint: 'Ex: TX-882-091 ou email',
-                      icon: Icons.badge_rounded,
-                      isPassword: false,
-                      type: TextInputType.text,
-                      controller: _identifierC,
-                      textInputAction: TextInputAction.next,
+                      key: const ValueKey('identifier'), label: 'Identifiant THIX ID', hint: 'Ex: TX-882-091 ou email', icon: Icons.badge_rounded, isPassword: false, type: TextInputType.text, controller: _identifierC, textInputAction: TextInputAction.next,
                     ),
                     _SecureInput(
-                      label: 'Mot de passe',
-                      hint: '••••••••••••',
-                      icon: Icons.lock_rounded,
-                      isPassword: true,
-                      type: TextInputType.text,
-                      controller: _passwordC,
-                      textInputAction: TextInputAction.done,
+                      key: ValueKey(inPhoneCodeMode ? 'sms_code' : 'password'), label: inPhoneCodeMode ? 'Code SMS reçu' : 'Mot de passe', hint: inPhoneCodeMode ? '123456' : '••••••••••••', icon: inPhoneCodeMode ? Icons.sms_rounded : Icons.lock_rounded, isPassword: !inPhoneCodeMode, type: inPhoneCodeMode ? TextInputType.number : TextInputType.text, controller: _passwordC, textInputAction: TextInputAction.done,
                     ),
+                    if (inPhoneCodeMode)
+                      Align(alignment: Alignment.centerRight, child: TextButton(onPressed: () => setState(() { _phoneSession = null; _passwordC.clear(); }), child: const Text('Changer de numéro'))),
                     const SizedBox(height: _LoginSpacing.s),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Rester connecté
                         GestureDetector(
-                          onTap: _isLoading
-                              ? null
-                              : () => setState(() => _rememberMe = !_rememberMe),
+                          onTap: isLoading ? null : () => setState(() => _rememberMe = !_rememberMe),
                           child: Row(
                             children: [
                               AnimatedContainer(
-                                duration: const Duration(milliseconds: 180),
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  color: _rememberMe
-                                      ? _LoginColors.primaryBlue
-                                      : _LoginColors.white,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                    color: _rememberMe
-                                        ? _LoginColors.primaryBlue
-                                        : _LoginColors.cardBorder,
-                                  ),
-                                ),
+                                duration: const Duration(milliseconds: 180), width: 16, height: 16,
+                                decoration: BoxDecoration(color: _rememberMe ? _LoginColors.primaryBlue : _LoginColors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: _rememberMe ? _LoginColors.primaryBlue : _LoginColors.cardBorder)),
                                 alignment: Alignment.center,
-                                child: Icon(
-                                  Icons.check_rounded,
-                                  size: 12,
-                                  color: _rememberMe
-                                      ? Colors.white
-                                      : Colors.transparent,
-                                ),
+                                child: Icon(Icons.check_rounded, size: 12, color: _rememberMe ? Colors.white : Colors.transparent),
                               ),
                               const SizedBox(width: _LoginSpacing.xs),
-                              Text(
-                                'Rester connecté',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: _LoginColors.textSecondary,
-                                      fontSize: 12,
-                                    ),
-                              ),
+                              Text('Rester connecté', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _LoginColors.textSecondary, fontSize: 12)),
                             ],
                           ),
                         ),
-                        // Mot de passe oublié
                         GestureDetector(
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    'Mode local: réinitialisation par email indisponible.'),
-                              ),
-                            );
-                          },
-                          child: Text(
-                            'Oublié ?',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelMedium
-                                ?.copyWith(
-                                  color: _LoginColors.primaryBlue,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                ),
-                          ),
+                          onTap: _openForgotPasswordDialog,
+                          child: Text('Oublié ?', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: _LoginColors.primaryBlue, fontWeight: FontWeight.w700, fontSize: 12)),
                         ),
                       ],
                     ),
                     const SizedBox(height: _LoginSpacing.xl),
-                    // Bouton principal
                     GestureDetector(
-                      onTap: _isLoading ? null : _signIn,
+                      onTap: (isLoading || _lockoutSecondsLeft > 0) ? null : _signIn,
                       child: Opacity(
-                        opacity: _isLoading ? 0.8 : 1,
+                        opacity: (isLoading || _lockoutSecondsLeft > 0) ? 0.8 : 1,
                         child: Container(
                           height: 54,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                _LoginColors.primaryBlue,
-                                _LoginColors.darkNavy,
-                              ],
-                            ),
-                            borderRadius:
-                                BorderRadius.circular(_LoginRadius.button),
-                            boxShadow: _LoginShadows.card,
-                          ),
+                          decoration: BoxDecoration(gradient: const LinearGradient(colors: [_LoginColors.primaryBlue, _LoginColors.darkNavy]), borderRadius: BorderRadius.circular(_LoginRadius.button), boxShadow: _LoginShadows.card),
                           alignment: Alignment.center,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              if (_isLoading) ...[
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    color: Colors.white,
-                                  ),
-                                ),
+                              if (isLoading) ...[
+                                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white)),
                                 const SizedBox(width: _LoginSpacing.m),
                               ],
                               Text(
-                                _isLoading ? 'VÉRIFICATION…' : 'SE CONNECTER',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelLarge
-                                    ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13,
-                                      letterSpacing: 0.4,
-                                    ),
+                                _lockoutSecondsLeft > 0 ? 'RÉESSAYER DANS ${_lockoutSecondsLeft}S' : (isLoading ? 'VÉRIFICATION…' : 'SE CONNECTER'),
+                                style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.4),
                               ),
-                              const SizedBox(width: _LoginSpacing.m),
-                              const Icon(
-                                Icons.arrow_forward_rounded,
-                                color: Colors.white,
-                                size: 18,
-                              ),
+                              if (_lockoutSecondsLeft == 0 && !isLoading) ...[
+                                const SizedBox(width: _LoginSpacing.m),
+                                const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+                              ],
                             ],
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: _LoginSpacing.l),
-                    // Séparateur "BIOMÉTRIE"
                     Row(
                       children: [
-                        const Expanded(
-                          child: Divider(
-                            color: _LoginColors.cardBorder,
-                            thickness: 1,
-                          ),
-                        ),
-                        Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: _LoginSpacing.m),
-                          child: Text(
-                            'BIOMÉTRIE',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
-                                  color: _LoginColors.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 10,
-                                ),
-                          ),
-                        ),
-                        const Expanded(
-                          child: Divider(
-                            color: _LoginColors.cardBorder,
-                            thickness: 1,
-                          ),
-                        ),
+                        const Expanded(child: Divider(color: _LoginColors.cardBorder, thickness: 1)),
+                        Padding(padding: const EdgeInsets.symmetric(horizontal: _LoginSpacing.m), child: Text('BIOMÉTRIE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _LoginColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 10))),
+                        const Expanded(child: Divider(color: _LoginColors.cardBorder, thickness: 1)),
                       ],
                     ),
                     const SizedBox(height: _LoginSpacing.m),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _SocialAuth(
-                          icon: Icons.face_rounded,
-                          label: 'Face ID',
-                        ),
+                        _SocialAuth(icon: Icons.face_rounded, label: 'Face ID'),
                         const SizedBox(width: _LoginSpacing.m),
-                        _SocialAuth(
-                          icon: Icons.fingerprint_rounded,
-                          label: 'Touch ID',
-                        ),
+                        _SocialAuth(icon: Icons.fingerprint_rounded, label: 'Touch ID'),
                       ],
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: _LoginSpacing.xxl),
-              // Sécurité
               Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: _LoginColors.white,
-                  borderRadius: BorderRadius.circular(_LoginRadius.card),
-                  border: Border.all(
-                    color: _LoginColors.goldBadge.withValues(alpha: 0.25),
-                  ),
-                  boxShadow: _LoginShadows.card,
-                ),
+                decoration: BoxDecoration(color: _LoginColors.white, borderRadius: BorderRadius.circular(_LoginRadius.card), border: Border.all(color: _LoginColors.goldBadge.withValues(alpha: 0.25)), boxShadow: _LoginShadows.card),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.verified_user_rounded,
-                      color: _LoginColors.primaryBlue,
-                      size: 20,
-                    ),
+                    const Icon(Icons.verified_user_rounded, color: _LoginColors.primaryBlue, size: 20),
                     const SizedBox(width: _LoginSpacing.m),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Standard de Sécurité Étatique',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelMedium
-                                ?.copyWith(
-                                  color: _LoginColors.darkNavy,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                ),
-                          ),
+                          Text('Standard de Sécurité Étatique', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: _LoginColors.darkNavy, fontWeight: FontWeight.w700, fontSize: 12)),
                           const SizedBox(height: 2),
-                          Text(
-                            'Chiffrement local & session persistante',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: _LoginColors.textSecondary,
-                                  fontSize: 11,
-                                ),
-                          ),
+                          Text('Chiffrement local & session persistante', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _LoginColors.textSecondary, fontSize: 11)),
                         ],
                       ),
                     ),
@@ -576,42 +442,21 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
                 ),
               ),
               const SizedBox(height: _LoginSpacing.xl),
-              // Créer un compte
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'Nouvel utilisateur ?',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _LoginColors.textSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
+                  Text('Nouvel utilisateur ?', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _LoginColors.textSecondary, fontSize: 13)),
                   const SizedBox(width: 4),
                   GestureDetector(
                     onTap: () => context.push(AppRoutes.personalReg),
-                    child: Text(
-                      'Créer un compte THIX ID',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: _LoginColors.primaryBlue,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
+                    child: Text('Créer un compte THIX ID', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _LoginColors.primaryBlue, fontWeight: FontWeight.w800, fontSize: 13, decoration: TextDecoration.underline)),
                   ),
                 ],
               ),
               const SizedBox(height: _LoginSpacing.l),
-              // Sélecteur de langue
               Container(
                 padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: _LoginColors.white,
-                  borderRadius: BorderRadius.circular(_LoginRadius.chip),
-                  border: Border.all(color: _LoginColors.cardBorder),
-                  boxShadow: _LoginShadows.card,
-                ),
+                decoration: BoxDecoration(color: _LoginColors.white, borderRadius: BorderRadius.circular(_LoginRadius.chip), border: Border.all(color: _LoginColors.cardBorder), boxShadow: _LoginShadows.card),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -631,34 +476,54 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
   }
 }
 
-class _SocialAuth extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _SocialAuth({required this.icon, required this.label});
-
+// ---------------------------------------------------------------------------
+// Composants internes gardés intacts
+// ---------------------------------------------------------------------------
+class _LoginHeader extends StatelessWidget {
+  const _LoginHeader();
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 72,
-      height: 56,
-      decoration: BoxDecoration(
-        color: _LoginColors.white,
-        borderRadius: BorderRadius.circular(_LoginRadius.button),
-        border: Border.all(color: _LoginColors.cardBorder),
-        boxShadow: _LoginShadows.card,
-      ),
+    return Column(
+      children: [
+        Container(width: 56, height: 56, decoration: BoxDecoration(color: _LoginColors.goldBadge, borderRadius: BorderRadius.circular(_LoginRadius.avatar), boxShadow: _LoginShadows.card), alignment: Alignment.center, child: const Icon(Icons.fingerprint_rounded, color: _LoginColors.darkNavy, size: 28)),
+        const SizedBox(height: _LoginSpacing.m),
+        Text('THIX ID', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: _LoginColors.darkNavy, fontWeight: FontWeight.w800, fontSize: 22, letterSpacing: -0.5)),
+        const SizedBox(height: _LoginSpacing.xs),
+        Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: _LoginColors.goldBadge.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(_LoginRadius.chip), border: Border.all(color: _LoginColors.goldBadge.withValues(alpha: 0.25))), child: Text('IDENTITÉ SÉCURISÉE • AVENIR DE CONFIANCE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _LoginColors.darkNavy, fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 0.3))),
+      ],
+    );
+  }
+}
+
+class _SecureInput extends StatefulWidget {
+  final String label;
+  final String hint;
+  final IconData icon;
+  final bool isPassword;
+  final TextInputType type;
+  final TextEditingController controller;
+  final TextInputAction textInputAction;
+  const _SecureInput({super.key, required this.label, required this.hint, required this.icon, required this.isPassword, required this.type, required this.controller, required this.textInputAction});
+  @override
+  State<_SecureInput> createState() => _SecureInputState();
+}
+
+class _SecureInputState extends State<_SecureInput> {
+  late bool _obscured = widget.isPassword;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _LoginSpacing.m),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: _LoginColors.darkNavy, size: 20),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: _LoginColors.textSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+          Row(children: [Icon(widget.icon, size: 16, color: _LoginColors.textSecondary), const SizedBox(width: _LoginSpacing.xs), Text(widget.label, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: _LoginColors.darkNavy, fontWeight: FontWeight.w600, fontSize: 13))]),
+          const SizedBox(height: _LoginSpacing.s),
+          Container(
+            height: 52, decoration: BoxDecoration(color: _LoginColors.white, borderRadius: BorderRadius.circular(_LoginRadius.input), border: Border.all(color: _LoginColors.cardBorder), boxShadow: _LoginShadows.card),
+            child: TextField(
+              controller: widget.controller, obscureText: _obscured, keyboardType: widget.type, textInputAction: widget.textInputAction, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _LoginColors.darkNavy),
+              decoration: InputDecoration(hintText: widget.hint, hintStyle: const TextStyle(color: _LoginColors.textSecondary, fontSize: 14), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(horizontal: _LoginSpacing.l), suffixIcon: widget.isPassword ? IconButton(splashRadius: 18, icon: Icon(_obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 18, color: _LoginColors.textSecondary), onPressed: () => setState(() => _obscured = !_obscured)) : null),
             ),
           ),
         ],
@@ -667,28 +532,29 @@ class _SocialAuth extends StatelessWidget {
   }
 }
 
+class _SocialAuth extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _SocialAuth({required this.icon, required this.label});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 72, height: 56, decoration: BoxDecoration(color: _LoginColors.white, borderRadius: BorderRadius.circular(_LoginRadius.button), border: Border.all(color: _LoginColors.cardBorder), boxShadow: _LoginShadows.card),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: _LoginColors.darkNavy, size: 20), const SizedBox(height: 2), Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _LoginColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w600))]),
+    );
+  }
+}
+
 class _LangChip extends StatelessWidget {
   final String label;
   final bool active;
-
   const _LangChip({required this.label, this.active = false});
-
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: active ? _LoginColors.primaryBlue : _LoginColors.white,
-        borderRadius: BorderRadius.circular(_LoginRadius.chip),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: active ? Colors.white : _LoginColors.textSecondary,
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-        ),
-      ),
+      decoration: BoxDecoration(color: active ? _LoginColors.primaryBlue : _LoginColors.white, borderRadius: BorderRadius.circular(_LoginRadius.chip)),
+      child: Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: active ? Colors.white : _LoginColors.textSecondary, fontWeight: FontWeight.w700, fontSize: 11)),
     );
   }
 }

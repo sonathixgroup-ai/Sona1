@@ -1,501 +1,64 @@
-// lib/services/news_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:io';
-
 import '../models/news_article.dart';
 
 class NewsService {
   final SupabaseClient _supabase;
-
   NewsService(this._supabase);
-
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
 
-  // ============================================================
-  // LECTURE DES ARTICLES - VERSION CORRIGÉE
-  // ============================================================
-
-  Future<List<NewsArticle>> getArticles({
-    String? category,
-    int limit = 50,
-    bool onlyPublished = true,
-  }) async {
+  Future<List<NewsArticle>> getArticles({String? category,int limit=50,bool onlyPublished=true}) async {
     try {
-      debugPrint('📰 getArticles: chargement des articles...');
-      
-      // Récupérer tous les articles
-      final response = await _supabase
-          .from('news_articles')
-          .select('*')
-          .order('published_at', ascending: false);
-      
-      debugPrint('📰 getArticles: ${(response as List).length} articles bruts');
-      
-      // Filtrer en Dart
-      List<dynamic> results = response;
-      
-      // ✅ CORRIGÉ: Filtrer sur 'is_published' (boolean) au lieu de 'status'
-      if (onlyPublished) {
-        results = results.where((e) => e['is_published'] == true).toList();
-        debugPrint('📰 getArticles: ${results.length} articles publiés');
-      }
-      
-      // Filtrer par catégorie
-      if (category != null && category.isNotEmpty && category != 'all' && category != 'featured') {
-        results = results.where((e) => e['category'] == category).toList();
-        debugPrint('📰 getArticles: ${results.length} articles dans catégorie $category');
-      }
-      
-      // Articles à la une
-      if (category == 'featured') {
-        results = results.where((e) => e['is_featured'] == true).toList();
-        debugPrint('📰 getArticles: ${results.length} articles à la une');
-      }
-      
-      // Limiter
+      final response = await _supabase.from('news_articles').select('*').order('published_at',ascending:false);
+      List<dynamic> results = response as List;
+      if(onlyPublished) results = results.where((e)=>e['is_published']==true).toList();
+      if(category!=null && category.isNotEmpty && category!='all' && category!='featured'){ results = results.where((e)=>e['category']==category).toList(); }
+      if(category=='featured'){ results = results.where((e)=>e['is_featured']==true).toList(); }
       results = results.take(limit).toList();
-      
-      // Convertir en objets
-      final articles = <NewsArticle>[];
-      for (var e in results) {
-        final isLiked = await _isArticleLiked(e['id']);
-        final isSaved = await _isArticleSaved(e['id']);
-        
-        articles.add(NewsArticle.fromJson({
-          ...e,
-          'is_liked': isLiked,
-          'is_saved': isSaved,
-        }));
-      }
-      
-      debugPrint('✅ getArticles: ${articles.length} articles retournés');
-      return articles;
-    } catch (e) {
-      debugPrint('❌ Error getArticles: $e');
-      return [];
-    }
+      return results.map((e)=>NewsArticle.fromJson(e)).toList();
+    } catch(e){ debugPrint('❌ getArticles $e'); return []; }
   }
 
-  // ✅ CORRIGÉ: Récupérer l'article à la une
-  Future<NewsArticle?> getFeaturedArticle() async {
-    try {
-      final response = await _supabase
-          .from('news_articles')
-          .select('*')
-          .eq('is_featured', true)
-          .eq('is_published', true)  // ← CORRIGÉ
-          .order('published_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
-      
-      if (response == null) return null;
-      
-      final isLiked = await _isArticleLiked(response['id']);
-      final isSaved = await _isArticleSaved(response['id']);
-      
-      return NewsArticle.fromJson({
-        ...response,
-        'is_liked': isLiked,
-        'is_saved': isSaved,
-      });
-    } catch (e) {
-      debugPrint('❌ Error getFeaturedArticle: $e');
-      return null;
-    }
+  Future<NewsArticle?> getArticleById(String id) async {
+    try{ final r=await _supabase.from('news_articles').select('*').eq('id',id).maybeSingle(); if(r==null) return null; return NewsArticle.fromJson(r); }catch(e){return null;}
   }
+  Future<List<NewsArticle>> getBreakingNews() async { try{ final r=await _supabase.from('news_articles').select('*').eq('is_breaking',true).eq('is_published',true).order('published_at',ascending:false).limit(20); return (r as List).map((e)=>NewsArticle.fromJson(e)).toList(); }catch(e){return [];} }
+  Future<List<NewsArticle>> getVideos() async { try{ final r=await _supabase.from('news_articles').select('*').eq('is_published',true).not('video_url','is',null).order('published_at',ascending:false).limit(20); return (r as List).map((e)=>NewsArticle.fromJson(e)).toList(); }catch(e){return [];} }
+  Future<List<NewsArticle>> searchArticles(String q) async { try{ final r=await _supabase.from('news_articles').select('*').eq('is_published',true).or('title.ilike.%$q%,content.ilike.%$q%').limit(50); return (r as List).map((e)=>NewsArticle.fromJson(e)).toList(); }catch(e){return [];} }
 
-  // ✅ CORRIGÉ: Récupérer les articles récents
-  Future<List<NewsArticle>> getRecentArticles({int limit = 10}) async {
-    try {
-      final response = await _supabase
-          .from('news_articles')
-          .select('*')
-          .eq('is_published', true)  // ← CORRIGÉ
-          .order('published_at', ascending: false)
-          .limit(limit);
-      
-      final articles = <NewsArticle>[];
-      for (var e in response as List) {
-        final isLiked = await _isArticleLiked(e['id']);
-        final isSaved = await _isArticleSaved(e['id']);
-        
-        articles.add(NewsArticle.fromJson({
-          ...e,
-          'is_liked': isLiked,
-          'is_saved': isSaved,
-        }));
-      }
-      
-      return articles;
-    } catch (e) {
-      debugPrint('❌ Error getRecentArticles: $e');
-      return [];
-    }
+  Future<void> incrementViews(String id) async { try{ final a=await _supabase.from('news_articles').select('views_count').eq('id',id).maybeSingle(); if(a==null) return; await _supabase.from('news_articles').update({'views_count':(a['views_count']??0)+1}).eq('id',id);}catch(_){} }
+  Future<bool> _isLiked(String id) async { if(currentUserId.isEmpty) return false; try{ final r=await _supabase.from('news_likes').select('id').eq('article_id',id).eq('user_id',currentUserId).maybeSingle(); return r!=null;}catch(_){return false;}}
+  Future<void> likeArticle(String id) async { if(currentUserId.isEmpty) return; if(!await _isLiked(id)){ await _supabase.from('news_likes').insert({'article_id':id,'user_id':currentUserId}); } }
+  Future<void> unlikeArticle(String id) async { await _supabase.from('news_likes').delete().eq('article_id',id).eq('user_id',currentUserId); }
+  Future<bool> _isSaved(String id) async { if(currentUserId.isEmpty) return false; try{ final r=await _supabase.from('news_saved').select('id').eq('article_id',id).eq('user_id',currentUserId).maybeSingle(); return r!=null;}catch(_){return false;}}
+  Future<void> saveArticle(String id) async { if(currentUserId.isEmpty) return; if(!await _isSaved(id)){ await _supabase.from('news_saved').insert({'article_id':id,'user_id':currentUserId,'saved_at':DateTime.now().toIso8601String()}); } }
+  Future<void> unsaveArticle(String id) async { await _supabase.from('news_saved').delete().eq('article_id',id).eq('user_id',currentUserId); }
+  Future<List<NewsArticle>> getSavedArticles() async { if(currentUserId.isEmpty) return []; try{ final r=await _supabase.from('news_saved').select('article:article_id(*)').eq('user_id',currentUserId); return (r as List).map((e)=>NewsArticle.fromJson({...e['article'],'is_saved':true})).toList(); }catch(e){return [];} }
+
+  Future<NewsArticle> createArticle({required String title,String? summary,required String content,required String category,String? imageUrl,String? videoUrl,bool isFeatured=false,bool isBreaking=false,DateTime? publishedAt}) async {
+    final now=DateTime.now().toIso8601String();
+    final res=await _supabase.from('news_articles').insert({'title':title,'summary':summary,'content':content,'category':category,'image_url':imageUrl,'video_url':videoUrl,'is_featured':isFeatured,'is_breaking':isBreaking,'is_published':true,'published_at':(publishedAt??DateTime.now()).toIso8601String(),'created_at':now,'updated_at':now,'created_by':currentUserId.isEmpty?null:currentUserId,'views_count':0}).select().single();
+    return NewsArticle.fromJson(res);
   }
+  Future<void> updateArticle(String id, Map<String,dynamic> d) async { await _supabase.from('news_articles').update({...d,'updated_at':DateTime.now().toIso8601String()}).eq('id',id); }
+  Future<void> deleteArticle(String id) async { await _supabase.from('news_articles').delete().eq('id',id); }
 
-  // ============================================================
-  // AUTRES MÉTHODES
-  // ============================================================
-
-  Future<NewsArticle?> getArticleById(String articleId) async {
-    try {
-      final response = await _supabase
-          .from('news_articles')
-          .select('*')
-          .eq('id', articleId)
-          .maybeSingle();
-
-      if (response == null) return null;
-
-      final isLiked = await _isArticleLiked(articleId);
-      final isSaved = await _isArticleSaved(articleId);
-
-      return NewsArticle.fromJson({
-        ...response,
-        'is_liked': isLiked,
-        'is_saved': isSaved,
-      });
-    } catch (e) {
-      debugPrint('❌ Error getArticleById: $e');
-      return null;
-    }
+  // ===== FIX WEB: UPLOAD EN BYTES =====
+  Future<String?> uploadImageBytes(Uint8List bytes, String fileName) async {
+    try{
+      final path='images/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+      await _supabase.storage.from('news').uploadBinary(path, bytes, fileOptions: const FileOptions(upsert:true, contentType:'image/jpeg'));
+      return _supabase.storage.from('news').getPublicUrl(path);
+    }catch(e){ debugPrint('uploadImageBytes $e'); return null; }
   }
-
-  // ✅ CORRIGÉ: Breaking news
-  Future<List<NewsArticle>> getBreakingNews() async {
-    try {
-      final response = await _supabase
-          .from('news_articles')
-          .select('*')
-          .eq('is_breaking', true)
-          .eq('is_published', true)  // ← CORRIGÉ
-          .order('published_at', ascending: false)
-          .limit(20);
-      
-      final articles = <NewsArticle>[];
-      for (var e in response as List) {
-        articles.add(NewsArticle.fromJson(e));
-      }
-      return articles;
-    } catch (e) {
-      debugPrint('❌ Error getBreakingNews: $e');
-      return [];
-    }
+  Future<String?> uploadVideoBytes(Uint8List bytes, String fileName) async {
+    try{
+      final path='videos/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+      await _supabase.storage.from('news').uploadBinary(path, bytes, fileOptions: const FileOptions(upsert:true, contentType:'video/mp4'));
+      return _supabase.storage.from('news').getPublicUrl(path);
+    }catch(e){ debugPrint('uploadVideoBytes $e'); return null; }
   }
-
-  // ✅ CORRIGÉ: Vidéos
-  Future<List<NewsArticle>> getVideos() async {
-    try {
-      final response = await _supabase
-          .from('news_articles')
-          .select('*')
-          .eq('is_published', true)  // ← CORRIGÉ
-          .not('video_url', 'is', null)
-          .order('published_at', ascending: false)
-          .limit(20);
-      
-      final articles = <NewsArticle>[];
-      for (var e in response as List) {
-        articles.add(NewsArticle.fromJson(e));
-      }
-      return articles;
-    } catch (e) {
-      debugPrint('❌ Error getVideos: $e');
-      return [];
-    }
-  }
-
-  // ✅ CORRIGÉ: Recherche
-  Future<List<NewsArticle>> searchArticles(String query) async {
-    try {
-      final response = await _supabase
-          .from('news_articles')
-          .select('*')
-          .eq('is_published', true)  // ← CORRIGÉ
-          .or('title.ilike.%$query%,content.ilike.%$query%,summary.ilike.%$query%')
-          .order('published_at', ascending: false)
-          .limit(50);
-      
-      return (response as List).map((e) => NewsArticle.fromJson(e)).toList();
-    } catch (e) {
-      debugPrint('❌ Error searchArticles: $e');
-      return [];
-    }
-  }
-
-  // ============================================================
-  // INTERACTIONS
-  // ============================================================
-
-  Future<void> incrementViews(String articleId) async {
-    try {
-      final article = await _supabase
-          .from('news_articles')
-          .select('views_count')
-          .eq('id', articleId)
-          .maybeSingle();
-      
-      if (article == null) return;
-      
-      final currentViews = article['views_count'] ?? 0;
-      await _supabase
-          .from('news_articles')
-          .update({'views_count': currentViews + 1})
-          .eq('id', articleId);
-    } catch (e) {
-      debugPrint('❌ Error incrementViews: $e');
-    }
-  }
-
-  Future<bool> _isArticleLiked(String articleId) async {
-    final currentUserId = this.currentUserId;
-    if (currentUserId.isEmpty) return false;
-
-    try {
-      final response = await _supabase
-          .from('news_likes')
-          .select('id')
-          .eq('article_id', articleId)
-          .eq('user_id', currentUserId)
-          .maybeSingle();
-      return response != null;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<void> likeArticle(String articleId) async {
-    final currentUserId = this.currentUserId;
-    if (currentUserId.isEmpty) return;
-
-    final exists = await _isArticleLiked(articleId);
-    if (!exists) {
-      await _supabase.from('news_likes').insert({
-        'article_id': articleId,
-        'user_id': currentUserId,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-    }
-  }
-
-  Future<void> unlikeArticle(String articleId) async {
-    final currentUserId = this.currentUserId;
-    if (currentUserId.isEmpty) return;
-
-    await _supabase
-        .from('news_likes')
-        .delete()
-        .eq('article_id', articleId)
-        .eq('user_id', currentUserId);
-  }
-
-  Future<bool> _isArticleSaved(String articleId) async {
-    final currentUserId = this.currentUserId;
-    if (currentUserId.isEmpty) return false;
-
-    try {
-      final response = await _supabase
-          .from('news_saved')
-          .select('id')
-          .eq('article_id', articleId)
-          .eq('user_id', currentUserId)
-          .maybeSingle();
-      return response != null;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<void> saveArticle(String articleId) async {
-    final currentUserId = this.currentUserId;
-    if (currentUserId.isEmpty) return;
-
-    final exists = await _isArticleSaved(articleId);
-    if (!exists) {
-      await _supabase.from('news_saved').insert({
-        'article_id': articleId,
-        'user_id': currentUserId,
-        'saved_at': DateTime.now().toIso8601String(),
-      });
-    }
-  }
-
-  Future<void> unsaveArticle(String articleId) async {
-    final currentUserId = this.currentUserId;
-    if (currentUserId.isEmpty) return;
-
-    await _supabase
-        .from('news_saved')
-        .delete()
-        .eq('article_id', articleId)
-        .eq('user_id', currentUserId);
-  }
-
-  Future<List<NewsArticle>> getSavedArticles() async {
-    final currentUserId = this.currentUserId;
-    if (currentUserId.isEmpty) return [];
-
-    try {
-      final response = await _supabase
-          .from('news_saved')
-          .select('article:article_id(*)')
-          .eq('user_id', currentUserId)
-          .order('saved_at', ascending: false);
-
-      final articles = <NewsArticle>[];
-      for (var e in response as List) {
-        articles.add(NewsArticle.fromJson({
-          ...e['article'],
-          'is_saved': true,
-        }));
-      }
-      return articles;
-    } catch (e) {
-      debugPrint('❌ Error getSavedArticles: $e');
-      return [];
-    }
-  }
-
-  // ============================================================
-  // ADMIN - CRUD
-  // ============================================================
-
-  // ✅ CORRIGÉ: createArticle avec is_published
-  Future<NewsArticle> createArticle({
-    required String title,
-    String? summary,
-    required String content,
-    required String category,
-    String? imageUrl,
-    String? videoUrl,
-    bool isFeatured = false,
-    bool isBreaking = false,
-    DateTime? publishedAt,
-  }) async {
-    final currentUserId = this.currentUserId;
-    if (currentUserId.isEmpty) throw Exception('Admin non connecté');
-
-    final now = DateTime.now().toIso8601String();
-    final publishDate = (publishedAt ?? DateTime.now()).toIso8601String();
-
-    debugPrint('📝 createArticle: Création de l\'article "$title"');
-    debugPrint('   - catégorie: $category');
-    debugPrint('   - isFeatured: $isFeatured');
-    debugPrint('   - isBreaking: $isBreaking');
-
-    final response = await _supabase.from('news_articles').insert({
-      'title': title,
-      'summary': summary,
-      'content': content,
-      'category': category,
-      'image_url': imageUrl,
-      'video_url': videoUrl,
-      'is_featured': isFeatured,
-      'is_breaking': isBreaking,
-      'is_published': true,  // ← CORRIGÉ: is_published au lieu de status
-      'published_at': publishDate,
-      'created_at': now,
-      'updated_at': now,
-      'created_by': currentUserId,
-      'views_count': 0,
-    }).select().single();
-
-    debugPrint('✅ createArticle: Article créé avec ID ${response['id']}');
-    return NewsArticle.fromJson(response);
-  }
-
-  Future<void> updateArticle(String articleId, Map<String, dynamic> data) async {
-    final currentUserId = this.currentUserId;
-    if (currentUserId.isEmpty) throw Exception('Admin non connecté');
-
-    await _supabase
-        .from('news_articles')
-        .update({
-          ...data,
-          'updated_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', articleId);
-  }
-
-  Future<void> deleteArticle(String articleId) async {
-    final currentUserId = this.currentUserId;
-    if (currentUserId.isEmpty) throw Exception('Admin non connecté');
-
-    await _supabase.from('news_articles').delete().eq('id', articleId);
-  }
-
-  // ============================================================
-  // UPLOAD
-  // ============================================================
-
-  Future<String?> uploadImage(String filePath) async {
-    try {
-      final currentUserId = this.currentUserId;
-      if (currentUserId.isEmpty) return null;
-
-      final file = File(filePath);
-      final bytes = await file.readAsBytes();
-      
-      final extension = filePath.split('.').last;
-      final fileName = 'img_${DateTime.now().millisecondsSinceEpoch}.$extension';
-      final storagePath = 'news_images/$fileName';
-      
-      await _supabase.storage
-          .from('news_images')
-          .uploadBinary(storagePath, bytes);
-      
-      return _supabase.storage.from('news_images').getPublicUrl(storagePath);
-    } catch (e) {
-      debugPrint('Error uploading image: $e');
-      return null;
-    }
-  }
-
-  Future<String?> uploadVideo(String filePath) async {
-    try {
-      final currentUserId = this.currentUserId;
-      if (currentUserId.isEmpty) return null;
-
-      final file = File(filePath);
-      final bytes = await file.readAsBytes();
-      
-      final extension = filePath.split('.').last;
-      final fileName = 'video_${DateTime.now().millisecondsSinceEpoch}.$extension';
-      final storagePath = 'news_videos/$fileName';
-      
-      await _supabase.storage
-          .from('news_videos')
-          .uploadBinary(storagePath, bytes);
-      
-      return _supabase.storage.from('news_videos').getPublicUrl(storagePath);
-    } catch (e) {
-      debugPrint('Error uploading video: $e');
-      return null;
-    }
-  }
-
-  // ✅ NOUVELLE MÉTHODE: Vérifier la connexion
-  Future<bool> checkConnection() async {
-    try {
-      await _supabase.from('news_articles').select('id').limit(1);
-      return true;
-    } catch (e) {
-      debugPrint('❌ Connection check failed: $e');
-      return false;
-    }
-  }
-
-  // ✅ NOUVELLE MÉTHODE: Mettre à jour le statut de publication
-  Future<void> setPublishStatus(String articleId, bool isPublished) async {
-    try {
-      await _supabase
-          .from('news_articles')
-          .update({'is_published': isPublished})
-          .eq('id', articleId);
-      debugPrint('📢 Article $articleId publié: $isPublished');
-    } catch (e) {
-      debugPrint('❌ Error setPublishStatus: $e');
-    }
-  }
+  // Anciennes méthodes gardées pour compat mobile mais ne plus utiliser sur web
+  Future<String?> uploadImage(String p) async => null;
+  Future<String?> uploadVideo(String p) async => null;
 }

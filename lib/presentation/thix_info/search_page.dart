@@ -1,20 +1,21 @@
 // lib/presentation/thix_info/search_page.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // 1. Import Riverpod
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 
 import '../../providers/news_provider.dart';
 import '../../models/news_article.dart';
 
-class SearchPage extends StatefulWidget {
+// 2. Transformation en ConsumerStatefulWidget
+class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
 
   @override
-  State<SearchPage> createState() => _SearchPageState();
+  ConsumerState<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> {
+class _SearchPageState extends ConsumerState<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   List<NewsArticle> _results = [];
@@ -44,8 +45,12 @@ class _SearchPageState extends State<SearchPage> {
     }
 
     setState(() => _isSearching = true);
-    final provider = context.read<NewsProvider>();
+    
+    // 3. Utilisation de ref.read au lieu de context.read
+    final provider = ref.read(newsProvider);
     final results = await provider.searchArticles(query);
+    
+    if (!mounted) return; // Sécurité : évite un crash si on quitte la page pendant la recherche
     
     setState(() {
       _results = results;
@@ -74,12 +79,12 @@ class _SearchPageState extends State<SearchPage> {
             controller: _searchController,
             focusNode: _focusNode,
             onChanged: _performSearch,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               hintText: 'Rechercher...',
-              hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
-              prefixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
+              hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+              prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              contentPadding: EdgeInsets.symmetric(vertical: 10),
             ),
           ),
         ),

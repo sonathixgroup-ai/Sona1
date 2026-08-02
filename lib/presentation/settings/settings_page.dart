@@ -234,14 +234,14 @@ class SettingsPage extends StatelessWidget {
                         final auth = context.read<AuthController>();
                         if (auth.isAuthenticated) {
                           final t = auth.currentUser?.accountType;
-                          context.popOrGo(t == null
+                          context.go(t == null
                               ? AppRoutes.home
                               : t == AccountType.enterprise
                                   ? AppRoutes.enterpriseDashboard
                                   : AppRoutes.userDashboard);
                           return;
                         }
-                        context.popOrGo(AppRoutes.home);
+                        context.go(AppRoutes.home);
                       },
                     ),
                     Text(

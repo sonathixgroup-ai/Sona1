@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 class StatsRow extends StatelessWidget {
   final int? connexionsCount;
@@ -11,6 +10,7 @@ class StatsRow extends StatelessWidget {
   final VoidCallback? onPublicationsTap;
   final VoidCallback? onCommunitiesTap;
   final VoidCallback? onMessagesTap;
+  final bool isLoading;
 
   const StatsRow({
     super.key,
@@ -22,81 +22,47 @@ class StatsRow extends StatelessWidget {
     this.onPublicationsTap,
     this.onCommunitiesTap,
     this.onMessagesTap,
+    this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _buildStatCard(
-          connexionsCount ?? 0,
-          'Connexions',
-          Icons.people_outline,
-          onConnexionsTap,
-        ),
+        _buildStatCard(connexionsCount, 'Connexions', Icons.people_outline, onConnexionsTap),
         const SizedBox(width: 12),
-        _buildStatCard(
-          publicationsCount ?? 0,
-          'Publications',
-          Icons.post_add_outlined,
-          onPublicationsTap,
-        ),
+        _buildStatCard(publicationsCount, 'Publications', Icons.post_add_outlined, onPublicationsTap),
         const SizedBox(width: 12),
-        _buildStatCard(
-          communautesCount ?? 0,
-          'Communautés',
-          Icons.groups_outlined,
-          onCommunitiesTap,
-        ),
+        _buildStatCard(communautesCount, 'Communautés', Icons.groups_outlined, onCommunitiesTap),
         const SizedBox(width: 12),
-        _buildStatCard(
-          messagesCount ?? 0,
-          'Messages',
-          Icons.message_outlined,
-          onMessagesTap,
-        ),
+        _buildStatCard(messagesCount, 'Messages', Icons.message_outlined, onMessagesTap),
       ],
     );
   }
 
-  Widget _buildStatCard(int value, String label, IconData icon, VoidCallback? onTap) {
+  Widget _buildStatCard(int? value, String label, IconData icon, VoidCallback? onTap) {
+    final isNull = value == null || isLoading;
     return Expanded(
       child: InkWell(
-        onTap: onTap,
+        onTap: isNull ? null : onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            border: Border.all(color: Colors.black.withOpacity(0.04)),
           ),
           child: Column(
             children: [
               Icon(icon, size: 20, color: const Color(0xFFD4AF37)),
-              const SizedBox(height: 4),
-              Text(
-                _formatNumber(value),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0B1B3D),
-                ),
-              ),
+              const SizedBox(height: 6),
+              if (isNull)
+                Container(width: 24, height: 14, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4)))
+              else
+                Text(_formatNumber(value!), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0B1B3D))),
               const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey.shade600,
-                ),
-              ),
+              Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
             ],
           ),
         ),
@@ -104,12 +70,9 @@ class StatsRow extends StatelessWidget {
     );
   }
 
-  String _formatNumber(int value) {
-    if (value >= 1000000) {
-      return '${(value / 1000000).toStringAsFixed(1)}M';
-    } else if (value >= 1000) {
-      return '${(value / 1000).toStringAsFixed(1)}k';
-    }
-    return value.toString();
+  String _formatNumber(int v) {
+    if (v >= 1000000) return '${(v/1000000).toStringAsFixed(v%1000000==0?0:1)}M';
+    if (v >= 1000) return '${(v/1000).toStringAsFixed(v%1000==0?0:1)}k';
+    return v.toString();
   }
 }

@@ -1,7 +1,6 @@
 // lib/presentation/education/widgets/education_carousel.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:thix_id/presentation/education/models/formation.dart';
 
 class EducationCarousel extends StatelessWidget {
@@ -42,16 +41,26 @@ class EducationCarousel extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                    child: CachedNetworkImage(
-                      imageUrl: formation.imageUrl ?? 'https://via.placeholder.com/280x120',
+                    child: Image.network(
+                      formation.imageUrl ?? 'https://via.placeholder.com/280x120',
                       height: 100,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        height: 100,
-                        color: const Color(0xFFF0F7FF),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          height: 100,
+                          color: const Color(0xFFF0F7FF),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (_, __, ___) => Container(
                         height: 100,
                         color: const Color(0xFFF0F7FF),
                         child: const Icon(Icons.image_rounded, color: Color(0xFF7386A8)),
@@ -75,7 +84,7 @@ class EducationCarousel extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          formation.instructorName ?? 'Instructeur', // ✅ correction
+                          formation.instructorName ?? 'Instructeur',
                           style: const TextStyle(fontSize: 12, color: Color(0xFF7386A8)),
                         ),
                         const SizedBox(height: 4),

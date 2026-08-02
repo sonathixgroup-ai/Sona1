@@ -1,7 +1,7 @@
+// lib/presentation/thix_market/pages/dispute_detail_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 
 class DisputeDetailPage extends StatefulWidget {
@@ -329,6 +329,7 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
     final user = dispute['user'] as Map?;
     final mediator = dispute['mediator'] as Map?;
     final order = dispute['order'] as Map?;
+    final mediatorAvatar = mediator?['avatar'] as String?;
 
     return Column(
       children: [
@@ -407,10 +408,10 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
                   children: [
                     CircleAvatar(
                       radius: 12,
-                      backgroundImage: mediator['avatar'] != null
-                          ? CachedNetworkImageProvider(mediator['avatar'])
+                      backgroundImage: mediatorAvatar != null && mediatorAvatar.trim().isNotEmpty
+                          ? NetworkImage(mediatorAvatar)
                           : null,
-                      child: mediator['avatar'] == null
+                      child: mediatorAvatar == null || mediatorAvatar.trim().isEmpty
                           ? const Icon(Icons.person, size: 12)
                           : null,
                     ),
@@ -460,10 +461,10 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
                         if (!isOwn)
                           CircleAvatar(
                             radius: 14,
-                            backgroundImage: userAvatar != null
-                                ? CachedNetworkImageProvider(userAvatar)
+                            backgroundImage: userAvatar != null && userAvatar.trim().isNotEmpty
+                                ? NetworkImage(userAvatar)
                                 : null,
-                            child: userAvatar == null
+                            child: userAvatar == null || userAvatar.trim().isEmpty
                                 ? const Icon(Icons.person, size: 14)
                                 : null,
                           ),

@@ -1,6 +1,5 @@
 // lib/models/event_model.dart
-import 'package:intl/intl.dart';
-
+import 'ticket_tier.dart';
 class Event {
   final String id;
   final String title;
@@ -13,13 +12,14 @@ class Event {
   final DateTime? endDate;
   final String location;
   final String? address;
-  final String? city;
+  final String city;
   final double price;
   final String priceCurrency;
   final bool isFree;
   final int? capacity;
   final int? remainingTickets;
   final bool isFeatured;
+  final bool isRecommended; // 🟢 Ajout ici
   final String status;
   final String? organizerId;
   final String? organizerName;
@@ -29,8 +29,12 @@ class Event {
   final int likesCount;
   final int sharesCount;
   final DateTime createdAt;
-  bool isLiked;
-  bool isSaved;
+  final DateTime? updatedAt;
+  final List<TicketTier> ticketTiers;
+
+  // Champs pour l'état local de l'utilisateur (Likes & Favoris)
+  final bool isLiked;
+  final bool isSaved;
 
   Event({
     required this.id,
@@ -44,14 +48,15 @@ class Event {
     this.endDate,
     required this.location,
     this.address,
-    this.city,
-    this.price = 0,
-    this.priceCurrency = 'FC',
-    this.isFree = false,
+    required this.city,
+    required this.price,
+    required this.priceCurrency,
+    required this.isFree,
     this.capacity,
     this.remainingTickets,
-    this.isFeatured = false,
-    this.status = 'upcoming',
+    required this.isFeatured,
+    this.isRecommended = false, // 🟢 Ajout ici (valeur par défaut pour éviter de casser le vieux code)
+    required this.status,
     this.organizerId,
     this.organizerName,
     this.contactPhone,
@@ -60,30 +65,33 @@ class Event {
     this.likesCount = 0,
     this.sharesCount = 0,
     required this.createdAt,
+    this.updatedAt,
     this.isLiked = false,
     this.isSaved = false,
+    this.ticketTiers = const [],
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
     return Event(
-      id: json['id'],
-      title: json['title'],
-      description: json['description'],
-      category: json['category'],
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      category: json['category'] ?? '',
       subCategory: json['sub_category'],
       imageUrl: json['image_url'],
       bannerUrl: json['banner_url'],
-      startDate: DateTime.parse(json['start_date']),
+      startDate: json['start_date'] != null ? DateTime.parse(json['start_date']) : DateTime.now(),
       endDate: json['end_date'] != null ? DateTime.parse(json['end_date']) : null,
-      location: json['location'],
+      location: json['location'] ?? '',
       address: json['address'],
-      city: json['city'],
+      city: json['city'] ?? '',
       price: (json['price'] ?? 0).toDouble(),
       priceCurrency: json['price_currency'] ?? 'FC',
       isFree: json['is_free'] ?? false,
       capacity: json['capacity'],
       remainingTickets: json['remaining_tickets'],
       isFeatured: json['is_featured'] ?? false,
+      isRecommended: json['is_recommended'] ?? false, // 🟢 Ajout ici
       status: json['status'] ?? 'upcoming',
       organizerId: json['organizer_id'],
       organizerName: json['organizer_name'],
@@ -92,36 +100,51 @@ class Event {
       viewsCount: json['views_count'] ?? 0,
       likesCount: json['likes_count'] ?? 0,
       sharesCount: json['shares_count'] ?? 0,
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
       isLiked: json['is_liked'] ?? false,
+      ticketTiers: json['ticket_tiers'] != null 
+    ? (json['ticket_tiers'] as List).map((i) => TicketTier.fromJson(i)).toList() 
+    : [],
       isSaved: json['is_saved'] ?? false,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'title': title,
       'description': description,
       'category': category,
-      'sub_category': subCategory,
-      'image_url': imageUrl,
-      'banner_url': bannerUrl,
+      if (subCategory != null) 'sub_category': subCategory,
+      if (imageUrl != null) 'image_url': imageUrl,
+      if (bannerUrl != null) 'banner_url': bannerUrl,
       'start_date': startDate.toIso8601String(),
-      'end_date': endDate?.toIso8601String(),
+      if (endDate != null) 'end_date': endDate!.toIso8601String(),
       'location': location,
-      'address': address,
+      if (address != null) 'address': address,
       'city': city,
       'price': price,
       'price_currency': priceCurrency,
       'is_free': isFree,
-      'capacity': capacity,
-      'remaining_tickets': remainingTickets,
+      if (capacity != null) 'capacity': capacity,
+      if (remainingTickets != null) 'remaining_tickets': remainingTickets,
       'is_featured': isFeatured,
+      'is_recommended': isRecommended, // 🟢 Ajout ici
       'status': status,
-      'organizer_id': organizerId,
-      'organizer_name': organizerName,
-      'contact_phone': contactPhone,
-      'contact_email': contactEmail,
+      if (organizerId != null) 'organizer_id': organizerId,
+      if (organizerName != null) 'organizer_name': organizerName,
+      if (contactPhone != null) 'contact_phone': contactPhone,
+      if (contactEmail != null) 'contact_email': contactEmail,
+      'views_count': viewsCount,
+      'likes_count': likesCount,
+      'shares_count': sharesCount,
+      'created_at': createdAt.toIso8601String(),
+      if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
+      'is_liked': isLiked,
+      'is_saved': isSaved,
+      'ticket_tiers': ticketTiers.map((e) => e.toJson()).toList(),
+
     };
   }
 
@@ -144,6 +167,7 @@ class Event {
     int? capacity,
     int? remainingTickets,
     bool? isFeatured,
+    bool? isRecommended, // 🟢 Ajout ici
     String? status,
     String? organizerId,
     String? organizerName,
@@ -153,8 +177,10 @@ class Event {
     int? likesCount,
     int? sharesCount,
     DateTime? createdAt,
+    DateTime? updatedAt,
     bool? isLiked,
     bool? isSaved,
+    List<TicketTier>? ticketTiers,
   }) {
     return Event(
       id: id ?? this.id,
@@ -175,6 +201,7 @@ class Event {
       capacity: capacity ?? this.capacity,
       remainingTickets: remainingTickets ?? this.remainingTickets,
       isFeatured: isFeatured ?? this.isFeatured,
+      isRecommended: isRecommended ?? this.isRecommended, // 🟢 Ajout ici
       status: status ?? this.status,
       organizerId: organizerId ?? this.organizerId,
       organizerName: organizerName ?? this.organizerName,
@@ -184,200 +211,53 @@ class Event {
       likesCount: likesCount ?? this.likesCount,
       sharesCount: sharesCount ?? this.sharesCount,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       isLiked: isLiked ?? this.isLiked,
+      ticketTiers: ticketTiers ?? this.ticketTiers,
       isSaved: isSaved ?? this.isSaved,
     );
   }
 
-  // ============================================================
-  // GETTERS UTILES
-  // ============================================================
-
+  // --- GETTER : PRIX FORMATÉ ---
   String get formattedPrice {
-    if (isFree) return 'Gratuit';
-    return '${NumberFormat('#,###').format(price)} $priceCurrency';
+    if (isFree || price <= 0) return 'Gratuit';
+    final priceString = price.truncateToDouble() == price 
+        ? price.toInt().toString() 
+        : price.toStringAsFixed(2);
+    return '$priceString $priceCurrency';
   }
 
-  String get formattedDate {
-    final day = startDate.day.toString().padLeft(2, '0');
-    final month = startDate.month.toString().padLeft(2, '0');
-    final year = startDate.year;
-    final hour = startDate.hour.toString().padLeft(2, '0');
-    final minute = startDate.minute.toString().padLeft(2, '0');
-    return '$day/$month/$year • ${hour}h$minute';
-  }
-
+  // --- GETTER : DATE COURTE ---
   String get shortDate {
-    final day = startDate.day.toString().padLeft(2, '0');
-    final month = startDate.month.toString().padLeft(2, '0');
-    return '$day/$month';
+    final months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+    return '${startDate.day} ${months[startDate.month - 1]}';
   }
 
-  String get dayAndMonth {
-    return DateFormat('dd MMM').format(startDate);
+  // --- GETTER : DATE FORMATÉE ---
+  String get formattedDate {
+    final months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+    return '${startDate.day} ${months[startDate.month - 1]} ${startDate.year}';
   }
 
-  String get fullDate {
-    return DateFormat('EEEE d MMMM yyyy', 'fr_FR').format(startDate);
-  }
-
-  String get timeRange {
-    if (endDate == null) {
-      return DateFormat('HH:mm').format(startDate);
-    }
-    return '${DateFormat('HH:mm').format(startDate)} - ${DateFormat('HH:mm').format(endDate!)}';
-  }
-
+  // --- GETTER : LABEL DE CATÉGORIE ---
   String get categoryLabel {
-    const labels = {
-      'musique': 'Musique & Concerts',
-      'conference': 'Conférences & Séminaires',
-      'culture': 'Culture & Art',
-      'sport': 'Sport & Loisirs',
-      'festival': 'Festivals & Soirées',
-      'spectacle': 'Spectacles',
-      'exposition': 'Expositions',
-    };
-    return labels[category] ?? category;
+    if (category.isEmpty) return 'Événement';
+    return category[0].toUpperCase() + category.substring(1).toLowerCase();
   }
 
-  String get categoryIcon {
-    const icons = {
-      'musique': '🎵',
-      'conference': '🎤',
-      'culture': '🎨',
-      'sport': '⚽',
-      'festival': '🎪',
-      'spectacle': '🎭',
-      'exposition': '🖼️',
-    };
-    return icons[category] ?? '📅';
-  }
-
-  bool get isUpcoming => status == 'upcoming';
-  bool get isOngoing => status == 'ongoing';
-  bool get isCompleted => status == 'completed';
-  bool get isCancelled => status == 'cancelled';
-  bool get hasAvailableTickets => (remainingTickets ?? 0) > 0;
-  bool get isPastEvent => startDate.isBefore(DateTime.now());
-}
-
-// ============================================================
-// MODÈLE BILLET (RÉSERVATION)
-// ============================================================
-
-class EventBooking {
-  final String id;
-  final String eventId;
-  final String eventTitle;
-  final String? eventImageUrl;
-  final DateTime eventDate;
-  final String eventLocation;
-  final int ticketQuantity;
-  final double totalPrice;
-  final String paymentStatus;
-  final String ticketCode;
-  final String? qrCode;
-  final String status;
-  final DateTime bookingDate;
-
-  EventBooking({
-    required this.id,
-    required this.eventId,
-    required this.eventTitle,
-    this.eventImageUrl,
-    required this.eventDate,
-    required this.eventLocation,
-    required this.ticketQuantity,
-    required this.totalPrice,
-    required this.paymentStatus,
-    required this.ticketCode,
-    this.qrCode,
-    required this.status,
-    required this.bookingDate,
-  });
-
-  factory EventBooking.fromJson(Map<String, dynamic> json) {
-    return EventBooking(
-      id: json['id'],
-      eventId: json['event_id'],
-      eventTitle: json['event_title'] ?? '',
-      eventImageUrl: json['event_image_url'],
-      eventDate: json['event_date'] != null 
-          ? DateTime.parse(json['event_date']) 
-          : DateTime.now(),
-      eventLocation: json['event_location'] ?? '',
-      ticketQuantity: json['ticket_quantity'] ?? 1,
-      totalPrice: (json['total_price'] ?? 0).toDouble(),
-      paymentStatus: json['payment_status'] ?? 'pending',
-      ticketCode: json['ticket_code'] ?? '',
-      qrCode: json['qr_code'],
-      status: json['status'] ?? 'confirmed',
-      bookingDate: DateTime.parse(json['booking_date']),
-    );
-  }
-
-  String get formattedTotalPrice {
-    return '${NumberFormat('#,###').format(totalPrice)} FC';
-  }
-
-  bool get isConfirmed => status == 'confirmed';
-  bool get isUsed => status == 'used';
-  bool get isCancelled => status == 'cancelled';
-  bool get isUpcoming => eventDate.isAfter(DateTime.now());
-}
-
-// ============================================================
-// EXTENSIONS POUR LISTES
-// ============================================================
-
-extension EventListExtension on List<Event> {
-  List<Event> get upcoming => where((e) => e.isUpcoming && !e.isPastEvent).toList();
-  List<Event> get featured => where((e) => e.isFeatured).toList();
-  List<Event> get free => where((e) => e.isFree).toList();
-  List<Event> get paid => where((e) => !e.isFree).toList();
-  
-  List<Event> byCategory(String category) {
-    return where((e) => e.category == category).toList();
-  }
-  
-  List<Event> byCity(String city) {
-    return where((e) => e.city == city).toList();
-  }
-  
-  List<Event> thisWeek() {
-    final now = DateTime.now();
-    final weekLater = now.add(const Duration(days: 7));
-    return where((e) => 
-      e.startDate.isAfter(now) && e.startDate.isBefore(weekLater)
-    ).toList();
-  }
-  
-  List<Event> thisMonth() {
-    final now = DateTime.now();
-    return where((e) => 
-      e.startDate.month == now.month && e.startDate.year == now.year
-    ).toList();
-  }
-  
-  Map<String, List<Event>> groupByCategory() {
-    final map = <String, List<Event>>{};
-    for (final event in this) {
-      map.putIfAbsent(event.category, () => []).add(event);
+  // --- GETTER : PLAGE HORAIRE ---
+  String get timeRange {
+    String startHour = '${startDate.hour.toString().padLeft(2, '0')}:${startDate.minute.toString().padLeft(2, '0')}';
+    if (endDate != null) {
+      String endHour = '${endDate!.hour.toString().padLeft(2, '0')}:${endDate!.minute.toString().padLeft(2, '0')}';
+      return '$startHour - $endHour';
     }
-    return map;
+    return startHour;
   }
   
-  Map<DateTime, List<Event>> groupByDate() {
-    final map = <DateTime, List<Event>>{};
-    for (final event in this) {
-      final date = DateTime(event.startDate.year, event.startDate.month, event.startDate.day);
-      map.putIfAbsent(date, () => []).add(event);
-    }
-    return map;
-  }
-  
-  int get totalViews => fold(0, (sum, e) => sum + e.viewsCount);
-  int get totalLikes => fold(0, (sum, e) => sum + e.likesCount);
-  double get averagePrice => isEmpty ? 0.0 : fold<double>(0.0, (sum, e) => sum + e.price) / length;
+  // --- GETTERS : STATUTS TEMPORELS ---
+  bool get isUpcoming => startDate.isAfter(DateTime.now());
+  bool get isPastEvent => endDate != null 
+      ? endDate!.isBefore(DateTime.now()) 
+      : startDate.isBefore(DateTime.now());
 }

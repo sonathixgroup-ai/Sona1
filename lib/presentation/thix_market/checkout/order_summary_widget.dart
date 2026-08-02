@@ -1,219 +1,76 @@
-// lib/presentation/thix_market/checkout/order_summary_widget.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../cart/cart_provider.dart';
 import 'checkout_provider.dart';
 import 'order_confirmation_page.dart';
 
-class OrderSummaryWidget extends StatelessWidget {
-  final CheckoutProvider provider;
+class OrderSummaryWidget extends ConsumerWidget {
+  const OrderSummaryWidget({super.key});
+  static const thixOrange = Color(0xFFE5592F);
+  static const pureWhite = Color(0xFFFFFFFF);
+  static const darkText = Color(0xFF10192E);
+  static const mutedText = Color(0xFF7386A8);
 
-  const OrderSummaryWidget({super.key, required this.provider});
+  @override Widget build(BuildContext context, WidgetRef ref){
+    final cartNotifier = ref.read(cartProvider.notifier);
+    final cartState = ref.watch(cartProvider);
+    final checkout = ref.watch(checkoutProvider);
+    final checkoutNotifier = ref.read(checkoutProvider.notifier);
 
-  // ─── Palette Élite ──────────────────────────────────────────────
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color primaryBlue = Color(0xFF2D6CDF);
-  static const Color softBlue = Color(0xFFEFF5FF);
-  static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF10192E);
-  static const Color mutedText = Color(0xFF7386A8);
-  static const Color gold = Color(0xFFE3B23C);
-  static const Color danger = Color(0xFFFF5B3D);
+    final subtotalSymbol = cartNotifier.currencySymbol;
+    final total = cartNotifier.subtotal;
+    final shippingLabel = checkout.selectedShipping!=null? (checkout.selectedShipping!['price_label']??'À déterminer').toString() : 'À déterminer';
+    final shippingName = checkout.selectedShipping!=null? (checkout.selectedShipping!['name']??'Livraison').toString() : 'Livraison';
 
-  @override
-  Widget build(BuildContext context) {
-    final cartProvider = Provider.of<CartProvider>(context, listen: false);
-
-    // Devises
-    final subtotalSymbol = cartProvider.currencySymbol;
-    final shippingSymbol = cartProvider.shippingSymbol; // toujours 'FC'
-
-    // Montants
-    final subtotal = cartProvider.subtotal;
-    final shippingCost = provider.selectedShippingMethod?['price'] as double? ?? 0;
-    final total = subtotal + shippingCost;
-
-    // Items
-    final items = cartProvider.cartItems.map((item) {
-      final product = item['product'];
+    final items = cartState.items.map((item){
+      final product = item['product'] as Map?;
+      double price = 0;
+      try{ price = cartNotifier.getItemRealPrice(item); }catch(_){}
       return {
-        'product_id': product['id'],
+        'product_id': product!=null? product['id'] : item['product_id'],
         'quantity': item['quantity'],
-        'price': (product['discount_price'] ?? product['price']).toDouble(),
-        'product_name': product['title'],
-        'image_url': (product['images'] is List && (product['images'] as List).isNotEmpty)
-            ? (product['images'] as List).first
-            : product['image_url'],
+        'price': price,
+        'product_name': product!=null && product['title']!=null? product['title'].toString() : 'Produit',
+        'image_url': product!=null? (product['images'] is List && (product['images'] as List).isNotEmpty? (product['images'] as List).first.toString() : product['image_url']?.toString()) : null,
       };
     }).toList();
 
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ─── Adresse ────────────────────────────────────
-                _buildSection('Adresse de livraison', [
-                  Text(provider.selectedAddress?['full_name'] ?? ''),
-                  Text(provider.selectedAddress?['address_line'] ?? ''),
-                  Text('${provider.selectedAddress?['city']}, ${provider.selectedAddress?['postal_code']}'),
-                  Text('Tél: ${provider.selectedAddress?['phone']}'),
-                ]),
-                const SizedBox(height: 16),
-
-                // ─── Mode de livraison ─────────────────────────
-                _buildSection('Mode de livraison', [
-                  Text('${provider.selectedShippingMethod?['name']} - ${(provider.selectedShippingMethod?['price'] ?? 0).toInt()} $shippingSymbol'),
-                  Text('Livraison sous ${provider.selectedShippingMethod?['days']}'),
-                ]),
-                const SizedBox(height: 16),
-
-                // ─── Moyen de paiement ─────────────────────────
-                _buildSection('Moyen de paiement', [
-                  Text(provider.selectedPaymentMethod?['name'] ?? ''),
-                ]),
-                const SizedBox(height: 16),
-
-                // ─── Articles ──────────────────────────────────
-                const Text('Articles', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
-                const SizedBox(height: 8),
-                ...items.map((item) => ListTile(
-                  leading: item['image_url'] != null
-                      ? Image.network(item['image_url'], width: 40, height: 40, fit: BoxFit.cover)
-                      : const Icon(Icons.image_rounded, color: mutedText),
-                  title: Text(item['product_name'], style: const TextStyle(fontWeight: FontWeight.w600, color: darkText)),
-                  subtitle: Text('Quantité: ${item['quantity']}', style: TextStyle(color: mutedText)),
-                  trailing: Text(
-                    '${(item['price'] * item['quantity']).toInt()} $subtotalSymbol',
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: primaryBlue),
-                  ),
-                )),
-                const Divider(height: 24),
-
-                // ─── Prix ──────────────────────────────────────
-                _buildPriceRow('Sous-total', subtotal, subtotalSymbol),
-                _buildPriceRow('Livraison', shippingCost, shippingSymbol),
-                const Divider(),
-                _buildPriceRow('Total', total, subtotalSymbol, isTotal: true),
-              ],
-            ),
-          ),
-        ),
-
-        // ─── Bouton ────────────────────────────────────────────
-        _buildBottomButton(context, total, items, cartProvider, subtotalSymbol),
-      ],
-    );
-  }
-
-  Widget _buildSection(String title, List<Widget> children) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: softBlue,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w700, color: darkText)),
-          const SizedBox(height: 8),
-          ...children.map((child) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: child,
-          )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPriceRow(String label, double value, String symbol, {bool isTotal = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
-              fontSize: isTotal ? 16 : 14,
-              color: isTotal ? darkText : mutedText,
-            ),
-          ),
-          Text(
-            '${value.toInt()} $symbol',
-            style: TextStyle(
-              fontWeight: isTotal ? FontWeight.w800 : FontWeight.w600,
-              fontSize: isTotal ? 18 : 15,
-              color: isTotal ? primaryBlue : darkText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomButton(
-    BuildContext context,
-    double total,
-    List<Map<String, dynamic>> items,
-    CartProvider cartProvider,
-    String currencySymbol,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: ElevatedButton(
-        onPressed: provider.isProcessing ? null : () async {
-          try {
-            final order = await provider.processOrder(
-              cartProvider: cartProvider,
-              total: total,
-              items: items,
-            );
-            if (context.mounted) {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => OrderConfirmationPage(
-                    order: order,
-                    currencySymbol: currencySymbol,
-                  ),
-                ),
-              );
-            }
-          } catch (e) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(e.toString()),
-                  backgroundColor: danger,
-                ),
-              );
-            }
-          }
+    return Column(children: [
+      Expanded(child: SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _section('Adresse de livraison', [
+          Text(checkout.selectedAddress!=null? (checkout.selectedAddress!['full_name']??'').toString() : '', style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(checkout.selectedAddress!=null? (checkout.selectedAddress!['address_line']??'').toString() : ''),
+          Text(checkout.selectedAddress!=null? '${checkout.selectedAddress!['commune']??''}, ${checkout.selectedAddress!['city']??''}' : ''),
+          if(checkout.selectedAddress!=null && checkout.selectedAddress!['landmark']!=null && checkout.selectedAddress!['landmark'].toString().isNotEmpty) Text('Repère: ${checkout.selectedAddress!['landmark']}', style: const TextStyle(fontStyle: FontStyle.italic)),
+          Text('Tél: ${checkout.selectedAddress!=null? checkout.selectedAddress!['phone']??'' : ''}'),
+        ]),
+        const SizedBox(height: 16),
+        _section('Mode de livraison', [Text(shippingName, style: const TextStyle(fontWeight: FontWeight.w600)), Text('Frais : $shippingLabel', style: const TextStyle(color: thixOrange, fontWeight: FontWeight.w500))]),
+        const SizedBox(height: 16),
+        _section('Moyen de paiement', [Text(checkout.selectedPayment!=null? (checkout.selectedPayment!['name']??'').toString() : '', style: const TextStyle(fontWeight: FontWeight.w600))]),
+        const SizedBox(height: 16),
+        const Text('Articles', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
+        const SizedBox(height: 8),
+       ...items.map((item)=> ListTile(contentPadding: EdgeInsets.zero, leading: ClipRRect(borderRadius: BorderRadius.circular(8), child: item['image_url']!=null? Image.network(item['image_url'].toString(), width: 50, height: 50, fit: BoxFit.cover) : Container(width: 50, height: 50, color: Colors.grey.shade200, child: const Icon(Icons.image_rounded, color: mutedText))), title: Text(item['product_name'].toString(), style: const TextStyle(fontWeight: FontWeight.w600, color: darkText, fontSize: 14)), subtitle: Text('Qté: ${item['quantity']}', style: const TextStyle(color: mutedText, fontSize: 12)), trailing: Text('${((item['price'] as num)* (item['quantity'] as num)).toInt()} $subtotalSymbol', style: const TextStyle(fontWeight: FontWeight.w800, color: darkText)))),
+        const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
+        _priceRow('Sous-total', '${total.toInt()} $subtotalSymbol'),
+        _priceRow('Livraison', shippingLabel, isHighlight: true),
+        const Divider(height: 24),
+        _priceRow('Total à payer (hors livraison)', '${total.toInt()} $subtotalSymbol', isTotal: true),
+      ]))),
+      Padding(padding: const EdgeInsets.all(16), child: ElevatedButton(
+        onPressed: checkout.isProcessing? null : () async {
+          try{
+            final order = await checkoutNotifier.processOrder(total: total, items: items);
+            if(context.mounted){ Navigator.pushReplacement(context, MaterialPageRoute(builder: (_)=> OrderConfirmationPage(order: order, currencySymbol: subtotalSymbol))); }
+          }catch(e){ if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red)); }
         },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryBlue,
-          foregroundColor: pureWhite,
-          minimumSize: const Size(double.infinity, 52),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 0,
-        ),
-        child: provider.isProcessing
-            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-            : const Text(
-                'Confirmer et payer',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-              ),
-      ),
-    );
+        style: ElevatedButton.styleFrom(backgroundColor: thixOrange, foregroundColor: pureWhite, minimumSize: const Size(double.infinity, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
+        child: checkout.isProcessing? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Confirmer la commande', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+      )),
+    ]);
   }
+
+  Widget _section(String title, List<Widget> children)=> Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w800, color: darkText, fontSize: 15)), const SizedBox(height: 12),...children.map((c)=> Padding(padding: const EdgeInsets.only(bottom: 4), child: c))]));
+  Widget _priceRow(String label, String value, {bool isTotal=false, bool isHighlight=false})=> Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: TextStyle(fontWeight: isTotal? FontWeight.w800 : FontWeight.w500, fontSize: isTotal? 16 : 14, color: isTotal? darkText : mutedText)), Text(value, style: TextStyle(fontWeight: isTotal? FontWeight.w800 : (isHighlight? FontWeight.w600 : FontWeight.w700), fontSize: isTotal? 18 : 14, color: isTotal? darkText : (isHighlight? thixOrange : darkText)))]));
 }

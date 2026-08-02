@@ -1,11 +1,15 @@
+// lib/presentation/education/instructor/content/module_management_page.dart
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:thix_id/presentation/education/models/module.dart';
 import 'package:thix_id/presentation/education/models/lesson.dart';
-import 'package:thix_id/presentation/education/providers/education_provider.dart';
+// Note: Adaptez l'import si LessonManagementPage se trouve dans le même dossier
 import 'package:thix_id/presentation/education/instructor/content/lesson_management_page.dart';
+
+// IMPORTANT: Vérifiez que ce chemin pointe bien vers l'emplacement exact de votre page de gestion de questions
+import 'package:thix_id/presentation/education/instructor/evaluations/question_management_page.dart'; 
+
 
 class ModuleManagementPage extends StatefulWidget {
   final Module? module;
@@ -21,8 +25,6 @@ class _ModuleManagementPageState extends State<ModuleManagementPage> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   bool _isLoading = false;
-
-  // Liste des leçons du module (chargées depuis le provider ou reçues)
   List<Lesson> _lessons = [];
 
   @override
@@ -31,7 +33,7 @@ class _ModuleManagementPageState extends State<ModuleManagementPage> {
     if (widget.module != null) {
       _titleController.text = widget.module!.title;
       _descriptionController.text = widget.module!.description ?? '';
-      _lessons = widget.module!.lessons ?? [];
+      _lessons = List.from(widget.module!.lessons ?? []);
     }
   }
 
@@ -45,13 +47,12 @@ class _ModuleManagementPageState extends State<ModuleManagementPage> {
   Future<void> _saveModule() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-
+    
     try {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) return;
 
-      // Construction du module
-      final module = Module(
+      final moduleToSave = Module(
         id: widget.module?.id ?? '',
         formationId: widget.courseId ?? widget.module?.formationId ?? '',
         title: _titleController.text,
@@ -60,51 +61,100 @@ class _ModuleManagementPageState extends State<ModuleManagementPage> {
         lessons: _lessons,
       );
 
-      // TODO: Appeler le service pour sauvegarder (créer ou mettre à jour)
-      // final provider = context.read<EducationProvider>();
-      // if (widget.module == null) {
-      //   await provider.createModule(module);
-      // } else {
-      //   await provider.updateModule(module);
-      // }
-
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Module sauvegardé !')),
-      );
-      Navigator.pop(context, module);
+      // Note: La sauvegarde réelle vers Supabase devrait se faire ici
+      
+      Navigator.pop(context, moduleToSave);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e')));
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _addLesson() async {
+    // Redirection vers le créateur de leçon intelligent que nous avons conçu précédemment
     final newLesson = await Navigator.push<Lesson>(
-      context,
+      context, 
       MaterialPageRoute(
-        builder: (_) => LessonManagementPage(moduleId: widget.module?.id ?? ''),
-      ),
+        builder: (_) => LessonManagementPage(
+          moduleId: widget.module?.id ?? '',
+        )
+      )
     );
-    if (newLesson != null) {
+    
+    if (newLesson != null && mounted) {
       setState(() => _lessons.add(newLesson));
     }
   }
 
   void _editLesson(Lesson lesson) async {
-    final updated = await Navigator.push<Lesson>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => LessonManagementPage(lesson: lesson),
-      ),
-    );
-    if (updated != null) {
-      final index = _lessons.indexOf(lesson);
-      if (index != -1) {
-        setState(() => _lessons[index] = updated);
+    // 1. Si la leçon est un Quiz ET qu'elle est déjà enregistrée en base (elle a un ID valide)
+    if (lesson.type == 'quiz') {
+      if (lesson.id.isEmpty) {
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez d\'abord sauvegarder le module avant de gérer les questions du quiz.')));
+         return;
+      }
+      
+      String? targetEvaluationId;
+
+      setState(() => _isLoading = true);
+      try {
+        // Chercher si une évaluation existe déjà pour cette leçon
+        final evalList = await Supabase.instance.client
+            .from('evaluations')
+            .select('id')
+            .eq('lesson_id', lesson.id)
+            .maybeSingle();
+
+        if (evalList != null && evalList.isNotEmpty) {
+          targetEvaluationId = evalList['id'];
+        } else {
+          // Créer une nouvelle évaluation si elle n'existe pas
+          final evalRes = await Supabase.instance.client
+              .from('evaluations')
+              .insert({
+                'lesson_id': lesson.id,
+                'title': 'Quiz - ${lesson.title}',
+                'type': 'quiz',
+              })
+              .select('id')
+              .single();
+          targetEvaluationId = evalRes['id'];
+        }
+      } catch (e) {
+        debugPrint('Erreur init quiz: $e');
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impossible d\'initialiser le quiz.')));
+      } finally {
+        setState(() => _isLoading = false);
+      }
+
+      if (targetEvaluationId != null && mounted) {
+        // Ouvrir le gestionnaire de questions
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => QuestionManagementPage(evaluationId: targetEvaluationId!),
+          ),
+        );
+      }
+    } else {
+      // 2. Pour les autres types (video, texte), ouvrir l'éditeur de leçon standard
+      final updatedLesson = await Navigator.push<Lesson>(
+        context, 
+        MaterialPageRoute(
+          builder: (_) => LessonManagementPage(
+            moduleId: widget.module?.id ?? '',
+            lesson: lesson,
+          )
+        )
+      );
+      
+      if (updatedLesson != null && mounted) {
+        final index = _lessons.indexOf(lesson);
+        if (index != -1) {
+          setState(() => _lessons[index] = updatedLesson);
+        }
       }
     }
   }
@@ -118,105 +168,94 @@ class _ModuleManagementPageState extends State<ModuleManagementPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(widget.module == null ? 'Ajouter un module' : 'Modifier le module'),
+        title: Text(widget.module == null ? 'Ajouter un module' : 'Modifier le module', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF0F172A), fontSize: 18)),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
+        centerTitle: true,
+        leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)), onPressed: () => Navigator.pop(context)),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.save_rounded),
-            onPressed: _saveModule,
-          ),
+          IconButton(icon: const Icon(Icons.save_rounded, color: Color(0xFF2D6CDF)), onPressed: _isLoading ? null : _saveModule),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2D6CDF)))
           : Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Formulaire du module
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            TextFormField(
-                              controller: _titleController,
-                              decoration: const InputDecoration(labelText: 'Titre du module*'),
-                              validator: (v) => v!.isEmpty ? 'Requis' : null,
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Configuration', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF0F172A))),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _titleController,
+                            decoration: InputDecoration(
+                              labelText: 'Titre du module*',
+                              labelStyle: const TextStyle(color: Color(0xFF64748B)),
+                              filled: true, fillColor: const Color(0xFFF8FAFC),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                             ),
-                            TextFormField(
-                              controller: _descriptionController,
-                              decoration: const InputDecoration(labelText: 'Description'),
-                              maxLines: 3,
+                            validator: (v) => v!.isEmpty ? 'Requis' : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _descriptionController,
+                            maxLines: 3,
+                            decoration: InputDecoration(
+                              labelText: 'Description',
+                              labelStyle: const TextStyle(color: Color(0xFF64748B)),
+                              filled: true, fillColor: const Color(0xFFF8FAFC),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Liste des leçons
+                  const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Leçons',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                      ),
+                      const Text('Leçons', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
                       ElevatedButton.icon(
                         onPressed: _addLesson,
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('Ajouter une leçon'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF10B981),
-                          foregroundColor: Colors.white,
-                        ),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Ajouter'),
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2D6CDF), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-
                   Expanded(
                     child: _lessons.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Aucune leçon. Ajoutez-en une.',
-                              style: TextStyle(color: Color(0xFF7386A8)),
-                            ),
-                          )
+                        ? const Center(child: Text('Aucune leçon. Ajoutez-en une.', style: TextStyle(color: Color(0xFF64748B))))
                         : ListView.builder(
                             itemCount: _lessons.length,
                             itemBuilder: (context, index) {
                               final lesson = _lessons[index];
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 8),
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
                                 child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                   leading: CircleAvatar(
-                                    backgroundColor: const Color(0xFF10B981),
-                                    child: Text('${index + 1}'),
+                                    backgroundColor: lesson.type == 'quiz' ? const Color(0xFFF59E0B).withOpacity(0.1) : const Color(0xFF2D6CDF).withOpacity(0.1),
+                                    child: Icon(lesson.type == 'quiz' ? Icons.quiz_rounded : Icons.play_arrow_rounded, color: lesson.type == 'quiz' ? const Color(0xFFF59E0B) : const Color(0xFF2D6CDF)),
                                   ),
-                                  title: Text(lesson.title),
-                                  subtitle: Text('Type : ${lesson.type}'),
+                                  title: Text(lesson.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                                  subtitle: Text(lesson.type == 'quiz' ? 'Évaluation (Quiz)' : 'Leçon standard', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
                                   trailing: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.edit_rounded),
-                                        onPressed: () => _editLesson(lesson),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_rounded, color: Colors.red),
-                                        onPressed: () => _deleteLesson(lesson),
-                                      ),
+                                      IconButton(icon: const Icon(Icons.edit_rounded, color: Color(0xFF64748B)), onPressed: () => _editLesson(lesson)),
+                                      IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444)), onPressed: () => _deleteLesson(lesson)),
                                     ],
                                   ),
                                   onTap: () => _editLesson(lesson),

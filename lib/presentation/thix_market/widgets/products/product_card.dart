@@ -1,8 +1,10 @@
-// lib/presentation/thix_market/widgets/products/product_card.dart
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/market_colors.dart';
+import 'wishlist_button.dart';
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends ConsumerWidget {
   final Map<String, dynamic> product;
   final bool isFlashSale;
   final bool showFavoriteButton;
@@ -20,136 +22,162 @@ class ProductCard extends StatelessWidget {
     this.onFavoriteTap,
   });
 
+  double _toDouble(dynamic v) {
+    if (v is num) return v.toDouble();
+    return double.tryParse(v?.toString() ?? '') ?? 0;
+  }
+
   @override
-  Widget build(BuildContext context) {
-    final hasDiscount = product['discount_price'] != null &&
-        product['discount_price'] < product['price'];
-    final price = (hasDiscount ? product['discount_price'] : product['price']).toDouble();
-    final originalPrice = product['price'].toDouble();
-    final discountPercent = hasDiscount
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rawPrice = product['price'];
+    final rawDiscount = product['discount_price'];
+
+    final originalPrice = _toDouble(rawPrice);
+    final discountPrice = rawDiscount != null ? _toDouble(rawDiscount) : null;
+
+    final hasDiscount = discountPrice != null && discountPrice > 0 && discountPrice < originalPrice;
+    final price = hasDiscount ? discountPrice! : originalPrice;
+
+    final discountPercent = originalPrice > 0 && hasDiscount
         ? ((originalPrice - price) / originalPrice * 100).round()
         : 0;
 
-    // ✅ Devise dynamique
     final currency = product['currency'] ?? 'CDF';
-    final currencySymbol = currency == 'USD' ? '\$' : 'FC';
+    final symbol = currency == 'USD' ? '\$' : 'FC';
+
+    final stock = int.tryParse(product['stock']?.toString() ?? '1') ?? 1;
+    final isOut = stock <= 0;
+
+    final img = product['image_url'] as String?;
+    final title = (product['title'] ?? product['name'] ?? 'Produit').toString();
+    final city = (product['city'] ?? product['location'] ?? 'Kinshasa').toString();
+    final id = product['id']?.toString() ?? '';
 
     return GestureDetector(
-      onTap: () => onTap?.call(product),
+      onTap: () {
+        if (onTap != null) {
+          onTap!(product);
+        } else {
+          context.push('/market/product/$id');
+        }
+      },
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(color: Colors.grey.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2)),
-          ],
+          color: MarketColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isOut ? const Color(0xFFE5E5E5) : MarketColors.cardBorder),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image
             Expanded(
               child: Stack(
                 children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                    child: CachedNetworkImage(
-                      imageUrl: product['image_url'] ?? '',
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(color: Colors.grey[100]),
-                      errorWidget: (_, __, ___) => Container(
-                        color: Colors.grey[100],
-                        child: const Icon(Icons.image, color: Colors.grey),
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                      // 🔴 CORRECTION : On force un fond gris clair pour éviter le noir
+                      child: Container(
+                        color: MarketColors.lightBg,
+                        width: double.infinity,
+                        height: double.infinity,
+                        child: img == null || img.isEmpty
+                            ? const Center(child: Icon(Icons.shopping_bag_outlined, color: MarketColors.mutedText, size: 36))
+                            : Image.network(
+                                img,
+                                fit: BoxFit.cover,
+                                // suppression du cacheWidth qui cause le carré noir sur le web !
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return const Center(
+                                    child: CircularProgressIndicator(
+                                      color: MarketColors.red,
+                                      strokeWidth: 2,
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (_, __, ___) => const Center(
+                                  child: Icon(Icons.shopping_bag_outlined, color: MarketColors.mutedText, size: 36),
+                                ),
+                              ),
                       ),
                     ),
                   ),
-                  // Flash badge
-                  if (isFlashSale)
-                    Positioned(
-                      top: 8,
-                      left: 8,
+                  if (isOut)
+                    Positioned.fill(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(4),
+                          color: Colors.black.withValues(alpha: 0.4),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
                         ),
-                        child: const Text(
-                          'FLASH',
-                          style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(color: MarketColors.red, borderRadius: BorderRadius.circular(6)),
+                            child: const Text('ÉPUISÉ', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+                          ),
                         ),
                       ),
                     ),
-                  // Discount badge
-                  if (hasDiscount && !isFlashSale)
+                  if (isFlashSale && !isOut)
                     Positioned(
                       top: 8,
                       left: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '-$discountPercent%',
-                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(color: MarketColors.red, borderRadius: BorderRadius.circular(6)),
+                        child: const Text('FLASH', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
                       ),
+                    ),
+                  if (hasDiscount && !isFlashSale && !isOut)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(color: MarketColors.red, borderRadius: BorderRadius.circular(6)),
+                        child: Text('-$discountPercent%', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+                      ),
+                    ),
+                  if (showFavoriteButton)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: WishlistButton(productId: id, size: 18),
                     ),
                 ],
               ),
             ),
-            // Info
             Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    product['title'] ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-                  ),
+                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF10192E))),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text(
-                        '${price.toInt()} $currencySymbol',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: Color(0xFFE5592F),
-                        ),
-                      ),
-                      if (hasDiscount)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 6),
-                          child: Text(
-                            '${originalPrice.toInt()} $currencySymbol',
-                            style: TextStyle(
-                              decoration: TextDecoration.lineThrough,
-                              fontSize: 11,
-                              color: Colors.grey[500],
-                            ),
-                          ),
-                        ),
+                      const Icon(Icons.location_on_outlined, size: 11, color: MarketColors.mutedText),
+                      const SizedBox(width: 2),
+                      Expanded(child: Text(city, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: MarketColors.mutedText))),
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 6),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(Icons.location_on, size: 12, color: Colors.grey[400]),
-                      const SizedBox(width: 2),
-                      Expanded(
-                        child: Text(
-                          product['city'] ?? 'Abidjan',
-                          style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (hasDiscount && !isOut)
+                            Text('${originalPrice.toInt()} $symbol', style: TextStyle(decoration: TextDecoration.lineThrough, fontSize: 10, color: Colors.grey.shade400)),
+                          Text(isOut ? 'Non dispo' : '${price.toInt()} $symbol', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: isOut ? Colors.grey : MarketColors.red)),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(color: isOut ? const Color(0xFFFFF0F0) : const Color(0xFFE8FFF1), borderRadius: BorderRadius.circular(6)),
+                        child: Text(isOut ? 'Épuisé' : '$stock dispo', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: isOut ? MarketColors.red : const Color(0xFF00B074))),
                       ),
                     ],
                   ),

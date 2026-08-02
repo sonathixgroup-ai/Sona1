@@ -1,103 +1,61 @@
-// lib/providers/certificate_provider.dart
-import 'package:flutter/material.dart';
-import '../services/education_service.dart';
+import 'dart:math';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/certificate.dart';
 
-class CertificateProvider extends ChangeNotifier {
-  final EducationService _service;
+String _genHash() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  final rnd = Random.secure();
+  return List.generate(24, (_) => chars[rnd.nextInt(chars.length)]).join();
+}
 
-  List<Certificate> _certificates = [];
-  Certificate? _currentCertificate;
-  bool _isLoading = false;
-  String? _error;
-
-  // Getters
-  List<Certificate> get certificates => _certificates;
-  Certificate? get currentCertificate => _currentCertificate;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
-
-  CertificateProvider(this._service);
-
-  // ─── CHARGEMENT ──────────────────────────────────────────────────
-
-  Future<void> loadCertificates(String userId) async {
-    _setLoading(true);
-    try {
-      // Récupérer toutes les formations terminées de l'utilisateur
-      final formations = await _service.getMyFormations(userId);
-      _certificates = [];
-
-      for (final formation in formations) {
-        final cert = await _service.getCertificate(userId, formation.id);
-        if (cert != null) {
-          _certificates.add(cert);
-        }
-      }
-
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-      debugPrint('Error loading certificates: $e');
-    } finally {
-      _setLoading(false);
-    }
+class CertificatesNotifier extends FamilyAsyncNotifier<List<Certificate>, String> {
+  @override
+  Future<List<Certificate>> build(String userId) async {
+    // ✅ CORRIGÉ : Utilisation directe du client pour éviter les erreurs d'import
+    final client = Supabase.instance.client;
+    
+    final res = await client.from('certificates')
+     .select('id,formation_id,verification_hash,issued_at,formation:formations(id,title,image_url)')
+     .eq('user_id', userId)
+     .order('issued_at', ascending: false)
+     .limit(100); 
+    return res.map((e) => Certificate.fromJson(e)).toList();
   }
 
-  Future<Certificate?> getCertificate(String userId, String formationId) async {
-    _setLoading(true);
+  Future<Certificate?> getByFormation(String formationId) async {
+    final client = Supabase.instance.client;
+    final res = await client.from('certificates')
+     .select()
+     .eq('user_id', arg)
+     .eq('formation_id', formationId)
+     .maybeSingle();
+    return res == null ? null : Certificate.fromJson(res);
+  }
+
+  Future<Certificate?> generateCertificate(String formationId) async {
+    final userId = arg;
+    final client = Supabase.instance.client;
     try {
-      final cert = await _service.getCertificate(userId, formationId);
-      if (cert != null) {
-        _currentCertificate = cert;
-      }
-      _error = null;
+      final res = await client.from('certificates').insert({
+        'user_id': userId,
+        'formation_id': formationId,
+        'verification_hash': _genHash(),
+      }).select('id,formation_id,verification_hash,issued_at').single();
+      
+      final cert = Certificate.fromJson(res);
+      ref.invalidateSelf();
       return cert;
     } catch (e) {
-      _error = e.toString();
-      debugPrint('Error fetching certificate: $e');
-      return null;
-    } finally {
-      _setLoading(false);
+      rethrow;
     }
-  }
-
-  // ─── GÉNÉRATION ──────────────────────────────────────────────────
-
-  Future<Certificate?> generateCertificate(String userId, String formationId) async {
-    _setLoading(true);
-    try {
-      final certificate = await _service.generateCertificate(userId, formationId);
-      _currentCertificate = certificate;
-      await loadCertificates(userId); // Recharger la liste
-      _error = null;
-      return certificate;
-    } catch (e) {
-      _error = e.toString();
-      debugPrint('Error generating certificate: $e');
-      return null;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // ─── UTILITAIRES ──────────────────────────────────────────────────
-
-  void clearError() {
-    _error = null;
-    notifyListeners();
-  }
-
-  void reset() {
-    _certificates = [];
-    _currentCertificate = null;
-    _error = null;
-    _isLoading = false;
-    notifyListeners();
-  }
-
-  void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
   }
 }
+
+final certificatesProvider = AsyncNotifierProvider.family<CertificatesNotifier, List<Certificate>, String>(CertificatesNotifier.new);
+
+final certificateByIdProvider = FutureProvider.family<Certificate?, String>((ref, String certId) async {
+  final client = Supabase.instance.client;
+  final res = await client.from('certificates').select().eq('id', certId).maybeSingle();
+  return res == null ? null : Certificate.fromJson(res);
+});

@@ -1,405 +1,64 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:provider/provider.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart' as app_provider;
+import 'package:go_router/go_router.dart';
 import 'package:thix_id/auth/auth_controller.dart';
-import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
-import 'package:thix_id/nav.dart' show AppRoutes; // Pour AppRoutes
-import 'package:thix_id/app_router.dart'; // ✅ IMPORT AJOUTÉ pour AppRouter
+import 'package:thix_id/app_router.dart';
 import 'package:thix_id/services/profile_service.dart';
-import 'package:thix_id/services/user_service.dart';
-import 'package:thix_id/services/network_service.dart';
-import 'package:thix_id/services/news_service.dart';
-import 'package:thix_id/providers/feed_provider.dart';
-import 'package:thix_id/providers/news_provider.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
-import 'package:thix_id/presentation/chat/core/chat_bloc.dart';
-import 'package:thix_id/presentation/chat/core/chat_repository.dart';
-import 'package:thix_id/presentation/chat/tasks/task_notification.dart';
-import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/activity_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/live_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/market_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/message_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/product_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/search_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/sell_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/settings_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/shop_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/support_provider.dart';
-import 'package:thix_id/providers/event_provider.dart';
-import 'package:thix_id/services/event_service.dart';
-
-// ============================================================
-// ✅ IMPORTS EDUCATION
-// ============================================================
-import 'package:thix_id/presentation/education/providers/education_provider.dart';
-import 'package:thix_id/presentation/education/providers/progress_provider.dart';
-import 'package:thix_id/presentation/education/providers/certificate_provider.dart';
-import 'package:thix_id/presentation/education/providers/forum_provider.dart';
-import 'package:thix_id/presentation/education/providers/recommendation_provider.dart';
-import 'package:thix_id/presentation/education/services/education_service.dart';
-
-// ═══════════════════════════════════════════════════════════════════════
-// MAIN
-// ═══════════════════════════════════════════════════════════════════════
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-    debugPrint('FlutterError: ${details.exceptionAsString()}');
-    if (details.stack != null) debugPrint(details.stack.toString());
-  };
-  ErrorWidget.builder = (FlutterErrorDetails details) {
-    debugPrint('ErrorWidget: ${details.exceptionAsString()}');
-    if (details.stack != null) debugPrint(details.stack.toString());
-    return Material(
-      color: Colors.transparent,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Une erreur est survenue.\n\n${kDebugMode ? details.exceptionAsString() : ''}',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    );
-  };
-
-  runApp(const ProviderScope(child: BootstrapApp()));
+  try { await SupabaseConfig.initialize(); } catch (e) { debugPrint('Supabase init error: $e'); }
+  runApp(const ProviderScope(child: MyApp()));
 }
 
-// ─── Bootstrap ──────────────────────────────────────────────────────────────
-
-class BootstrapApp extends StatefulWidget {
-  const BootstrapApp({super.key});
-
-  @override
-  State<BootstrapApp> createState() => _BootstrapAppState();
+class MyApp extends ConsumerStatefulWidget {
+  const MyApp({super.key});
+  @override ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _BootstrapAppState extends State<BootstrapApp> {
-  late final Future<_BootstrapResult> _future = _bootstrap();
-
-  Future<_BootstrapResult> _bootstrap() async {
-    await SupabaseConfig.initialize();
-
-    final profiles = ProfileService();
-    final userService = UserService(SupabaseConfig.client);
-
-    final auth = AuthController(
-      auth: SupabaseAuthManager(profiles: profiles),
-    );
-    await auth.init();
-
-    final network = NetworkService(SupabaseConfig.client);
-    final feed = FeedProvider(network, supabase: SupabaseConfig.client);
-    feed.initRealtime();
-
-    await TaskNotification.init();
-
-    final chatBloc = ChatBloc(ChatRepository());
-    final eventService = EventService(SupabaseConfig.client);
-
-    return _BootstrapResult(
-      auth: auth,
-      profiles: profiles,
-      userService: userService,
-      network: network,
-      feed: feed,
-      chatBloc: chatBloc,
-      eventService: eventService,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<_BootstrapResult>(
-      future: _future,
-      builder: (context, snap) {
-        if (snap.hasError) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: lightTheme,
-            darkTheme: darkTheme,
-            themeMode: ThemeMode.system,
-            home: Scaffold(
-              body: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.cloud_off_rounded,
-                        size: 72,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Connexion impossible',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Impossible de se connecter à Supabase.\nVérifiez votre connexion internet.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          runApp(const ProviderScope(child: BootstrapApp()));
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Réessayer'),
-                      ),
-                      if (kDebugMode) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          'Erreur : ${snap.error}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.red,
-                                fontFamily: 'monospace',
-                              ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
-
-        final child = snap.hasData
-            ? MyApp(
-                auth: snap.data!.auth,
-                profiles: snap.data!.profiles,
-                userService: snap.data!.userService,
-                network: snap.data!.network,
-                feed: snap.data!.feed,
-                chatBloc: snap.data!.chatBloc,
-                eventService: snap.data!.eventService,
-              )
-            : MaterialApp(
-                debugShowCheckedModeBanner: false,
-                theme: lightTheme,
-                darkTheme: darkTheme,
-                themeMode: ThemeMode.system,
-                home: const _StartupLoadingPage(),
-              );
-
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          child: KeyedSubtree(
-            key: ValueKey(snap.hasData),
-            child: child,
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _BootstrapResult {
-  final AuthController auth;
-  final ProfileService profiles;
-  final UserService userService;
-  final NetworkService network;
-  final FeedProvider feed;
-  final ChatBloc chatBloc;
-  final EventService eventService;
-
-  const _BootstrapResult({
-    required this.auth,
-    required this.profiles,
-    required this.userService,
-    required this.network,
-    required this.feed,
-    required this.chatBloc,
-    required this.eventService,
-  });
-}
-
-// ─── Écran de chargement ───────────────────────────────────────────────
-
-class _StartupLoadingPage extends StatelessWidget {
-  const _StartupLoadingPage();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 260),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                height: 56,
-                width: 56,
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Icon(Icons.verified_user_rounded, color: cs.primary),
-              ),
-              const SizedBox(height: 14),
-              Text('THIX ID', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 6),
-              Text(
-                'Chargement sécurisé…',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: 140,
-                child: LinearProgressIndicator(
-                  minHeight: 6,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Application principale ─────────────────────────────────────────────
-
-class MyApp extends StatefulWidget {
-  final AuthController auth;
-  final ProfileService profiles;
-  final UserService userService;
-  final NetworkService network;
-  final FeedProvider feed;
-  final ChatBloc chatBloc;
-  final EventService eventService;
-
-  const MyApp({
-    super.key,
-    required this.auth,
-    required this.profiles,
-    required this.userService,
-    required this.network,
-    required this.feed,
-    required this.chatBloc,
-    required this.eventService,
-  });
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  late final LocaleController _localeController;
-  late final _router;
+class _MyAppState extends ConsumerState<MyApp> {
+  late final AuthController _auth;
+  late final LocaleController _locale;
+  GoRouter? _router;
+  bool _ready = false;
 
   @override
   void initState() {
     super.initState();
-    _localeController = LocaleController()..init();
-    _router = AppRouter.create(widget.auth, extraRefreshListenable: _localeController);
+    _locale = LocaleController()..init();
+    _auth = AuthController.instance;
+    _initAuth();
   }
 
-  @override
-  void dispose() {
-    widget.chatBloc.close();
-    super.dispose();
+  Future<void> _initAuth() async {
+    try { await _auth.init(); } catch (_) {}
+    final merged = Listenable.merge([_auth, _locale]);
+    _router = AppRouter.create(_auth, extraRefreshListenable: merged);
+    if (mounted) setState(() => _ready = true);
   }
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
+    if (!_ready || _router == null) {
+      return const MaterialApp(home: Scaffold(body: Center(child: CircularProgressIndicator())));
+    }
+    return app_provider.MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: widget.auth),
-        ChangeNotifierProvider.value(value: _localeController),
-        Provider<ProfileService>.value(value: widget.profiles),
-        Provider<UserService>.value(value: widget.userService),
-        Provider<NetworkService>.value(value: widget.network),
-        ChangeNotifierProvider.value(value: widget.feed),
-        BlocProvider<ChatBloc>.value(value: widget.chatBloc),
-
-        // 🆕 PROVIDER POUR LES ÉVÉNEMENTS
-        ChangeNotifierProvider<EventProvider>(
-          create: (_) => EventProvider(widget.eventService),
-        ),
-        // ✅ THIX INFO – correction
-        ChangeNotifierProvider<NewsProvider>(
-          create: (_) => NewsProvider(NewsService(SupabaseConfig.client)),
-        ),
-        // 🆕 THIX MARKET
-        ChangeNotifierProvider<MarketProvider>(create: (_) => MarketProvider()),
-        ChangeNotifierProvider<ProductProvider>(create: (_) => ProductProvider()),
-        ChangeNotifierProvider<SearchProvider>(create: (_) => SearchProvider()),
-        ChangeNotifierProvider<ShopProvider>(create: (_) => ShopProvider()),
-        ChangeNotifierProvider<MessageProvider>(create: (_) => MessageProvider()),
-        ChangeNotifierProvider<LiveProvider>(create: (_) => LiveProvider()),
-        ChangeNotifierProvider<CartProvider>(create: (_) => CartProvider()),
-        ChangeNotifierProvider<ActivityProvider>(create: (_) => ActivityProvider()),
-        ChangeNotifierProvider<SellProvider>(create: (_) => SellProvider()),
-        ChangeNotifierProvider<SupportProvider>(create: (_) => SupportProvider()),
-        ChangeNotifierProvider<SettingsProvider>(create: (_) => SettingsProvider()),
-
-        // ============================================================
-        // ✅ NOUVEAUX PROVIDERS EDUCATION
-        // ============================================================
-        ChangeNotifierProvider<EducationProvider>(
-          create: (_) => EducationProvider(EducationService(SupabaseConfig.client)),
-        ),
-        ChangeNotifierProvider<ProgressProvider>(
-          create: (_) => ProgressProvider(EducationService(SupabaseConfig.client)),
-        ),
-        ChangeNotifierProvider<CertificateProvider>(
-          create: (_) => CertificateProvider(EducationService(SupabaseConfig.client)),
-        ),
-        ChangeNotifierProvider<ForumProvider>(
-          create: (_) => ForumProvider(EducationService(SupabaseConfig.client)),
-        ),
-        ChangeNotifierProvider<RecommendationProvider>(
-          create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client)),
-        ),
+        app_provider.ChangeNotifierProvider<AuthController>.value(value: _auth),
+        app_provider.ChangeNotifierProvider<LocaleController>.value(value: _locale),
+        app_provider.Provider<ProfileService>(create: (_) => ProfileService()),
       ],
-      child: Builder(
-        builder: (context) {
-          final locale = context.watch<LocaleController>().locale;
-          return MaterialApp.router(
-            title: 'THIX ID',
-            debugShowCheckedModeBanner: false,
-            theme: lightTheme,
-            darkTheme: darkTheme,
-            themeMode: ThemeMode.system,
-            routerConfig: _router, // AppRouter inclut déjà les routes Education
-            locale: locale,
-            supportedLocales: LocaleController.supportedLocales,
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            builder: (context, child) => child ?? const SizedBox.shrink(),
-          );
-        },
+      child: MaterialApp.router(
+        title: 'THIX ID CENTRAL', debugShowCheckedModeBanner: false,
+        theme: lightTheme, darkTheme: darkTheme, routerConfig: _router!,
+        locale: _locale.locale, supportedLocales: LocaleController.supportedLocales,
+        localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
       ),
     );
   }

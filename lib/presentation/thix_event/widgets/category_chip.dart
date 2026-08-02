@@ -1,6 +1,16 @@
-// lib/presentation/thix_event/widgets/category_chip.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+class _ThixColors {
+  static const bg = Color(0xFF050508);
+  static const surface = Color(0xFF0C0C12);
+  static const surfaceAlt = Color(0xFF111118);
+  static const cardBorder = Color(0x14FFFFFF);
+  static const cardBorderStrong = Color(0x26FFFFFF);
+  static const primary = Color(0xFFFF0A54);
+  static const textSecondary = Color(0x99FFFFFF);
+  static const textMuted = Color(0x66FFFFFF);
+}
 
 class CategoryChip extends StatelessWidget {
   final String label;
@@ -22,28 +32,38 @@ class CategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         margin: const EdgeInsets.only(right: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFD4AF37).withOpacity(0.15) : Colors.white,
+          color: isSelected ? _ThixColors.primary.withOpacity(0.14) : _ThixColors.surface,
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
-            color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[300]!,
-            width: 1,
+            color: isSelected ? _ThixColors.primary : _ThixColors.cardBorderStrong,
+            width: isSelected ? 1.2 : 1,
           ),
+          boxShadow: [
+            if (isSelected)
+              BoxShadow(
+                color: _ThixColors.primary.withOpacity(0.18),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[600]),
-            const SizedBox(width: 6),
+            Icon(icon, size: 14, color: isSelected ? _ThixColors.primary : _ThixColors.textSecondary),
+            const SizedBox(width: 7),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[700],
+                fontSize: 11.5,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? Colors.white : _ThixColors.textSecondary,
+                letterSpacing: -0.1,
               ),
             ),
           ],
@@ -54,45 +74,43 @@ class CategoryChip extends StatelessWidget {
 }
 
 class CategoryChipsList extends StatelessWidget {
-  const CategoryChipsList({super.key});
+  final String? selectedSlug;
+  final Function(String slug)? onCategorySelected;
 
-  final List<Map<String, dynamic>> _categories = const [
-    {'slug': 'musique', 'label': 'Musique', 'icon': Icons.music_note},
-    {'slug': 'conference', 'label': 'Conférences', 'icon': Icons.mic},
-    {'slug': 'culture', 'label': 'Culture', 'icon': Icons.art_track},
-    {'slug': 'sport', 'label': 'Sport', 'icon': Icons.sports_soccer},
-    {'slug': 'festival', 'label': 'Festivals', 'icon': Icons.celebration},
+  const CategoryChipsList({super.key, this.selectedSlug, this.onCategorySelected});
+
+  static const List<Map<String, dynamic>> _categories = [
+    {'slug': 'musique', 'label': 'Musique', 'icon': Icons.music_note_rounded},
+    {'slug': 'conference', 'label': 'Conferences', 'icon': Icons.mic_rounded},
+    {'slug': 'culture', 'label': 'Culture', 'icon': Icons.palette_rounded},
+    {'slug': 'sport', 'label': 'Sport', 'icon': Icons.sports_soccer_rounded},
+    {'slug': 'festival', 'label': 'Festivals', 'icon': Icons.celebration_rounded},
+    {'slug': 'spectacle', 'label': 'Spectacles', 'icon': Icons.theater_comedy_rounded},
   ];
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      physics: const BouncingScrollPhysics(),
       child: Row(
         children: _categories.map((cat) {
-          return GestureDetector(
-            onTap: () => context.push('/thix-event/category/${cat['slug']}'),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: Colors.grey[300]!, width: 1),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(cat['icon'] as IconData, size: 14, color: Colors.grey[600]),
-                  const SizedBox(width: 6),
-                  Text(
-                    cat['label'] as String,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                  ),
-                ],
-              ),
-            ),
+          final slug = cat['slug'] as String;
+          final label = cat['label'] as String;
+          final icon = cat['icon'] as IconData;
+          return CategoryChip(
+            label: label,
+            slug: slug,
+            icon: icon,
+            isSelected: selectedSlug == slug,
+            onTap: () {
+              if (onCategorySelected != null) {
+                onCategorySelected!(slug);
+              } else {
+                context.push('/thix-event/category/$slug');
+              }
+            },
           );
         }).toList(),
       ),

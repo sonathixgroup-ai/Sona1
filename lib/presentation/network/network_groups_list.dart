@@ -1,347 +1,102 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/network_community.dart';
 
-class NetworkGroupsList extends StatefulWidget {
+class NetworkGroupsList extends ConsumerStatefulWidget {
   const NetworkGroupsList({super.key});
-
-  @override
-  State<NetworkGroupsList> createState() => _NetworkGroupsListState();
+  @override ConsumerState<NetworkGroupsList> createState() => _NetworkGroupsListState();
 }
 
-class _NetworkGroupsListState extends State<NetworkGroupsList>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  List<NetworkCommunity> _myGroups = [];
-  List<NetworkCommunity> _suggestedGroups = [];
-
+class _NetworkGroupsListState extends ConsumerState<NetworkGroupsList> with SingleTickerProviderStateMixin {
+  late TabController _tab;
+  List<NetworkCommunity> _my = [], _sugg = [];
   bool _loading = true;
+  final _blue = Color(0xFF2B5CFF), _dark = Color(0xFF1A1A2E), _gold = Color(0xFFD4AF37);
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _loadGroups();
-  }
+  @override void initState(){ super.initState(); _tab=TabController(length: 2, vsync: this); _load(); }
+  @override void dispose(){ _tab.dispose(); super.dispose(); }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadGroups() async {
-    setState(() => _loading = true);
-
-    try {
-      final supabase = Supabase.instance.client;
-      final currentUserId = supabase.auth.currentUser?.id;
-
-      if (currentUserId == null) {
-        if (mounted) setState(() => _loading = false);
-        return;
-      }
-
-      // Mes groupes
-      final myGroupsData = await supabase
-          .from('community_members')
-          .select('communities!community_id(*)')
-          .eq('user_id', currentUserId);
-
-      final myGroups = (myGroupsData as List)
-          .map((e) => NetworkCommunity.fromJson(e['communities'] as Map<String, dynamic>))
-          .toList();
-
-      final myGroupIds = myGroups.map((g) => g.id).toList();
-
-      // Suggestions (exclure mes groupes)
-      final suggestedData = await supabase
-          .from('network_communities')
-          .select('*')
-          .order('members_count', ascending: false)
-          .limit(20);
-
-      final suggestedGroups = (suggestedData as List)
-          .map((e) => NetworkCommunity.fromJson(e as Map<String, dynamic>))
-          .where((g) => !myGroupIds.contains(g.id))
-          .toList();
-
-      if (!mounted) return;
-
-      setState(() {
-        _myGroups = myGroups;
-        _suggestedGroups = suggestedGroups;
+  Future<void> _load() async {
+    setState(()=> _loading=true);
+    final supa = Supabase.instance.client;
+    final uid = supa.auth.currentUser?.id;
+    if(uid==null) return;
+    try{
+      final myRes = await supa.from('community_members').select('communities!inner(*)').eq('user_id', uid);
+      final suggRes = await supa.from('communities').select().limit(20);
+      final myIds = (myRes as List).map((e)=> (e['communities'] as Map)['id'] as String).toSet();
+      if(mounted) setState((){
+        _my = (myRes as List).map((e)=> NetworkCommunity.fromJson(e['communities'] as Map<String,dynamic>)).toList();
+        _sugg = (suggRes as List).map((e)=> NetworkCommunity.fromJson(e as Map<String,dynamic>)).where((g)=>!myIds.contains(g.id)).toList();
+        _loading=false;
       });
-    } catch (e) {
-      debugPrint('Error loading groups: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
+    }catch(e){ if(mounted) setState(()=> _loading=false); }
+  }
+
+  Future<void> _toggle(NetworkCommunity g, bool isMember) async {
+    setState((){
+      if(isMember){ _my.removeWhere((x)=> x.id==g.id); _sugg.insert(0,g); }
+      else { _sugg.removeWhere((x)=> x.id==g.id); _my.insert(0,g); }
+    });
+    final supa = Supabase.instance.client;
+    final uid = supa.auth.currentUser!.id;
+    try{
+      if(isMember) await supa.from('community_members').delete().eq('community_id', g.id).eq('user_id', uid);
+      else await supa.from('community_members').insert({'community_id': g.id, 'user_id': uid});
+    }catch(e){
+      // rollback
+      if(mounted) setState((){
+        if(isMember){ _sugg.removeWhere((x)=> x.id==g.id); _my.insert(0,g); }
+        else { _my.removeWhere((x)=> x.id==g.id); _sugg.insert(0,g); }
+      });
     }
   }
 
-  Future<void> _toggleJoin(NetworkCommunity group, bool isCurrentMember) async {
-    try {
-      final supabase = Supabase.instance.client;
-      final currentUserId = supabase.auth.currentUser!.id;
-
-      if (isCurrentMember) {
-        // Quitter
-        await supabase
-            .from('community_members')
-            .delete()
-            .eq('community_id', group.id)
-            .eq('user_id', currentUserId);
-        
-        await supabase.rpc('decrement_community_members', params: {'community_id': group.id});
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Groupe quitté'), backgroundColor: Colors.orange),
-          );
-        }
-      } else {
-        // Rejoindre
-        await supabase.from('community_members').insert({
-          'community_id': group.id,
-          'user_id': currentUserId,
-          'joined_at': DateTime.now().toIso8601String(),
-        });
-        
-        await supabase.rpc('increment_community_members', params: {'community_id': group.id});
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Groupe rejoint !'), backgroundColor: Colors.green),
-          );
-        }
-      }
-      
-      await _loadGroups();
-    } catch (e) {
-      debugPrint('Error toggling group: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
+  void _createDialog(){
+    final nameC = TextEditingController(); final descC = TextEditingController();
+    bool creating=false;
+    showDialog(context: context, builder: (dCtx)=> StatefulBuilder(builder: (c,setD){
+      return AlertDialog(title: Text('Créer un groupe', style: TextStyle(fontWeight: FontWeight.bold)), content: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: nameC, decoration: InputDecoration(hintText: 'Nom', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+        SizedBox(height: 12),
+        TextField(controller: descC, maxLines: 3, decoration: InputDecoration(hintText: 'Description', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+      ]), actions: [
+        if(!creating) TextButton(onPressed: ()=> Navigator.pop(dCtx), child: Text('Annuler')),
+        ElevatedButton(onPressed: creating? null : () async {
+          if(nameC.text.trim().isEmpty) return;
+          setD(()=> creating=true);
+          final supa = Supabase.instance.client;
+          try{
+            final res = await supa.from('communities').insert({'name': nameC.text.trim(), 'description': descC.text.trim(), 'owner_id': supa.auth.currentUser!.id}).select().single();
+            if(mounted){ Navigator.pop(dCtx); setState(()=> _my.insert(0, NetworkCommunity.fromJson(res))); }
+          }catch(_){ setD(()=> creating=false); }
+        }, style: ElevatedButton.styleFrom(backgroundColor: _gold, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))), child: creating? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text('Créer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+      ]);
+    }));
   }
 
-  void _showCreateGroupDialog() {
-    final nameController = TextEditingController();
-    final descController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Créer un groupe'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                hintText: 'Nom du groupe',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: descController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Description (optionnelle)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.trim().isEmpty) return;
-              
-              Navigator.pop(context);
-              
-              try {
-                final supabase = Supabase.instance.client;
-                final currentUserId = supabase.auth.currentUser!.id;
-                
-                final response = await supabase
-                    .from('network_communities')
-                    .insert({
-                      'name': nameController.text.trim(),
-                      'description': descController.text.trim(),
-                      'created_by': currentUserId,
-                      'created_at': DateTime.now().toIso8601String(),
-                      'members_count': 1,
-                      'posts_count': 0,
-                    })
-                    .select()
-                    .single();
-                
-                await supabase.from('community_members').insert({
-                  'community_id': response['id'],
-                  'user_id': currentUserId,
-                  'role': 'admin',
-                  'joined_at': DateTime.now().toIso8601String(),
-                });
-                
-                await _loadGroups();
-                
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Groupe créé !'), backgroundColor: Colors.green),
-                  );
-                }
-              } catch (e) {
-                debugPrint('Error creating group: $e');
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
-            child: const Text('Créer'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Groupes',
-          style: TextStyle(color: Color(0xFF0B1B3D), fontWeight: FontWeight.bold),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0B1B3D)),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add, color: Color(0xFF0B1B3D)),
-            onPressed: _showCreateGroupDialog,
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: const Color(0xFFD4AF37),
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFFD4AF37),
-          tabs: const [
-            Tab(text: 'Mes groupes'),
-            Tab(text: 'Suggestions'),
-          ],
-        ),
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildGroupsList(_myGroups, isMyGroups: true),
-                _buildGroupsList(_suggestedGroups, isMyGroups: false),
-              ],
-            ),
+      backgroundColor: Color(0xFFF5F8FA),
+      appBar: AppBar(backgroundColor: Colors.white, elevation: 0, title: Text('Groupes', style: TextStyle(color: _dark, fontWeight: FontWeight.bold)), leading: IconButton(icon: Icon(Icons.arrow_back, color: _dark), onPressed: ()=> context.pop()), actions: [IconButton(icon: Icon(Icons.add, color: _dark), onPressed: _createDialog)], bottom: TabBar(controller: _tab, labelColor: _blue, unselectedLabelColor: Colors.grey, indicatorColor: _blue, tabs: [Tab(text: 'Mes groupes'), Tab(text: 'Suggestions')])),
+      body: _loading? Center(child: CircularProgressIndicator(color: _blue)) : TabBarView(controller: _tab, children: [_list(_my, true), _list(_sugg, false)]),
     );
   }
 
-  Widget _buildGroupsList(List<NetworkCommunity> groups, {required bool isMyGroups}) {
-    if (groups.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(isMyGroups ? Icons.groups : Icons.explore, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(isMyGroups ? 'Aucun groupe rejoint' : 'Aucune suggestion'),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: groups.length,
-      itemBuilder: (context, index) {
-        return _buildGroupCard(groups[index], isMyGroups: isMyGroups);
-      },
-    );
+  Widget _list(List<NetworkCommunity> groups, bool isMy){
+    if(groups.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(isMy? Icons.groups : Icons.explore, size: 64, color: Colors.grey.shade300), SizedBox(height: 16), Text(isMy? 'Aucun groupe rejoint' : 'Aucune suggestion', style: TextStyle(color: Colors.grey.shade600))]));
+    return ListView.builder(padding: EdgeInsets.all(16), itemCount: groups.length, itemBuilder: (_,i)=> _card(groups[i], isMy));
   }
 
-  Widget _buildGroupCard(NetworkCommunity group, {required bool isMyGroups}) {
-    final hasBanner = group.bannerUrl != null && group.bannerUrl!.isNotEmpty;
-    final isMember = isMyGroups;
-
-    return GestureDetector(
-      onTap: () => context.go('/network/community/${group.id}'),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD4AF37).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                image: hasBanner
-                    ? DecorationImage(image: NetworkImage(group.bannerUrl!), fit: BoxFit.cover)
-                    : null,
-              ),
-              child: !hasBanner
-                  ? const Icon(Icons.groups, size: 30, color: Color(0xFFD4AF37))
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 4),
-                  Text('${group.membersCount} membres', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                ],
-              ),
-            ),
-            OutlinedButton(
-              onPressed: () => _toggleJoin(group, isMember),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: isMember ? Colors.red : const Color(0xFFD4AF37)),
-              ),
-              child: Text(
-                isMember ? 'Quitter' : 'Rejoindre',
-                style: TextStyle(color: isMember ? Colors.red : const Color(0xFFD4AF37)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  Widget _card(NetworkCommunity g, bool isMy){
+    final hasBanner = g.bannerUrl!=null && g.bannerUrl!.isNotEmpty;
+    return GestureDetector(onTap: ()=> context.push('/network/community/${g.id}'), child: Container(margin: EdgeInsets.only(bottom: 12), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8)]), child: Row(children: [
+      Container(width: 60, height: 60, decoration: BoxDecoration(color: _blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: ClipRRect(borderRadius: BorderRadius.circular(12), child: hasBanner? Image.network(g.bannerUrl!, fit: BoxFit.cover, errorBuilder: (_,__,___)=> Icon(Icons.groups, color: _blue)) : Icon(Icons.groups, size: 30, color: _blue))),
+      SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(g.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _dark)), SizedBox(height: 4), Text('${g.membersCount} membres', style: TextStyle(fontSize: 12, color: Colors.grey))])),
+      OutlinedButton(onPressed: ()=> _toggle(g, isMy), style: OutlinedButton.styleFrom(side: BorderSide(color: isMy? Colors.red.shade300 : _blue), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))), child: Text(isMy? 'Quitter' : 'Rejoindre', style: TextStyle(color: isMy? Colors.red : _blue, fontWeight: FontWeight.bold, fontSize: 12))),
+    ])));
   }
 }

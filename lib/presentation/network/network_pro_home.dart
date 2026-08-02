@@ -1,323 +1,263 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
-import 'package:thix_id/auth/auth_controller.dart';
-import 'package:thix_id/models/network_connection.dart';
-import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/models/network_story.dart';
-import 'package:thix_id/providers/feed_provider.dart';
-import 'package:thix_id/services/network_service.dart';
+import 'package:thix_id/features/network/data/network_service_provider.dart';
+import 'package:thix_id/features/network/presentation/providers/feed_provider.dart';
+import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 import 'widgets/create_post_dialog.dart';
 import 'widgets/create_story_dialog.dart';
-import 'widgets/post_card.dart';    // ✅ Utilise la version corrigée
-import 'widgets/short_card.dart';
+import 'widgets/post_card.dart';
+import 'widgets/story_viewer.dart';
 
-// ─── COULEURS THIX PRO — Élite lumineux, bleu institutionnel ───
 class ThixColors {
-  static const Color background = Color(0xFFF6F9FF); // fond bleuté lumineux, pas gris terne
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color primary = Color(0xFF2D6CDF);     // bleu vif premium
-  static const Color primaryDeep = Color(0xFF123B7A);
-  static const Color softBlue = Color(0xFFEAF1FF);
-  static const Color gold = Color(0xFFD9A63C);
-  static const Color textDark = Color(0xFF10192E);
-  static const Color textSecondary = Color(0xFF7386A8);
-  static const Color border = Color(0xFFE7EEFC);
-  static const Color red = Color(0xFFFF3B30);
-  static const Color green = Color(0xFF059669);
-  static const Color shadow = Color(0x142D6CDF); // ombre teintée bleue, pas grise
+  static const background = Color(0xFFF6F7FB);
+  static const white = Color(0xFFFFFFFF);
+  static const primary = Color(0xFF2D6CDF);
+  static const primaryDeep = Color(0xFF123B7A);
+  static const navyDeep = Color(0xFF0A1F44);
+  static const softBlue = Color(0xFFEAF1FF);
+  static const gold = Color(0xFFE3B23C);
+  static const goldLight = Color(0xFFF3D999);
+  static const textDark = Color(0xFF10192E);
+  static const textSecondary = Color(0xFF7386A8);
+  static const border = Color(0xFFE7EEFC);
+  static const shadow = Color(0x142D6CDF);
+  static const shadowDeep = Color(0x260A1F44);
+
+  static const gradientPrimary = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [navyDeep, primaryDeep, primary],
+  );
+
+  static const gradientGold = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [gold, goldLight],
+  );
+
+  static const gradientStoryRing = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [primary, primaryDeep, gold],
+  );
 }
 
-class NetworkProHome extends StatefulWidget {
+class NetworkProHome extends ConsumerStatefulWidget {
   const NetworkProHome({super.key});
-
   @override
-  State<NetworkProHome> createState() => _NetworkProHomeState();
+  ConsumerState<NetworkProHome> createState() => _NetworkProHomeState();
 }
 
-class _NetworkProHomeState extends State<NetworkProHome>
-    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
-  // ─── ÉTATS ───
-  bool _loadingPosts = true;
-  bool _isRefreshing = false;
-  String _feedType = 'smart';
-  int _selectedNavIndex = 0;
+class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticKeepAliveClientMixin {
+  final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<bool> _navVisible = ValueNotifier(true);
+
+  String _feedType = 'all';
 
   List<NetworkStory> _stories = [];
-  bool _loadingStories = false;
+  bool _loadingStories = true;
+  List<dynamic> _suggestions = [];
+  bool _isLoadingMore = false;
 
-  List<NetworkConnection> _suggestions = [];
-  bool _loadingSuggestions = false;
-
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  bool get wantKeepAlive => true;
+  @override bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadAllData();
-    });
+    _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _init());
+  }
+
+  void _onScroll() {
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 700 && !_isLoadingMore) {
+      final notifier = ref.read(feedProvider.notifier);
+      if (!ref.read(feedProvider).isLoading && notifier.hasMore) {
+        _isLoadingMore = true;
+        notifier.loadMore().whenComplete(() => _isLoadingMore = false);
+      }
+    }
+    final dir = pos.userScrollDirection;
+    if (dir == ScrollDirection.reverse && _navVisible.value) {
+      _navVisible.value = false;
+    } else if (dir == ScrollDirection.forward && !_navVisible.value) {
+      _navVisible.value = true;
+    }
+  }
+
+  Future<void> _init() async {
+    await ref.read(feedProvider.notifier).loadFeed(feedType: _feedType, force: true);
+    await Future.wait([_loadStories(), _loadSuggestions()]);
+  }
+
+  Future<void> _loadStories() async {
+    try {
+      final data = await ref.read(networkServiceProvider).getActiveStories();
+      if (mounted) setState(() { _stories = data; _loadingStories = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingStories = false);
+    }
+  }
+
+  Future<void> _loadSuggestions() async {
+    try {
+      final data = await ref.read(networkServiceProvider).getSuggestedConnections(limit: 8);
+      if (mounted) setState(() => _suggestions = data);
+    } catch (_) {}
+  }
+
+  Future<void> _onRefresh() async {
+    HapticFeedback.mediumImpact();
+    await ref.read(feedProvider.notifier).loadFeed(feedType: _feedType, force: true);
+    await Future.wait([_loadStories(), _loadSuggestions()]);
+  }
+
+  Future<void> _openCreateStory() async {
+    final ok = await showDialog<bool>(context: context, builder: (_) => const CreateStoryDialog());
+    if (ok == true && mounted) {
+      HapticFeedback.mediumImpact();
+      await _loadStories();
+    }
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _navVisible.dispose();
     super.dispose();
   }
 
-  // ─── CHARGEMENT DES DONNÉES ───
-  Future<void> _loadAllData() async {
-    final feedProvider = Provider.of<FeedProvider>(context, listen: false);
-    await Future.wait([
-      feedProvider.loadFeed(feedType: _feedType),
-      _loadStories(),
-      _loadSuggestions(),
-    ]);
-    if (mounted) setState(() => _loadingPosts = false);
-  }
-
-  Future<void> _loadStories() async {
-    if (!mounted) return;
-    setState(() => _loadingStories = true);
-    try {
-      final networkService = Provider.of<NetworkService>(context, listen: false);
-      final stories = await networkService.getActiveStories();
-      if (mounted) setState(() => _stories = stories);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur chargement stories : $e'), backgroundColor: ThixColors.red),
-        );
-      }
-    }
-    if (mounted) setState(() => _loadingStories = false);
-  }
-
-  Future<void> _loadSuggestions() async {
-    if (!mounted) return;
-    setState(() => _loadingSuggestions = true);
-    try {
-      final networkService = Provider.of<NetworkService>(context, listen: false);
-      final suggestions = await networkService.getSuggestedConnections(limit: 5);
-      if (mounted) setState(() => _suggestions = suggestions);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur suggestions : $e'), backgroundColor: ThixColors.red),
-        );
-      }
-    }
-    if (mounted) setState(() => _loadingSuggestions = false);
-  }
-
-  Future<void> _loadPosts() async {
-    if (!mounted) return;
-    final feedProvider = Provider.of<FeedProvider>(context, listen: false);
-    setState(() => _loadingPosts = true);
-    try {
-      await feedProvider.loadFeed(feedType: _feedType, force: true);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur chargement posts : $e'), backgroundColor: ThixColors.red),
-        );
-      }
-    }
-    if (mounted) setState(() => _loadingPosts = false);
-  }
-
-  Future<void> _onRefresh() async {
-    if (_isRefreshing) return;
-    setState(() => _isRefreshing = true);
-    await _loadAllData();
-    if (mounted) setState(() => _isRefreshing = false);
-  }
-
-  // ─── NAVIGATION ───
-  void _goToSearch() => context.push('/network/search');
-  void _goToNotifications() => context.push('/network/notifications');
-  void _goToProfile() => context.push('/profile');
-  void _goToConnections() => context.push('/network/connections');
-  void _goToCommunities() => context.push('/network/communities');
-  void _goToDiscover() => context.push('/network/discover');
-  void _scrollToTop() {
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
-  }
-
-  // ─── ACTIONS ───
-  void _viewStory(NetworkStory story) {
-    context.push('/network/story/${story.id}');
-  }
-
-  void _commentOnPost(NetworkPost post) {
-    context.push('/network/comments/${post.id}');
-  }
-
-  void _sharePost(NetworkPost post) {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.link),
-              title: const Text('Copier le lien'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.message),
-              title: const Text('Envoyer en message'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text('Partager ailleurs...'),
-              onTap: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _sendConnectionRequest(NetworkConnection user) async {
-    try {
-      final networkService = Provider.of<NetworkService>(context, listen: false);
-      await networkService.sendConnectionRequest(user.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invitation envoyée !'), backgroundColor: ThixColors.green),
-        );
-        setState(() {
-          _suggestions.removeWhere((u) => u.id == user.id);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e'), backgroundColor: ThixColors.red),
-        );
-      }
-    }
-  }
-
-  // ─── BUILD ───
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final authAsync = ref.watch(authControllerProvider);
+    final feedAsync = ref.watch(feedProvider);
+    final currentUser = authAsync.value;
 
-    final feedProvider = Provider.of<FeedProvider>(context);
-    final posts = feedProvider.posts;
-    final isLoading = feedProvider.isLoading;
-
-    final auth = Provider.of<AuthController>(context);
-    if (auth.currentUser == null) {
-      return const Scaffold(body: Center(child: Text('Connectez-vous')));
+    if (currentUser == null) {
+      return const Scaffold(
+        backgroundColor: ThixColors.background,
+        body: Center(child: CircularProgressIndicator(color: ThixColors.primary)),
+      );
     }
-
-    final currentUserId = auth.currentUser!.id;
 
     return Scaffold(
       backgroundColor: ThixColors.background,
-      appBar: _buildAppBar(),
-      body: RefreshIndicator(
-        color: ThixColors.primary,
-        onRefresh: _onRefresh,
-        child: CustomScrollView(
-          controller: _scrollController,
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(child: _buildStoriesRow()),
-            SliverToBoxAdapter(child: _buildFilterChips()),
-            SliverToBoxAdapter(child: _buildCreatePostBar()),
-            if (isLoading && posts.isEmpty)
-              const SliverFillRemaining(child: Center(child: CircularProgressIndicator(color: ThixColors.primary)))
-            else if (posts.isEmpty)
-              SliverToBoxAdapter(child: _buildEmptyState())
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => _buildPostCard(posts[index], currentUserId),
-                  childCount: posts.length,
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            color: ThixColors.primary,
+            backgroundColor: ThixColors.white,
+            onRefresh: _onRefresh,
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              slivers: [
+                _buildSliverAppBar(),
+                // "Mes status" (Votre story) est toujours la première case du
+                // carrousel — totalement indépendant du FAB "+" de création de
+                // post situé en bas de l'écran.
+                SliverToBoxAdapter(child: _buildStories(currentUser.id)),
+                SliverToBoxAdapter(child: _buildFilters()),
+                SliverToBoxAdapter(child: _buildCreatePostBar()),
+                if (_suggestions.isNotEmpty)
+                  SliverToBoxAdapter(child: _buildSuggestions()),
+                feedAsync.when(
+                  loading: () => SliverToBoxAdapter(child: _buildShimmerFeed()),
+                  error: (e, _) => SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(40),
+                      child: Center(
+                        child: Text('Erreur: $e', style: const TextStyle(color: ThixColors.textSecondary)),
+                      ),
+                    ),
+                  ),
+                  data: (posts) {
+                    if (posts.isEmpty) return SliverToBoxAdapter(child: _buildEmpty());
+                    return SliverList.builder(
+                      itemCount: posts.length,
+                      itemBuilder: (c, i) {
+                        final post = posts[i];
+                        return PostCard(
+                          key: ValueKey(post.id),
+                          post: post,
+                          currentProfileId: currentUser.id,
+                          onLike: () => ref.read(feedProvider.notifier).toggleLike(post.id),
+                          onComment: () => context.push('/network/comments/${post.id}'),
+                          onShare: () => _showShareSheet(post),
+                          onDelete: () => ref.read(feedProvider.notifier).loadFeed(force: true),
+                          onRefresh: () => ref.read(feedProvider.notifier).loadFeed(force: true),
+                        );
+                      },
+                    );
+                  },
                 ),
-              ),
-            if (_suggestions.isNotEmpty)
-              SliverToBoxAdapter(child: _buildSuggestionsSection()),
-            const SliverToBoxAdapter(child: SizedBox(height: 120)),
-          ],
-        ),
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
+            ),
+          ),
+          ValueListenableBuilder<bool>(
+            valueListenable: _navVisible,
+            builder: (context, visible, _) => Positioned(
+              left: 0, right: 0, bottom: 0,
+              child: _buildBottomNav(visible),
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: _buildFab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  // ─── APP BAR — compacte, lumineuse ───
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
+  // ─────────────────────────── APP BAR ───────────────────────────
+  // Wordmark en texte dégradé, sans bloc de couleur plein : harmonisé
+  // avec le reste de l'interface (fond blanc, icônes en pastille douce).
+
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
       backgroundColor: ThixColors.white,
       elevation: 0,
-      scrolledUnderElevation: 0.5,
-      surfaceTintColor: ThixColors.white,
-      automaticallyImplyLeading: false,
+      scrolledUnderElevation: 3,
+      shadowColor: ThixColors.shadowDeep,
+      floating: true,
+      snap: true,
+      toolbarHeight: 58,
       titleSpacing: 16,
-      title: ShaderMask(
-        shaderCallback: (bounds) => const LinearGradient(
-          colors: [ThixColors.primaryDeep, ThixColors.primary],
-        ).createShader(bounds),
-        child: const Text(
-          'THIX PRO',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 19,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.4,
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ShaderMask(
+            shaderCallback: (b) => ThixColors.gradientPrimary.createShader(b),
+            child: const Text(
+              'THIX PRO',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -0.4),
+            ),
           ),
-        ),
+          const SizedBox(width: 6),
+          Container(width: 5, height: 5, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientGold)),
+        ],
       ),
       actions: [
-        _appBarIcon(Icons.search_rounded, _goToSearch),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            _appBarIcon(Icons.notifications_none_rounded, _goToNotifications),
-            Positioned(
-              right: 6,
-              top: 6,
-              child: Container(
-                width: 15,
-                height: 15,
-                decoration: const BoxDecoration(color: ThixColors.red, shape: BoxShape.circle),
-                child: const Center(
-                  child: Text('3', style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.w800)),
-                ),
-              ),
-            ),
-          ],
+        _appBarIcon(icon: Icons.search_rounded, onTap: () => context.push('/network/search')),
+        const SizedBox(width: 8),
+        _appBarIcon(
+          icon: Icons.notifications_none_rounded,
+          badge: '3',
+          onTap: () => context.push('/network/notifications'),
         ),
+        const SizedBox(width: 10),
         Padding(
-          padding: const EdgeInsets.only(right: 14, left: 2),
+          padding: const EdgeInsets.only(right: 14),
           child: GestureDetector(
-            onTap: _goToProfile,
+            onTap: () => context.push('/profile'),
             child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(colors: [ThixColors.primaryDeep, ThixColors.primary]),
-                boxShadow: [BoxShadow(color: ThixColors.primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))],
-              ),
-              child: const Icon(Icons.person, color: Colors.white, size: 16),
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientStoryRing),
+              child: const CircleAvatar(radius: 15, backgroundColor: ThixColors.softBlue, child: Icon(Icons.person, size: 16, color: ThixColors.primaryDeep)),
             ),
           ),
         ),
@@ -325,173 +265,116 @@ class _NetworkProHomeState extends State<NetworkProHome>
     );
   }
 
-  Widget _appBarIcon(IconData icon, VoidCallback onTap) {
-    return IconButton(
-      onPressed: onTap,
-      icon: Icon(icon, color: ThixColors.textDark, size: 21),
-    );
-  }
-
-  // ─── STORIES — compactes, style Facebook, peu d'espace vertical ───
-  Widget _buildStoriesRow() {
-    return Container(
-      color: ThixColors.white,
-      padding: const EdgeInsets.only(left: 14, top: 10, bottom: 8),
-      child: SizedBox(
-        height: 68, // ✅ hauteur réduite (vs 100 avant) — bandeau compact type FB
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: _stories.length + 1,
-          itemBuilder: (context, index) {
-            if (index == 0) return _buildAddStory();
-            final story = _stories[index - 1];
-            return _buildStoryItem(story);
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddStory() {
+  Widget _appBarIcon({required IconData icon, required VoidCallback onTap, String? badge}) {
     return GestureDetector(
-      onTap: () async {
-        final result = await showDialog<bool>(
-          context: context,
-          builder: (_) => const CreateStoryDialog(),
-        );
-        if (result == true) {
-          _loadStories();
-          _loadPosts();
-        }
-      },
+      onTap: onTap,
       child: Container(
-        width: 56,
-        margin: const EdgeInsets.only(right: 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        width: 38, height: 38,
+        decoration: const BoxDecoration(color: ThixColors.softBlue, shape: BoxShape.circle),
+        child: Stack(
+          alignment: Alignment.center,
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(colors: [ThixColors.softBlue, Color(0xFFE3EDFF)]),
-                border: Border.all(color: ThixColors.gold, width: 1.6),
-                boxShadow: [BoxShadow(blurRadius: 10, color: ThixColors.gold.withOpacity(0.18), offset: const Offset(0, 4))],
+            Icon(icon, size: 19, color: ThixColors.primaryDeep),
+            if (badge != null)
+              Positioned(
+                top: 5, right: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(gradient: ThixColors.gradientGold, borderRadius: BorderRadius.circular(20), border: Border.all(color: ThixColors.white, width: 1.5)),
+                  child: Text(badge, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: ThixColors.navyDeep)),
+                ),
               ),
-              child: const Icon(Icons.add_rounded, color: ThixColors.gold, size: 21),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Story',
-              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: ThixColors.textDark),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStoryItem(NetworkStory story) {
-    final hasAvatar = story.userAvatar != null && story.userAvatar!.isNotEmpty;
-    return GestureDetector(
-      onTap: () => _viewStory(story),
-      child: Container(
-        width: 56,
-        margin: const EdgeInsets.only(right: 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(colors: [ThixColors.primary, ThixColors.primaryDeep]),
-                boxShadow: [BoxShadow(blurRadius: 8, color: ThixColors.primary.withOpacity(0.22), offset: const Offset(0, 3))],
-              ),
-              child: CircleAvatar(
-                backgroundColor: ThixColors.softBlue,
-                backgroundImage: hasAvatar ? NetworkImage(story.userAvatar!) : null,
-                child: !hasAvatar
-                    ? Text(story.userName[0].toUpperCase(),
-                        style: const TextStyle(fontSize: 13, color: ThixColors.primaryDeep, fontWeight: FontWeight.w700))
-                    : null,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              story.userName.split(' ').first,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: ThixColors.textDark),
-            ),
-          ],
-        ),
+  // ─────────────────────────── STORIES ───────────────────────────
+
+  Widget _buildStories(String currentUserId) {
+    if (_loadingStories) {
+      return const SizedBox(
+        height: 124,
+        child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.2, color: ThixColors.primary))),
+      );
+    }
+    final myStories = _stories.where((s) => s.userId == currentUserId).toList();
+    final otherStories = _stories.where((s) => s.userId != currentUserId).toList();
+    return Container(
+      color: ThixColors.white,
+      height: 124,
+      padding: const EdgeInsets.only(top: 14, bottom: 10),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        // "Mes status" est toujours l'item d'index 0 → première case.
+        itemCount: otherStories.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (c, i) {
+          if (i == 0) {
+            return _MyStoryItem(
+              hasStory: myStories.isNotEmpty,
+              avatarUrl: myStories.isNotEmpty ? myStories.first.userAvatar : null,
+              onView: myStories.isNotEmpty
+                  ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => StoryViewer(stories: myStories, initialIndex: 0)))
+                  : _openCreateStory,
+              onAdd: _openCreateStory,
+            );
+          }
+          final s = otherStories[i - 1];
+          return _StoryItem(
+            story: s,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StoryViewer(stories: otherStories, initialIndex: i - 1))),
+          );
+        },
       ),
     );
   }
 
-  // ─── FILTRES — pilules compactes ───
-  Widget _buildFilterChips() {
-    final filters = [
-      {'icon': Icons.auto_awesome_rounded, 'label': 'Pour vous', 'value': 'smart'},
-      {'icon': Icons.people_alt_rounded, 'label': 'Réseau', 'value': 'network'},
-      {'icon': Icons.play_circle_fill_rounded, 'label': 'Shorts', 'value': 'shorts'},
-      {'icon': Icons.local_fire_department_rounded, 'label': 'Tendance', 'value': 'popular'},
-    ];
+  // ─────────────────────────── FILTRES ───────────────────────────
+  // Chip sélectionnée : plus de bloc plein — fond doux + contour, comme
+  // le reste des surfaces de l'app (cartes, boutons secondaires).
 
+  Widget _buildFilters() {
+    final filters = {
+      'all': ('Tous', Icons.public_rounded),
+      'network': ('Pour vous', Icons.auto_awesome_rounded),
+      'popular': ('Tendance', Icons.local_fire_department_rounded),
+      'recent': ('Réseau', Icons.people_alt_rounded),
+    };
     return Container(
       color: ThixColors.white,
-      padding: const EdgeInsets.fromLTRB(14, 2, 14, 10),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          children: filters.map((filter) {
-            final isSelected = _feedType == filter['value'];
+          children: filters.entries.map((e) {
+            final sel = _feedType == e.key;
             return Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: 9),
               child: InkWell(
                 borderRadius: BorderRadius.circular(30),
                 onTap: () {
-                  setState(() => _feedType = filter['value'] as String);
-                  _loadPosts();
+                  if (sel) return;
+                  setState(() => _feedType = e.key);
+                  ref.read(feedProvider.notifier).loadFeed(feedType: e.key, force: true);
+                  HapticFeedback.selectionClick();
                 },
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? const LinearGradient(colors: [ThixColors.primaryDeep, ThixColors.primary])
-                        : null,
-                    color: isSelected ? null : ThixColors.softBlue,
+                    color: sel ? ThixColors.softBlue : ThixColors.background,
                     borderRadius: BorderRadius.circular(30),
-                    boxShadow: isSelected
-                        ? [BoxShadow(color: ThixColors.primary.withOpacity(0.28), blurRadius: 10, offset: const Offset(0, 4))]
-                        : null,
+                    border: Border.all(color: sel ? ThixColors.primary : ThixColors.border, width: sel ? 1.4 : 1),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        filter['icon'] as IconData,
-                        size: 14,
-                        color: isSelected ? Colors.white : ThixColors.primaryDeep,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        filter['label'] as String,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: isSelected ? Colors.white : ThixColors.textDark,
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: Row(children: [
+                    Icon(e.value.$2, size: 16, color: sel ? ThixColors.primaryDeep : ThixColors.textSecondary),
+                    const SizedBox(width: 7),
+                    Text(e.value.$1, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: sel ? ThixColors.primaryDeep : ThixColors.textDark)),
+                  ]),
                 ),
               ),
             );
@@ -501,280 +384,372 @@ class _NetworkProHomeState extends State<NetworkProHome>
     );
   }
 
-  // ─── BARRE DE CRÉATION — compacte, lumineuse ───
+  // ─────────────────────────── CREATE POST ───────────────────────────
+
   Widget _buildCreatePostBar() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: ThixColors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: ThixColors.border),
-        boxShadow: [BoxShadow(blurRadius: 14, offset: const Offset(0, 6), color: ThixColors.shadow)],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(colors: [ThixColors.primaryDeep, ThixColors.primary]),
-                ),
-                child: const Icon(Icons.person, color: Colors.white, size: 16),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () async {
-                    final result = await showDialog<bool>(
-                      context: context,
-                      builder: (_) => const CreatePostDialog(),
-                    );
-                    if (result == true) _loadPosts();
-                  },
-                  child: Container(
-                    height: 38,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: ThixColors.softBlue,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Quoi de neuf dans votre monde pro ?',
-                        style: TextStyle(fontSize: 12, color: ThixColors.textSecondary),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _miniAction(Icons.article_rounded, 'Post', const Color(0xFF6C4DE6), _openCreatePost),
-              _miniAction(Icons.image_rounded, 'Photo', ThixColors.green, _openCreatePost),
-              _miniAction(Icons.videocam_rounded, 'Vidéo', const Color(0xFFE5484D), _openCreatePost),
-              _miniAction(Icons.bolt_rounded, 'Short', ThixColors.gold, _openCreatePost),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _openCreatePost() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (_) => const CreatePostDialog(),
-    );
-    if (result == true) _loadPosts();
-  }
-
-  Widget _miniAction(IconData icon, String label, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: color),
-            const SizedBox(width: 5),
-            Text(label, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: ThixColors.textDark)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── POST CARD ───
-  Widget _buildPostCard(NetworkPost post, String currentUserId) {
-    return PostCard(
-      post: post,
-      currentProfileId: currentUserId,
-      onLike: () {
-        HapticFeedback.lightImpact();
-        Provider.of<FeedProvider>(context, listen: false).toggleLike(post.id);
-      },
-      onComment: () => _commentOnPost(post),
-      onShare: () => _sharePost(post),
-      onSave: () => _loadPosts(),
-      onEdit: () => _loadPosts(),
-      onDelete: () => _loadPosts(),
-    );
-  }
-
-  // ─── SUGGESTIONS — compact ───
-  Widget _buildSuggestionsSection() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.fromLTRB(14, 4, 14, 14),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
       decoration: BoxDecoration(
         color: ThixColors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: ThixColors.border),
-        boxShadow: [BoxShadow(blurRadius: 12, offset: const Offset(0, 5), color: ThixColors.shadow)],
+        boxShadow: const [BoxShadow(color: ThixColors.shadow, blurRadius: 16, offset: Offset(0, 6))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Suggestions de connexion',
-            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: ThixColors.textDark),
+      child: Column(children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientStoryRing),
+            child: const CircleAvatar(radius: 19, backgroundColor: ThixColors.softBlue, child: Icon(Icons.person, size: 19, color: ThixColors.primaryDeep)),
           ),
-          const SizedBox(height: 8),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+          const SizedBox(width: 12),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => showDialog(context: context, builder: (_) => const CreatePostDialog())
+                  .then((v) { if (v == true) ref.read(feedProvider.notifier).loadFeed(force: true); }),
+              child: Container(
+                height: 42,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(color: ThixColors.background, borderRadius: BorderRadius.circular(30)),
+                alignment: Alignment.centerLeft,
+                child: const Text('Quoi de neuf, pro ?', style: TextStyle(color: ThixColors.textSecondary, fontSize: 13.5)),
+              ),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        const Divider(height: 1, color: ThixColors.border),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+          _quickAction(Icons.image_rounded, 'Photo', ThixColors.primary),
+          _quickAction(Icons.videocam_rounded, 'Vidéo', ThixColors.gold),
+          _quickAction(Icons.sensors_rounded, 'Live', const Color(0xFFE0453C)),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _quickAction(IconData icon, String label, Color color) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => showDialog(context: context, builder: (_) => const CreatePostDialog())
+          .then((v) { if (v == true) ref.read(feedProvider.notifier).loadFeed(force: true); }),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 17, color: color),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ThixColors.textSecondary)),
+        ]),
+      ),
+    );
+  }
+
+  // ─────────────────────────── SUGGESTIONS ───────────────────────────
+
+  Widget _buildSuggestions() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 14),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      color: ThixColors.white,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Personnes à découvrir', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: ThixColors.textDark)),
+            Icon(Icons.groups_2_rounded, size: 18, color: ThixColors.gold),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 172,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: _suggestions.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, color: ThixColors.border),
-            itemBuilder: (context, index) {
-              final user = _suggestions[index];
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: ThixColors.softBlue,
-                      backgroundImage: user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
-                      child: user.avatarUrl == null
-                          ? Text(user.name[0].toUpperCase(), style: const TextStyle(fontSize: 12, color: ThixColors.primaryDeep))
-                          : null,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(user.name, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: ThixColors.textDark)),
-                          if ((user.title ?? '').isNotEmpty)
-                            Text(user.title!, style: const TextStyle(fontSize: 10.5, color: ThixColors.textSecondary)),
-                        ],
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () => _sendConnectionRequest(user),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(color: ThixColors.softBlue, shape: BoxShape.circle),
-                        child: const Icon(Icons.person_add_alt_1_rounded, color: ThixColors.primary, size: 16),
-                      ),
-                    ),
-                  ],
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (c, i) {
+              final u = _suggestions[i];
+              return Container(
+                width: 132,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: ThixColors.background,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: ThixColors.border),
                 ),
+                child: Column(children: [
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientStoryRing),
+                    child: CircleAvatar(
+                      radius: 26,
+                      backgroundColor: ThixColors.softBlue,
+                      backgroundImage: u.avatar != null ? NetworkImage(u.avatar!) : null,
+                      child: u.avatar == null ? const Icon(Icons.person, color: ThixColors.primaryDeep) : null,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(u.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ThixColors.textDark)),
+                  const SizedBox(height: 2),
+                  Text(u.title ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: ThixColors.textSecondary)),
+                  const Spacer(),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 30,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(gradient: ThixColors.gradientPrimary, borderRadius: BorderRadius.circular(20)),
+                      child: TextButton(
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+                        onPressed: () async {
+                          await ref.read(networkServiceProvider).sendConnectionRequest(u.id);
+                          setState(() => _suggestions.remove(u));
+                        },
+                        child: const Text('Suivre', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                      ),
+                    ),
+                  ),
+                ]),
               );
             },
           ),
-        ],
+        ),
+      ]),
+    );
+  }
+
+  // ─────────────────────────── BOTTOM NAV ───────────────────────────
+
+  Widget _buildBottomNav(bool visible) {
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeInOutCubic,
+      offset: visible ? Offset.zero : const Offset(0, 1.6),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: visible ? 1 : 0,
+        child: IgnorePointer(
+          ignoring: !visible,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: SizedBox(
+                height: 58,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(28),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                        child: Container(
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: ThixColors.white.withValues(alpha: 0.86),
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(color: ThixColors.border),
+                            boxShadow: const [BoxShadow(color: ThixColors.shadowDeep, blurRadius: 20, offset: Offset(0, 8))],
+                          ),
+                          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                            _navBtn(Icons.home_rounded, 'Accueil', true, () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut)),
+                            _navBtn(Icons.explore_outlined, 'Découvrir', false, () => context.push('/network/discover')),
+                            const SizedBox(width: 46),
+                            _navBtn(Icons.groups_outlined, 'Réseau', false, () => context.push('/network/connections')),
+                            _navBtn(Icons.person_outline, 'Profil', false, () => context.push('/profile')),
+                          ]),
+                        ),
+                      ),
+                    ),
+                    Positioned(top: -14, child: _buildFab()),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  // ─── FAB ───
   Widget _buildFab() {
     return Container(
-      height: 58,
-      width: 58,
+      width: 54, height: 54,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(colors: [ThixColors.gold, Color(0xFFEFC777)]),
-        boxShadow: [BoxShadow(blurRadius: 18, offset: const Offset(0, 8), color: ThixColors.gold.withOpacity(0.4))],
+        gradient: ThixColors.gradientPrimary,
+        boxShadow: [
+          BoxShadow(color: ThixColors.primary.withValues(alpha: 0.45), blurRadius: 18, spreadRadius: 1, offset: const Offset(0, 6)),
+        ],
+        border: Border.all(color: ThixColors.white, width: 3),
       ),
       child: FloatingActionButton(
-        backgroundColor: Colors.transparent,
         elevation: 0,
-        onPressed: _openCreatePost,
-        child: const Icon(Icons.add_rounded, size: 27, color: Colors.white),
+        backgroundColor: Colors.transparent,
+        onPressed: () => showDialog(context: context, builder: (_) => const CreatePostDialog())
+            .then((v) { if (v == true) ref.read(feedProvider.notifier).loadFeed(force: true); }),
+        child: const Icon(Icons.add_rounded, size: 26, color: Colors.white),
       ),
     );
   }
 
-  // ─── BOTTOM NAV — flottante, incurvée ───
-  Widget _buildBottomNav() {
-    return BottomAppBar(
-      height: 58,
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 6,
-      color: ThixColors.white,
-      elevation: 0,
-      surfaceTintColor: ThixColors.white,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(Icons.home_rounded, 'Accueil', _selectedNavIndex == 0, _scrollToTop),
-          _navItem(Icons.explore_rounded, 'Découvrir', _selectedNavIndex == 1, _goToDiscover),
-          const SizedBox(width: 40),
-          _navItem(Icons.people_rounded, 'Connexions', _selectedNavIndex == 3, _goToConnections),
-          _navItem(Icons.groups_rounded, 'Communautés', _selectedNavIndex == 4, _goToCommunities),
-        ],
-      ),
-    );
-  }
-
-  Widget _navItem(IconData icon, String label, bool active, VoidCallback onTap) {
+  Widget _navBtn(IconData ic, String label, bool active, VoidCallback tap) {
     return InkWell(
-      onTap: onTap,
+      onTap: tap,
       borderRadius: BorderRadius.circular(14),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: active ? ThixColors.softBlue : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: active ? ThixColors.primary : ThixColors.textSecondary, size: 20),
-            ),
-            const SizedBox(height: 1),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                color: active ? ThixColors.primary : ThixColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(ic, size: 20, color: active ? ThixColors.primary : ThixColors.textSecondary),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: active ? ThixColors.primary : ThixColors.textSecondary)),
+          if (active)
+            Container(margin: const EdgeInsets.only(top: 2), width: 4, height: 4, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientGold)),
+        ]),
       ),
     );
   }
 
-  // ─── ÉTAT VIDE ───
-  Widget _buildEmptyState() {
+  // ─────────────────────────── ETATS ───────────────────────────
+
+  Widget _buildShimmerFeed() {
+    return Column(
+      children: List.generate(3, (i) => Container(
+        margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        height: 190,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [ThixColors.white, ThixColors.softBlue.withValues(alpha: 0.4), ThixColors.white]),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: ThixColors.border),
+        ),
+      )),
+    );
+  }
+
+  Widget _buildEmpty() {
     return Padding(
-      padding: const EdgeInsets.all(40),
-      child: Center(
-        child: Column(
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(color: ThixColors.softBlue, shape: BoxShape.circle),
-              child: const Icon(Icons.dynamic_feed_rounded, color: ThixColors.primary, size: 30),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'Aucune publication\nCommencez à suivre des personnes !',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: ThixColors.textSecondary, fontSize: 13),
-            ),
-          ],
+      padding: const EdgeInsets.all(60),
+      child: Column(children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(color: ThixColors.softBlue, shape: BoxShape.circle),
+          child: const Icon(Icons.feed_outlined, size: 40, color: ThixColors.primaryDeep),
+        ),
+        const SizedBox(height: 16),
+        const Text('Aucune publication pour ce filtre', style: TextStyle(color: ThixColors.textSecondary, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 18),
+        Container(
+          decoration: BoxDecoration(gradient: ThixColors.gradientPrimary, borderRadius: BorderRadius.circular(30)),
+          child: TextButton(
+            onPressed: _onRefresh,
+            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+            child: const Text('Actualiser', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  void _showShareSheet(post) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: ThixColors.white, borderRadius: BorderRadius.circular(20)),
+          child: Wrap(children: [
+            const SizedBox(height: 10),
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: ThixColors.border, borderRadius: BorderRadius.circular(4)))),
+            const SizedBox(height: 8),
+            ListTile(leading: const Icon(Icons.link, color: ThixColors.primary), title: const Text('Copier le lien'), onTap: () => Navigator.pop(context)),
+            ListTile(leading: const Icon(Icons.share, color: ThixColors.primary), title: const Text('Partager'), onTap: () => Navigator.pop(context)),
+          ]),
         ),
       ),
+    );
+  }
+}
+
+class _MyStoryItem extends StatelessWidget {
+  final bool hasStory;
+  final String? avatarUrl;
+  final VoidCallback onView;
+  final VoidCallback onAdd;
+  const _MyStoryItem({required this.hasStory, required this.avatarUrl, required this.onView, required this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onView,
+      child: Column(children: [
+        Stack(clipBehavior: Clip.none, children: [
+          hasStory
+              ? Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientStoryRing),
+                  child: CircleAvatar(
+                    radius: 30,
+                    backgroundColor: ThixColors.softBlue,
+                    backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty ? NetworkImage(avatarUrl!) : null,
+                  ),
+                )
+              : Container(
+                  width: 66, height: 66,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: ThixColors.softBlue, border: Border.all(color: ThixColors.border, width: 1.5)),
+                  child: const Icon(Icons.person, size: 28, color: ThixColors.primaryDeep),
+                ),
+          Positioned(
+            bottom: -2, right: -2,
+            child: GestureDetector(
+              onTap: onAdd,
+              child: Container(
+                width: 24, height: 24,
+                decoration: BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientGold, border: Border.all(color: ThixColors.white, width: 2.5)),
+                child: const Icon(Icons.add_rounded, size: 15, color: ThixColors.navyDeep),
+              ),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        Text(hasStory ? 'Votre story' : 'Ajouter', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: ThixColors.textDark)),
+      ]),
+    );
+  }
+}
+
+class _StoryItem extends StatelessWidget {
+  final NetworkStory story;
+  final VoidCallback onTap;
+  const _StoryItem({required this.story, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(children: [
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientStoryRing),
+          child: CircleAvatar(
+            radius: 30,
+            backgroundColor: ThixColors.softBlue,
+            backgroundImage: story.userAvatar != null ? NetworkImage(story.userAvatar!) : null,
+          ),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          width: 68,
+          child: Text(
+            story.userName.split(' ').first,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: ThixColors.textDark),
+          ),
+        ),
+      ]),
     );
   }
 }

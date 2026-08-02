@@ -1,7 +1,6 @@
 // lib/presentation/admin/pages/admin_events_dashboard.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -9,14 +8,14 @@ import '../../../providers/event_provider.dart';
 import '../../../models/event_model.dart';
 import 'create_event_page.dart';
 
-class AdminEventsDashboard extends StatefulWidget {
+class AdminEventsDashboard extends ConsumerStatefulWidget {
   const AdminEventsDashboard({super.key});
 
   @override
-  State<AdminEventsDashboard> createState() => _AdminEventsDashboardState();
+  ConsumerState<AdminEventsDashboard> createState() => _AdminEventsDashboardState();
 }
 
-class _AdminEventsDashboardState extends State<AdminEventsDashboard> with SingleTickerProviderStateMixin {
+class _AdminEventsDashboardState extends ConsumerState<AdminEventsDashboard> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<Event> _events = [];
   List<Event> _filteredEvents = [];
@@ -52,7 +51,9 @@ class _AdminEventsDashboardState extends State<AdminEventsDashboard> with Single
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadEvents();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadEvents();
+    });
   }
 
   @override
@@ -63,13 +64,20 @@ class _AdminEventsDashboardState extends State<AdminEventsDashboard> with Single
 
   Future<void> _loadEvents() async {
     setState(() => _isLoading = true);
-    final provider = context.read<EventProvider>();
-    await provider.fetchEvents();
-    setState(() {
-      _events = provider.events;
-      _applyFilters();
-      _isLoading = false;
-    });
+    // Utilisation du service via eventServiceProvider configuré dans ton fichier Riverpod
+    final service = ref.read(eventServiceProvider);
+    try {
+      final fetchedEvents = await service.getEvents(page: 0, limit: 100);
+      if (mounted) {
+        setState(() {
+          _events = fetchedEvents;
+          _applyFilters();
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _applyFilters() {
@@ -108,8 +116,8 @@ class _AdminEventsDashboardState extends State<AdminEventsDashboard> with Single
     );
 
     if (confirmed == true) {
-      final provider = context.read<EventProvider>();
-      await provider.deleteEvent(event.id);
+      final service = ref.read(eventServiceProvider);
+      await service.deleteEvent(event.id);
       await _loadEvents();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -120,8 +128,8 @@ class _AdminEventsDashboardState extends State<AdminEventsDashboard> with Single
   }
 
   Future<void> _toggleFeature(Event event) async {
-    final provider = context.read<EventProvider>();
-    await provider.updateEvent(event.id, {'is_featured': !event.isFeatured});
+    final service = ref.read(eventServiceProvider);
+    await service.updateEvent(event.id, {'is_featured': !event.isFeatured});
     await _loadEvents();
   }
 
@@ -232,12 +240,12 @@ class _AdminEventsDashboardState extends State<AdminEventsDashboard> with Single
           setState(() => _searchQuery = value);
           _applyFilters();
         },
-        decoration: InputDecoration(
+        decoration: const InputDecoration(
           hintText: 'Rechercher un événement...',
-          hintStyle: const TextStyle(fontSize: 12, color: Colors.grey),
-          prefixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
+          hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
+          prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          contentPadding: EdgeInsets.symmetric(vertical: 12),
         ),
       ),
     );
@@ -480,7 +488,6 @@ class _AdminEventsDashboardState extends State<AdminEventsDashboard> with Single
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cartes de statistiques
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -501,7 +508,6 @@ class _AdminEventsDashboardState extends State<AdminEventsDashboard> with Single
             ],
           ),
           const SizedBox(height: 24),
-          // Stats par catégorie
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -514,7 +520,7 @@ class _AdminEventsDashboardState extends State<AdminEventsDashboard> with Single
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       children: [
-                        Container(
+                        SizedBox(
                           width: 120,
                           child: Text(_categoryNames[entry.key] ?? entry.key, style: const TextStyle(fontSize: 12)),
                         ),

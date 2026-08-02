@@ -1,827 +1,667 @@
-
-// presentation/thix_sante/patient/patient_dashboard_page.dart
-import 'dart:ui';
-
+// lib/presentation/thix_sante/patient/patient_dashboard_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import 'package:thix_id/auth/auth_controller.dart';
-import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
-import 'package:thix_id/presentation/thix_sante/shared/services/health_services.dart';
-import 'package:thix_id/presentation/thix_sante/thix_role.dart';
+// Imports des pages (inchangés)
+import 'screens/mon_medecin_traitant_page.dart';
+import 'screens/dossier_famille_page.dart';
+import 'screens/second_avis_page.dart';
+import 'screens/dossier_medical_page.dart';
+import 'screens/resultats_examens_page.dart';
+import 'screens/mes_ordonnances_page.dart';
+import 'screens/consulter_medecin_page.dart';
+import 'screens/trouver_hopital_page.dart';
+import 'screens/trouver_medicament_page.dart';
+import 'screens/pharmacies_proches_page.dart';
+import 'screens/urgences_proches_page.dart';
+import 'screens/prendre_rdv_page.dart';
+import 'screens/teleconsultation_page.dart';
+import 'screens/assistant_ia_page.dart';
+import 'screens/dossier_partage_page.dart';
+import 'screens/epidemies_page.dart';
+import 'screens/don_sang_page.dart';
+import 'screens/rappels_vaccin_page.dart';
+import 'screens/certificat_medical_page.dart';
+import 'screens/assurance_sante_page.dart';
+import 'screens/sante_enfants_page.dart';
+import 'screens/carnet_vaccination_page.dart';
+import 'screens/suivi_grossesse_page.dart';
+import 'screens/analyse_predictive_page.dart';
+import 'screens/bien_etre_mental_page.dart';
+import 'screens/nutrition_page.dart';
+import 'screens/activite_physique_page.dart';
+import 'screens/gestion_stress_page.dart';
 
-class PatientDashboardPage extends StatefulWidget {
-  const PatientDashboardPage({super.key});
-
-  @override
-  State<PatientDashboardPage> createState() => _PatientDashboardPageState();
+class _C {
+  static const bg = Color(0xFFF4F7FB);
+  static const white = Color(0xFFFFFFFF);
+  static const navy = Color(0xFF0F172A);
+  static const textMuted = Color(0xFF64748B);
+  static const emerald = Color(0xFF10B981);
+  static const sky = Color(0xFF0EA5E9);
+  static const violet = Color(0xFF8B5CF6);
+  static const red = Color(0xFFEF4444);
+  static const amber = Color(0xFFF59E0B);
+  static const border = Color(0xFFE2E8F0);
+  static const fabBg = Color(0xFF06B6D4);
+  static const primary = Color(0xFF3B82F6); // Ajout de la couleur manquante
 }
 
-class _PatientDashboardPageState extends State<PatientDashboardPage> {
-  final HealthService _healthService = HealthService.instance;
+// ---------------- Données réelles ----------------
+class DashboardStats {
+  final int consultations, examens, medicaments, rdvs;
+  const DashboardStats({
+    this.consultations = 0,
+    this.examens = 0,
+    this.medicaments = 0,
+    this.rdvs = 0,
+  });
+}
 
-  bool _isLoading = true;
-  HealthSummary? _summary;
-  List<Appointment> _upcomingAppointments = [];
-  List<Medication> _currentMedications = [];
-  List<HealthArticle> _articles = [];
-  int _unreadNotifications = 0;
+final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
+  final db = Supabase.instance.client;
+  final uid = db.auth.currentUser?.id;
+  if (uid == null) return const DashboardStats();
+  try {
+    final c = await db.from('health_links').select('id').eq('patient_id', uid);
+    final e = await db.from('health_records').select('id').eq('patient_id', uid);
+    final p = await db.from('prescriptions').select('id').eq('patient_id', uid).neq('status', 'delivree');
+    final r = await db.from('appointments').select('id').eq('patient_id', uid).gte('date_rdv', DateTime.now().toIso8601String());
+    return DashboardStats(
+      consultations: (c as List).length,
+      examens: (e as List).length,
+      medicaments: (p as List).length,
+      rdvs: (r as List).length,
+    );
+  } catch (_) {
+    return const DashboardStats();
+  }
+});
 
-  // Liste des services
-  static const List<_Service> _services = [
-    _Service('Consulter médecin', Icons.medical_services, '/sante/patient/appointment/new'),
-    _Service('Dossier médical', Icons.folder, '/sante/patient/record'),
-    _Service('Résultats examens', Icons.science, '/sante/patient/exams'),
-    _Service('Mes ordonnances', Icons.receipt, '/sante/patient/prescriptions'),
-    _Service('Trouver hôpital', Icons.local_hospital, '/sante/patient/map/hospitals'),
-    _Service('Trouver médicament', Icons.medication, '/sante/patient/map/pharmacies'),
-    _Service('Pharmacies proches', Icons.storefront, '/sante/patient/map/pharmacies'),
-    _Service('Urgences proches', Icons.emergency, '/sante/patient/map/emergencies'),
-    _Service('Prendre RDV', Icons.calendar_today, '/sante/patient/appointment/new'),
-    _Service('Téléconsultation', Icons.video_call, '/sante/patient/teleconsultation/new'),
-    _Service('Assistant IA', Icons.smart_toy, '/sante/patient/ia'),
-    _Service('Dossier partagé', Icons.share, '/sante/patient/sharing'),
-    _Service('Santé enfants', Icons.child_care, '/sante/patient/family'),
-    _Service('Carnet vaccination', Icons.vaccines, '/sante/patient/vaccinations'),
-    _Service('Suivi grossesses', Icons.pregnant_woman, '/sante/patient/pregnancy'),
-    _Service('Assurance santé', Icons.shield, '/sante/patient/insurance'),
-    _Service('Analyse prédictive', Icons.analytics, '/sante/patient/health-score'),
-    _Service('Bien-être mental', Icons.spa, '/sante/patient/wellness/stress'),
-    _Service('Nutrition', Icons.restaurant, '/sante/patient/wellness/nutrition'),
-    _Service('Activité physique', Icons.fitness_center, '/sante/patient/wellness/fitness'),
-    _Service('Gestion stress', Icons.self_improvement, '/sante/patient/wellness/stress'),
-    _Service('Plus de services', Icons.more_horiz, '/sante/patient/health'),
+class PatientProfile {
+  final String name;
+  final String? avatarUrl;
+  const PatientProfile({required this.name, this.avatarUrl});
+}
+
+final patientProfileProvider = FutureProvider<PatientProfile>((ref) async {
+  final db = Supabase.instance.client;
+  final user = db.auth.currentUser;
+  if (user == null) return const PatientProfile(name: 'Patient');
+  try {
+    final res = await db.from('profiles').select('full_name, avatar_url').eq('id', user.id).maybeSingle();
+    final name = (res?['full_name'] as String?)?.trim();
+    final avatar = res?['avatar_url'] as String?;
+    if (name != null && name.isNotEmpty) return PatientProfile(name: name, avatarUrl: avatar);
+  } catch (_) {}
+  final metaName = user.userMetadata?['full_name'] as String?;
+  return PatientProfile(name: (metaName != null && metaName.isNotEmpty) ? metaName : 'Patient');
+});
+
+// Modèle de service avec sous-titre
+class ServiceItem {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final Widget page;
+  ServiceItem(this.title, this.subtitle, this.icon, this.color, this.page);
+}
+
+class PatientDashboardPage extends ConsumerStatefulWidget {
+  const PatientDashboardPage({super.key});
+  @override
+  ConsumerState<PatientDashboardPage> createState() => _PatientDashboardPageState();
+}
+
+class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
+  // Définition des services avec des sous-titres génériques (Pas de fausses données)
+  late final List<ServiceItem> _dossierServices = [
+    ServiceItem('Ordonnances', 'Vos prescriptions', Icons.receipt_long_rounded, _C.violet, const MesOrdonnancesPage()),
+    ServiceItem('Résultats', 'Analyses & labo', Icons.biotech_rounded, _C.sky, const ResultatsExamensPage()),
+    ServiceItem('Vaccination', 'Carnet à jour', Icons.vaccines_rounded, _C.emerald, const CarnetVaccinationPage()),
+    ServiceItem('Dossier Médical', 'Historique complet', Icons.folder_shared_rounded, _C.sky, const DossierMedicalPage()),
+    ServiceItem('Assurance', 'Couverture santé', Icons.shield_rounded, _C.navy, const AssuranceSantePage()),
+    ServiceItem('Partage', 'Accès médecins', Icons.share_rounded, _C.emerald, const DossierPartagePage()),
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _loadDashboardData();
-  }
+  late final List<ServiceItem> _careServices = [
+    ServiceItem('Médicaments', 'Trouver en pharmacie', Icons.medication_rounded, _C.violet, const TrouverMedicamentPage()),
+    ServiceItem('Second Avis', 'Avis d\'experts', Icons.people_alt_rounded, _C.sky, const SecondAvisPage()),
+    ServiceItem('Don de sang', 'Centres de collecte', Icons.bloodtype_rounded, _C.red, const DonSangPage()),
+    ServiceItem('Consulter', 'Prendre rendez-vous', Icons.medical_services_rounded, _C.sky, const ConsulterMedecinPage()),
+    ServiceItem('Épidémies', 'Alertes sanitaires', Icons.coronavirus_rounded, _C.red, const EpidemiesPage()),
+  ];
 
-  Future<void> _loadDashboardData() async {
-    setState(() => _isLoading = true);
+  late final List<ServiceItem> _familyServices = [
+    ServiceItem('Famille', 'Gérer les profils', Icons.family_restroom_rounded, _C.violet, const DossierFamillePage()),
+    ServiceItem('Grossesse', 'Suivi de maternité', Icons.pregnant_woman_rounded, const Color(0xFFEC4899), const SuiviGrossessePage()),
+    ServiceItem('Enfants', 'Suivi pédiatrique', Icons.child_care_rounded, _C.sky, const SanteEnfantsPage()),
+    ServiceItem('Rappels', 'Prochains vaccins', Icons.notifications_active_rounded, _C.amber, const RappelsVaccinPage()),
+  ];
 
-    try {
-      final user = AuthController.instance.currentUser;
-      if (user == null) throw Exception('Utilisateur non connecté');
+  late final List<ServiceItem> _wellbeingServices = [
+    ServiceItem('Nutrition', 'Suivi alimentaire', Icons.restaurant_rounded, _C.amber, const NutritionPage()),
+    ServiceItem('Activité', 'Exercices physiques', Icons.directions_run_rounded, _C.emerald, const ActivitePhysiquePage()),
+    ServiceItem('Santé Mentale', 'Soutien psychologique', Icons.psychology_rounded, _C.violet, const BienEtreMentalPage()),
+    ServiceItem('Gestion Stress', 'Relaxation', Icons.self_improvement_rounded, _C.sky, const GestionStressPage()),
+  ];
 
-      final patientId = user.id;
-
-      final summary = await _healthService.fetchHealthSummary(patientId);
-      final appointments = await _healthService.fetchUpcomingAppointments(patientId);
-      final medications = await _healthService.fetchMedications(patientId, activeOnly: true);
-      final articles = await _healthService.fetchHealthArticles(limit: 12);
-      final alerts = await _healthService.fetchHealthAlerts(patientId);
-
-      if (!mounted) return;
-
-      setState(() {
-        _summary = summary;
-        _upcomingAppointments = appointments;
-        _currentMedications = medications;
-        _articles = articles;
-        _unreadNotifications = alerts.length;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
-      );
-    }
+  void _go(Widget page) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        textTheme: GoogleFonts.poppinsTextTheme(),
-      ),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF0F4FF),
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.white,
-                const Color(0xFFF0F4FF),
-              ],
-            ),
-          ),
-          child: SafeArea(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    onRefresh: _loadDashboardData,
-                    child: CustomScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      slivers: [
-                        SliverToBoxAdapter(child: _topBar()),
-                        SliverToBoxAdapter(child: _heroSection()),
-                        SliverToBoxAdapter(child: _healthSummary()),
-                        SliverToBoxAdapter(child: _servicesGrid()),
-                        SliverToBoxAdapter(child: _articlesSection()),
-                        SliverToBoxAdapter(child: _emergencySection()),
-                        const SliverToBoxAdapter(child: SizedBox(height: 90)),
-                      ],
-                    ),
-                  ),
-          ),
-        ),
-        floatingActionButton: _fab(),
-        floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
-        bottomNavigationBar: _BottomNav(
-          currentIndex: 0,
-          onTap: (index) {
-            if (index == 1) context.go('/sante/patient/health');
-            if (index == 2) context.go('/sante/patient/messages');
-            if (index == 3) context.go('/sante/patient/profile');
-          },
-        ),
-      ),
-    );
-  }
+    final profile = ref.watch(patientProfileProvider);
+    final stats = ref.watch(dashboardStatsProvider);
 
-  // =========================================================
-  // TOP BAR (avec bouton de changement de rôle)
-  // =========================================================
-  Widget _topBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-      child: Row(
+    return Scaffold(
+      backgroundColor: _C.bg,
+      body: Stack(
         children: [
           Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'THIX SANTÉ',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade800,
-                ),
-              ),
-              Text(
-                'Votre santé, notre priorité',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
+              // EN-TÊTE FIXE (Nom + Mon Suivi en cercles)
+              _buildFixedHeader(profile, stats),
+              
+              // CONTENU DÉFILANT
+              Expanded(
+                child: RefreshIndicator(
+                  color: _C.sky,
+                  backgroundColor: _C.white,
+                  onRefresh: () async {
+                    ref.invalidate(dashboardStatsProvider);
+                    ref.invalidate(patientProfileProvider);
+                  },
+                  child: ListView(
+                    padding: const EdgeInsets.only(top: 16, bottom: 120),
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                    children: [
+                      // Section "Trouver des soins" principale
+                      _buildSectionHeaderWithLocation('Trouver des soins', 'Dar es Salaam'),
+                      const SizedBox(height: 16),
+                      _buildPharmacyCard(),
+                      const SizedBox(height: 12),
+                      _buildHospitalCard(),
+                      
+                      const SizedBox(height: 32),
+                      _buildSectionTitle('Mon dossier'),
+                      _horizontalServiceRow(_dossierServices),
+                      
+                      const SizedBox(height: 32),
+                      _buildSectionTitle('Autres soins'),
+                      _horizontalServiceRow(_careServices),
+                      
+                      const SizedBox(height: 32),
+                      _buildSectionTitle('Famille & Proches'),
+                      _horizontalServiceRow(_familyServices),
+                      
+                      const SizedBox(height: 32),
+                      _buildSectionTitle('Bien-être & Prévention'),
+                      _horizontalServiceRow(_wellbeingServices),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-          const Spacer(),
-          _roleSwitchButton(),
-          const SizedBox(width: 8),
-          Stack(
-            children: [
-              _glassIcon(Icons.notifications_none,
-                  onTap: () => context.push('/sante/patient/notifications')),
-              if (_unreadNotifications > 0)
-                Positioned(
-                  right: 2,
-                  top: 2,
-                  child: _badge(_unreadNotifications),
-                )
-            ],
-          ),
-          const SizedBox(width: 10),
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: Colors.blue.shade100,
-            child: Text(
-              (AuthController.instance.currentUser?.displayName ?? "U")
-                  .substring(0, 1),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          )
+          
+          // BOTTOM NAVIGATION FLOTTANTE
+          _buildFloatingBottomNav(),
         ],
       ),
     );
   }
 
-  Widget _roleSwitchButton() {
-    final role = ThixRoleController.instance.currentRole;
-    return GestureDetector(
-      onTap: () => _openRoleSwitchSheet(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: role.accent.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: role.accent, width: 1),
-        ),
-        child: Row(
-          children: [
-            Icon(role.icon, size: 16, color: role.accent),
-            const SizedBox(width: 4),
-            Text(
-              role.label,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: role.accent,
-              ),
-            ),
-            const Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey),
-          ],
-        ),
+  // =========================================================================
+  // 1. PARTIE HAUTE FIXE (NOM + MON SUIVI)
+  // =========================================================================
+  Widget _buildFixedHeader(AsyncValue<PatientProfile> profileAsync, AsyncValue<DashboardStats> statsAsync) {
+    final fullName = profileAsync.valueOrNull?.name ?? 'Alex';
+    final firstName = fullName.split(' ').first;
+    final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: _C.white,
+        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(color: Color(0x0A000000), blurRadius: 15, offset: Offset(0, 5))
+        ]
       ),
-    );
-  }
-
-  // =========================================================
-  // HERO
-  // =========================================================
-  Widget _heroSection() {
-    final user = AuthController.instance.currentUser;
-    final name = user?.displayName ?? "Utilisateur";
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF2563FF), Color(0xFF00D2C8)],
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
+            children: [
+              // Ligne 1 : Avatar, Nom, Boutons
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Stack(
+                    children: [
+                      Container(
+                        height: 48, width: 48,
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: _C.emerald.withOpacity(0.5), width: 1.5),
+                        ),
+                        child: ClipOval(
+                          child: (avatarUrl != null && avatarUrl.isNotEmpty)
+                              ? Image.network(avatarUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _defaultAvatar())
+                              : _defaultAvatar(),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 2, right: 2,
+                        child: Container(
+                          height: 12, width: 12,
+                          decoration: BoxDecoration(color: _C.emerald, shape: BoxShape.circle, border: Border.all(color: _C.white, width: 2)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Bonjour $firstName', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.5)),
+                        const SizedBox(height: 2),
+                        const Row(
+                          children: [
+                            Icon(Icons.verified_rounded, size: 12, color: _C.sky),
+                            SizedBox(width: 4),
+                            Text('Dossier sécurisé', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _C.textMuted)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => _go(const UrgencesProchesPage()),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(20)),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.bolt_rounded, size: 14, color: _C.red),
+                          SizedBox(width: 4),
+                          Text('SOS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: _C.red, letterSpacing: 0.5)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Stack(
+                    children: [
+                      Container(
+                        height: 38, width: 38,
+                        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _C.border)),
+                        child: const Icon(Icons.notifications_none_rounded, color: _C.navy, size: 20),
+                      ),
+                      Positioned(
+                        top: 0, right: 0,
+                        child: Container(height: 10, width: 10, decoration: BoxDecoration(color: _C.red, shape: BoxShape.circle, border: Border.all(color: _C.white, width: 2))),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Ligne 2 : Mon Suivi (Les 4 cercles)
+              statsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator(color: _C.sky)),
+                error: (_, __) => const SizedBox(),
+                data: (d) => Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildStatCircle('Consults.', d.consultations, _C.primary),
+                    _buildStatCircle('Examens', d.examens, _C.emerald),
+                    _buildStatCircle('Traitements', d.medicaments, _C.violet),
+                    _buildStatCircle('RDV', d.rdvs, _C.amber),
+                  ],
+                ),
+              ),
+            ],
           ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.25),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            )
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Bonjour, $name 🎉",
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "Votre santé entre de bonnes mains",
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              "Consultez, suivez et prenez soin de votre santé au quotidien.",
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.white70,
-              ),
-            ),
-          ],
         ),
       ),
     );
   }
 
-  // =========================================================
-  // RÉSUMÉ DE SANTÉ (4 INDICATEURS)
-  // =========================================================
-  Widget _healthSummary() {
-    if (_summary == null) return const SizedBox.shrink();
+  Widget _defaultAvatar() => Container(color: _C.bg, child: const Icon(Icons.person, color: _C.textMuted));
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _statItem(
-              icon: Icons.calendar_today,
-              value: _summary!.consultationsThisYear.toString(),
-              label: 'Consultations',
-              subtitle: 'Cette année',
-              color: Colors.blue,
-            ),
-            _statItem(
-              icon: Icons.science,
-              value: _summary!.examsCompleted.toString(),
-              label: 'Examens',
-              subtitle: 'Complétés',
-              color: Colors.green,
-            ),
-            _statItem(
-              icon: Icons.medication,
-              value: _summary!.activeMedications.toString(),
-              label: 'Médicaments',
-              subtitle: 'En cours',
-              color: Colors.orange,
-            ),
-            _statItem(
-              icon: Icons.access_time,
-              value: _summary!.upcomingAppointments.toString(),
-              label: 'Rendez-vous',
-              subtitle: 'À venir',
-              color: Colors.purple,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statItem({
-    required IconData icon,
-    required String value,
-    required String label,
-    required String subtitle,
-    required Color color,
-  }) {
+  // Les cercles de "Mon Suivi"
+  Widget _buildStatCircle(String label, int value, Color color) {
     return Column(
       children: [
-        Row(
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
-            Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+        Container(
+          height: 56, width: 56,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withOpacity(0.3), width: 3),
+            color: color.withOpacity(0.05),
+          ),
+          child: Center(
+            child: Text(
+              '$value',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color),
             ),
-          ],
+          ),
         ),
-        Text(
-          label,
-          style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade600),
-        ),
-        Text(
-          subtitle,
-          style: GoogleFonts.poppins(fontSize: 8, color: Colors.grey.shade400),
-        ),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _C.textMuted, letterSpacing: 0.2)),
       ],
     );
   }
 
-  // =========================================================
-  // SERVICES RAPIDES (GRILLE 4 COLONNES) - MODIFIÉ
-  // =========================================================
-  Widget _servicesGrid() {
+  // =========================================================================
+  // 2. CARTES D'ACCUEIL (TROUVER DES SOINS)
+  // =========================================================================
+  Widget _buildSectionHeaderWithLocation(String title, String location) {
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-          border: Border.all(color: Colors.white.withOpacity(0.7), width: 1.5),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Services rapides',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey.shade800,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _services.length,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      childAspectRatio: 0.9,
-                    ),
-                    itemBuilder: (_, index) {
-                      final service = _services[index];
-                      final color = _getColorForIndex(index);
-                      return _serviceTile(service, color);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Color _getColorForIndex(int index) {
-    final colors = [
-      Colors.blue, Colors.green, Colors.orange, Colors.pink,
-      Colors.purple, Colors.cyan, Colors.red, Colors.teal,
-      Colors.indigo, Colors.lime, Colors.amber, Colors.brown,
-      Colors.blueGrey, Colors.deepOrange, Colors.pinkAccent,
-      Colors.lightBlue, Colors.lightGreen, Colors.yellow,
-      Colors.deepPurple, Colors.orangeAccent, Colors.greenAccent,
-      Colors.blue.shade300,
-    ];
-    return colors[index % colors.length];
-  }
-
-  Widget _serviceTile(_Service service, Color color) {
-    return GestureDetector(
-      onTap: () => context.push(service.route),
-      child: Container(
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              service.icon,
-              color: color,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              service.label,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade700,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =========================================================
-  // POUR VOUS (ARTICLES)
-  // =========================================================
-  Widget _articlesSection() {
-    if (_articles.isEmpty) return const SizedBox.shrink();
-
-    final displayed = _articles.take(4).toList();
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Pour vous',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+          Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.5)),
+          Row(
+            children: [
+              const Icon(Icons.location_on_outlined, size: 14, color: _C.textMuted),
+              const SizedBox(width: 4),
+              Text(location, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _C.textMuted)),
+            ],
           ),
-          const SizedBox(height: 12),
-          ...displayed.map((article) {
-            return GestureDetector(
-              onTap: () => context.push('/sante/patient/article/${article.id}', extra: article),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: Colors.blue.shade50,
-                      child: Text(
-                        '${article.readTime}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        article.title,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-                  ],
-                ),
-              ),
-            );
-          }),
         ],
       ),
     );
   }
 
-  // =========================================================
-  // SECTION URGENCE (SOS)
-  // =========================================================
-  Widget _emergencySection() {
+  Widget _buildPharmacyCard() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.red.shade200),
-        ),
-        child: Column(
+        decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: _C.border)),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Stack(
               children: [
-                Icon(Icons.sos, color: Colors.red, size: 24),
-                SizedBox(width: 8),
-                Text(
-                  'SOS',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
-                  ),
+                Container(
+                  height: 64, width: 64,
+                  decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(16)),
+                  child: const Icon(Icons.add_rounded, color: _C.emerald, size: 32),
                 ),
+                Positioned(bottom: -2, right: -2, child: Container(height: 14, width: 14, decoration: BoxDecoration(color: _C.emerald, shape: BoxShape.circle, border: Border.all(color: _C.white, width: 2)))),
               ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              'En cas d’urgence, nous sommes là pour vous',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.grey.shade700,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(child: Text('Pharmacies de garde', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.2), overflow: TextOverflow.ellipsis)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(12)),
+                        child: Row(
+                          children: [
+                            Container(height: 6, width: 6, decoration: const BoxDecoration(color: _C.emerald, shape: BoxShape.circle)),
+                            const SizedBox(width: 4),
+                            const Text('LIVE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: _C.emerald)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Text('Ouvertes', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _C.emerald)),
+                      const Text(' • Localisez les plus proches', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _C.textMuted)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _go(const PharmaciesProchesPage()),
+                          child: Container(
+                            height: 36,
+                            decoration: BoxDecoration(color: _C.navy, borderRadius: BorderRadius.circular(18)),
+                            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(Icons.near_me_rounded, color: _C.white, size: 14),
+                              SizedBox(width: 6),
+                              Text('Rechercher', style: TextStyle(color: _C.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  const url = 'tel:15';
-                  if (await canLaunchUrl(Uri.parse(url))) {
-                    await launchUrl(Uri.parse(url));
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Impossible de passer l\'appel.')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.call, color: Colors.white),
-                label: const Text('Appeler les urgences'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHospitalCard() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: _C.border)),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                Container(
+                  height: 64, width: 64,
+                  decoration: BoxDecoration(color: _C.navy, borderRadius: BorderRadius.circular(16)),
+                  child: const Icon(Icons.domain_rounded, color: _C.white, size: 28),
+                ),
+                Positioned(bottom: -2, right: -2, child: Container(height: 14, width: 14, decoration: BoxDecoration(color: _C.amber, shape: BoxShape.circle, border: Border.all(color: _C.white, width: 2)))),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Hôpitaux & Cliniques', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.2)),
+                  const SizedBox(height: 4),
+                  const Text('Réseau de soins • SAMU & Urgences', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _C.textMuted)),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _go(const TrouverHopitalPage()),
+                          child: Container(
+                            height: 36,
+                            decoration: BoxDecoration(color: _C.white, border: Border.all(color: _C.border), borderRadius: BorderRadius.circular(18)),
+                            child: const Center(child: Text('Voir la liste', style: TextStyle(color: _C.navy, fontSize: 13, fontWeight: FontWeight.w700))),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _go(const UrgencesProchesPage()),
+                          child: Container(
+                            height: 36,
+                            decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(18)),
+                            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(Icons.access_time_rounded, color: _C.red, size: 14),
+                              SizedBox(width: 6),
+                              Text('Urgence', style: TextStyle(color: _C.red, fontSize: 13, fontWeight: FontWeight.w700)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 3. CARTES VERTICALES DE SERVICES (COMME SUR LA CAPTURE)
+  // =========================================================================
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.3)),
+    );
+  }
+
+  Widget _horizontalServiceRow(List<ServiceItem> items) {
+    return SizedBox(
+      height: 160, // Plus haut pour donner l'aspect de carte verticale
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (_, i) {
+          final it = items[i];
+          return InkWell(
+            onTap: () => _go(it.page),
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              width: 140, // Assez large pour que le texte respire
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _C.white, 
+                borderRadius: BorderRadius.circular(24), 
+                border: Border.all(color: _C.border)
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Icône en haut à gauche (Squircle)
+                  Container(
+                    height: 48, width: 48,
+                    decoration: BoxDecoration(
+                      color: it.color.withOpacity(0.1), 
+                      borderRadius: BorderRadius.circular(14)
+                    ),
+                    child: Icon(it.icon, color: it.color, size: 24),
+                  ),
+                  const Spacer(),
+                  // Textes en bas
+                  Text(
+                    it.title, 
+                    maxLines: 1, 
+                    overflow: TextOverflow.ellipsis, 
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: _C.navy, height: 1.2)
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    it.subtitle, 
+                    maxLines: 1, 
+                    overflow: TextOverflow.ellipsis, 
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _C.textMuted)
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 4. BOTTOM NAVIGATION BAR FLOTTANTE
+  // =========================================================================
+  Widget _buildFloatingBottomNav() {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+        child: SizedBox(
+          height: 80, 
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  color: _C.white,
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 20, offset: Offset(0, 10))]
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _navItem(Icons.home_rounded, 'Accueil', true, () {}),
+                    _navItem(Icons.folder_shared_rounded, 'Dossier', false, () => _go(const DossierMedicalPage())),
+                    const SizedBox(width: 60), 
+                    _navItem(Icons.search_rounded, 'Soins', false, () => _go(const TrouverHopitalPage())),
+                    _navItem(Icons.people_alt_rounded, 'Famille', false, () => _go(const DossierFamillePage())),
+                  ],
+                ),
+              ),
+              Positioned(
+                top: 0,
+                child: GestureDetector(
+                  onTap: () => _go(const AssistantIAPage()),
+                  child: Container(
+                    height: 60, width: 60,
+                    decoration: BoxDecoration(
+                      color: _C.fabBg,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: _C.bg, width: 4),
+                      boxShadow: [BoxShadow(color: _C.fabBg.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))]
+                    ),
+                    child: const Icon(Icons.auto_awesome_rounded, color: _C.white, size: 28),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =========================================================
-  // FAB (repositionné)
-  // =========================================================
-  Widget _fab() {
-    return FloatingActionButton(
-      backgroundColor: const Color(0xFF2563FF),
-      onPressed: () => _showQuickActions(context),
-      child: const Icon(Icons.add, color: Colors.white),
-    );
-  }
-
-  // =========================================================
-  // ACTION SHEET
-  // =========================================================
-  void _showQuickActions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _sheetItem(Icons.calendar_today, "Prendre RDV", Colors.blue,
-                () => context.push('/sante/patient/appointment/new')),
-            _sheetItem(Icons.chat, "Assistant IA", Colors.green,
-                () => context.push('/sante/patient/ia')),
-            _sheetItem(Icons.camera_alt, "Scanner ordonnance", Colors.purple,
-                () => context.push('/sante/patient/scan')),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sheetItem(
-      IconData icon, String title, Color color, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(title),
-      onTap: () {
-        Navigator.pop(context);
-        onTap();
-      },
-    );
-  }
-
-  // =========================================================
-  // ROLE SWITCH
-  // =========================================================
-  Future<void> _openRoleSwitchSheet(BuildContext context) async {
-    final selected = await showModalBottomSheet<ThixRole>(
-      context: context,
-      builder: (_) => const _RoleSwitchSheet(currentRole: ThixRole.patient),
-    );
-
-    if (selected == null) return;
-
-    try {
-      ThixRoleController.instance.selectRole(selected, manual: true);
-
-      await Supabase.instance.client.auth.updateUser(
-        UserAttributes(data: {'thix_role': selected.name}),
-      );
-
-      if (!context.mounted) return;
-
-      if (selected == ThixRole.patient) context.go('/sante/patient/dashboard');
-      if (selected == ThixRole.doctor) context.go('/sante/doctor/dashboard');
-      if (selected == ThixRole.pharmacy) context.go('/sante/pharmacy/dashboard');
-    } catch (e) {
-      debugPrint("Role switch error: $e");
-    }
-  }
-
-  // =========================================================
-  // STYLE HELPERS
-  // =========================================================
-  BoxDecoration _glass() => BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-          )
-        ],
-      );
-
-  Widget _glassIcon(IconData icon, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: _glass(),
-        child: Icon(icon, color: Colors.grey.shade700),
-      ),
-    );
-  }
-
-  Widget _badge(int v) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(
-        color: Colors.red,
-        shape: BoxShape.circle,
-      ),
-      child: Text(
-        "$v",
-        style: const TextStyle(color: Colors.white, fontSize: 10),
-      ),
-    );
-  }
-}
-
-// =========================================================
-// MODELE SERVICE
-// =========================================================
-class _Service {
-  final String label;
-  final IconData icon;
-  final String route;
-
-  const _Service(this.label, this.icon, this.route);
-}
-
-// =========================================================
-// BOTTOM NAVIGATION
-// =========================================================
-class _BottomNav extends StatelessWidget {
-  final int currentIndex;
-  final Function(int) onTap;
-
-  const _BottomNav({required this.currentIndex, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: currentIndex,
-      onTap: onTap,
-      selectedItemColor: const Color(0xFF2563FF),
-      unselectedItemColor: Colors.grey,
-      showUnselectedLabels: true,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
-        BottomNavigationBarItem(icon: Icon(Icons.medical_services), label: 'Santé'),
-        BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Messages'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-      ],
-    );
-  }
-}
-
-// =========================================================
-// ROLE SHEET
-// =========================================================
-class _RoleSwitchSheet extends StatelessWidget {
-  final ThixRole currentRole;
-
-  const _RoleSwitchSheet({required this.currentRole});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            "Changer de rôle",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Positioned(
+                bottom: 8,
+                child: Container(height: 4, width: 4, decoration: const BoxDecoration(color: _C.emerald, shape: BoxShape.circle)),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          for (final role in ThixRoleController.availableRoles)
-            ListTile(
-              leading: Icon(role.icon, color: role.accent),
-              title: Text(role.label),
-              trailing: role == currentRole
-                  ? const Icon(Icons.check, color: Colors.green)
-                  : null,
-              onTap: () => context.pop(role),
-            )
+        ),
+      ),
+    );
+  }
+
+  Widget _navItem(IconData icon, String label, bool active, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 24, color: active ? _C.navy : _C.textMuted.withOpacity(0.5)),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? _C.navy : _C.textMuted)),
         ],
       ),
     );

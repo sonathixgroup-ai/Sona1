@@ -1,351 +1,134 @@
-// lib/presentation/thix_event/event_reservation_page.dart
+import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../../providers/event_provider.dart';
 import '../../models/event_model.dart';
 import '../../models/event_seat.dart';
 import '../../services/event_booking_limit_service.dart';
 import '../../services/event_seat_service.dart';
 
-class EventReservationPage extends StatefulWidget {
+class _ThixColors {
+  static const bg = Color(0xFF050508);
+  static const surface = Color(0xFF0C0C12);
+  static const surfaceAlt = Color(0xFF111118);
+  static const cardBorder = Color(0x14FFFFFF);
+  static const primary = Color(0xFFFF0A54);
+  static const textMuted = Color(0x66FFFFFF);
+}
+
+class EventReservationPage extends ConsumerStatefulWidget {
   final String eventId;
   final List<EventSeat>? selectedSeats;
   final double? totalPrice;
   final int quantity;
-
-  const EventReservationPage({
-    super.key,
-    required this.eventId,
-    this.selectedSeats,
-    this.totalPrice,
-    this.quantity = 1,
-  });
-
+  final String? ticketCategory;
+  final double? ticketPrice;
+  const EventReservationPage({super.key, required this.eventId, this.selectedSeats, this.totalPrice, this.quantity = 1, this.ticketCategory, this.ticketPrice});
   @override
-  State<EventReservationPage> createState() => _EventReservationPageState();
+  ConsumerState<EventReservationPage> createState() => _EventReservationPageState();
 }
 
-class _EventReservationPageState extends State<EventReservationPage> {
+class _EventReservationPageState extends ConsumerState<EventReservationPage> {
   late Event _event;
-  bool _isLoading = true;
-  int _quantity = 1;
-  bool _isProcessing = false;
-  bool _isCheckingLimits = false;
-  Map<String, dynamic>? _bookingLimit;
+  bool _loading = true;
+  int _qty = 1;
+  bool _processing = false;
+  final _formKey = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _phone = TextEditingController();
+  final _pin = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadEvent();
-    _quantity = widget.quantity;
+    _qty = widget.quantity;
+    _pin.text = (1000 + Random().nextInt(9000)).toString();
+    _load();
   }
 
-  Future<void> _loadEvent() async {
-    final provider = context.read<EventProvider>();
-    final event = await provider.fetchEventById(widget.eventId);
-    if (event != null) {
-      setState(() {
-        _event = event;
-        _isLoading = false;
-      });
-      await _loadBookingLimit();
-    }
+  @override
+  void dispose() { _name.dispose(); _email.dispose(); _phone.dispose(); _pin.dispose(); super.dispose(); }
+
+  Future<void> _load() async {
+    final ev = await ref.read(eventServiceProvider).getEventById(widget.eventId);
+    if (ev!= null && mounted) setState(() { _event = ev; _loading = false; });
   }
 
-  Future<void> _loadBookingLimit() async {
+  double get _unit => widget.ticketPrice?? widget.totalPrice?? _event.price;
+  double get _total => _unit * _qty;
+
+  Future<void> _reserve() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _processing = true);
     try {
-      final limitService = EventBookingLimitService(Supabase.instance.client);
-      final limit = await limitService.getBookingLimit(widget.eventId);
-      if (limit != null) {
-        setState(() {
-          _bookingLimit = {
-            'eventId': limit.eventId,
-            'maxPerPerson': limit.maxPerPerson,
-            'maxPerTransaction': limit.maxPerTransaction,
-            'requireIdVerification': limit.requireIdVerification,
-            'memberOnlyLimit': limit.memberOnlyLimit,
-            'restrictedZones': limit.restrictedZones,
-          };
-        });
-      }
-    } catch (e) {
-      debugPrint('❌ Error loading booking limit: $e');
-    }
-  }
-
-  double get _totalPrice {
-    if (widget.totalPrice != null) return widget.totalPrice!;
-    return _event.price * _quantity;
-  }
-
-  Future<bool> _checkBookingLimits() async {
-    setState(() => _isCheckingLimits = true);
-    
-    final limitService = EventBookingLimitService(Supabase.instance.client);
-    final result = await limitService.canUserBook(widget.eventId, _quantity);
-    
-    setState(() => _isCheckingLimits = false);
-    
-    if (result['allowed'] == false) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['reason']), backgroundColor: Colors.red),
-      );
-      return false;
-    }
-    
-    return true;
-  }
-
-  Future<void> _processReservation() async {
-    if (!await _checkBookingLimits()) return;
-    
-    setState(() => _isProcessing = true);
-    
-    final provider = context.read<EventProvider>();
-    String? bookingId;
-    
-    try {
-      if (widget.selectedSeats != null && widget.selectedSeats!.isNotEmpty) {
-        final seatService = EventSeatService(Supabase.instance.client);
-        
-        final booking = await provider.bookTicket(
-          eventId: widget.eventId,
-          quantity: widget.selectedSeats!.length,
-          totalPrice: widget.totalPrice ?? _totalPrice,
-        );
-        
-        if (booking != null) {
-          final seatIds = widget.selectedSeats!.map((s) => s.id).toList();
-          // Convertir l'ID en int (en prenant seulement les chiffres)
-          final numericId = int.tryParse(booking.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-          await seatService.confirmSeats(widget.eventId, seatIds, numericId);
-          bookingId = booking.id;
+      String? bookingId;
+      if (widget.selectedSeats!= null && widget.selectedSeats!.isNotEmpty) {
+        final b = await ref.read(eventServiceProvider).bookTicket(eventId: widget.eventId, quantity: widget.selectedSeats!.length, totalPrice: _total);
+        if (b!= null) {
+          await EventSeatService(Supabase.instance.client).confirmSeats(widget.eventId, widget.selectedSeats!.map((s) => s.id).toList(), 0);
+          bookingId = b.id;
         }
       } else {
-        final booking = await provider.bookTicket(
-          eventId: widget.eventId,
-          quantity: _quantity,
-          totalPrice: _totalPrice,
-        );
-        bookingId = booking?.id;
+        final b = await ref.read(eventServiceProvider).bookTicket(eventId: widget.eventId, quantity: _qty, totalPrice: _total);
+        bookingId = b?.id;
       }
-      
-      if (bookingId != null && mounted) {
-        final limitService = EventBookingLimitService(Supabase.instance.client);
-        await limitService.recordBookingAttempt(widget.eventId, _quantity);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Réservation confirmée !'), backgroundColor: Colors.green),
-        );
-        context.go('/thix-event/my-tickets');
-      } else {
-        throw Exception('Erreur lors de la réservation');
+      if (bookingId!= null) {
+        await Supabase.instance.client.from("event_bookings").update({"pin_code": _pin.text.trim(), "ticket_category": widget.ticketCategory?? "Standard"}).eq("id", bookingId);
+        if (mounted) context.push("/thix-event/payment", extra: {"bookingId": bookingId, "amount": _total, "currency": _event.priceCurrency});
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur: $e"), backgroundColor: Colors.red));
+    } finally { if (mounted) setState(() => _processing = false); }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
+    if (_loading) return const Scaffold(backgroundColor: _ThixColors.bg, body: Center(child: CircularProgressIndicator(color: _ThixColors.primary)));
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Réservation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-      ),
+      backgroundColor: _ThixColors.bg,
+      appBar: PreferredSize(preferredSize: const Size.fromHeight(52), child: ClipRRect(child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20), child: AppBar(backgroundColor: _ThixColors.bg.withOpacity(0.85), elevation: 0, leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => context.pop()), title: const Text("Confirmation", style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)), centerTitle: true)))),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_event.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
-                        const SizedBox(width: 6),
-                        Text(_event.formattedDate, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
-                        const SizedBox(width: 6),
-                        Text(_event.location, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                      ],
-                    ),
-                    const Divider(),
-                    if (widget.selectedSeats != null && widget.selectedSeats!.isNotEmpty) ...[
-                      _buildInfoRow('Places sélectionnées', widget.selectedSeats!.map((s) => s.displayName).join(', ')),
-                      const SizedBox(height: 8),
-                      _buildInfoRow('Catégorie', widget.selectedSeats!.first.category.toString().split('.').last),
-                      const Divider(),
-                    ],
-                    if (widget.selectedSeats == null) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Prix unitaire', style: TextStyle(fontSize: 13)),
-                          Text(_event.formattedPrice, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Quantité', style: TextStyle(fontSize: 13)),
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline, size: 24),
-                                onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
-                              ),
-                              Container(
-                                width: 40,
-                                alignment: Alignment.center,
-                                child: Text('$_quantity', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add_circle_outline, size: 24),
-                                onPressed: (_event.remainingTickets == null || _quantity < _event.remainingTickets!)
-                                    ? () => setState(() => _quantity++)
-                                    : null,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const Divider(),
-                    ],
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Total', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                        Text(
-                          '${NumberFormat('#,###').format(_totalPrice)} FC',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37)),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+        child: Column(children: [
+          Container(
+            decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: _ThixColors.cardBorder)),
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(children: [
+                _field(_name, "Nom complet", Icons.person_outline_rounded),
+                const SizedBox(height: 12),
+                _field(_email, "Email", Icons.email_outlined),
+                const SizedBox(height: 12),
+                _field(_phone, "Telephone", Icons.phone_outlined),
+                const SizedBox(height: 12),
+                _field(_pin, "PIN 4 chiffres", Icons.lock_outline_rounded),
+              ]),
             ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Informations du participant', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'Nom complet',
-                        hintText: 'Entrez votre nom',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        hintText: 'Entrez votre email',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'Téléphone',
-                        hintText: 'Entrez votre numéro',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (_bookingLimit != null)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Maximum ${_bookingLimit!['maxPerPerson']} places par personne.',
-                        style: TextStyle(fontSize: 11, color: Colors.blue[700]),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: (_isProcessing || _isCheckingLimits) ? null : _processReservation,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: const Color(0xFF0B1B3D),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              ),
-              child: _isProcessing || _isCheckingLimits
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('CONFIRMER LA RÉSERVATION', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
+          ),
+        ]),
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        decoration: BoxDecoration(color: _ThixColors.surface.withOpacity(0.96), border: const Border(top: BorderSide(color: _ThixColors.cardBorder))),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text("${_total.toInt()} ${_event.priceCurrency}", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+          SizedBox(height: 46, child: ElevatedButton(onPressed: _processing? null : _reserve, style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(23))), child: _processing? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text("PAYER", style: TextStyle(fontWeight: FontWeight.w900)))),
+        ]),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-      ],
+  Widget _field(TextEditingController c, String label, IconData icon) {
+    return TextFormField(
+      controller: c,
+      style: const TextStyle(color: Colors.white, fontSize: 13),
+      validator: (v) => (v?? "").trim().isEmpty? "Requis" : null,
+      decoration: InputDecoration(labelText: label, labelStyle: const TextStyle(color: _ThixColors.textMuted, fontSize: 12), prefixIcon: Icon(icon, size: 16, color: _ThixColors.textMuted), filled: true, fillColor: _ThixColors.surfaceAlt, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _ThixColors.cardBorder))),
     );
   }
 }

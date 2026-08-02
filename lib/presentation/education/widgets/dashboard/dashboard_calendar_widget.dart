@@ -2,6 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+class _C {
+  static const primary = Color(0xFF2D6CDF);
+  static const textMain = Color(0xFF1A1A2E);
+  static const textMuted = Color(0xFF7386A8);
+  static const surface = Colors.white;
+}
+
 class DashboardCalendarWidget extends StatefulWidget {
   final DateTime? initialDate;
   final List<DateTime>? highlightedDates;
@@ -21,16 +28,32 @@ class DashboardCalendarWidget extends StatefulWidget {
 class _DashboardCalendarWidgetState extends State<DashboardCalendarWidget> {
   late DateTime _currentMonth;
   late DateTime _selectedDate;
+  
+  // Optimisation O(1) pour les dates mises en évidence
+  late Set<String> _highlightedSet;
 
   @override
   void initState() {
     super.initState();
-    _currentMonth = DateTime(
-      widget.initialDate?.year ?? DateTime.now().year,
-      widget.initialDate?.month ?? DateTime.now().month,
-      1,
-    );
-    _selectedDate = widget.initialDate ?? DateTime.now();
+    final initial = widget.initialDate ?? DateTime.now();
+    _currentMonth = DateTime(initial.year, initial.month, 1);
+    _selectedDate = initial;
+    _updateHighlightedSet();
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardCalendarWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.highlightedDates != oldWidget.highlightedDates) {
+      _updateHighlightedSet();
+    }
+  }
+
+  // Transforme la liste en Set de chaînes 'YYYY-MM-DD' pour une recherche instantanée
+  void _updateHighlightedSet() {
+    _highlightedSet = (widget.highlightedDates ?? [])
+        .map((d) => '${d.year}-${d.month}-${d.day}')
+        .toSet();
   }
 
   void _previousMonth() {
@@ -48,33 +71,33 @@ class _DashboardCalendarWidgetState extends State<DashboardCalendarWidget> {
   @override
   Widget build(BuildContext context) {
     final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final daysInMonth = DateTime(
-      _currentMonth.year,
-      _currentMonth.month + 1,
-      0,
-    ).day;
-    final firstWeekday = firstDayOfMonth.weekday; // 1 = Monday, 7 = Sunday
+    final daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
+    
+    // DateTime.weekday retourne 1 (Lundi) à 7 (Dimanche)
+    // Pour que l'index 0 corresponde à Lundi, on fait - 1.
+    final offset = firstDayOfMonth.weekday - 1; 
 
-    // Ajuster pour commencer le dimanche
-    int offset = firstWeekday % 7;
-
-    final highlighted = widget.highlightedDates ?? [];
+    // Mise en cache de la date du jour pour éviter des appels système répétés
+    final now = DateTime.now();
+    final todayKey = '${now.year}-${now.month}-${now.day}';
+    final selectedKey = '${_selectedDate.year}-${_selectedDate.month}-${_selectedDate.day}';
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: _C.surface,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0A1F44).withOpacity(0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF0A1F44).withOpacity(0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // En-tête du mois
           Row(
@@ -82,29 +105,33 @@ class _DashboardCalendarWidgetState extends State<DashboardCalendarWidget> {
             children: [
               IconButton(
                 onPressed: _previousMonth,
-                icon: const Icon(Icons.chevron_left_rounded),
-                color: const Color(0xFF7386A8),
+                icon: const Icon(Icons.chevron_left_rounded, size: 28),
+                color: _C.textMuted,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
+                splashRadius: 24,
               ),
               Text(
-                DateFormat('MMMM yyyy', 'fr').format(_currentMonth),
+                toBeginningOfSentenceCase(DateFormat('MMMM yyyy', 'fr').format(_currentMonth)) ?? '',
                 style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A2E),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: _C.textMain,
+                  letterSpacing: 0.3,
                 ),
               ),
               IconButton(
                 onPressed: _nextMonth,
-                icon: const Icon(Icons.chevron_right_rounded),
-                color: const Color(0xFF7386A8),
+                icon: const Icon(Icons.chevron_right_rounded, size: 28),
+                color: _C.textMuted,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
+                splashRadius: 24,
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
+          
           // Jours de la semaine
           Row(
             children: ['L', 'M', 'M', 'J', 'V', 'S', 'D']
@@ -113,58 +140,57 @@ class _DashboardCalendarWidgetState extends State<DashboardCalendarWidget> {
                         label,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF7386A8),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _C.textMuted,
                         ),
                       ),
                     ))
                 .toList(),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 12),
+          
           // Grille des jours
           GridView.builder(
             shrinkWrap: true,
+            padding: EdgeInsets.zero,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              mainAxisSpacing: 4,
-              crossAxisSpacing: 4,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
               childAspectRatio: 1.0,
             ),
             itemCount: offset + daysInMonth,
             itemBuilder: (context, index) {
-              if (index < offset) {
-                return const SizedBox();
-              }
+              if (index < offset) return const SizedBox();
+              
               final day = index - offset + 1;
-              final date = DateTime(_currentMonth.year, _currentMonth.month, day);
-              final isToday = date.year == DateTime.now().year &&
-                  date.month == DateTime.now().month &&
-                  date.day == DateTime.now().day;
-              final isSelected = date.year == _selectedDate.year &&
-                  date.month == _selectedDate.month &&
-                  date.day == _selectedDate.day;
-              final isHighlighted = highlighted.any((d) =>
-                  d.year == date.year &&
-                  d.month == date.month &&
-                  d.day == date.day);
+              final dateKey = '${_currentMonth.year}-${_currentMonth.month}-$day';
+              
+              final isToday = dateKey == todayKey;
+              final isSelected = dateKey == selectedKey;
+              final isHighlighted = _highlightedSet.contains(dateKey);
 
               return GestureDetector(
                 onTap: () {
-                  setState(() {
-                    _selectedDate = date;
-                  });
-                  widget.onDateSelected?.call(date);
+                  final newDate = DateTime(_currentMonth.year, _currentMonth.month, day);
+                  setState(() => _selectedDate = newDate);
+                  widget.onDateSelected?.call(newDate);
                 },
-                child: Container(
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFF2D6CDF)
+                        ? _C.primary
                         : isToday
-                            ? const Color(0xFF2D6CDF).withOpacity(0.1)
+                            ? _C.primary.withOpacity(0.08)
                             : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: isToday && !isSelected
+                        ? Border.all(color: _C.primary.withOpacity(0.3), width: 1.5)
+                        : null,
                   ),
                   child: Stack(
                     alignment: Alignment.center,
@@ -172,23 +198,23 @@ class _DashboardCalendarWidgetState extends State<DashboardCalendarWidget> {
                       Text(
                         day.toString(),
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 14,
+                          fontWeight: isSelected || isToday ? FontWeight.w800 : FontWeight.w600,
                           color: isSelected
                               ? Colors.white
                               : isToday
-                                  ? const Color(0xFF2D6CDF)
-                                  : const Color(0xFF1A1A2E),
+                                  ? _C.primary
+                                  : _C.textMain,
                         ),
                       ),
                       if (isHighlighted && !isSelected)
                         Positioned(
-                          bottom: 2,
+                          bottom: 6,
                           child: Container(
-                            width: 4,
-                            height: 4,
+                            width: 5,
+                            height: 5,
                             decoration: const BoxDecoration(
-                              color: Color(0xFF2D6CDF),
+                              color: _C.primary,
                               shape: BoxShape.circle,
                             ),
                           ),

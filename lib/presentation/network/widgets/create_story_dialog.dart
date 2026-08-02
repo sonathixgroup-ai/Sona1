@@ -1,381 +1,141 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/services/network_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:thix_id/features/network/data/network_service_provider.dart';
 
-class CreateStoryDialog extends StatefulWidget {
-  const CreateStoryDialog({super.key});
-
-  @override
-  State<CreateStoryDialog> createState() => _CreateStoryDialogState();
+// Top-level pour compute
+Future<Uint8List> compressImageBytes(Uint8List bytes) {
+  return FlutterImageCompress.compressWithList(
+    bytes,
+    minHeight: 1080,
+    minWidth: 1080,
+    quality: 85,
+    rotate: 0,
+  );
 }
 
-class _CreateStoryDialogState extends State<CreateStoryDialog> {
-  Uint8List? _selectedImageBytes;
-  String? _selectedImageExtension;
+class CreateStoryDialog extends ConsumerStatefulWidget {
+  const CreateStoryDialog({super.key});
+  @override ConsumerState<CreateStoryDialog> createState() => _CreateStoryDialogState();
+}
+
+class _CreateStoryDialogState extends ConsumerState<CreateStoryDialog> {
+  final _textController = TextEditingController();
+  Uint8List? _mediaBytes;
+  String? _mediaExt;
+  String? _mediaType; // image | video
   bool _isUploading = false;
-  late NetworkService _networkService;
   int _duration = 24;
 
-  @override
-  void initState() {
-    super.initState();
-    _networkService = NetworkService(Supabase.instance.client);
-  }
+  final _thixBlue = const Color(0xFF1B3B7A);
+  final _thixLightBlue = const Color(0xFFF0F4FA);
+  final _thixGold = const Color(0xFFE7BE59);
+  final _picker = ImagePicker();
+
+  @override void dispose() { _textController.dispose(); super.dispose(); }
 
   Future<void> _pickImage() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-        withData: true,
-      );
-      
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        final size = file.bytes?.length ?? file.size;
-        
-        if (size > 10 * 1024 * 1024) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('L\'image ne doit pas dépasser 10MB'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-        
-        setState(() {
-          _selectedImageBytes = file.bytes;
-          _selectedImageExtension = file.extension ?? 'jpg';
-        });
+      final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+      if (result?.files.first.bytes != null) {
+        final f = result!.files.first;
+        if (f.size > 10 * 1024 * 1024) { _showError('Image > 10 Mo'); return; }
+        setState(() { _mediaBytes = f.bytes; _mediaExt = f.extension?? 'jpg'; _mediaType = 'image'; });
       }
-    } catch (e) {
-      debugPrint('Erreur sélection image: $e');
-    }
+    } catch (e) { debugPrint('pickImage $e'); }
+  }
+
+  Future<void> _pickVideo() async {
+    try {
+      // Sur web on évite withData pour 50Mo
+      final result = await FilePicker.platform.pickFiles(type: FileType.video, withData: kIsWeb? false : true);
+      if (result == null) return;
+      final f = result.files.first;
+      if (f.size > 50 * 1024 * 1024) { _showError('Vidéo > 50 Mo'); return; }
+      Uint8List? bytes = f.bytes;
+      if (bytes == null && f.path != null) { bytes = await FilePicker.platform.pickFiles(type: FileType.video).then((_) => null); }
+      // Fallback web : on lit via bytes si dispo
+      if (bytes == null && kIsWeb) { _showError('Vidéo trop lourde pour Web, utilise < 30Mo'); return; }
+      setState(() { _mediaBytes = bytes?? f.bytes; _mediaExt = f.extension?? 'mp4'; _mediaType = 'video'; });
+    } catch (e) { debugPrint('pickVideo $e'); _showError('Erreur vidéo'); }
+  }
+
+  Future<void> _recordShortVideo() async {
+    if (kIsWeb) { _showError('Caméra non supportée sur Web'); return; }
+    try {
+      final XFile? video = await _picker.pickVideo(source: ImageSource.camera, maxDuration: Duration(seconds: 45));
+      if (video != null) {
+        final bytes = await video.readAsBytes();
+        if (bytes.lengthInBytes > 50 * 1024) { _showError('Vidéo > 50 Mo'); return; }
+        setState(() { _mediaBytes = bytes; _mediaExt = 'mp4'; _mediaType = 'video'; });
+      }
+    } catch (e) { debugPrint('record $e'); _showError('Caméra indisponible'); }
   }
 
   Future<void> _createStory() async {
-    if (_selectedImageBytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez sélectionner une image'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
+    final text = _textController.text.trim();
+    if (text.isEmpty && _mediaBytes == null) { _showError('Ajoutez texte ou média'); return; }
     setState(() => _isUploading = true);
-
     try {
-      // 1. Upload de l'image vers Supabase Storage (bucket 'stories')
-      final imageUrl = await _networkService.uploadImageBytes(
-        _selectedImageBytes!,
-        fileExtension: _selectedImageExtension!,
-        bucket: 'stories', // Assurez-vous que ce bucket existe
-      );
-
-      if (imageUrl == null) {
-        throw Exception('Échec de l\'upload de l\'image');
+      final service = ref.read(networkServiceProvider);
+      String? mediaUrl;
+      if (_mediaBytes != null) {
+        Uint8List uploadBytes = _mediaBytes!;
+        if (_mediaType == 'image') {
+          uploadBytes = await compute(compressImageBytes, _mediaBytes!);
+        }
+        mediaUrl = await service.uploadImageBytes(uploadBytes, fileExtension: _mediaExt!, bucket: 'stories');
       }
-
-      // 2. Création de la story
-      await _networkService.createStory(
-        imageUrl,
-        duration: _duration,
-      );
-      
-      if (mounted) {
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Story publiée ! 🎉'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      await service.createStory(mediaUrl, text: text, duration: _duration, mediaType: _mediaType?? 'text');
+      if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      debugPrint('Erreur création story: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      debugPrint('createStory $e');
+      _showError('Erreur publication: $e');
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
   }
 
-  void _removeImage() {
-    setState(() {
-      _selectedImageBytes = null;
-      _selectedImageExtension = null;
-    });
-  }
+  void _showError(String m) { if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red)); }
 
-  @override
-  Widget build(BuildContext context) {
-    final hasImage = _selectedImageBytes != null;
-
+  @override Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       backgroundColor: Colors.white,
+      insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.92,
-        constraints: const BoxConstraints(maxWidth: 440, maxHeight: 600),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 4,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD4AF37),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Ajouter une story',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A1A2E),
-                      ),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF1A1A2E)),
-                  onPressed: () => Navigator.pop(context),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Zone de sélection / prévisualisation
-            Expanded(
-              child: GestureDetector(
-                onTap: _pickImage,
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: hasImage ? Colors.transparent : Colors.grey.shade300,
-                      width: 2,
-                    ),
-                    image: hasImage
-                        ? DecorationImage(
-                            image: MemoryImage(_selectedImageBytes!),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: hasImage
-                      ? Stack(
-                          children: [
-                            // Bouton supprimer
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: GestureDetector(
-                                onTap: _removeImage,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.black54,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 20,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Indicateur "Story"
-                            Positioned(
-                              bottom: 8,
-                              left: 8,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFD4AF37).withOpacity(0.9),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Text(
-                                  '📸 Story',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFD4AF37).withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.add_photo_alternate,
-                                size: 48,
-                                color: Color(0xFFD4AF37),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Tapez pour sélectionner une image',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'JPG, PNG, GIF - max 10MB',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade400,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Sélecteur de durée
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.timer_outlined,
-                    size: 20,
-                    color: Color(0xFFD4AF37),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Durée de la story :',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Slider(
-                      value: _duration.toDouble(),
-                      min: 6,
-                      max: 48,
-                      divisions: 42,
-                      activeColor: const Color(0xFFD4AF37),
-                      inactiveColor: Colors.grey.shade300,
-                      onChanged: (value) {
-                        setState(() => _duration = value.toInt());
-                      },
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD4AF37).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '$_duration h',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFD4AF37),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Bouton Publier
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isUploading ? null : _createStory,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD4AF37),
-                  foregroundColor: const Color(0xFF0B1B3D),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  elevation: 2,
-                ),
-                child: _isUploading
-                    ? const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: Color(0xFF0B1B3D),
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Text(
-                            'Upload en cours...',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      )
-                    : const Text(
-                        'PUBLIER LA STORY',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-              ),
-            ),
-          ],
-        ),
+        width: MediaQuery.of(context).size.width,
+        constraints: BoxConstraints(maxWidth: 500, maxHeight: 650),
+        padding: EdgeInsets.all(20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text('Créer une publication', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _thixBlue)),
+            Container(decoration: BoxDecoration(color: _thixLightBlue, shape: BoxShape.circle), child: IconButton(icon: Icon(Icons.close, color: _thixBlue, size: 20), onPressed: () => Navigator.pop(context))),
+          ]),
+          SizedBox(height: 16),
+          Expanded(child: Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: _thixLightBlue, borderRadius: BorderRadius.circular(16)), child: TextField(controller: _textController, maxLines: null, keyboardType: TextInputType.multiline, decoration: InputDecoration(border: InputBorder.none, hintText: "Quoi de neuf dans votre monde pro ?", hintStyle: TextStyle(color: _thixBlue.withOpacity(0.5))), style: TextStyle(color: _thixBlue)))),
+          SizedBox(height: 12),
+          if (_mediaBytes != null) Stack(children: [
+            Container(height: 80, width: 80, margin: EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(12), image: _mediaType == 'image'? DecorationImage(image: MemoryImage(_mediaBytes!), fit: BoxFit.cover) : null), child: _mediaType == 'video'? Center(child: Icon(Icons.play_circle_fill, color: Colors.white, size: 36)) : null),
+            Positioned(top: -8, right: -8, child: IconButton(icon: Icon(Icons.cancel, color: Colors.black87), onPressed: () => setState(() { _mediaBytes = null; _mediaType = null; }))),
+          ]),
+          Row(children: [
+            _buildMediaIcon(Icons.image, Colors.green, _pickImage, "Photo"),
+            SizedBox(width: 8),
+            _buildMediaIcon(Icons.folder_shared, Colors.orange, _pickVideo, "Vidéo"),
+            SizedBox(width: 8),
+            _buildMediaIcon(Icons.videocam, Colors.red, _recordShortVideo, "Caméra"),
+          ]),
+          SizedBox(height: 16),
+          SizedBox(width: double.infinity, height: 54, child: ElevatedButton(onPressed: _isUploading? null : _createStory, style: ElevatedButton.styleFrom(backgroundColor: _thixGold, foregroundColor: _thixBlue, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))), child: _isUploading? CircularProgressIndicator(color: _thixBlue) : Text('PUBLIER', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)))),
+        ]),
       ),
     );
   }
+
+  Widget _buildMediaIcon(IconData icon, Color c, VoidCallback onTap, String tooltip) => Tooltip(message: tooltip, child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(12), child: Container(padding: EdgeInsets.all(10), decoration: BoxDecoration(color: _thixLightBlue, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: c, size: 24))));
 }

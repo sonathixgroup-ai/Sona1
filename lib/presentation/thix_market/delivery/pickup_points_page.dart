@@ -13,9 +13,12 @@ class PickupPointsPage extends StatefulWidget {
 }
 
 class _PickupPointsPageState extends State<PickupPointsPage> {
-  late GoogleMapController _mapController;
-  final Set<Marker> _markers = {};
+  GoogleMapController? _mapController;
   LatLng? _userLocation;
+
+  // ─── Couleurs de la marque THIX ───
+  static const Color thixOrange = Color(0xFFE5592F);
+  static const Color darkText = Color(0xFF10192E);
 
   @override
   void initState() {
@@ -23,21 +26,29 @@ class _PickupPointsPageState extends State<PickupPointsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<DeliveryProvider>();
       provider.loadNearbyPickupPoints();
-      _setUserLocation(provider);
+      
+      if (provider.currentPosition != null) {
+        setState(() {
+          _userLocation = LatLng(provider.currentPosition!.latitude, provider.currentPosition!.longitude);
+        });
+      }
     });
   }
 
-  void _setUserLocation(DeliveryProvider provider) {
-    if (provider.currentPosition != null) {
-      _userLocation = LatLng(provider.currentPosition!.latitude, provider.currentPosition!.longitude);
-      _addUserMarker();
-      _mapController.animateCamera(CameraUpdate.newLatLngZoom(_userLocation!, 12));
+  void _onMapCreated(GoogleMapController controller, DeliveryProvider provider) {
+    _mapController = controller;
+    if (_userLocation != null) {
+      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(_userLocation!, 13));
     }
   }
 
-  void _addUserMarker() {
+  // ─── GÉNÉRATION DYNAMIQUE DES MARQUEURS ───
+  Set<Marker> _buildMarkers(DeliveryProvider provider) {
+    final Set<Marker> markers = {};
+
+    // Marqueur du client
     if (_userLocation != null) {
-      _markers.add(
+      markers.add(
         Marker(
           markerId: const MarkerId('user'),
           position: _userLocation!,
@@ -46,54 +57,102 @@ class _PickupPointsPageState extends State<PickupPointsPage> {
         ),
       );
     }
-  }
 
-  void _addPickupMarkers(List<Map<String, dynamic>> points) {
-    for (var point in points) {
+    // Marqueurs des points relais
+    for (var point in provider.pickupPoints) {
       final lat = point['latitude'] as double;
       final lng = point['longitude'] as double;
-      _markers.add(
+      markers.add(
         Marker(
-          markerId: MarkerId(point['id']),
+          markerId: MarkerId(point['id'].toString()),
           position: LatLng(lat, lng),
-          infoWindow: InfoWindow(
-            title: point['name'],
-            snippet: point['address'],
-          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange), // Couleur THIX
+          infoWindow: InfoWindow(title: point['name'], snippet: point['address']),
           onTap: () => _showPointDetails(point),
         ),
       );
     }
-    setState(() {});
+    return markers;
   }
 
+  // ─── POP-UP DÉTAILS DU POINT RELAIS ───
   void _showPointDetails(Map<String, dynamic> point) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(point['name'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(point['address']),
-            const SizedBox(height: 8),
-            Row(children: [const Icon(Icons.access_time, size: 16), const SizedBox(width: 4), Text(point['opening_hours'] ?? '8h - 18h')]),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  widget.onPointSelected?.call(point);
-                  Navigator.pop(context);
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5592F)),
-                child: const Text('Sélectionner ce point relais'),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
               ),
+            ),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: thixOrange.withOpacity(0.1), shape: BoxShape.circle),
+                  child: const Icon(Icons.storefront_rounded, color: thixOrange),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(point['name'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: darkText)),
+                      const SizedBox(height: 4),
+                      Text('${(point['distance_km'] as num?)?.toStringAsFixed(1)} km de vous', style: const TextStyle(color: thixOrange, fontWeight: FontWeight.w600, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.location_on_rounded, size: 20, color: Colors.grey),
+                const SizedBox(width: 12),
+                Expanded(child: Text(point['address'], style: const TextStyle(fontSize: 14, height: 1.4, color: darkText))),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.access_time_filled_rounded, size: 20, color: Colors.grey),
+                const SizedBox(width: 12),
+                Text(point['opening_hours'] ?? '08h00 - 18h00', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: darkText)),
+              ],
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                widget.onPointSelected?.call(point);
+                Navigator.pop(context); // Ferme la modal
+                Navigator.pop(context); // Retourne au processus d'achat
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: thixOrange,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+              child: const Text('Livrer à ce point relais', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
             ),
           ],
         ),
@@ -104,60 +163,85 @@ class _PickupPointsPageState extends State<PickupPointsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true, // La carte passe sous l'AppBar
       appBar: AppBar(
-        title: const Text('Points relais THIX'),
-        backgroundColor: Colors.white,
+        title: const Text('Points relais THIX', style: TextStyle(fontWeight: FontWeight.w800, color: darkText)),
+        backgroundColor: Colors.white.withOpacity(0.9),
         elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: darkText),
       ),
       body: Consumer<DeliveryProvider>(
         builder: (context, provider, _) {
-          if (provider.isLoadingPickupPoints) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (provider.pickupPoints.isNotEmpty && _markers.length <= 1) {
-              _addPickupMarkers(provider.pickupPoints);
-            }
-          });
-
           return Stack(
             children: [
               GoogleMap(
-                onMapCreated: (controller) => _mapController = controller,
+                onMapCreated: (controller) => _onMapCreated(controller, provider),
                 initialCameraPosition: CameraPosition(
-                  target: _userLocation ?? const LatLng(5.359952, -4.008256),
-                  zoom: 12,
+                  target: _userLocation ?? const LatLng(-4.322447, 15.307045), // Centre sur Kinshasa
+                  zoom: 13,
                 ),
-                markers: _markers,
+                markers: _buildMarkers(provider),
                 myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false, // Épure l'interface
               ),
-              Positioned(
-                bottom: 20,
-                left: 20,
-                right: 20,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
+              
+              if (provider.isLoadingPickupPoints)
+                const Center(child: CircularProgressIndicator(color: thixOrange)),
+
+              // ─── PANNEAU FLOTTANT DES RÉSULTATS ───
+              if (!provider.isLoadingPickupPoints && provider.pickupPoints.isNotEmpty)
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    margin: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10)),
+                      ],
+                    ),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('Points relais à proximité', style: TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        ...provider.pickupPoints.take(3).map((point) => ListTile(
-                          dense: true,
-                          leading: const Icon(Icons.store, color: Color(0xFFE5592F)),
-                          title: Text(point['name']),
-                          subtitle: Text('${(point['distance_km'] as num?)?.toStringAsFixed(1)} km'),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.chevron_right),
-                            onPressed: () => _showPointDetails(point),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 8),
+                          child: Row(
+                            children: [
+                              Icon(Icons.storefront_rounded, color: thixOrange, size: 20),
+                              SizedBox(width: 8),
+                              Text('Points relais à proximité', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
+                            ],
                           ),
-                        )),
+                        ),
+                        const Divider(height: 1),
+                        ListView.separated(
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          physics: const NeverScrollableScrollPhysics(), // Empêche le double-scroll
+                          itemCount: provider.pickupPoints.take(3).length, // Affiche les 3 plus proches
+                          separatorBuilder: (context, index) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final point = provider.pickupPoints[index];
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              title: Text(point['name'], style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: darkText)),
+                              subtitle: Text('${(point['distance_km'] as num?)?.toStringAsFixed(1)} km', style: const TextStyle(color: thixOrange, fontSize: 13, fontWeight: FontWeight.w600)),
+                              trailing: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(color: Colors.grey[100], shape: BoxShape.circle),
+                                child: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 20),
+                              ),
+                              onTap: () => _showPointDetails(point), // Ouvre le pop-up
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
                 ),
-              ),
             ],
           );
         },

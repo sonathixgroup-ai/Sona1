@@ -1,61 +1,61 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:thix_id/services/chat_service.dart' as chat_service;
-import 'package:thix_id/presentation/chat/core/chat_models.dart';
+
+// === SERVICES ===
+import 'package:thix_id/services/chat/chat_service.dart';
+
+// === MODÈLES (UNIFIÉS) ===
+import 'package:thix_id/models/chat/chat_conversation.dart';
+import 'package:thix_id/models/chat/chat_message.dart';
+import 'package:thix_id/models/chat/user_status.dart';
 
 class ChatProvider extends ChangeNotifier {
-  final chat_service.ChatService _chatService;
+  final ChatService _chatService;
 
-  // États – utilisent le modèle UI (chat_models.dart) pour les conversations
-  List<Conversation> _conversations = [];
-  List<Conversation> _archivedConversations = [];
-  List<chat_service.ChatMessage> _messages = [];
-  List<chat_service.Story> _stories = [];
-  List<chat_service.Space> _spaces = [];
-  chat_service.ChatStats _stats = const chat_service.ChatStats(); // ✅ corrigé
+  List<ChatConversation> _conversations = [];
+  List<ChatConversation> _archivedConversations = [];
+  List<ChatMessage> _messages = [];
+  
+  List<dynamic> _stories = []; 
+  List<dynamic> _spaces = [];  
+  dynamic _stats;              
 
   bool _isLoading = false;
   String? _error;
 
-  // Getters
-  List<Conversation> get conversations => _conversations;
-  List<Conversation> get archivedConversations => _archivedConversations;
-  List<chat_service.ChatMessage> get messages => _messages;
-  List<chat_service.Story> get stories => _stories;
-  List<chat_service.Space> get spaces => _spaces;
-  chat_service.ChatStats get stats => _stats; // ✅ corrigé
+  bool _isLoadingMore = false;
+  bool _hasMoreConversations = true;
+  final int _pageSize = 20;
+
+  bool _isLoadingMoreMessages = false;
+  bool _hasMoreMessages = true;
+
+  List<ChatConversation> get conversations => _conversations;
+  List<ChatConversation> get archivedConversations => _archivedConversations;
+  List<ChatMessage> get messages => _messages;
+  List<dynamic> get stories => _stories;
+  List<dynamic> get spaces => _spaces;
+  dynamic get stats => _stats;
+  
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get isLoadingMoreMessages => _isLoadingMoreMessages;
+  bool get hasMoreConversations => _hasMoreConversations;
+  bool get hasMoreMessages => _hasMoreMessages;
   String? get error => _error;
 
   ChatProvider(this._chatService);
 
-  // ============================================================
-  // CONVERTER
-  // ============================================================
-  Conversation _toUIConversation(chat_service.Conversation s) {
-    return Conversation(
-      id: s.id,
-      name: s.name ?? '',
-      avatarUrl: s.avatarURL,
-      isGroup: s.type == chat_service.ConversationType.group,
-      participantIds: s.participantIds,
-      lastMessage: '',
-      lastMessageTime: s.lastMessageAt ?? s.updatedAt,
-      unreadCount: 0,
-      isArchived: s.status == chat_service.ConversationStatus.archived,
-      isOnline: false,
-    );
-  }
-
-  // ============================================================
-  // CONVERSATIONS
-  // ============================================================
-
   Future<void> loadConversations() async {
     _setLoading(true);
+    _hasMoreConversations = true;
     try {
-      final serviceConvs = await _chatService.getConversations();
-      _conversations = serviceConvs.map(_toUIConversation).toList();
+      final serviceConvs = await _chatService.getConversations(limit: _pageSize, offset: 0);
+      _conversations = serviceConvs;
+      
+      if (serviceConvs.length < _pageSize) {
+        _hasMoreConversations = false;
+      }
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -64,76 +64,39 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> loadArchivedConversations() async {
-    _setLoading(true);
+  Future<void> loadMoreConversations() async {
+    if (_isLoadingMore || !_hasMoreConversations) return;
+    
+    _isLoadingMore = true;
+    notifyListeners();
+
     try {
-      final serviceConvs = await _chatService.getArchivedConversations();
-      _archivedConversations = serviceConvs.map(_toUIConversation).toList();
+      final offset = _conversations.length;
+      final serviceConvs = await _chatService.getConversations(limit: _pageSize, offset: offset);
+      
+      if (serviceConvs.isEmpty) {
+        _hasMoreConversations = false;
+      } else {
+        _conversations.addAll(serviceConvs);
+        if (serviceConvs.length < _pageSize) {
+          _hasMoreConversations = false;
+        }
+      }
       _error = null;
     } catch (e) {
       _error = e.toString();
     } finally {
-      _setLoading(false);
+      _isLoadingMore = false;
+      notifyListeners();
     }
   }
-
-  Future<void> archiveConversation(String conversationId) async {
-    try {
-      await _chatService.archiveConversation(conversationId);
-      _conversations.removeWhere((c) => c.id == conversationId);
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  Future<void> unarchiveConversation(String conversationId) async {
-    try {
-      await _chatService.unarchiveConversation(conversationId);
-      _archivedConversations.removeWhere((c) => c.id == conversationId);
-      await loadConversations();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  Future<void> deleteArchivedConversation(String conversationId) async {
-    try {
-      await _chatService.deleteArchivedConversation(conversationId);
-      _archivedConversations.removeWhere((c) => c.id == conversationId);
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  Future<void> searchArchivedConversations(Map<String, dynamic> filters) async {
-    _setLoading(true);
-    try {
-      final serviceConvs = await _chatService.searchArchivedConversations(filters);
-      _archivedConversations = serviceConvs.map(_toUIConversation).toList();
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // ============================================================
-  // MESSAGES
-  // ============================================================
 
   Future<void> loadMessages(String conversationId) async {
     _setLoading(true);
+    _hasMoreMessages = true;
     try {
-      _messages = await _chatService.fetchMessages(conversationId);
+      _messages = await _chatService.getMessages(conversationId, limit: 50, offset: 0);
+      if (_messages.length < 50) _hasMoreMessages = false;
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -142,23 +105,37 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  Future<chat_service.ChatMessage> sendMessage(String conversationId, String content) async {
+  Future<void> loadMoreMessages(String conversationId) async {
+    if (_isLoadingMoreMessages || !_hasMoreMessages) return;
+
+    _isLoadingMoreMessages = true;
+    notifyListeners();
+
     try {
-      final msg = await _chatService.sendMessage(conversationId, content);
-      _messages.insert(0, msg);
+      final offset = _messages.length;
+      final olderMessages = await _chatService.getMessages(conversationId, limit: 50, offset: offset);
+      
+      if (olderMessages.isEmpty) {
+        _hasMoreMessages = false;
+      } else {
+        _messages.addAll(olderMessages); 
+        if (olderMessages.length < 50) _hasMoreMessages = false;
+      }
       _error = null;
-      notifyListeners();
-      return msg;
     } catch (e) {
       _error = e.toString();
+    } finally {
+      _isLoadingMoreMessages = false;
       notifyListeners();
-      rethrow;
     }
   }
 
-  Future<chat_service.ChatMessage> sendMedia(String conversationId, String filePath, String type) async {
+  Future<ChatMessage> sendMessage(String conversationId, String content) async {
     try {
-      final msg = await _chatService.sendMedia(conversationId, filePath, type);
+      final msg = await _chatService.sendMessage(
+        conversationId: conversationId, 
+        content: content
+      );
       _messages.insert(0, msg);
       _error = null;
       notifyListeners();
@@ -172,34 +149,26 @@ class ChatProvider extends ChangeNotifier {
 
   Future<void> markAsRead(String conversationId) async {
     try {
-      await _chatService.markMessagesAsRead(conversationId);
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-
-  Future<void> toggleLike(String messageId) async {
-    try {
-      await _chatService.toggleLike(messageId);
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-
-  Future<void> addReaction(String messageId, String emoji) async {
-    try {
-      await _chatService.addReaction(messageId, emoji);
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-
-  Future<void> pinMessage(String messageId) async {
-    try {
-      await _chatService.pinMessage(messageId);
+      await _chatService.markAsRead(conversationId);
+      
+      final index = _conversations.indexWhere((c) => c.id == conversationId);
+      if (index != -1) {
+        final conv = _conversations[index];
+        _conversations[index] = ChatConversation(
+          id: conv.id,
+          isGroup: conv.isGroup,
+          groupName: conv.groupName,
+          groupAvatar: conv.groupAvatar,
+          participantIds: conv.participantIds,
+          otherParticipantName: conv.otherParticipantName,
+          otherParticipantAvatar: conv.otherParticipantAvatar,
+          lastMessage: conv.lastMessage,
+          unreadCount: 0, // Force la remise à zéro instantanée pour la liste
+          updatedAt: conv.updatedAt,
+          isPinned: conv.isPinned,
+        );
+        notifyListeners(); // Rafraîchit l'UI immédiatement
+      }
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -217,103 +186,14 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  // ============================================================
-  // STORIES, SPACES & STATS
-  // ============================================================
-
-  Future<void> loadStories() async {
+  Future<void> addReaction(String messageId, String emoji) async {
     try {
-      _stories = await _chatService.getStories();
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      notifyListeners();
-    }
-  }
-
-  Future<void> loadSpaces() async {
-    try {
-      _spaces = await _chatService.getSpaces();
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      notifyListeners();
-    }
-  }
-
-  Future<void> loadStats() async {
-    try {
-      _stats = await _chatService.getStats();
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      notifyListeners();
-    }
-  }
-
-  // ============================================================
-  // CONTACTS STATUS
-  // ============================================================
-
-  List<chat_service.ChatUser> _contactsStatus = [];
-  List<chat_service.ChatUser> get contactsStatus => _contactsStatus;
-
-  Future<void> loadContactsStatus() async {
-    try {
-      _contactsStatus = await _chatService.getContactsStatus();
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      notifyListeners();
-    }
-  }
-
-  // ============================================================
-  // PRESENCE
-  // ============================================================
-
-  Future<void> updatePresence(String status) async {
-    try {
-      await _chatService.updatePresence(status);
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      notifyListeners();
-    }
-  }
-
-  // ============================================================
-  // STORIES (CREATE)
-  // ============================================================
-
-  Future<void> createStoryText(String text) async {
-    try {
-      await _chatService.createStoryText(text);
-      await loadStories();
+      await _chatService.toggleReaction(messageId, emoji);
     } catch (e) {
       _error = e.toString();
       notifyListeners();
     }
   }
-
-  Future<void> createStory(File imageFile, String type) async {
-    try {
-      await _chatService.createStory(imageFile, type);
-      await loadStories();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-
-  // ============================================================
-  // UTILITAIRES
-  // ============================================================
 
   void _setLoading(bool loading) {
     _isLoading = loading;
@@ -331,8 +211,11 @@ class ChatProvider extends ChangeNotifier {
     _messages = [];
     _stories = [];
     _spaces = [];
-    _stats = const chat_service.ChatStats(); // ✅ corrigé
+    _stats = null;
     _isLoading = false;
+    _isLoadingMore = false;
+    _hasMoreConversations = true;
+    _hasMoreMessages = true;
     _error = null;
     notifyListeners();
   }

@@ -1,22 +1,22 @@
 // lib/presentation/admin/pages/create_event_page.dart
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:provider/provider.dart';
 
 import '../../../providers/event_provider.dart';
 import '../../../models/event_model.dart';
 
-class CreateEventPage extends StatefulWidget {
+class CreateEventPage extends ConsumerStatefulWidget {
   final Event? event;
 
   const CreateEventPage({super.key, this.event});
 
   @override
-  State<CreateEventPage> createState() => _CreateEventPageState();
+  ConsumerState<CreateEventPage> createState() => _CreateEventPageState();
 }
 
-class _CreateEventPageState extends State<CreateEventPage> {
+class _CreateEventPageState extends ConsumerState<CreateEventPage> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -32,7 +32,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
   bool _isFree = false;
   bool _isFeatured = false;
   String? _imageUrl;
-  File? _imageFile;
+  
+  Uint8List? _imageBytes;
+  String? _imageFileName;
+  
   bool _isLoading = false;
 
   final List<Map<String, String>> _categories = [
@@ -86,10 +89,14 @@ class _CreateEventPageState extends State<CreateEventPage> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
+        withData: true,
       );
       
       if (result != null && result.files.isNotEmpty) {
-        setState(() => _imageFile = File(result.files.first.path!));
+        setState(() {
+          _imageBytes = result.files.first.bytes;
+          _imageFileName = result.files.first.name;
+        });
       }
     } catch (e) {
       _showError('Erreur lors de la sélection de l\'image');
@@ -119,10 +126,11 @@ class _CreateEventPageState extends State<CreateEventPage> {
   }
 
   Future<String?> _uploadImage() async {
-    if (_imageFile == null) return _imageUrl;
+    if (_imageBytes == null || _imageFileName == null) return _imageUrl;
     
-    final provider = context.read<EventProvider>();
-    return await provider.uploadImage(_imageFile!.path);
+    // Utilisation de bookingProvider pour accéder à la méthode uploadImage définie dans event_provider.dart
+    final bookingSvc = ref.read(bookingProvider);
+    return await bookingSvc.uploadImage(_imageBytes!, _imageFileName!);
   }
 
   Future<void> _saveEvent() async {
@@ -138,10 +146,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
         _startTime.hour, _startTime.minute,
       );
       
-      final provider = context.read<EventProvider>();
+      final service = ref.read(eventServiceProvider);
       
       if (widget.event != null) {
-        await provider.updateEvent(widget.event!.id, {
+        await service.updateEvent(widget.event!.id, {
           'title': _titleController.text.trim(),
           'description': _descriptionController.text.trim(),
           'category': _selectedCategory,
@@ -157,7 +165,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
         });
         _showSuccess('Événement modifié avec succès');
       } else {
-        await provider.createEvent(
+        await service.createEvent(
           title: _titleController.text.trim(),
           description: _descriptionController.text.trim(),
           category: _selectedCategory,
@@ -393,10 +401,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey[300]!),
             ),
-            child: _imageFile != null
+            child: _imageBytes != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.file(_imageFile!, fit: BoxFit.cover, width: double.infinity),
+                    child: Image.memory(_imageBytes!, fit: BoxFit.cover, width: double.infinity),
                   )
                 : _imageUrl != null
                     ? ClipRRect(
@@ -414,12 +422,13 @@ class _CreateEventPageState extends State<CreateEventPage> {
                       ),
           ),
         ),
-        if (_imageFile != null || _imageUrl != null)
+        if (_imageBytes != null || _imageUrl != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: TextButton.icon(
               onPressed: () => setState(() {
-                _imageFile = null;
+                _imageBytes = null;
+                _imageFileName = null;
                 _imageUrl = null;
               }),
               icon: const Icon(Icons.delete, size: 16),

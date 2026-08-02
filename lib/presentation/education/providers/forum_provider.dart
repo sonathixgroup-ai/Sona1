@@ -1,144 +1,66 @@
-// lib/providers/forum_provider.dart
-import 'package:flutter/material.dart';
-import '../services/education_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/forum_topic.dart';
-import '../models/forum_reply.dart';
 
-class ForumProvider extends ChangeNotifier {
-  final EducationService _service;
+// Provider local pour éviter le cycle d'import
+final _supabaseProvider = Provider<SupabaseClient>((ref) => Supabase.instance.client);
 
-  List<ForumTopic> _topics = [];
-  List<ForumReply> _replies = [];
-  ForumTopic? _currentTopic;
-  bool _isLoading = false;
-  String? _error;
+class PaginatedForumTopics {
+  final List<ForumTopic> items;
+  final bool hasMore;
+  const PaginatedForumTopics({required this.items, this.hasMore = true});
+  PaginatedForumTopics copyWith({List<ForumTopic>? items, bool? hasMore}) =>
+    PaginatedForumTopics(items: items ?? this.items, hasMore: hasMore ?? this.hasMore);
+}
 
-  // Getters
-  List<ForumTopic> get topics => _topics;
-  List<ForumReply> get replies => _replies;
-  ForumTopic? get currentTopic => _currentTopic;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+class ForumTopicsNotifier extends FamilyAsyncNotifier<PaginatedForumTopics, String> {
+  static const _limit = 20;
+  int _offset = 0;
+  bool _hasMore = true;
+  bool get hasMore => _hasMore;
 
-  ForumProvider(this._service);
+  @override
+  Future<PaginatedForumTopics> build(String formationId) async {
+    _offset = 0; _hasMore = true;
+    final client = ref.watch(_supabaseProvider);
+    final res = await client.from('forum_topics')
+     .select('id,formation_id,title,content,author_id,created_at,pinned,reply_count,author:profiles(id,full_name,avatar_url)')
+     .eq('formation_id', formationId)
+     .order('pinned', ascending: false).order('created_at', ascending: false)
+     .range(0, _limit - 1);
+    _offset = res.length;
+    _hasMore = res.length == _limit;
+    return PaginatedForumTopics(items: res.map((e) => ForumTopic.fromJson(e)).toList(), hasMore: _hasMore);
+  }
 
-  // ─── SUJETS ──────────────────────────────────────────────────────
+  Future<void> loadMore() async {
+    if (!_hasMore) return;
+    final client = ref.read(_supabaseProvider);
+    final res = await client.from('forum_topics')
+     .select('id,formation_id,title,content,author_id,created_at,pinned,reply_count,author:profiles(id,full_name,avatar_url)')
+     .eq('formation_id', arg).order('pinned', ascending: false).order('created_at', ascending: false)
+     .range(_offset, _offset + _limit - 1);
+    if (res.isEmpty) { _hasMore = false; return; }
+    _offset += res.length;
+    _hasMore = res.length == _limit;
+    final newItems = res.map((e) => ForumTopic.fromJson(e)).toList();
+    state = AsyncData(PaginatedForumTopics(items: [...state.value?.items ?? [], ...newItems], hasMore: _hasMore));
+  }
 
-  Future<void> loadTopics(String formationId) async {
-    _setLoading(true);
-    try {
-      _topics = await _service.getForumTopics(formationId);
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-      debugPrint('Error loading forum topics: $e');
-    } finally {
-      _setLoading(false);
+  Future<ForumTopic?> createTopic({required String title, required String content}) async {
+    final client = ref.read(_supabaseProvider);
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return null;
+    final res = await client.from('forum_topics').insert({
+      'formation_id': arg, 'title': title, 'content': content, 'author_id': userId,
+    }).select('id,formation_id,title,content,author_id,created_at,pinned,reply_count').single();
+    final topic = ForumTopic.fromJson(res);
+    final current = state.value;
+    if (current != null) {
+      state = AsyncData(current.copyWith(items: [topic, ...current.items]));
     }
-  }
-
-  Future<void> loadTopicReplies(String topicId) async {
-    _setLoading(true);
-    try {
-      _replies = await _service.getTopicReplies(topicId);
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-      debugPrint('Error loading topic replies: $e');
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<ForumTopic?> createTopic({
-    required String formationId,
-    required String userId,
-    required String title,
-    required String body,
-  }) async {
-    _setLoading(true);
-    try {
-      // ✅ Appel avec paramètres positionnels (correspond à la signature du service)
-      final topic = await _service.createForumTopic(
-        formationId,
-        userId,
-        title,
-        body,
-      );
-      _topics.insert(0, topic);
-      _error = null;
-      return topic;
-    } catch (e) {
-      _error = e.toString();
-      debugPrint('Error creating forum topic: $e');
-      return null;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<void> closeTopic(String topicId) async {
-    _setLoading(true);
-    try {
-      await _service.closeForumTopic(topicId);
-      final index = _topics.indexWhere((t) => t.id == topicId);
-      if (index != -1) {
-        _topics[index].status = 'closed';
-      }
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-      debugPrint('Error closing forum topic: $e');
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // ─── RÉPONSES ────────────────────────────────────────────────────
-
-  Future<ForumReply?> createReply({
-    required String topicId,
-    required String userId,
-    required String body,
-  }) async {
-    _setLoading(true);
-    try {
-      // ✅ Appel avec paramètres positionnels
-      final reply = await _service.createForumReply(
-        topicId,
-        userId,
-        body,
-      );
-      _replies.add(reply);
-      _error = null;
-      return reply;
-    } catch (e) {
-      _error = e.toString();
-      debugPrint('Error creating forum reply: $e');
-      return null;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // ─── UTILITAIRES ──────────────────────────────────────────────────
-
-  void clearError() {
-    _error = null;
-    notifyListeners();
-  }
-
-  void reset() {
-    _topics = [];
-    _replies = [];
-    _currentTopic = null;
-    _error = null;
-    _isLoading = false;
-    notifyListeners();
-  }
-
-  void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
+    return topic;
   }
 }
+
+final forumTopicsProvider = AsyncNotifierProvider.family<ForumTopicsNotifier, PaginatedForumTopics, String>(ForumTopicsNotifier.new);

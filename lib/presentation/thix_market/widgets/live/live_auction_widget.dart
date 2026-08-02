@@ -1,7 +1,7 @@
+// lib/presentation/thix_market/widgets/live/live_auction_widget.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class LiveAuctionWidget extends StatefulWidget {
   final String auctionId;
@@ -61,7 +61,7 @@ class _LiveAuctionWidgetState extends State<LiveAuctionWidget> {
     try {
       final response = await Supabase.instance.client
           .from('auction_bids')
-          .select('*, user:users(name)')
+          .select('*, user:users(name, avatar)')
           .eq('auction_id', widget.auctionId)
           .order('amount', ascending: false)
           .limit(20);
@@ -195,16 +195,31 @@ class _LiveAuctionWidgetState extends State<LiveAuctionWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Product info
+          // Product info Web-Safe
           Row(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: CachedNetworkImage(
-                  imageUrl: product['image_url'] ?? '',
+                child: Image.network(
+                  product['image_url'] ?? '',
                   width: 80,
                   height: 80,
                   fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      width: 80,
+                      height: 80,
+                      color: Colors.grey[200],
+                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 80,
+                    height: 80,
+                    color: Colors.grey[200],
+                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -309,9 +324,9 @@ class _LiveAuctionWidgetState extends State<LiveAuctionWidget> {
                   leading: CircleAvatar(
                     radius: 14,
                     backgroundImage: bid['user']?['avatar'] != null
-                        ? CachedNetworkImageProvider(bid['user']['avatar'])
+                        ? NetworkImage(bid['user']['avatar'])
                         : null,
-                    child: const Icon(Icons.person, size: 14),
+                    child: bid['user']?['avatar'] == null ? const Icon(Icons.person, size: 14) : null,
                   ),
                   title: Text(bid['user']?['name'] ?? 'Anonyme', style: const TextStyle(fontSize: 13)),
                   trailing: Text('${bid['amount'].toInt()} FCFA', style: const TextStyle(fontWeight: FontWeight.bold)),

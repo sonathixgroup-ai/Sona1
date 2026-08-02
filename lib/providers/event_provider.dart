@@ -1,347 +1,161 @@
-// lib/providers/event_provider.dart
-import 'package:flutter/material.dart';
+import 'dart:typed_data';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/event_service.dart';
 import '../models/event_model.dart';
+import '../models/event_booking.dart';
 
-class EventProvider extends ChangeNotifier {
-  final EventService _eventService;
+// Service
+final eventServiceProvider = Provider<EventService>((ref) {
+  return EventService(Supabase.instance.client);
+});
 
-  List<Event> _events = [];
-  List<Event> _featuredEvents = [];
-  List<Event> _favoriteEvents = [];
-  List<EventBooking> _myTickets = [];
-  bool _isLoading = false;
-  String? _error;
-  String _currentCategory = 'all';
-  String _currentDateFilter = 'all';
-  String _currentCity = 'all';
+// Filters - plus de hardcode dans le provider
+final eventCategoryProvider = StateProvider<String>((ref) => 'all');
+final eventDateFilterProvider = StateProvider<String>((ref) => 'all');
+final eventCityProvider = StateProvider<String>((ref) => 'all');
+final eventSearchProvider = StateProvider<String>((ref) => '');
 
-  EventProvider(this._eventService);
+// Pagination state
+class EventListState {
+  final List<Event> items;
+  final bool hasMore;
+  final int page;
+  const EventListState({this.items = const [], this.hasMore = true, this.page = 0});
+}
 
-  // ============================================================
-  // GETTERS
-  // ============================================================
+final eventListProvider = AsyncNotifierProvider<EventListNotifier, EventListState>(() => EventListNotifier());
 
-  List<Event> get events => _events;
-  List<Event> get featuredEvents => _featuredEvents;
-  List<Event> get favoriteEvents => _favoriteEvents;
-  List<EventBooking> get myTickets => _myTickets;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
-  String get currentCategory => _currentCategory;
-  String get currentDateFilter => _currentDateFilter;
-  String get currentCity => _currentCity;
+class EventListNotifier extends AsyncNotifier<EventListState> {
+  static const _limit = 20;
 
-  Event? get featuredEvent {
-    return _featuredEvents.isNotEmpty ? _featuredEvents.first : null;
+  @override
+  Future<EventListState> build() async {
+    final category = ref.watch(eventCategoryProvider);
+    final dateFilter = ref.watch(eventDateFilterProvider);
+    final city = ref.watch(eventCityProvider);
+    final q = ref.watch(eventSearchProvider);
+
+    ref.watch(eventCategoryProvider);
+    // fetch page 0
+    final events = await _fetchPage(0, category: category, dateFilter: dateFilter, city: city, query: q);
+    return EventListState(items: events, hasMore: events.length >= _limit, page: 0);
   }
 
-  List<Event> get upcomingEvents {
-    return _events.where((e) => e.isUpcoming && !e.isPastEvent).take(10).toList();
-  }
-
-  List<Event> get recommendedEvents {
-    return _events.where((e) => e.isFeatured || e.isUpcoming).take(4).toList();
-  }
-
-  // ============================================================
-  // CHARGEMENT DES DONNÉES
-  // ============================================================
-
-  Future<void> fetchEvents({
-    String? category,
-    String? dateFilter,
-    String? city,
-  }) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      final newCategory = category ?? _currentCategory;
-      final newDateFilter = dateFilter ?? _currentDateFilter;
-      final newCity = city ?? _currentCity;
-      
-      _currentCategory = newCategory;
-      _currentDateFilter = newDateFilter;
-      _currentCity = newCity;
-      
-      _events = await _eventService.getEvents(
-        category: newCategory != 'all' ? newCategory : null,
-        dateFilter: newDateFilter,
-        city: newCity != 'all' ? newCity : null,
-      );
-    } catch (e) {
-      _error = e.toString();
-      debugPrint('❌ fetchEvents error: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+  Future<List<Event>> _fetchPage(int page, {String? category, String? dateFilter, String? city, String? query}) async {
+    final svc = ref.read(eventServiceProvider);
+    if (query!= null && query.isNotEmpty) {
+      return svc.searchEvents(query);
     }
+    return svc.getEvents(
+      category: category!= 'all'? category : null,
+      dateFilter: dateFilter?? 'all',
+      city: city!= 'all'? city : null,
+      page: page,
+      limit: _limit,
+    );
   }
 
-  Future<void> fetchFeaturedEvents() async {
-    try {
-      _featuredEvents = await _eventService.getFeaturedEvents();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('❌ fetchFeaturedEvents error: $e');
-    }
+  Future<void> loadMore() async {
+    final current = state.valueOrNull;
+    if (current== null ||!current.hasMore || state.isLoading) return;
+    final nextPage = current.page + 1;
+    final category = ref.read(eventCategoryProvider);
+    final dateFilter = ref.read(eventDateFilterProvider);
+    final city = ref.read(eventCityProvider);
+    final q = ref.read(eventSearchProvider);
+    final more = await _fetchPage(nextPage, category: category, dateFilter: dateFilter, city: city, query: q);
+    state = AsyncData(EventListState(
+      items: [...current.items,...more],
+      hasMore: more.length >= _limit,
+      page: nextPage,
+    ));
   }
 
-  Future<Event?> fetchEventById(String id) async {
-    try {
-      return await _eventService.getEventById(id);
-    } catch (e) {
-      debugPrint('❌ fetchEventById error: $e');
-      return null;
-    }
-  }
-
-  Future<List<Event>> fetchEventsByCategory(String category) async {
-    try {
-      return await _eventService.getEventsByCategory(category);
-    } catch (e) {
-      debugPrint('❌ fetchEventsByCategory error: $e');
-      return [];
-    }
-  }
-
-  Future<List<Event>> searchEvents(String query) async {
-    try {
-      return await _eventService.searchEvents(query);
-    } catch (e) {
-      debugPrint('❌ searchEvents error: $e');
-      return [];
-    }
-  }
-
-  // ============================================================
-  // INTERACTIONS
-  // ============================================================
-
-  Future<void> incrementViews(String eventId) async {
-    await _eventService.incrementViews(eventId);
+  Future<void> refreshList() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final category = ref.read(eventCategoryProvider);
+      final dateFilter = ref.read(eventDateFilterProvider);
+      final city = ref.read(eventCityProvider);
+      final q = ref.read(eventSearchProvider);
+      final events = await _fetchPage(0, category: category, dateFilter: dateFilter, city: city, query: q);
+      return EventListState(items: events, hasMore: events.length >= _limit, page: 0);
+    });
   }
 
   Future<void> toggleLike(String eventId) async {
-    final index = _events.indexWhere((e) => e.id == eventId);
-    if (index != -1) {
-      final event = _events[index];
-      if (event.isLiked) {
-        await _eventService.unlikeEvent(eventId);
-        _events[index] = event.copyWith(isLiked: false);
-      } else {
-        await _eventService.likeEvent(eventId);
-        _events[index] = event.copyWith(isLiked: true);
-      }
-      notifyListeners();
-    }
-    
-    // Mettre à jour dans les favoris
-    await loadFavoriteEvents();
-  }
-
-  Future<void> likeEvent(String eventId) async {
-    await _eventService.likeEvent(eventId);
-    await loadFavoriteEvents();
-  }
-
-  Future<void> unlikeEvent(String eventId) async {
-    await _eventService.unlikeEvent(eventId);
-    await loadFavoriteEvents();
-  }
-
-  Future<bool> isEventLiked(String eventId) async {
-    final favorites = await getFavoriteEvents();
-    return favorites.any((e) => e.id == eventId);
-  }
-
-  Future<List<Event>> getFavoriteEvents() async {
+    final svc = ref.read(eventServiceProvider);
+    final current = state.valueOrNull;
+    if (current== null) return;
+    final idx = current.items.indexWhere((e) => e.id == eventId);
+    if (idx== -1) return;
+    final ev = current.items[idx];
+    final newItems = [...current.items];
+    newItems[idx] = ev.copyWith(isLiked:!ev.isLiked);
+    state = AsyncData(current.copyWith(items: newItems));
     try {
-      _favoriteEvents = await _eventService.getFavoriteEvents();
-      notifyListeners();
-      return _favoriteEvents;
-    } catch (e) {
-      debugPrint('❌ getFavoriteEvents error: $e');
-      return [];
+      if (ev.isLiked) { await svc.unlikeEvent(eventId); } else { await svc.likeEvent(eventId); }
+      ref.invalidate(favoriteEventsProvider);
+    } catch (_) {
+      // rollback
+      state = AsyncData(current);
     }
   }
+}
 
-  Future<void> loadFavoriteEvents() async {
-    await getFavoriteEvents();
+extension on EventListState {
+  EventListState copyWith({List<Event>? items, bool? hasMore, int? page}) =>
+      EventListState(items: items?? this.items, hasMore: hasMore?? this.hasMore, page: page?? this.page);
+}
+
+// Featured
+final featuredEventsProvider = AsyncNotifierProvider<FeaturedEventsNotifier, List<Event>>(() => FeaturedEventsNotifier());
+class FeaturedEventsNotifier extends AsyncNotifier<List<Event>> {
+  DateTime? _last;
+  @override Future<List<Event>> build() async {
+    if (_last!= null && DateTime.now().difference(_last!).inMinutes < 5 && state.hasValue) return state.value!;
+    final svc = ref.read(eventServiceProvider);
+    final data = await svc.getFeaturedEvents();
+    _last = DateTime.now();
+    return data;
   }
+  Future<void> refresh() async { _last = null; state = const AsyncLoading(); state = await AsyncValue.guard(() => ref.read(eventServiceProvider).getFeaturedEvents()); }
+}
 
-  // ============================================================
-  // RÉSERVATION
-  // ============================================================
+// Favorites
+final favoriteEventsProvider = AsyncNotifierProvider<FavoriteEventsNotifier, List<Event>>(() => FavoriteEventsNotifier());
+class FavoriteEventsNotifier extends AsyncNotifier<List<Event>> {
+  @override Future<List<Event>> build() => ref.read(eventServiceProvider).getFavoriteEvents();
+  Future<void> refresh() async => state = await AsyncValue.guard(() => ref.read(eventServiceProvider).getFavoriteEvents());
+}
 
-  Future<EventBooking?> bookTicket({
-    required String eventId,
-    required int quantity,
-    required double totalPrice,
-    String? paymentMethod,
-  }) async {
-    try {
-      final booking = await _eventService.bookTicket(
-        eventId: eventId,
-        quantity: quantity,
-        totalPrice: totalPrice,
-        paymentMethod: paymentMethod,
-      );
-      
-      if (booking != null) {
-        await loadMyTickets();
-        await fetchEvents(); // Rafraîchir pour mettre à jour les places
-      }
-      
-      return booking;
-    } catch (e) {
-      debugPrint('❌ bookTicket error: $e');
-      return null;
-    }
+// My tickets
+final myTicketsProvider = AsyncNotifierProvider<MyTicketsNotifier, List<EventBooking>>(() => MyTicketsNotifier());
+class MyTicketsNotifier extends AsyncNotifier<List<EventBooking>> {
+  @override Future<List<EventBooking>> build() => ref.read(eventServiceProvider).getMyTickets();
+  Future<void> refresh() async => state = await AsyncValue.guard(() => ref.read(eventServiceProvider).getMyTickets());
+}
+
+// Derived providers scalable
+final upcomingEventsProvider = Provider<List<Event>>((ref) {
+  final all = ref.watch(eventListProvider).valueOrNull?.items?? [];
+  return all.where((e) => e.isUpcoming &&!e.isPastEvent).take(20).toList();
+});
+
+final recommendedEventsProvider = Provider<List<Event>>((ref) {
+  final all = ref.watch(eventListProvider).valueOrNull?.items?? [];
+  return all.where((e) => e.isFeatured || e.isUpcoming).take(10).toList();
+});
+
+final bookingProvider = Provider<BookingService>((ref) => BookingService(ref));
+class BookingService {
+  final Ref ref;
+  BookingService(this.ref);
+  Future<EventBooking?> book({required String eventId, required int qty, required double total, String? payment}) async {
+    final b = await ref.read(eventServiceProvider).bookTicket(eventId: eventId, quantity: qty, totalPrice: total, paymentMethod: payment);
+    if (b!= null) { ref.invalidate(myTicketsProvider); ref.invalidate(eventListProvider); }
+    return b;
   }
-
-  Future<void> loadMyTickets() async {
-    try {
-      _myTickets = await _eventService.getMyTickets();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('❌ loadMyTickets error: $e');
-    }
-  }
-
-  Future<List<EventBooking>> getMyTickets() async {
-    try {
-      return await _eventService.getMyTickets();
-    } catch (e) {
-      debugPrint('❌ getMyTickets error: $e');
-      return [];
-    }
-  }
-
-  // ============================================================
-  // ADMIN
-  // ============================================================
-
-  Future<Event?> createEvent({
-    required String title,
-    required String description,
-    required String category,
-    required DateTime startDate,
-    required String location,
-    double price = 0,
-    bool isFree = false,
-    int? capacity,
-    String? imageUrl,
-    String? city,
-    String? address,
-    bool isFeatured = false,
-  }) async {
-    try {
-      final event = await _eventService.createEvent(
-        title: title,
-        description: description,
-        category: category,
-        startDate: startDate,
-        location: location,
-        price: price,
-        isFree: isFree,
-        capacity: capacity,
-        imageUrl: imageUrl,
-        city: city,
-        address: address,
-        isFeatured: isFeatured,
-      );
-      
-      await fetchEvents();
-      await fetchFeaturedEvents();
-      
-      return event;
-    } catch (e) {
-      debugPrint('❌ createEvent error: $e');
-      return null;
-    }
-  }
-
-  Future<void> updateEvent(String eventId, Map<String, dynamic> data) async {
-    try {
-      await _eventService.updateEvent(eventId, data);
-      await fetchEvents();
-      await fetchFeaturedEvents();
-    } catch (e) {
-      debugPrint('❌ updateEvent error: $e');
-    }
-  }
-
-  Future<void> deleteEvent(String eventId) async {
-    try {
-      await _eventService.deleteEvent(eventId);
-      await fetchEvents();
-      await fetchFeaturedEvents();
-    } catch (e) {
-      debugPrint('❌ deleteEvent error: $e');
-    }
-  }
-
-  // ============================================================
-  // UPLOAD
-  // ============================================================
-
-  Future<String?> uploadImage(String filePath) async {
-    return await _eventService.uploadImage(filePath);
-  }
-
-  // ============================================================
-  // STATISTIQUES
-  // ============================================================
-
-  Future<Map<String, dynamic>> getAdminStats() async {
-    return await _eventService.getAdminStats();
-  }
-
-  // ============================================================
-  // FILTRES
-  // ============================================================
-
-  void setCategory(String category) {
-    if (_currentCategory == category) return;
-    _currentCategory = category;
-    fetchEvents(category: category);
-  }
-
-  void setDateFilter(String filter) {
-    if (_currentDateFilter == filter) return;
-    _currentDateFilter = filter;
-    fetchEvents(dateFilter: filter);
-  }
-
-  void setCity(String city) {
-    if (_currentCity == city) return;
-    _currentCity = city;
-    fetchEvents(city: city);
-  }
-
-  void resetFilters() {
-    _currentCategory = 'all';
-    _currentDateFilter = 'all';
-    _currentCity = 'all';
-    fetchEvents();
-  }
-
-  // ============================================================
-  // UTILITAIRES
-  // ============================================================
-
-  void clearError() {
-    _error = null;
-    notifyListeners();
-  }
-
-  void refresh() {
-    fetchEvents();
-    fetchFeaturedEvents();
-    loadFavoriteEvents();
-    loadMyTickets();
-  }
+  Future<String?> uploadImage(Uint8List bytes, String name) => ref.read(eventServiceProvider).uploadImage(bytes, name);
 }

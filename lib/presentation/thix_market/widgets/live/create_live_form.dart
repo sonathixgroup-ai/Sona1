@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class CreateLiveForm extends StatefulWidget {
   final String shopId;
@@ -154,10 +153,8 @@ class _CreateLiveFormState extends State<CreateLiveForm> {
         token = tokenResponse.data['token'];
         if (token == null) throw Exception('Token Agora non reçu');
       } catch (e) {
-        // En cas d'échec de la fonction, on utilise un token de test (pour développement)
         debugPrint('⚠️ Agora token generation failed: $e');
         token = 'test_token_${DateTime.now().millisecondsSinceEpoch}';
-        // Optionnel : afficher un message à l'utilisateur
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -359,12 +356,20 @@ class _CreateLiveFormState extends State<CreateLiveForm> {
                     avatar: product['image_url'] != null && product['image_url'].toString().isNotEmpty
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(4),
-                            child: CachedNetworkImage(
-                              imageUrl: product['image_url'],
+                            child: Image.network(
+                              product['image_url'],
                               width: 24,
                               height: 24,
                               fit: BoxFit.cover,
-                              errorWidget: (_, __, ___) => const Icon(Icons.image, size: 16),
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                );
+                              },
+                              errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 16),
                             ),
                           )
                         : null,

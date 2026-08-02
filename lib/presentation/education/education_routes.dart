@@ -15,29 +15,19 @@ import 'package:thix_id/presentation/education/pages/forum_topic_detail_page.dar
 import 'package:thix_id/presentation/education/pages/recommendations_page.dart';
 import 'package:thix_id/presentation/education/models/certificate.dart';
 
+// Lecteur de leçon
+import 'package:thix_id/presentation/education/widgets/formation_detail/formation_lesson_player.dart';
+
 // Formateur – routes fonctionnelles
-import 'package:thix_id/presentation/education/instructor/instructor_dashboard.dart';
-import 'package:thix_id/presentation/education/instructor/courses/course_list_page.dart';
+import 'package:thix_id/presentation/education/instructor/dashboard/instructor_dashboard.dart';
+// ✅ CORRECTION : Import de la vraie page de gestion des cours
+import 'package:thix_id/presentation/education/instructor/course_management_page.dart';
 import 'package:thix_id/presentation/education/instructor/courses/course_create_page.dart';
 import 'package:thix_id/presentation/education/instructor/content/module_management_page.dart';
 import 'package:thix_id/presentation/education/instructor/content/lesson_management_page.dart';
 import 'package:thix_id/presentation/education/instructor/evaluations/question_management_page.dart';
 import 'package:thix_id/presentation/education/instructor/book_management_page.dart';
 import 'package:thix_id/presentation/education/instructor/create_book_page.dart';
-// import 'package:thix_id/presentation/education/instructor/promotion/banner_management_page.dart'; // à décommenter plus tard
-
-class NoTransitionPage<T> extends Page<T> {
-  final Widget child;
-  const NoTransitionPage({required this.child, super.key});
-  @override
-  Route<T> createRoute(BuildContext context) => PageRouteBuilder<T>(
-        settings: this,
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-        pageBuilder: (context, animation, secondaryAnimation) => child,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) => child,
-      );
-}
 
 List<GoRoute> educationRoutes = [
   GoRoute(
@@ -49,10 +39,32 @@ List<GoRoute> educationRoutes = [
       GoRoute(path: 'all', name: 'educationAll', pageBuilder: (_, __) => const NoTransitionPage(child: EducationAllFormations())),
       GoRoute(path: 'my-learning', name: 'educationMyLearning', pageBuilder: (_, __) => const NoTransitionPage(child: EducationMyLearning())),
       GoRoute(path: 'certificates', name: 'educationCertificates', pageBuilder: (_, __) => const NoTransitionPage(child: EducationCertificates())),
+      
+      // Détail de la formation
       GoRoute(path: 'formation/:formationId', name: 'educationFormationDetail', pageBuilder: (_, state) {
         final id = state.pathParameters['formationId']!;
         return NoTransitionPage(child: FormationDetailPage(formationId: id));
       }),
+
+      // Route pour la lecture d'une leçon
+      GoRoute(path: 'lesson/:id', name: 'educationLessonPlayer', pageBuilder: (_, state) {
+        final lessonId = state.pathParameters['id']!;
+        
+        final extras = state.extra as Map<String, dynamic>? ?? {};
+        final formationId = extras['formationId'] as String?;
+        final moduleId = extras['moduleId'] as String?;
+        final lesson = extras['lesson'];
+
+        return NoTransitionPage(
+          child: FormationLessonPlayer(
+            lessonId: lessonId,
+            formationId: formationId,
+            moduleId: moduleId,
+            lesson: lesson,
+          ),
+        );
+      }),
+      
       GoRoute(path: 'certificate/:certificateId', name: 'educationCertificateDetail', pageBuilder: (_, state) {
         final id = state.pathParameters['certificateId']!;
         final cert = state.extra as Certificate?;
@@ -73,7 +85,10 @@ List<GoRoute> educationRoutes = [
 
 List<GoRoute> instructorRoutes = [
   GoRoute(path: '/instructor/dashboard', name: 'instructorDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: InstructorDashboard())),
-  GoRoute(path: '/instructor/courses', name: 'instructorCourses', pageBuilder: (_, __) => const NoTransitionPage(child: CourseListPage())),
+  
+  // ✅ CORRECTION : Utilisation de CourseManagementPage
+  GoRoute(path: '/instructor/courses', name: 'instructorCourses', pageBuilder: (_, __) => const NoTransitionPage(child: CourseManagementPage())),
+  
   GoRoute(path: '/instructor/courses/create', name: 'instructorCreateCourse', pageBuilder: (_, __) => const NoTransitionPage(child: CourseCreatePage())),
   GoRoute(path: '/instructor/courses/edit/:courseId', name: 'instructorEditCourse', pageBuilder: (_, state) {
     final id = state.pathParameters['courseId']!;

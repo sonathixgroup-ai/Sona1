@@ -1,19 +1,20 @@
 // lib/presentation/thix_info/breaking_news_page.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // 1. Import de Riverpod
 import 'package:go_router/go_router.dart';
 
 import '../../providers/news_provider.dart';
 import '../../models/news_article.dart';
 
-class BreakingNewsPage extends StatefulWidget {
+// 2. Remplacement par ConsumerStatefulWidget
+class BreakingNewsPage extends ConsumerStatefulWidget {
   const BreakingNewsPage({super.key});
 
   @override
-  State<BreakingNewsPage> createState() => _BreakingNewsPageState();
+  ConsumerState<BreakingNewsPage> createState() => _BreakingNewsPageState();
 }
 
-class _BreakingNewsPageState extends State<BreakingNewsPage> {
+class _BreakingNewsPageState extends ConsumerState<BreakingNewsPage> {
   List<NewsArticle> _breakingNews = [];
   bool _isLoading = true;
 
@@ -24,8 +25,12 @@ class _BreakingNewsPageState extends State<BreakingNewsPage> {
   }
 
   Future<void> _loadBreakingNews() async {
-    final provider = context.read<NewsProvider>();
+    // 3. Utilisation de ref.read au lieu de context.read
+    final provider = ref.read(newsProvider);
     final articles = await provider.fetchBreakingNews();
+    
+    if (!mounted) return; // 4. Sécurité Riverpod
+    
     setState(() {
       _breakingNews = articles;
       _isLoading = false;
@@ -72,7 +77,7 @@ class _BreakingNewsPageState extends State<BreakingNewsPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border(left: BorderSide(color: const Color(0xFFD4AF37), width: 4)),
+          border: const Border(left: BorderSide(color: Color(0xFFD4AF37), width: 4)),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4)],
         ),
         child: Column(
@@ -110,7 +115,7 @@ class _BreakingNewsPageState extends State<BreakingNewsPage> {
                 const SizedBox(width: 4),
                 Text(_formatCount(article.viewsCount), style: TextStyle(fontSize: 10, color: Colors.grey[400])),
                 const Spacer(),
-                Text('Lire l\'article →', style: TextStyle(fontSize: 11, color: const Color(0xFFD4AF37), fontWeight: FontWeight.w500)),
+                const Text('Lire l\'article →', style: TextStyle(fontSize: 11, color: Color(0xFFD4AF37), fontWeight: FontWeight.w500)),
               ],
             ),
           ],

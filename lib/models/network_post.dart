@@ -1,6 +1,8 @@
 // lib/models/network_post.dart
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
+@immutable
 class NetworkPost {
   // ─── Identifiants ───
   final String id;
@@ -13,9 +15,18 @@ class NetworkPost {
   final String content;
 
   // ─── Médias (unifiés) ───
-  final List<String> mediaUrls; // Tous les médias (images + vidéos) dans une seule liste
-  final List<String> imageUrls; // Uniquement les images (extrait de mediaUrls)
-  final List<String> videoUrls; // Uniquement les vidéos (extrait de mediaUrls)
+  final List<String> mediaUrls;
+
+  // ─── Nouveaux types (Sondages & Challenges) ───
+  final String postType; // 'standard', 'poll', 'challenge'
+  final Map<String, dynamic>? pollData;
+  final Map<String, dynamic>? challengeData;
+
+  // ─── Fact-Checking ───
+  final bool isFactChecked;
+  final bool isMisinformation;
+  final String? factCheckMessage;
+  final String? factCheckSeverity;
 
   // ─── Dates ───
   final DateTime createdAt;
@@ -31,15 +42,15 @@ class NetworkPost {
   final bool isLiked;
   final bool isSaved;
   final bool isReposted;
-  final bool isPinned; // ✅ AJOUT : pour les posts épinglés
+  final bool isPinned;
 
   // ─── Visibilité ───
-  final String status; // 'public', 'private', 'connections'
+  final String status;
   final bool isPublic;
   final String? communityId;
 
   // ─── Constructeur ───
-  NetworkPost({
+  const NetworkPost({
     required this.id,
     required this.userId,
     required this.authorName,
@@ -47,6 +58,13 @@ class NetworkPost {
     this.authorTitle,
     required this.content,
     required this.mediaUrls,
+    this.postType = 'standard',
+    this.pollData,
+    this.challengeData,
+    this.isFactChecked = false,
+    this.isMisinformation = false,
+    this.factCheckMessage,
+    this.factCheckSeverity,
     required this.createdAt,
     this.updatedAt,
     this.likesCount = 0,
@@ -55,34 +73,23 @@ class NetworkPost {
     this.isLiked = false,
     this.isSaved = false,
     this.isReposted = false,
-    this.isPinned = false, // ✅ AJOUT
+    this.isPinned = false,
     this.status = 'public',
     this.isPublic = true,
     this.communityId,
     this.views,
-  })  : imageUrls = mediaUrls.where((url) => _isImage(url)).toList(),
-        videoUrls = mediaUrls.where((url) => _isVideo(url)).toList();
+  });
 
-  // ─── Méthodes de détection de type ───
-  static bool _isImage(String url) {
-    final lower = url.toLowerCase();
-    return lower.endsWith('.jpg') ||
-        lower.endsWith('.jpeg') ||
-        lower.endsWith('.png') ||
-        lower.endsWith('.gif') ||
-        lower.endsWith('.webp') ||
-        lower.endsWith('.bmp');
+  static bool _hasExtension(String url, List<String> extensions) {
+    final cleanUrl = url.split('?').first.split('#').first.toLowerCase();
+    return extensions.any((ext) => cleanUrl.endsWith(ext));
   }
 
-  static bool _isVideo(String url) {
-    final lower = url.toLowerCase();
-    return lower.endsWith('.mp4') ||
-        lower.endsWith('.mov') ||
-        lower.endsWith('.avi') ||
-        lower.endsWith('.mkv') ||
-        lower.endsWith('.webm') ||
-        lower.endsWith('.m4v');
-  }
+  static bool _isImage(String url) => _hasExtension(url, ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']);
+  static bool _isVideo(String url) => _hasExtension(url, ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v']);
+
+  List<String> get imageUrls => mediaUrls.where(_isImage).toList();
+  List<String> get videoUrls => mediaUrls.where(_isVideo).toList();
 
   bool get hasImages => imageUrls.isNotEmpty;
   bool get hasVideos => videoUrls.isNotEmpty;
@@ -90,7 +97,6 @@ class NetworkPost {
 
   // ─── Factory depuis Supabase ───
   factory NetworkPost.fromJson(Map<String, dynamic> json) {
-    // Récupération des médias : soit media_urls (tableau), soit image_urls + video_urls
     List<String> mediaUrls = [];
     if (json['media_urls'] != null) {
       mediaUrls = List<String>.from(json['media_urls'] as List? ?? []);
@@ -108,14 +114,21 @@ class NetworkPost {
       id: json['id'] as String? ?? '',
       userId: json['user_id'] as String? ?? '',
       authorName: json['author_name'] as String? ??
-          json['users']?['display_name'] as String? ??
+          json['profiles']?['display_name'] as String? ??
           'Utilisateur',
       authorAvatar: json['author_avatar'] as String? ??
-          json['users']?['photo_url'] as String?,
+          json['profiles']?['avatar_url'] as String?,
       authorTitle: json['author_title'] as String? ??
-          json['users']?['title'] as String?,
+          json['profiles']?['profession'] as String?,
       content: json['content'] as String? ?? '',
       mediaUrls: mediaUrls,
+      postType: json['post_type'] as String? ?? 'standard',
+      pollData: json['poll_data'] as Map<String, dynamic>?,
+      challengeData: json['challenge_data'] as Map<String, dynamic>?,
+      isFactChecked: json['is_fact_checked'] as bool? ?? false,
+      isMisinformation: json['is_misinformation'] as bool? ?? false,
+      factCheckMessage: json['fact_check_message'] as String?,
+      factCheckSeverity: json['fact_check_severity'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -128,7 +141,7 @@ class NetworkPost {
       isLiked: json['is_liked'] as bool? ?? false,
       isSaved: json['is_saved'] as bool? ?? false,
       isReposted: json['is_reposted'] as bool? ?? false,
-      isPinned: json['is_pinned'] as bool? ?? false, // ✅ AJOUT
+      isPinned: json['is_pinned'] as bool? ?? false,
       status: json['status'] as String? ?? 'public',
       isPublic: json['is_public'] as bool? ?? true,
       communityId: json['community_id'] as String?,
@@ -136,7 +149,6 @@ class NetworkPost {
     );
   }
 
-  // ─── Conversion vers JSON ───
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -146,6 +158,13 @@ class NetworkPost {
       'author_title': authorTitle,
       'content': content,
       'media_urls': mediaUrls,
+      'post_type': postType,
+      'poll_data': pollData,
+      'challenge_data': challengeData,
+      'is_fact_checked': isFactChecked,
+      'is_misinformation': isMisinformation,
+      'fact_check_message': factCheckMessage,
+      'fact_check_severity': factCheckSeverity,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'likes_count': likesCount,
@@ -154,7 +173,7 @@ class NetworkPost {
       'is_liked': isLiked,
       'is_saved': isSaved,
       'is_reposted': isReposted,
-      'is_pinned': isPinned, // ✅ AJOUT
+      'is_pinned': isPinned,
       'status': status,
       'is_public': isPublic,
       'community_id': communityId,
@@ -162,7 +181,6 @@ class NetworkPost {
     };
   }
 
-  // ─── CopyWith (pour les mises à jour locales) ───
   NetworkPost copyWith({
     String? id,
     String? userId,
@@ -171,6 +189,13 @@ class NetworkPost {
     String? authorTitle,
     String? content,
     List<String>? mediaUrls,
+    String? postType,
+    Map<String, dynamic>? pollData,
+    Map<String, dynamic>? challengeData,
+    bool? isFactChecked,
+    bool? isMisinformation,
+    String? factCheckMessage,
+    String? factCheckSeverity,
     DateTime? createdAt,
     DateTime? updatedAt,
     int? likesCount,
@@ -179,7 +204,7 @@ class NetworkPost {
     bool? isLiked,
     bool? isSaved,
     bool? isReposted,
-    bool? isPinned, // ✅ AJOUT
+    bool? isPinned,
     String? status,
     bool? isPublic,
     String? communityId,
@@ -193,6 +218,13 @@ class NetworkPost {
       authorTitle: authorTitle ?? this.authorTitle,
       content: content ?? this.content,
       mediaUrls: mediaUrls ?? this.mediaUrls,
+      postType: postType ?? this.postType,
+      pollData: pollData ?? this.pollData,
+      challengeData: challengeData ?? this.challengeData,
+      isFactChecked: isFactChecked ?? this.isFactChecked,
+      isMisinformation: isMisinformation ?? this.isMisinformation,
+      factCheckMessage: factCheckMessage ?? this.factCheckMessage,
+      factCheckSeverity: factCheckSeverity ?? this.factCheckSeverity,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       likesCount: likesCount ?? this.likesCount,
@@ -201,7 +233,7 @@ class NetworkPost {
       isLiked: isLiked ?? this.isLiked,
       isSaved: isSaved ?? this.isSaved,
       isReposted: isReposted ?? this.isReposted,
-      isPinned: isPinned ?? this.isPinned, // ✅ AJOUT
+      isPinned: isPinned ?? this.isPinned,
       status: status ?? this.status,
       isPublic: isPublic ?? this.isPublic,
       communityId: communityId ?? this.communityId,
@@ -209,7 +241,6 @@ class NetworkPost {
     );
   }
 
-  // ─── Formatage des dates ───
   String get formattedDate {
     final now = DateTime.now();
     final difference = now.difference(createdAt);
@@ -226,17 +257,14 @@ class NetworkPost {
     }
   }
 
-  // ─── Égalité ───
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is NetworkPost &&
-          runtimeType == other.runtimeType &&
-          id == other.id;
+      other is NetworkPost && runtimeType == other.runtimeType && id == other.id;
 
   @override
   int get hashCode => id.hashCode;
 
   @override
-  String toString() => 'NetworkPost(id: $id, author: $authorName, content: ${content.length > 20 ? content.substring(0, 20) + '...' : content})';
+  String toString() => 'NetworkPost(id: $id, author: $authorName, type: $postType)';
 }

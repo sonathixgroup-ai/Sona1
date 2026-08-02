@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 class FeaturedShops extends StatefulWidget {
   final Function(Map<String, dynamic>)? onShopTap;
+  final String title;
+  final String actionText;
+  final String productsLabel;
   
-  const FeaturedShops({super.key, this.onShopTap});
+  const FeaturedShops({
+    super.key, 
+    this.onShopTap,
+    this.title = '🏪 Boutiques mises en avant', // Valeur par défaut
+    this.actionText = 'Voir tout >', // Valeur par défaut
+    this.productsLabel = 'produits', // Valeur par défaut
+  });
 
   @override
   State<FeaturedShops> createState() => _FeaturedShopsState();
@@ -24,10 +32,12 @@ class _FeaturedShopsState extends State<FeaturedShops> {
   Future<void> _loadShops() async {
     await Future.delayed(const Duration(milliseconds: 500));
     
-    setState(() {
-      _shops = _generateMockShops();
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _shops = _generateMockShops();
+        _isLoading = false;
+      });
+    }
   }
 
   List<Map<String, dynamic>> _generateMockShops() {
@@ -94,21 +104,21 @@ class _FeaturedShopsState extends State<FeaturedShops> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '🏪 Boutiques mises en avant',
-                  style: TextStyle(
+                  widget.title,
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  'Voir tout >',
-                  style: TextStyle(
+                  widget.actionText,
+                  style: const TextStyle(
                     fontSize: 13,
                     color: Color(0xFFE5592F),
                   ),
@@ -153,17 +163,25 @@ class _FeaturedShopsState extends State<FeaturedShops> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cover image
+            // Cover image (Remplacement de CachedNetworkImage)
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: CachedNetworkImage(
-                imageUrl: shop['cover'],
+              child: Image.network(
+                shop['cover'] ?? '',
                 height: 90,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    height: 90,
+                    color: Colors.grey[200],
+                  );
+                },
+                errorBuilder: (_, __, ___) => Container(
                   height: 90,
                   color: Colors.grey[200],
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
                 ),
               ),
             ),
@@ -176,9 +194,13 @@ class _FeaturedShopsState extends State<FeaturedShops> {
                 children: [
                   Row(
                     children: [
+                      // Remplacement de CachedNetworkImageProvider
                       CircleAvatar(
                         radius: 20,
-                        backgroundImage: CachedNetworkImageProvider(shop['logo']),
+                        backgroundColor: Colors.grey[200],
+                        backgroundImage: shop['logo'] != null 
+                            ? NetworkImage(shop['logo']) 
+                            : null,
                         child: shop['logo'] == null
                             ? Icon(Icons.store, color: Colors.grey[400])
                             : null,
@@ -192,7 +214,7 @@ class _FeaturedShopsState extends State<FeaturedShops> {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    shop['name'],
+                                    shop['name'] ?? '',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
@@ -210,7 +232,7 @@ class _FeaturedShopsState extends State<FeaturedShops> {
                               ],
                             ),
                             RatingBar.builder(
-                              initialRating: shop['rating'].toDouble(),
+                              initialRating: (shop['rating'] ?? 0).toDouble(),
                               minRating: 1,
                               direction: Axis.horizontal,
                               allowHalfRating: true,
@@ -230,7 +252,7 @@ class _FeaturedShopsState extends State<FeaturedShops> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    shop['description'],
+                    shop['description'] ?? '',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -244,14 +266,14 @@ class _FeaturedShopsState extends State<FeaturedShops> {
                       Icon(Icons.shopping_bag, size: 10, color: Colors.grey[500]),
                       const SizedBox(width: 2),
                       Text(
-                        '${shop['products_count']} produits',
+                        '${shop['products_count'] ?? 0} ${widget.productsLabel}',
                         style: TextStyle(fontSize: 9, color: Colors.grey[500]),
                       ),
                       const SizedBox(width: 8),
                       Icon(Icons.favorite, size: 10, color: Colors.grey[500]),
                       const SizedBox(width: 2),
                       Text(
-                        '${_formatNumber(shop['followers'])}',
+                        _formatNumber(shop['followers'] ?? 0),
                         style: TextStyle(fontSize: 9, color: Colors.grey[500]),
                       ),
                     ],
@@ -269,16 +291,19 @@ class _FeaturedShopsState extends State<FeaturedShops> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '🏪 Boutiques mises en avant',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                widget.title,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              Text('Voir tout >', style: TextStyle(fontSize: 13, color: Color(0xFFE5592F))),
+              Text(
+                widget.actionText, 
+                style: const TextStyle(fontSize: 13, color: Color(0xFFE5592F))
+              ),
             ],
           ),
         ),
@@ -298,38 +323,45 @@ class _FeaturedShopsState extends State<FeaturedShops> {
               ),
               child: Column(
                 children: [
-                  Container(height: 90, color: Colors.grey[200]),
-                  const Padding(
-                    padding: EdgeInsets.all(10),
+                  Container(
+                    height: 90, 
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    )
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(10),
                     child: Column(
                       children: [
                         Row(
                           children: [
-                            CircleAvatar(radius: 20, backgroundColor: Colors.grey),
-                            SizedBox(width: 8),
+                            const CircleAvatar(radius: 20, backgroundColor: Colors.grey),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Column(
                                 children: [
-                                  SizedBox(
+                                  const SizedBox(
                                     height: 12,
                                     width: double.infinity,
                                     child: ColoredBox(color: Colors.grey),
                                   ),
-                                  SizedBox(height: 4),
-                                  SizedBox(
+                                  const SizedBox(height: 4),
+                                  Container(
                                     height: 10,
                                     width: 60,
-                                    child: ColoredBox(color: Colors.grey),
+                                    alignment: Alignment.centerLeft,
+                                    child: const ColoredBox(color: Colors.grey),
                                   ),
                                 ],
                               ),
                             ),
                           ],
                         ),
-                        SizedBox(height: 6),
-                        SizedBox(height: 20, child: ColoredBox(color: Colors.grey)),
-                        SizedBox(height: 6),
-                        Row(
+                        const SizedBox(height: 6),
+                        const SizedBox(height: 20, width: double.infinity, child: ColoredBox(color: Colors.grey)),
+                        const SizedBox(height: 6),
+                        const Row(
                           children: [
                             SizedBox(width: 40, height: 10, child: ColoredBox(color: Colors.grey)),
                             SizedBox(width: 8),

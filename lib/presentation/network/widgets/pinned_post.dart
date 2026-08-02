@@ -5,7 +5,7 @@ import 'package:thix_id/models/network_post.dart';
 class PinnedPost extends StatelessWidget {
   final NetworkPost post;
   final VoidCallback onTap;
-  final VoidCallback? onUnpin;  // Changé en VoidCallback?
+  final VoidCallback? onUnpin;
 
   const PinnedPost({
     super.key,
@@ -16,16 +16,17 @@ class PinnedPost extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final content = post.content ?? '';
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [const Color(0xFFD4AF37).withOpacity(0.05), Colors.transparent],
+          colors: [const Color(0xFFD4AF37).withValues(alpha: 0.08), Colors.transparent],
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFFD4AF37).withValues(alpha: 0.3)),
       ),
       child: Material(
         color: Colors.transparent,
@@ -39,7 +40,7 @@ class PinnedPost extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD4AF37).withOpacity(0.1),
+                    color: const Color(0xFFD4AF37).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.push_pin, size: 20, color: Color(0xFFD4AF37)),
@@ -49,25 +50,14 @@ class PinnedPost extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Épinglé',
-                        style: TextStyle(fontSize: 11, color: Color(0xFFD4AF37), fontWeight: FontWeight.w500),
-                      ),
+                      const Text('Épinglé', style: TextStyle(fontSize: 11, color: Color(0xFFD4AF37), fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text(
-                        post.content ?? '',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13),
-                      ),
+                      Text(content.isNotEmpty ? content : 'Publication épinglée', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, height: 1.3)),
                     ],
                   ),
                 ),
                 if (onUnpin != null)
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 18, color: Colors.grey),
-                    onPressed: onUnpin,  // Directement
-                  ),
+                  IconButton(icon: const Icon(Icons.close, size: 18, color: Colors.grey), onPressed: onUnpin, tooltip: 'Désépingler'),
               ],
             ),
           ),

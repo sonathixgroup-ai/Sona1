@@ -1,29 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/activity_provider.dart';
 
-class MyActivityPage extends StatefulWidget {
+// ✅ CORRECTION ICI : Déclaration globale du provider Riverpod
+// Il va encapsuler ton ancienne classe ActivityProvider pour la rendre compatible
+final activityProvider = ChangeNotifierProvider<ActivityProvider>((ref) => ActivityProvider());
+
+class MyActivityPage extends ConsumerStatefulWidget {
   const MyActivityPage({super.key});
 
   @override
-  State<MyActivityPage> createState() => _MyActivityPageState();
+  ConsumerState<MyActivityPage> createState() => _MyActivityPageState();
 }
 
-class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProviderStateMixin {
+class _MyActivityPageState extends ConsumerState<MyActivityPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    
+    // Chargement initial via Riverpod
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ActivityProvider>().loadPurchases();
-      context.read<ActivityProvider>().loadSales();
-      context.read<ActivityProvider>().loadRatings();
-      context.read<ActivityProvider>().loadGlobalStats();
+      final provider = ref.read(activityProvider);
+      provider.loadPurchases();
+      provider.loadSales();
+      provider.loadRatings();
+      provider.loadGlobalStats();
     });
   }
 
@@ -35,7 +42,8 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final activityProvider = context.watch<ActivityProvider>();
+    // Écoute réactive de l'état via Riverpod
+    final provider = ref.watch(activityProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -62,9 +70,9 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildPurchasesTab(activityProvider, theme),
-          _buildSalesTab(activityProvider, theme),
-          _buildRatingsTab(activityProvider, theme),
+          _buildPurchasesTab(provider, theme),
+          _buildSalesTab(provider, theme),
+          _buildRatingsTab(provider, theme),
         ],
       ),
     );
@@ -72,7 +80,7 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
 
   Widget _buildPurchasesTab(ActivityProvider provider, ThemeData theme) {
     if (provider.isLoadingPurchases) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: Color(0xFFE5592F)));
     }
 
     if (provider.purchases.isEmpty) {
@@ -95,7 +103,7 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
 
   Widget _buildSalesTab(ActivityProvider provider, ThemeData theme) {
     if (provider.isLoadingSales) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: Color(0xFFE5592F)));
     }
 
     if (provider.sales.isEmpty) {
@@ -143,7 +151,7 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
         side: BorderSide(color: Colors.grey[200]!),
       ),
       child: InkWell(
-        onTap: () => _viewOrderDetail(order['id']),
+        onTap: () => context.push('/market/order/${order['id']}'),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -184,11 +192,26 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: CachedNetworkImage(
-                        imageUrl: item['image_url'],
+                      child: Image.network(
+                        item['image_url'] ?? '',
                         width: 50,
                         height: 50,
                         fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                            width: 50,
+                            height: 50,
+                            color: Colors.grey[200],
+                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                          );
+                        },
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 50,
+                          height: 50,
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.broken_image, color: Colors.grey, size: 20),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -197,7 +220,7 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            item['name'],
+                            item['name'] ?? 'Article inconnu',
                             style: const TextStyle(fontWeight: FontWeight.w500),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -247,15 +270,15 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFFE5592F)),
                       ),
-                      child: const Text('Laisser un avis'),
+                      child: const Text('Laisser un avis', style: TextStyle(color: Color(0xFFE5592F))),
                     ),
                   if (order['status'] == 'pending')
                     OutlinedButton(
                       onPressed: () => _cancelOrder(order['id']),
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.red),
+                        side: const BorderSide(color: Colors.red),
                       ),
-                      child: const Text('Annuler'),
+                      child: const Text('Annuler', style: TextStyle(color: Colors.red)),
                     ),
                 ],
               ),
@@ -267,7 +290,6 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
   }
 
   Widget _buildRatingsTab(ActivityProvider provider, ThemeData theme) {
-    // User stats
     final stats = provider.ratingStats;
     
     return Column(
@@ -291,7 +313,7 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
                       ),
                     ),
                     RatingBar.builder(
-                      initialRating: stats['average'].toDouble(),
+                      initialRating: (stats['average'] ?? 0).toDouble(),
                       minRating: 1,
                       direction: Axis.horizontal,
                       allowHalfRating: true,
@@ -371,7 +393,7 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: provider.badges.map((badge) => _buildBadge(badge)).toList(),
+                  children: provider.badges.map<Widget>((badge) => _buildBadge(badge)).toList(),
                 ),
               ],
             ),
@@ -380,7 +402,7 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
         // Ratings list
         Expanded(
           child: provider.isLoadingRatings
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFFE5592F)))
               : provider.ratings.isEmpty
                   ? _buildEmptyState(
                       'Aucune évaluation',
@@ -417,7 +439,10 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundImage: CachedNetworkImageProvider(rating['user_avatar'] ?? ''),
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage: rating['user_avatar'] != null 
+                      ? NetworkImage(rating['user_avatar']) 
+                      : null,
                   child: rating['user_avatar'] == null
                       ? Icon(Icons.person, color: Colors.grey[400])
                       : null,
@@ -428,11 +453,11 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        rating['user_name'],
+                        rating['user_name'] ?? 'Utilisateur',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       RatingBar.builder(
-                        initialRating: rating['rating'].toDouble(),
+                        initialRating: (rating['rating'] ?? 0).toDouble(),
                         minRating: 1,
                         direction: Axis.horizontal,
                         allowHalfRating: true,
@@ -449,13 +474,15 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
                   ),
                 ),
                 Text(
-                  DateFormat('dd/MM/yyyy').format(DateTime.parse(rating['created_at'])),
+                  rating['created_at'] != null 
+                    ? DateFormat('dd/MM/yyyy').format(DateTime.parse(rating['created_at']))
+                    : '',
                   style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            Text(rating['comment']),
+            Text(rating['comment'] ?? ''),
             if (rating['reply'] != null) ...[
               const SizedBox(height: 12),
               Container(
@@ -495,10 +522,10 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.emoji_events, size: 16, color: Colors.white),
+          const Icon(Icons.emoji_events, size: 16, color: Colors.white),
           const SizedBox(width: 4),
           Text(
-            badge['name'],
+            badge['name'] ?? '',
             style: const TextStyle(color: Colors.white, fontSize: 12),
           ),
         ],
@@ -527,14 +554,11 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
     );
   }
 
-  void _viewOrderDetail(String orderId) {
-    Navigator.pushNamed(context, '/order-detail/$orderId');
-  }
-
   void _leaveReview(String orderId) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => LeaveReviewSheet(orderId: orderId),
     );
   }
@@ -542,21 +566,20 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
   void _cancelOrder(String orderId) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Annuler la commande'),
         content: const Text('Êtes-vous sûr de vouloir annuler cette commande ?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Non'),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Non', style: TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              context.read<ActivityProvider>().cancelOrder(orderId);
+              Navigator.pop(ctx);
+              ref.read(activityProvider).cancelOrder(orderId);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Oui, annuler'),
+            child: const Text('Oui, annuler', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -564,22 +587,35 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
   }
 }
 
-class LeaveReviewSheet extends StatefulWidget {
+// -----------------------------------------------------------------------------
+// SHEET AVIS CLIENT MIGRÉ VERS CONSUMERSTATEFULWIDGET
+// -----------------------------------------------------------------------------
+class LeaveReviewSheet extends ConsumerStatefulWidget {
   final String orderId;
   const LeaveReviewSheet({super.key, required this.orderId});
 
   @override
-  State<LeaveReviewSheet> createState() => _LeaveReviewSheetState();
+  ConsumerState<LeaveReviewSheet> createState() => _LeaveReviewSheetState();
 }
 
-class _LeaveReviewSheetState extends State<LeaveReviewSheet> {
+class _LeaveReviewSheetState extends ConsumerState<LeaveReviewSheet> {
   double _rating = 5;
   final TextEditingController _commentController = TextEditingController();
 
   @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -614,8 +650,19 @@ class _LeaveReviewSheetState extends State<LeaveReviewSheet> {
             maxLines: 4,
             decoration: InputDecoration(
               hintText: 'Partagez votre expérience...',
+              filled: true,
+              fillColor: Colors.grey[50],
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFE5592F)),
               ),
             ),
           ),
@@ -625,6 +672,11 @@ class _LeaveReviewSheetState extends State<LeaveReviewSheet> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey[700],
+                    side: BorderSide(color: Colors.grey[300]!),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                   child: const Text('Annuler'),
                 ),
               ),
@@ -632,7 +684,8 @@ class _LeaveReviewSheetState extends State<LeaveReviewSheet> {
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
-                    context.read<ActivityProvider>().submitReview(
+                    // Utilisation de Riverpod pour envoyer la review
+                    ref.read(activityProvider).submitReview(
                       widget.orderId,
                       _rating,
                       _commentController.text,
@@ -641,8 +694,10 @@ class _LeaveReviewSheetState extends State<LeaveReviewSheet> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE5592F),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
                   ),
-                  child: const Text('Envoyer'),
+                  child: const Text('Envoyer', style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],

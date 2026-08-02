@@ -1,115 +1,87 @@
-// lib/presentation/thix_event/widgets/seat_map_widget.dart
 import 'package:flutter/material.dart';
 import '../../../models/event_seat.dart';
+
+class _ThixColors {
+  static const surface = Color(0xFF0C0C12);
+  static const surfaceAlt = Color(0xFF111118);
+  static const cardBorder = Color(0x14FFFFFF);
+  static const primary = Color(0xFFFF0A54);
+  static const textSecondary = Color(0x99FFFFFF);
+  static const textMuted = Color(0x66FFFFFF);
+  static const seatAvailable = Color(0xFF10B981);
+  static const seatReserved = Color(0xFFF59E0B);
+  static const seatSold = Color(0xFFEF4444);
+}
 
 class SeatMapWidget extends StatelessWidget {
   final List<EventSeat> seats;
   final List<EventSeat> selectedSeats;
   final Function(EventSeat) onSeatTap;
-
-  const SeatMapWidget({
-    super.key,
-    required this.seats,
-    required this.selectedSeats,
-    required this.onSeatTap,
-  });
+  const SeatMapWidget({super.key, required this.seats, required this.selectedSeats, required this.onSeatTap});
 
   @override
   Widget build(BuildContext context) {
-    // Grouper les places par rangée
     final Map<String, List<EventSeat>> rows = {};
-    for (var seat in seats) {
-      rows.putIfAbsent(seat.row, () => []).add(seat);
-    }
-
-    // Trier les rangées
-    final sortedRows = rows.keys.toList()..sort();
+    for (var s in seats) { rows.putIfAbsent(s.row, () => []).add(s); }
+    final sorted = rows.keys.toList()..sort();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Scène
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            margin: const EdgeInsets.only(bottom: 24),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Center(
-              child: Text('SCÈNE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2)),
-            ),
+      physics: const BouncingScrollPhysics(),
+      child: Column(children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          margin: const EdgeInsets.only(bottom: 24),
+          decoration: BoxDecoration(
+            color: _ThixColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _ThixColors.cardBorder),
           ),
-          // Plan des places
-          for (var row in sortedRows)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 30,
-                    child: Text(
-                      row,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  Expanded(
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: rows[row]!.map((seat) {
-                        final isSelected = selectedSeats.contains(seat);
-                        final isAvailable = seat.isAvailable;
-                        final isReserved = seat.isReserved;
-                        final isSold = seat.isSold;
-                        
-                        Color seatColor;
-                        if (isSelected) seatColor = const Color(0xFFD4AF37);
-                        else if (isSold) seatColor = Colors.red;
-                        else if (isReserved) seatColor = Colors.orange;
-                        else seatColor = Colors.green;
-                        
-                        return GestureDetector(
-                          onTap: isAvailable || isSelected ? () => onSeatTap(seat) : null,
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: seatColor.withOpacity(0.15),
-                              border: Border.all(color: seatColor, width: 1.5),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Center(
-                              child: Text(
-                                seat.number.toString(),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: seatColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
+          child: const Center(child: Text('SCENE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 4, color: _ThixColors.textMuted))),
+        ),
+        for (var row in sorted)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(children: [
+              SizedBox(width: 28, child: Text(row, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white))),
+              Expanded(
+                child: Wrap(
+                  spacing: 8, runSpacing: 8,
+                  children: rows[row]!.map((seat) {
+                    final sel = selectedSeats.any((s) => s.id == seat.id);
+                    Color col;
+                    if (sel) col = _ThixColors.primary;
+                    else if (seat.isSold) col = _ThixColors.seatSold;
+                    else if (seat.isReserved) col = _ThixColors.seatReserved;
+                    else col = _ThixColors.seatAvailable;
+
+                    return GestureDetector(
+                      onTap: (seat.isAvailable || sel)? () => onSeatTap(seat) : null,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        width: 36, height: 36,
+                        decoration: BoxDecoration(
+                          color: sel? col.withOpacity(0.22) : col.withOpacity(0.12),
+                          border: Border.all(color: col, width: sel? 2 : 1.2),
+                          borderRadius: const BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8), bottomLeft: Radius.circular(4), bottomRight: Radius.circular(4)),
+                          boxShadow: sel? [BoxShadow(color: col.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3))] : null,
+                        ),
+                        child: Center(child: Text(seat.number.toString(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: col))),
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
-          // Couloir central (optionnel)
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 16),
-            height: 20,
-            color: Colors.grey[200],
-            child: const Center(
-              child: Text('COULOIR', style: TextStyle(fontSize: 10, color: Colors.grey)),
-            ),
+            ]),
           ),
-        ],
-      ),
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 18),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(color: _ThixColors.surface, borderRadius: BorderRadius.circular(8), border: Border.all(color: _ThixColors.cardBorder)),
+          child: const Center(child: Text('COULOIR CENTRAL', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1.5, color: _ThixColors.textMuted))),
+        ),
+      ]),
     );
   }
 }

@@ -1,6 +1,6 @@
+// lib/presentation/thix_market/widgets/live/replay_list.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 
 class ReplayList extends StatefulWidget {
@@ -46,18 +46,15 @@ class _ReplayListState extends State<ReplayList> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Requête de base avec filtres (type PostgrestFilterBuilder)
       var query = Supabase.instance.client
           .from('lives')
           .select('*, shop:shops(name, logo_url)')
           .eq('status', 'ended');
 
-      // 2. Ajouter le filtre shopId si présent
       if (widget.shopId != null) {
         query = query.eq('shop_id', widget.shopId!);
       }
 
-      // 3. Appliquer tri et pagination directement (sans réaffecter query)
       final response = await query
           .order('ended_at', ascending: false)
           .range(_page * _limit, (_page + 1) * _limit - 1);
@@ -138,19 +135,28 @@ class _ReplayListState extends State<ReplayList> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thumbnail
+            // Thumbnail Web-Safe
             ClipRRect(
               borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
-              child: CachedNetworkImage(
-                imageUrl: replay['thumbnail_url'] ?? '',
+              child: Image.network(
+                replay['thumbnail_url'] ?? '',
                 width: 120,
                 height: 100,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    width: 120,
+                    height: 100,
+                    color: Colors.grey[200],
+                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  );
+                },
+                errorBuilder: (_, __, ___) => Container(
                   width: 120,
                   height: 100,
                   color: Colors.grey[200],
-                  child: const Center(child: CircularProgressIndicator()),
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
                 ),
               ),
             ),
@@ -173,7 +179,7 @@ class _ReplayListState extends State<ReplayList> {
                         CircleAvatar(
                           radius: 10,
                           backgroundImage: replay['shop']?['logo_url'] != null
-                              ? CachedNetworkImageProvider(replay['shop']['logo_url'])
+                              ? NetworkImage(replay['shop']['logo_url'])
                               : null,
                         ),
                         const SizedBox(width: 4),

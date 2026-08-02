@@ -2,7 +2,8 @@ name: Deploy Flutter Web to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -17,43 +18,54 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: "3.27.1"
           channel: stable
+          cache: true
 
-      - name: Flutter pub get
+      - name: Verify Flutter Installation
+        run: |
+          flutter --version
+          dart --version
+
+      - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build web
-        # Flutter web requires --base-href values to start and end with "/".
-        # This repository is deployed as a project page at "/Sona1/".
-        run: flutter build web --release --base-href /Sona1/
+      - name: Generate Models
+        run: dart run build_runner build --delete-conflicting-outputs
 
-      # GitHub Pages does not provide SPA rewrite by default.
-      # Copy index.html to 404.html so deep links (go_router paths) load the app.
-      - name: SPA fallback for go_router
+      - name: Build Flutter Web
+        run: flutter build web --release --base-href /Sona1/ --pwa-strategy none
+
+      - name: SPA Fallback (go_router)
         run: cp build/web/index.html build/web/404.html
 
-      - name: Configure Pages
+      - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Upload Web Artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
 
   deploy:
+    needs: build
+
+    runs-on: ubuntu-latest
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
+
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        

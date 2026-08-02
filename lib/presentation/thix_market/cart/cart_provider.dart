@@ -1,294 +1,196 @@
-// lib/presentation/thix_market/cart/cart_provider.dart
-import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/market_providers.dart';
 
-class CartProvider extends ChangeNotifier {
-  final SupabaseClient _supabase = Supabase.instance.client;
+class CartState {
+  final List<Map<String,dynamic>> items;
+  final bool isLoading;
+  final bool isSyncing;
+  const CartState({this.items = const [], this.isLoading = false, this.isSyncing = false});
+  CartState copyWith({List<Map<String,dynamic>>? items, bool? isLoading, bool? isSyncing})=> CartState(items: items?? this.items, isLoading: isLoading?? this.isLoading, isSyncing: isSyncing?? this.isSyncing);
+}
 
-  List<Map<String, dynamic>> _cartItems = [];
-  bool _isLoading = false;
-  bool _isSyncing = false;
-  String? _currentUserId;
-  Stream<List<Map<String, dynamic>>>? _cartStream;
+class CartNotifier extends StateNotifier<CartState> {
+  CartNotifier(this.ref): super(const CartState()){ _init(); }
+  final Ref ref;
+  StreamSubscription? _sub;
+  StreamSubscription? _authSub;
 
-  // ============================================================
-  // GETTERS
-  // ============================================================
-  List<Map<String, dynamic>> get cartItems => _cartItems;
-  bool get isLoading => _isLoading;
-  bool get isSyncing => _isSyncing;
-  int get itemCount => _cartItems.length;
-  int get totalQuantity => _cartItems.fold<int>(
-    0,
-    (sum, item) => sum + ((item['quantity'] as int?) ?? 0),
-  );
+  double _getRealPrice(Map<String,dynamic> product){
+    final raw = (product['price'] as num?)?.toDouble()??0;
+    final sale = (product['sale_price'] as num?)?.toDouble()?? (product['discount_price'] as num?)?.toDouble();
+    final percent = (product['discount_percent'] as num?)?.toDouble()??0;
+    final original = (product['original_price'] as num?)?.toDouble()?? raw;
+    if(sale!=null && sale>0 && sale<raw) return sale;
+    if(sale!=null && sale>0 && original>0 && sale<original) return sale;
+    if(percent>0) return raw * (1 - percent/100);
+    return raw;
+  }
+  double _getOldPrice(Map<String,dynamic> product){
+    final raw = (product['price'] as num?)?.toDouble()??0;
+    final original = (product['original_price'] as num?)?.toDouble()?? raw;
+    final sale = (product['sale_price'] as num?)?.toDouble();
+    if(sale!=null && sale<raw) return raw;
+    return original;
+  }
 
-  /// Sous-total (devise du produit, peut être USD ou CDF)
-  double get subtotal => _cartItems.fold(0.0, (sum, item) {
-        final price = (item['product']?['price'] as num?)?.toDouble() ?? 0;
-        final quantity = (item['quantity'] ?? 0).toInt();
-        return sum + (price * quantity);
-      });
+  // GETTERS calculés
+  List<Map<String,dynamic>> get cartItems => state.items;
+  bool get isLoading => state.isLoading;
+  bool get isSyncing => state.isSyncing;
+  int get itemCount => state.items.length;
+  int get totalQuantity => state.items.fold<int>(0, (sum, item){ final q = item['quantity']; if(q is num) return sum + q.toInt(); return sum + (int.tryParse(q.toString())??0); });
 
-  // ============================================================
-  // GESTION DE LA DEVISES
-  // ============================================================
-  /// Devise dominante du panier (premier article)
   String get currency {
-    if (_cartItems.isEmpty) return 'CDF';
-    final product = _cartItems.first['product'] as Map?;
-    return product?['currency'] ?? 'CDF';
+    if(state.items.isEmpty) return 'FC';
+    final p = state.items.first['product'] as Map?;
+    String raw = 'FC';
+    if(p!=null && p['currency']!=null) raw = p['currency'].toString().toUpperCase();
+    if(raw=='CDF' || raw=='XOF' || raw=='FC') return 'FC';
+    if(raw=='USD' || raw=='\$') return 'USD';
+    return 'FC';
   }
-
-  /// Symbole de la devise ( $ ou FC )
-  String get currencySymbol => currency == 'USD' ? '\$' : 'FC';
-
-  // ============================================================
-  // FRAIS DE LIVRAISON (toujours en CDF/FC)
-  // ============================================================
-  static const double _shippingCostFC = 2500;
-  static const double _freeShippingThresholdFC = 50000;
-
-  /// Convertit le sous-total en FC pour le calcul du seuil
-  double get _subtotalInFC {
-    if (currency == 'CDF') return subtotal;
-    // Conversion approximative 1 USD = 2500 FC
-    return subtotal * 2500;
+  String get currencySymbol => currency=='USD'? '\$' : 'FC';
+  String currencyForItem(Map<String,dynamic> item){
+    final p = item['product'] as Map?;
+    String raw = currency;
+    if(p!=null && p['currency']!=null) raw = p['currency'].toString().toUpperCase();
+    if(raw=='USD' || raw=='\$') return 'USD';
+    return 'FC';
   }
-
-  double get shippingCost {
-    return _subtotalInFC > _freeShippingThresholdFC ? 0 : _shippingCostFC;
-  }
-
-  /// Symbole de la livraison (toujours FC)
+  double get subtotal => state.items.fold(0.0, (sum, item){
+    Map<String,dynamic> product = {};
+    if(item['product'] is Map) product = Map<String,dynamic>.from(item['product'] as Map);
+    int qty = 0;
+    if(item['quantity'] is num) qty = (item['quantity'] as num).toInt(); else qty = int.tryParse(item['quantity'].toString())??0;
+    return sum + (_getRealPrice(product) * qty);
+  });
+  double get originalSubtotal => state.items.fold(0.0, (sum, item){
+    Map<String,dynamic> product = {};
+    if(item['product'] is Map) product = Map<String,dynamic>.from(item['product'] as Map);
+    int qty = 0;
+    if(item['quantity'] is num) qty = (item['quantity'] as num).toInt(); else qty = int.tryParse(item['quantity'].toString())??0;
+    return sum + (_getOldPrice(product) * qty);
+  });
+  double get totalDiscount => originalSubtotal - subtotal;
+  double get shippingCost => 0;
   String get shippingSymbol => 'FC';
-
-  /// Total = sous-total + frais de livraison (affiché dans la devise du produit)
   double get total => subtotal + shippingCost;
-
-  // ============================================================
-  // INITIALISATION
-  // ============================================================
-  CartProvider() {
-    _init();
+  double getItemRealPrice(Map<String,dynamic> item){
+    Map<String,dynamic> product = {};
+    if(item['product'] is Map) product = Map<String,dynamic>.from(item['product'] as Map);
+    return _getRealPrice(product);
+  }
+  double getItemOldPrice(Map<String,dynamic> item){
+    Map<String,dynamic> product = {};
+    if(item['product'] is Map) product = Map<String,dynamic>.from(item['product'] as Map);
+    return _getOldPrice(product);
+  }
+  int getItemDiscountPercent(Map<String,dynamic> item){
+    final oldP = getItemOldPrice(item);
+    final real = getItemRealPrice(item);
+    if(oldP<=0 || real>=oldP) return 0;
+    return ((1 - real/oldP)*100).round();
   }
 
-  void _init() {
-    _currentUserId = _supabase.auth.currentUser?.id;
-    if (_currentUserId != null) {
-      _setupRealtimeSubscription();
-      loadCart();
-    }
-
-    _supabase.auth.onAuthStateChange.listen((data) {
+  void _init(){
+    final db = ref.read(supabaseClientProvider);
+    _authSub = db.auth.onAuthStateChange.listen((data){
       final session = data.session;
-      if (session != null) {
-        _currentUserId = session.user.id;
-        _setupRealtimeSubscription();
-        loadCart();
-      } else {
-        _currentUserId = null;
-        _cartItems.clear();
-        _cartStream = null;
-        notifyListeners();
-      }
+      if(session!=null){ _setupRealtime(); loadCart(); } else { _sub?.cancel(); state = const CartState(); }
     });
+    if(db.auth.currentUser!=null){ _setupRealtime(); loadCart(); }
   }
 
-  // ============================================================
-  // REAL-TIME SUBSCRIPTION
-  // ============================================================
-  void _setupRealtimeSubscription() {
-    if (_currentUserId == null) return;
-
-    _cartStream = _supabase
-        .from('cart')
-        .stream(primaryKey: ['id'])
-        .eq('user_id', _currentUserId!)
-        .order('created_at', ascending: false)
-        .map((data) => List<Map<String, dynamic>>.from(data));
-
-    _cartStream?.listen((updatedCart) async {
-      await _syncCartWithProducts(updatedCart);
-    });
+  void _setupRealtime(){
+    _sub?.cancel();
+    final db = ref.read(supabaseClientProvider);
+    final uid = db.auth.currentUser?.id;
+    if(uid==null) return;
+    final stream = db.from('cart').stream(primaryKey: ['id']).eq('user_id', uid).order('created_at', ascending: false);
+    _sub = stream.listen((updated) async { await _syncCartWithProducts(List<Map<String,dynamic>>.from(updated)); });
   }
 
-  // ============================================================
-  // SYNC CART WITH PRODUCTS
-  // ============================================================
-  Future<void> _syncCartWithProducts(List<Map<String, dynamic>> cartRecords) async {
-    if (cartRecords.isEmpty) {
-      _cartItems = [];
-      notifyListeners();
-      return;
-    }
-
-    _isSyncing = true;
-    notifyListeners();
-
-    try {
-      final List<Map<String, dynamic>> enrichedItems = [];
-      for (var cartItem in cartRecords) {
-        final productId = cartItem['product_id'];
-        if (productId != null) {
-          final productResponse = await _supabase
-              .from('products')
-              .select('*, shop:shops(name, logo_url)')
-              .eq('id', productId)
-              .maybeSingle();
-
-          if (productResponse != null) {
-            enrichedItems.add({
-              ...cartItem,
-              'product': productResponse,
-            });
-          } else {
-            await removeFromCart(cartItem['id']);
-          }
+  Future<void> _syncCartWithProducts(List<Map<String,dynamic>> cartRecords) async {
+    if(cartRecords.isEmpty){ state = state.copyWith(items: [], isSyncing: false); return; }
+    state = state.copyWith(isSyncing: true);
+    try{
+      final db = ref.read(supabaseClientProvider);
+      List<Map<String,dynamic>> enriched = [];
+      for(var cartItem in cartRecords){
+        final pid = cartItem['product_id'];
+        if(pid!=null){
+          final product = await db.from('products').select('*, shop:shops(name, logo_url)').eq('id', pid).maybeSingle();
+          if(product!=null){ enriched.add({...cartItem, 'product': product}); } else { await db.from('cart').delete().eq('id', cartItem['id']); }
         }
       }
-      _cartItems = enrichedItems;
-    } catch (e) {
-      debugPrint('Error syncing cart: $e');
-    } finally {
-      _isSyncing = false;
-      notifyListeners();
-    }
+      state = state.copyWith(items: enriched);
+    }catch(e){ debugPrint('sync cart $e'); }
+    finally{ state = state.copyWith(isSyncing: false); }
   }
 
-  // ============================================================
-  // CHARGEMENT DU PANIER
-  // ============================================================
   Future<void> loadCart() async {
-    if (_currentUserId == null) {
-      _cartItems = [];
-      notifyListeners();
-      return;
-    }
-
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      final response = await _supabase
-          .from('cart')
-          .select()
-          .eq('user_id', _currentUserId!)
-          .order('created_at', ascending: false);
-
-      await _syncCartWithProducts(List<Map<String, dynamic>>.from(response));
-    } catch (e) {
-      debugPrint('Error loading cart: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+    final db = ref.read(supabaseClientProvider);
+    final uid = db.auth.currentUser?.id;
+    if(uid==null){ state = const CartState(); return; }
+    state = state.copyWith(isLoading: true);
+    try{
+      final res = await db.from('cart').select().eq('user_id', uid).order('created_at', ascending: false);
+      await _syncCartWithProducts(List<Map<String,dynamic>>.from(res));
+    }catch(e){ debugPrint('loadCart $e'); }
+    finally{ state = state.copyWith(isLoading: false); }
   }
 
-  // ============================================================
-  // AJOUTER AU PANIER
-  // ============================================================
-  Future<void> addToCart({
-    required String productId,
-    int quantity = 1,
-    String? variant,
-    String? color,
-  }) async {
-    if (_currentUserId == null) {
-      throw Exception('Veuillez vous connecter');
-    }
-
-    try {
-      final existingItem = _cartItems.firstWhere(
-        (item) =>
-            item['product_id'] == productId &&
-            item['variant'] == variant &&
-            item['color'] == color,
-        orElse: () => {},
-      );
-
-      if (existingItem.isNotEmpty) {
-        final newQuantity = (existingItem['quantity'] ?? 0) + quantity;
-        await updateQuantity(existingItem['id'], newQuantity);
+  Future<void> addToCart({required String productId, int quantity=1, String? variant, String? color}) async {
+    final db = ref.read(supabaseClientProvider);
+    final uid = db.auth.currentUser?.id;
+    if(uid==null) throw Exception('Veuillez vous connecter');
+    try{
+      Map<String,dynamic>? existing;
+      for(final i in state.items){ if(i['product_id']==productId && i['variant']==variant && i['color']==color){ existing=i; break; } }
+      if(existing!=null){
+        int cur = 0;
+        if(existing['quantity'] is num) cur = (existing['quantity'] as num).toInt(); else cur = int.tryParse(existing['quantity'].toString())??0;
+        await updateQuantity(existing['id'].toString(), cur + quantity);
       } else {
-        await _supabase.from('cart').insert({
-          'user_id': _currentUserId,
-          'product_id': productId,
-          'quantity': quantity,
-          'variant': variant,
-          'color': color,
-          'created_at': DateTime.now().toIso8601String(),
-        });
+        await db.from('cart').insert({'user_id': uid, 'product_id': productId, 'quantity': quantity, 'variant': variant, 'color': color});
       }
-
       await loadCart();
-    } catch (e) {
-      debugPrint('Error adding to cart: $e');
-      rethrow;
-    }
+    }catch(e){ debugPrint('addToCart $e'); rethrow; }
   }
 
-  // ============================================================
-  // METTRE À JOUR LA QUANTITÉ
-  // ============================================================
   Future<void> updateQuantity(String cartItemId, int newQuantity) async {
-    if (newQuantity <= 0) {
-      await removeFromCart(cartItemId);
-      return;
-    }
-
-    try {
-      await _supabase
-          .from('cart')
-          .update({'quantity': newQuantity})
-          .eq('id', cartItemId);
-
-      final index = _cartItems.indexWhere((item) => item['id'] == cartItemId);
-      if (index != -1) {
-        _cartItems[index]['quantity'] = newQuantity;
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('Error updating quantity: $e');
-      rethrow;
-    }
+    if(newQuantity<=0){ await removeFromCart(cartItemId); return; }
+    try{
+      final db = ref.read(supabaseClientProvider);
+      await db.from('cart').update({'quantity': newQuantity}).eq('id', cartItemId);
+      List<Map<String,dynamic>> newItems = [...state.items];
+      int idx = newItems.indexWhere((i)=> i['id'].toString()==cartItemId);
+      if(idx!=-1){ newItems[idx] = {...newItems[idx], 'quantity': newQuantity}; state = state.copyWith(items: newItems); }
+    }catch(e){ debugPrint('updateQty $e'); rethrow; }
   }
 
-  // ============================================================
-  // SUPPRIMER DU PANIER
-  // ============================================================
   Future<void> removeFromCart(String cartItemId) async {
-    try {
-      await _supabase
-          .from('cart')
-          .delete()
-          .eq('id', cartItemId);
-
-      _cartItems.removeWhere((item) => item['id'] == cartItemId);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error removing from cart: $e');
-      rethrow;
-    }
+    try{
+      final db = ref.read(supabaseClientProvider);
+      await db.from('cart').delete().eq('id', cartItemId);
+      state = state.copyWith(items: state.items.where((i)=> i['id'].toString()!=cartItemId).toList());
+    }catch(e){ debugPrint('remove $e'); rethrow; }
   }
 
-  // ============================================================
-  // VIDER LE PANIER
-  // ============================================================
   Future<void> clearCart() async {
-    if (_currentUserId == null) return;
-
-    try {
-      await _supabase
-          .from('cart')
-          .delete()
-          .eq('user_id', _currentUserId!);
-
-      _cartItems.clear();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error clearing cart: $e');
-      rethrow;
-    }
+    final db = ref.read(supabaseClientProvider);
+    final uid = db.auth.currentUser?.id;
+    if(uid==null) return;
+    try{ await db.from('cart').delete().eq('user_id', uid); state = const CartState(); }catch(e){ debugPrint('clear $e'); rethrow; }
   }
+
+  @override void dispose(){ _sub?.cancel(); _authSub?.cancel(); super.dispose(); }
 }
+
+final cartProvider = StateNotifierProvider<CartNotifier, CartState>((ref)=> CartNotifier(ref));
+// Compat providers pour UI existante
+final cartItemsProvider = Provider<List<Map<String,dynamic>>>((ref)=> ref.watch(cartProvider).items);
+final cartTotalProvider = Provider<double>((ref){ final n = ref.read(cartProvider.notifier); return n.total; });
+final cartCountProvider = Provider<int>((ref){ final n = ref.read(cartProvider.notifier); return n.itemCount; });

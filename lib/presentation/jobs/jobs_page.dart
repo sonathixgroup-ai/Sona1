@@ -1,10 +1,26 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thix_id/models/job_posting.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/job_service.dart';
-import 'package:thix_id/theme.dart';
+
+// ============================================================
+// CHARTE GRAPHIQUE UNIFIÉE — Style "Mon Pays" / Événement
+// ============================================================
+class _JobColors {
+  static const Color primaryBlue = Color(0xFF0B3D91);
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color lightBg = Color(0xFFF6F8FB);
+  static const Color gold = Color(0xFFF7C948);
+  static const Color mutedText = Color(0xFF6B7690);
+  static const Color cardBorder = Color(0xFFEEF1F7);
+  static const Color darkText = Color(0xFF10182B);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color softBlue = Color(0xFFEEF1F7);
+  static const Color success = Color(0xFF00B074);
+}
 
 class JobsPage extends StatefulWidget {
   const JobsPage({super.key});
@@ -16,22 +32,24 @@ class JobsPage extends StatefulWidget {
 class _JobsPageState extends State<JobsPage> {
   final _service = JobService();
   final _searchCtrl = TextEditingController();
-  final _featuredCtrl = ScrollController();
-  final _suggestCtrl = ScrollController();
+  
   bool _loading = true;
   String? _error;
   List<JobPosting> _jobs = const [];
   Set<String> _saved = const {};
 
-  int _featuredIndex = 0;
-  bool _featuredAutoplayStarted = false;
-
-  int _suggestIndex = 0;
-  bool _suggestAutoplayStarted = false;
-
-  // Filters (kept intentionally simple)
+  // Filtres
+  String _selectedCategory = 'all';
   final Set<String> _typeFilters = {};
   final Set<String> _workModeFilters = {};
+
+  final List<Map<String, dynamic>> _categories = [
+    {'id': 'all', 'icon': Icons.apps_rounded, 'label': 'Toutes'},
+    {'id': 'remote', 'icon': Icons.laptop_mac_rounded, 'label': 'Télétravail'},
+    {'id': 'full_time', 'icon': Icons.work_rounded, 'label': 'Temps plein'},
+    {'id': 'part_time', 'icon': Icons.schedule_rounded, 'label': 'Temps partiel'},
+    {'id': 'internship', 'icon': Icons.school_rounded, 'label': 'Stage'},
+  ];
 
   @override
   void initState() {
@@ -42,65 +60,7 @@ class _JobsPageState extends State<JobsPage> {
   @override
   void dispose() {
     _searchCtrl.dispose();
-    _featuredCtrl.dispose();
-    _suggestCtrl.dispose();
     super.dispose();
-  }
-
-  void _ensureFeaturedAutoplayStarted() {
-    if (_featuredAutoplayStarted) return;
-    _featuredAutoplayStarted = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startFeaturedAutoplay());
-  }
-
-  void _ensureSuggestAutoplayStarted() {
-    if (_suggestAutoplayStarted) return;
-    _suggestAutoplayStarted = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startSuggestAutoplay());
-  }
-
-  void _startFeaturedAutoplay() {
-    if (!mounted) return;
-    if (!_featuredCtrl.hasClients) {
-      Future<void>.delayed(const Duration(milliseconds: 250), _startFeaturedAutoplay);
-      return;
-    }
-    Future<void>.delayed(const Duration(seconds: 4), () {
-      if (!mounted) return;
-      if (!_featuredCtrl.hasClients) return;
-      final featured = _featured;
-      if (featured.length <= 1) {
-        _featuredIndex = 0;
-        _startFeaturedAutoplay();
-        return;
-      }
-      _featuredIndex = (_featuredIndex + 1) % featured.length;
-      final target = _featuredIndex * _FeaturedJobsRow.cardWidth;
-      _featuredCtrl.animateTo(target, duration: const Duration(milliseconds: 520), curve: Curves.easeOutCubic);
-      _startFeaturedAutoplay();
-    });
-  }
-
-  void _startSuggestAutoplay() {
-    if (!mounted) return;
-    if (!_suggestCtrl.hasClients) {
-      Future<void>.delayed(const Duration(milliseconds: 250), _startSuggestAutoplay);
-      return;
-    }
-    Future<void>.delayed(const Duration(seconds: 4), () {
-      if (!mounted) return;
-      if (!_suggestCtrl.hasClients) return;
-      final list = _suggestions;
-      if (list.length <= 1) {
-        _suggestIndex = 0;
-        _startSuggestAutoplay();
-        return;
-      }
-      _suggestIndex = (_suggestIndex + 1) % list.length;
-      final target = _suggestIndex * _SuggestedJobsRow.cardWidth;
-      _suggestCtrl.animateTo(target, duration: const Duration(milliseconds: 520), curve: Curves.easeOutCubic);
-      _startSuggestAutoplay();
-    });
   }
 
   Future<void> _load() async {
@@ -124,6 +84,20 @@ class _JobsPageState extends State<JobsPage> {
     }
   }
 
+  void _applyCategoryFilter(String categoryId) {
+    setState(() {
+      _selectedCategory = categoryId;
+      _typeFilters.clear();
+      _workModeFilters.clear();
+
+      if (categoryId == 'remote') {
+        _workModeFilters.add('remote');
+      } else if (categoryId != 'all') {
+        _typeFilters.add(categoryId);
+      }
+    });
+  }
+
   List<JobPosting> get _filtered {
     final q = _searchCtrl.text.trim().toLowerCase();
     return _jobs.where((j) {
@@ -134,9 +108,10 @@ class _JobsPageState extends State<JobsPage> {
       if (_typeFilters.isNotEmpty && !_typeFilters.contains(j.type.toLowerCase())) return false;
       final wm = (j.workMode ?? '').trim().toLowerCase();
       if (_workModeFilters.isNotEmpty && (wm.isEmpty || !_workModeFilters.contains(wm))) return false;
-      // Only show approved when status exists.
+      
       final st = (j.status ?? '').trim().toLowerCase();
       if (st.isNotEmpty && st != 'approved') return false;
+      
       return true;
     }).toList(growable: false);
   }
@@ -157,17 +132,6 @@ class _JobsPageState extends State<JobsPage> {
     return tagged.take(3).toList(growable: false);
   }
 
-  Future<void> _openFilters() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _JobsFilterSheet(typeFilters: _typeFilters, workModeFilters: _workModeFilters),
-    );
-    if (!mounted) return;
-    setState(() {});
-  }
-
   void _openJob(JobPosting j) => context.push('/jobs/${j.id}');
 
   Future<void> _toggleSave(JobPosting j) async {
@@ -183,8 +147,6 @@ class _JobsPageState extends State<JobsPage> {
       _saved = next;
     });
     await _service.toggleSavedRemote(jobId: id, save: shouldSave);
-    if (!mounted) return;
-    setState(() {});
   }
 
   @override
@@ -195,375 +157,640 @@ class _JobsPageState extends State<JobsPage> {
     final featuredIds = featured.map((e) => e.id).toSet();
     final suggestionIds = suggestions.map((e) => e.id).toSet();
     final otherJobs = jobs.where((j) => !featuredIds.contains(j.id) && !suggestionIds.contains(j.id)).toList(growable: false);
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final accent = isDark ? InstitutionalColors.civicBlueSoft : InstitutionalColors.civicBlue;
-    final divider = isDark ? Colors.white.withValues(alpha: 0.10) : LightModeColors.divider;
-
-    if (featured.isNotEmpty) _ensureFeaturedAutoplayStarted();
-    if (suggestions.isNotEmpty) _ensureSuggestAutoplayStarted();
 
     return Scaffold(
-      backgroundColor: isDark ? DarkModeColors.cyberDarkBlue : LightModeColors.background,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            _ThixInfoBackground(isDark: isDark),
-            Column(
+      backgroundColor: _JobColors.lightBg,
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _buildHeader(context)),
+          
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.md),
-                  child: Column(
-                    children: [
-                      Row(
+                const SizedBox(height: 12),
+                _buildSearchBar(),
+                const SizedBox(height: 20),
+                _buildCategorySection(),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+
+          SliverToBoxAdapter(
+            child: _loading
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(_JobColors.primaryBlue)),
+                    ),
+                  )
+                : (_error != null)
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        child: Center(child: Text(_error!, style: const TextStyle(color: _JobColors.mutedText))),
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          IconButton(
-                            onPressed: () => context.popOrGo(AppRoutes.home),
-                            icon: Icon(Icons.arrow_back_ios_new_rounded, color: cs.onSurface),
+                          if (featured.isNotEmpty) ...[
+                            _buildSectionHeader('À la une', null),
+                            const SizedBox(height: 12),
+                            FeaturedJobsCarousel(
+                              jobs: featured,
+                              onOpen: _openJob,
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+
+                          if (suggestions.isNotEmpty) ...[
+                            _buildSectionHeader('Suggestions pour vous', null),
+                            const SizedBox(height: 12),
+                            SuggestedJobsCarousel(
+                              jobs: suggestions,
+                              onOpen: _openJob,
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: _buildNotificationBanner(),
                           ),
-                          Expanded(
-                            child: Text('Emploi', style: context.textStyles.titleLarge?.copyWith(color: cs.onSurface, fontWeight: FontWeight.w900)),
-                          ),
-                            _ThixIconButton(icon: Icons.dashboard_rounded, tooltip: 'Dashboard', onTap: () => context.push(AppRoutes.jobDashboard), accent: accent, divider: divider),
-                          const SizedBox(width: 10),
-                            _ThixIconButton(icon: Icons.tune_rounded, tooltip: 'Filtres', onTap: _openFilters, accent: accent, divider: divider),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _ThixSearchBar(
-                        controller: _searchCtrl,
-                        hint: 'Rechercher: titre, entreprise, compétences, ville…',
-                        onChanged: (_) => setState(() {}),
-                        onClear: () {
-                          _searchCtrl.clear();
-                          setState(() {});
-                        },
-                        accent: accent,
-                        divider: divider,
-                        surface: cs.surface,
-                        onSurface: cs.onSurface,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      _SimpleActiveFiltersRow(
-                        typeFilters: _typeFilters,
-                        workModeFilters: _workModeFilters,
-                        onClearAll: () => setState(() {
-                          _typeFilters.clear();
-                          _workModeFilters.clear();
-                        }),
-                        accent: accent,
-                        divider: divider,
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: _loading
-                      ? Center(child: CircularProgressIndicator(color: accent))
-                      : (_error != null)
-                          ? Center(child: Text(_error!, style: context.textStyles.bodyLarge?.copyWith(color: cs.onSurface.withValues(alpha: 0.72))))
-                          : RefreshIndicator(
-                              color: accent,
-                              onRefresh: _load,
-                              child: ListView(
-                                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xxl),
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.shield_rounded, size: 18, color: accent),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            'Offres vérifiées, parcours clair, candidature sécurisée.',
-                                            style: context.textStyles.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.75), height: 1.4),
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(AppRadius.full),
-                                            border: Border.all(color: divider),
-                                            color: cs.surface.withValues(alpha: isDark ? 0.60 : 0.92),
-                                          ),
-                                          child: Text('${jobs.length}', style: context.textStyles.labelLarge?.copyWith(color: cs.onSurface.withValues(alpha: 0.85), fontWeight: FontWeight.w900)),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (featured.isNotEmpty) ...[
-                                    _SectionHeader(title: 'À la une', subtitle: 'Les opportunités mises en avant', accent: accent, onSurface: cs.onSurface),
-                                    const SizedBox(height: 10),
-                                    _FeaturedJobsRow(
-                                      controller: _featuredCtrl,
-                                      jobs: featured,
-                                      onOpen: _openJob,
-                                      accent: accent,
-                                      divider: divider,
-                                      surface: cs.surface,
-                                      onSurface: cs.onSurface,
-                                    ),
-                                    const SizedBox(height: AppSpacing.lg),
+                          const SizedBox(height: 24),
+
+                          _buildSectionHeader('Toutes les offres (${otherJobs.length})', null),
+                          const SizedBox(height: 12),
+
+                          if (jobs.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Container(
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: _JobColors.pureWhite,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: _JobColors.cardBorder),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.search_off_rounded, size: 48, color: _JobColors.mutedText.withOpacity(0.5)),
+                                    const SizedBox(height: 12),
+                                    const Text('Aucune offre trouvée.', style: TextStyle(color: _JobColors.mutedText, fontWeight: FontWeight.w600)),
                                   ],
-                                  if (suggestions.isNotEmpty) ...[
-                                    _SectionHeader(title: 'Suggestions pour vous', subtitle: '3 offres sélectionnées', accent: accent, onSurface: cs.onSurface),
-                                    const SizedBox(height: 10),
-                                    _SuggestedJobsRow(
-                                      controller: _suggestCtrl,
-                                      jobs: suggestions,
-                                      onOpen: _openJob,
-                                      accent: accent,
-                                      divider: divider,
-                                      surface: cs.surface,
-                                      onSurface: cs.onSurface,
-                                    ),
-                                    const SizedBox(height: AppSpacing.lg),
-                                  ],
-                                  if (jobs.isEmpty)
-                                    _ThixEmptyState(
-                                      onClear: () {
-                                        _searchCtrl.clear();
-                                        setState(() {});
-                                      },
-                                      accent: accent,
-                                      divider: divider,
-                                      surface: cs.surface,
-                                      onSurface: cs.onSurface,
-                                    )
-                                  else
-                                    if (otherJobs.isEmpty)
-                                      _NoOtherOffersCard(accent: accent, divider: divider, surface: cs.surface, onSurface: cs.onSurface)
-                                    else
-                                      ...otherJobs.take(50).map(
-                                            (j) => Padding(
-                                              padding: const EdgeInsets.only(bottom: 12),
-                                              child: _ThixJobTile(
-                                                job: j,
-                                                saved: _saved.contains(j.id),
-                                                onSave: () => _toggleSave(j),
-                                                onOpen: () => _openJob(j),
-                                                accent: accent,
-                                                divider: divider,
-                                                surface: cs.surface,
-                                                onSurface: cs.onSurface,
-                                              ),
-                                            ),
-                                          ),
-                                ],
+                                ),
+                              ),
+                            )
+                          else
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Column(
+                                children: otherJobs.take(50).map((j) => _JobCard(
+                                  job: j,
+                                  saved: _saved.contains(j.id),
+                                  onSave: () => _toggleSave(j),
+                                  onOpen: () => _openJob(j),
+                                )).toList(),
                               ),
                             ),
+                          const SizedBox(height: 80),
+                        ],
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // HEADER
+  // ============================================================
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 48, 16, 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_JobColors.navyDeep, _JobColors.primaryBlue],
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(26),
+          bottomRight: Radius.circular(26),
+        ),
+        boxShadow: [
+          BoxShadow(color: Color(0x332D6CDF), blurRadius: 22, offset: Offset(0, 10)),
+        ],
+      ),
+      child: Row(
+        children: [
+          InkWell(
+            onTap: () => context.go(AppRoutes.home),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'THIX EMPLOI',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Offres vérifiées, parcours sécurisé.',
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
                 ),
               ],
             ),
+          ),
+          InkWell(
+            onTap: () => context.push(AppRoutes.jobDashboard),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.dashboard_rounded, color: Colors.white, size: 20),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // RECHERCHE
+  // ============================================================
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: _JobColors.pureWhite,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _JobColors.cardBorder),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.search_rounded, size: 18, color: _JobColors.mutedText),
+            const SizedBox(width: 9),
+            Expanded(
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (_) => setState(() {}),
+                style: const TextStyle(fontSize: 13, color: _JobColors.darkText, fontWeight: FontWeight.w600),
+                decoration: const InputDecoration(
+                  hintText: 'Titre, entreprise, ville...',
+                  hintStyle: TextStyle(fontSize: 12.5, color: _JobColors.mutedText, fontWeight: FontWeight.normal),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+            if (_searchCtrl.text.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  _searchCtrl.clear();
+                  setState(() {});
+                },
+                child: const Icon(Icons.close_rounded, size: 16, color: _JobColors.mutedText),
+              ),
           ],
         ),
       ),
     );
   }
-}
 
-class _ThixInfoBackground extends StatelessWidget {
-  final bool isDark;
-  const _ThixInfoBackground({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final navy = isDark ? DarkModeColors.primary : InstitutionalColors.navy;
-    final navy2 = isDark ? DarkModeColors.cyberDarkBlue : InstitutionalColors.navy2;
-    final accent = isDark ? InstitutionalColors.civicBlueSoft : InstitutionalColors.civicBlue;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [navy.withValues(alpha: 0.98), navy2.withValues(alpha: 0.94), accent.withValues(alpha: 0.10)],
+  // ============================================================
+  // CATÉGORIES (Quick Access)
+  // ============================================================
+  Widget _buildCategorySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Catégories',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _JobColors.primaryBlue),
+          ),
         ),
-      ),
-      child: const SizedBox.expand(),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 85,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: _categories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final cat = _categories[index];
+              final isSelected = _selectedCategory == cat['id'];
+              
+              return InkWell(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  _applyCategoryFilter(cat['id']);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 75,
+                  decoration: BoxDecoration(
+                    color: isSelected ? _JobColors.primaryBlue : _JobColors.pureWhite,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isSelected ? Colors.transparent : _JobColors.cardBorder),
+                    boxShadow: isSelected 
+                      ? [BoxShadow(color: _JobColors.primaryBlue.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] 
+                      : [],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(cat['icon'] as IconData, color: isSelected ? _JobColors.gold : _JobColors.primaryBlue, size: 24),
+                      const SizedBox(height: 6),
+                      Text(
+                        cat['label'] as String,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          color: isSelected ? Colors.white : _JobColors.darkText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
-}
 
-class _ThixSearchBar extends StatelessWidget {
-  final TextEditingController controller;
-  final String hint;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
-  final Color accent;
-  final Color divider;
-  final Color surface;
-  final Color onSurface;
+  // ============================================================
+  // EN-TÊTE DE SECTION
+  // ============================================================
+  Widget _buildSectionHeader(String title, VoidCallback? onTap) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _JobColors.primaryBlue)),
+          if (onTap != null)
+            GestureDetector(
+              onTap: onTap,
+              child: const Row(
+                children: [
+                  Text('Voir tout', style: TextStyle(fontSize: 12, color: Color(0xFF5B8DEF), fontWeight: FontWeight.w700)),
+                  SizedBox(width: 2),
+                  Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFF5B8DEF)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
-  const _ThixSearchBar({
-    required this.controller,
-    required this.hint,
-    required this.onChanged,
-    required this.onClear,
-    required this.accent,
-    required this.divider,
-    required this.surface,
-    required this.onSurface,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  // ============================================================
+  // BANNIÈRE
+  // ============================================================
+  Widget _buildNotificationBanner() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: surface.withValues(alpha: isDark ? 0.55 : 0.92),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: divider),
+        color: _JobColors.primaryBlue,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: _JobColors.primaryBlue.withOpacity(0.2), blurRadius: 16, offset: const Offset(0, 8)),
+        ],
       ),
       child: Row(
         children: [
-          Icon(Icons.search_rounded, color: onSurface.withValues(alpha: 0.65)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              style: context.textStyles.bodyMedium?.copyWith(color: onSurface, fontWeight: FontWeight.w700),
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: hint,
-                hintStyle: context.textStyles.bodyMedium?.copyWith(color: onSurface.withValues(alpha: 0.60)),
-                border: InputBorder.none,
-              ),
+          const Icon(Icons.notifications_active_rounded, color: _JobColors.gold, size: 28),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Alerte Emploi', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                SizedBox(height: 2),
+                Text('Soyez notifié des nouvelles offres.', style: TextStyle(color: Colors.white70, fontSize: 11, height: 1.3)),
+              ],
             ),
           ),
-          if (controller.text.trim().isNotEmpty)
-            IconButton(
-              onPressed: onClear,
-              icon: Icon(Icons.close_rounded, color: onSurface.withValues(alpha: 0.65)),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _JobColors.gold,
+              foregroundColor: _JobColors.primaryBlue,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
+            child: const Text('Activer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+          ),
         ],
       ),
     );
   }
 }
 
-class _ThixIconButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-  final Color accent;
-  final Color divider;
-  const _ThixIconButton({required this.icon, required this.tooltip, required this.onTap, required this.accent, required this.divider});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        splashFactory: NoSplash.splashFactory,
-        highlightColor: Colors.transparent,
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            color: cs.surface.withValues(alpha: isDark ? 0.55 : 0.92),
-            border: Border.all(color: divider),
-          ),
-          child: Icon(icon, color: accent),
-        ),
-      ),
-    );
-  }
-}
-
-class _ThixJobTile extends StatelessWidget {
+// ============================================================
+// CARTE EMPLOI (Liste verticale)
+// ============================================================
+class _JobCard extends StatelessWidget {
   final JobPosting job;
   final bool saved;
   final VoidCallback onSave;
   final VoidCallback onOpen;
-  final Color accent;
-  final Color divider;
-  final Color surface;
-  final Color onSurface;
 
-  const _ThixJobTile({
-    required this.job,
-    required this.saved,
-    required this.onSave,
-    required this.onOpen,
-    required this.accent,
-    required this.divider,
-    required this.surface,
-    required this.onSurface,
-  });
+  const _JobCard({required this.job, required this.saved, required this.onSave, required this.onOpen});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final border = job.isVerifiedEmployer ? accent : divider;
     final hasPhoto = (job.companyLogoUrl ?? '').trim().startsWith('http');
-    return InkWell(
-      onTap: onOpen,
-      splashFactory: NoSplash.splashFactory,
-      highlightColor: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: surface.withValues(alpha: isDark ? 0.55 : 0.92),
-          borderRadius: BorderRadius.circular(AppRadius.xl),
-          border: Border.all(color: border.withValues(alpha: 0.65)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                color: Theme.of(context).colorScheme.surface,
-                border: Border.all(color: divider),
+    final borderCol = job.isVerifiedEmployer ? _JobColors.primaryBlue.withOpacity(0.3) : _JobColors.cardBorder;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: _JobColors.pureWhite,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderCol),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: _JobColors.softBlue,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _JobColors.cardBorder),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: hasPhoto
+                    ? Image.network(job.companyLogoUrl!, fit: BoxFit.cover)
+                    : Center(child: Icon(job.isVerifiedEmployer ? Icons.verified_rounded : Icons.business_rounded, color: _JobColors.primaryBlue)),
               ),
-              clipBehavior: Clip.antiAlias,
-              child: hasPhoto
-                  ? Image.network(job.companyLogoUrl!, fit: BoxFit.cover)
-                  : DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [accent.withValues(alpha: 0.95), Theme.of(context).colorScheme.primary.withValues(alpha: 0.90)],
-                        ),
-                      ),
-                      child: Center(child: Icon(job.isVerifiedEmployer ? Icons.verified_rounded : Icons.business_rounded, color: Colors.white)),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      job.title,
+                      style: const TextStyle(fontSize: 14.5, color: _JobColors.darkText, fontWeight: FontWeight.w900, height: 1.2),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${job.company} • ${job.location}',
+                      style: const TextStyle(fontSize: 11.5, color: _JobColors.mutedText, fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _MetaPill(icon: Icons.payments_rounded, label: job.salary),
+                        _MetaPill(icon: Icons.category_rounded, label: job.type),
+                        if (job.isSuggested) _MetaPill(icon: Icons.auto_awesome_rounded, label: 'Suggéré', highlight: true),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: onSave,
+                icon: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded, color: saved ? _JobColors.gold : _JobColors.mutedText, size: 22),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MetaPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool highlight;
+
+  const _MetaPill({required this.icon, required this.label, this.highlight = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: highlight ? _JobColors.gold.withOpacity(0.15) : _JobColors.softBlue,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: highlight ? _JobColors.navyDeep : _JobColors.mutedText),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: highlight ? _JobColors.navyDeep : _JobColors.mutedText)),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// CARROUSEL "À LA UNE"
+// ============================================================
+class FeaturedJobsCarousel extends StatefulWidget {
+  final List<JobPosting> jobs;
+  final ValueChanged<JobPosting> onOpen;
+
+  const FeaturedJobsCarousel({super.key, required this.jobs, required this.onOpen});
+
+  @override
+  State<FeaturedJobsCarousel> createState() => _FeaturedJobsCarouselState();
+}
+
+class _FeaturedJobsCarouselState extends State<FeaturedJobsCarousel> {
+  late final PageController _controller;
+  Timer? _timer;
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(viewportFraction: 0.88);
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || widget.jobs.isEmpty) return;
+      final next = (_index + 1) % widget.jobs.length;
+      _controller.animateToPage(next, duration: const Duration(milliseconds: 600), curve: Curves.easeOutCubic);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.jobs.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 200,
+      child: Column(
+        children: [
+          Expanded(
+            child: PageView.builder(
+              controller: _controller,
+              itemCount: widget.jobs.length,
+              onPageChanged: (i) => setState(() => _index = i),
+              itemBuilder: (context, i) {
+                final j = widget.jobs[i];
+                return Padding(
+                  padding: EdgeInsets.only(right: i == widget.jobs.length - 1 ? 0 : 12, left: i == 0 ? 16 : 4),
+                  child: _FeaturedJobCard(job: j, onTap: () => widget.onOpen(j)),
+                );
+              },
             ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(widget.jobs.length, (i) {
+              final active = i == _index;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                height: 6,
+                width: active ? 18 : 6,
+                decoration: BoxDecoration(
+                  color: active ? _JobColors.primaryBlue : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeaturedJobCard extends StatelessWidget {
+  final JobPosting job;
+  final VoidCallback onTap;
+
+  const _FeaturedJobCard({required this.job, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto = (job.companyLogoUrl ?? '').trim().startsWith('http');
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [BoxShadow(color: _JobColors.navyDeep.withOpacity(0.15), blurRadius: 15, offset: const Offset(0, 8))],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (hasPhoto)
+              Image.network(job.companyLogoUrl!, fit: BoxFit.cover)
+            else
+              Container(color: _JobColors.navyDeep),
+            
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [_JobColors.primaryBlue.withOpacity(0.95), Colors.transparent],
+                  stops: const [0, 0.7],
+                ),
+              ),
+            ),
+            
+            Positioned(
+              top: 14,
+              left: 14,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: _JobColors.gold, borderRadius: BorderRadius.circular(8)),
+                child: const Text('À LA UNE', style: TextStyle(fontSize: 9, color: _JobColors.navyDeep, fontWeight: FontWeight.w900)),
+              ),
+            ),
+            
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(job.title, style: context.textStyles.titleMedium?.copyWith(color: onSurface, fontWeight: FontWeight.w900), maxLines: 2, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  Text('${job.company} • ${job.location}', style: context.textStyles.bodySmall?.copyWith(color: onSurface.withValues(alpha: 0.70)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(
+                    job.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w900, height: 1.15),
+                  ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  Row(
                     children: [
-                      _ThixMetaPill(icon: Icons.payments_rounded, label: job.salary, divider: divider, surface: surface, onSurface: onSurface),
-                      _ThixMetaPill(icon: Icons.category_rounded, label: job.type, divider: divider, surface: surface, onSurface: onSurface),
-                      if (job.isSuggested) _ThixMetaPill(icon: Icons.auto_awesome_rounded, label: 'Suggestion', divider: divider, surface: surface, onSurface: onSurface),
+                      const Icon(Icons.business_rounded, size: 16, color: _JobColors.gold),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '${job.company} • ${job.location}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: _JobColors.gold, fontWeight: FontWeight.w800),
+                        ),
+                      ),
                     ],
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 10),
-            IconButton(
-              onPressed: onSave,
-              icon: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded, color: saved ? accent : onSurface.withValues(alpha: 0.65)),
             ),
           ],
         ),
@@ -572,538 +799,60 @@ class _ThixJobTile extends StatelessWidget {
   }
 }
 
-class _ThixMetaPill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color divider;
-  final Color surface;
-  final Color onSurface;
-  const _ThixMetaPill({required this.icon, required this.label, required this.divider, required this.surface, required this.onSurface});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.full),
-        color: surface.withValues(alpha: isDark ? 0.40 : 0.85),
-        border: Border.all(color: divider),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: onSurface.withValues(alpha: 0.65)),
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 170),
-            child: Text(label, style: context.textStyles.labelMedium?.copyWith(color: onSurface, fontWeight: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NoOtherOffersCard extends StatelessWidget {
-  final Color accent;
-  final Color divider;
-  final Color surface;
-  final Color onSurface;
-  const _NoOtherOffersCard({required this.accent, required this.divider, required this.surface, required this.onSurface});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: surface.withValues(alpha: isDark ? 0.55 : 0.92),
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        border: Border.all(color: divider),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline_rounded, color: accent),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(child: Text("Pas d'autres offres pour l'instant.", style: context.textStyles.bodyMedium?.copyWith(color: onSurface.withValues(alpha: 0.80), fontWeight: FontWeight.w700))),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThixEmptyState extends StatelessWidget {
-  final VoidCallback? onClear;
-  final Color accent;
-  final Color divider;
-  final Color surface;
-  final Color onSurface;
-  const _ThixEmptyState({required this.onClear, required this.accent, required this.divider, required this.surface, required this.onSurface});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: surface.withValues(alpha: isDark ? 0.55 : 0.92),
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        border: Border.all(color: divider),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.search_off_rounded, color: onSurface.withValues(alpha: 0.65)),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(child: Text('Aucun résultat. Essaie une autre recherche.', style: context.textStyles.bodyMedium?.copyWith(color: onSurface.withValues(alpha: 0.70)))),
-          if (onClear != null)
-            TextButton(
-              onPressed: onClear,
-              style: TextButton.styleFrom(foregroundColor: accent),
-              child: const Text('Effacer'),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SimpleActiveFiltersRow extends StatelessWidget {
-  final Set<String> typeFilters;
-  final Set<String> workModeFilters;
-  final VoidCallback onClearAll;
-  final Color accent;
-  final Color divider;
-  const _SimpleActiveFiltersRow({required this.typeFilters, required this.workModeFilters, required this.onClearAll, required this.accent, required this.divider});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final chips = <String>[...typeFilters, ...workModeFilters];
-    if (chips.isEmpty) return const SizedBox.shrink();
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 38,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: chips.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, i) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                  border: Border.all(color: divider),
-                  color: cs.surface.withValues(alpha: isDark ? 0.55 : 0.92),
-                ),
-                child: Text(chips[i], style: context.textStyles.labelMedium?.copyWith(color: cs.onSurface, fontWeight: FontWeight.w800)),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        _ThixIconButton(icon: Icons.delete_sweep_rounded, tooltip: 'Tout effacer', onTap: onClearAll, accent: accent, divider: divider),
-      ],
-    );
-  }
-}
-
-class _JobsFilterSheet extends StatefulWidget {
-  final Set<String> typeFilters;
-  final Set<String> workModeFilters;
-  const _JobsFilterSheet({required this.typeFilters, required this.workModeFilters});
-
-  @override
-  State<_JobsFilterSheet> createState() => _JobsFilterSheetState();
-}
-
-class _JobsFilterSheetState extends State<_JobsFilterSheet> {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final accent = isDark ? InstitutionalColors.civicBlueSoft : InstitutionalColors.civicBlue;
-    final divider = isDark ? Colors.white.withValues(alpha: 0.10) : LightModeColors.divider;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cs.surface.withValues(alpha: isDark ? 0.92 : 0.96),
-          borderRadius: const BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28)),
-          border: Border.all(color: divider),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: Text('Filtres', style: context.textStyles.titleLarge?.copyWith(color: cs.onSurface, fontWeight: FontWeight.w900))),
-                      IconButton(onPressed: () => context.pop(), icon: Icon(Icons.close_rounded, color: cs.onSurface.withValues(alpha: 0.70))),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _FilterGroupTitle(title: 'Type de contrat', onSurface: cs.onSurface),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _chip(value: 'full_time', label: 'Full-time', accent: accent, divider: divider, onSurface: cs.onSurface),
-                      _chip(value: 'part_time', label: 'Part-time', accent: accent, divider: divider, onSurface: cs.onSurface),
-                      _chip(value: 'internship', label: 'Internship', accent: accent, divider: divider, onSurface: cs.onSurface),
-                      _chip(value: 'freelance', label: 'Freelance', accent: accent, divider: divider, onSurface: cs.onSurface),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  _FilterGroupTitle(title: 'Mode de travail', onSurface: cs.onSurface),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _chipWorkMode(value: 'remote', label: 'Remote', accent: accent, divider: divider, onSurface: cs.onSurface),
-                      _chipWorkMode(value: 'hybrid', label: 'Hybrid', accent: accent, divider: divider, onSurface: cs.onSurface),
-                      _chipWorkMode(value: 'on_site', label: 'On-site', accent: accent, divider: divider, onSurface: cs.onSurface),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            widget.typeFilters.clear();
-                            widget.workModeFilters.clear();
-                            setState(() {});
-                          },
-                          style: OutlinedButton.styleFrom(foregroundColor: cs.onSurface, side: BorderSide(color: divider), padding: const EdgeInsets.symmetric(vertical: 14)),
-                          child: const Text('Reset'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () => context.pop(),
-                          style: FilledButton.styleFrom(backgroundColor: accent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
-                          child: const Text('Appliquer'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _chip({required String value, required String label, required Color accent, required Color divider, required Color onSurface}) {
-    final selected = widget.typeFilters.contains(value);
-    return _chipValue(
-      label: label,
-      selected: selected,
-      onTap: () => setState(() {
-        if (selected) {
-          widget.typeFilters.remove(value);
-        } else {
-          widget.typeFilters.add(value);
-        }
-      }),
-      accent: accent,
-      divider: divider,
-      onSurface: onSurface,
-    );
-  }
-
-  Widget _chipWorkMode({required String value, required String label, required Color accent, required Color divider, required Color onSurface}) {
-    final selected = widget.workModeFilters.contains(value);
-    return _chipValue(
-      label: label,
-      selected: selected,
-      onTap: () => setState(() {
-        if (selected) {
-          widget.workModeFilters.remove(value);
-        } else {
-          widget.workModeFilters.add(value);
-        }
-      }),
-      accent: accent,
-      divider: divider,
-      onSurface: onSurface,
-    );
-  }
-
-  Widget _chipValue({required String label, required bool selected, required VoidCallback onTap, required Color accent, required Color divider, required Color onSurface}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return InkWell(
-      onTap: onTap,
-      splashFactory: NoSplash.splashFactory,
-      highlightColor: Colors.transparent,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadius.full),
-          color: selected ? accent.withValues(alpha: isDark ? 0.18 : 0.14) : Theme.of(context).colorScheme.surface.withValues(alpha: isDark ? 0.65 : 0.92),
-          border: Border.all(color: selected ? accent.withValues(alpha: 0.65) : divider),
-        ),
-        child: Text(label, style: context.textStyles.labelLarge?.copyWith(color: onSurface, fontWeight: FontWeight.w900)),
-      ),
-    );
-  }
-}
-
-class _FilterGroupTitle extends StatelessWidget {
-  final String title;
-  final Color onSurface;
-  const _FilterGroupTitle({required this.title, required this.onSurface});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(title, style: context.textStyles.titleSmall?.copyWith(color: onSurface, fontWeight: FontWeight.w900));
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Color accent;
-  final Color onSurface;
-  const _SectionHeader({required this.title, required this.subtitle, required this.accent, required this.onSurface});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(width: 10, height: 10, decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(999))),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: context.textStyles.titleMedium?.copyWith(color: onSurface, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 2),
-              Text(subtitle, style: context.textStyles.bodySmall?.copyWith(color: onSurface.withValues(alpha: 0.70), height: 1.3)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FeaturedJobsRow extends StatelessWidget {
-  static const double cardWidth = 292;
-  final ScrollController controller;
+// ============================================================
+// CARROUSEL "SUGGESTIONS"
+// ============================================================
+class SuggestedJobsCarousel extends StatelessWidget {
   final List<JobPosting> jobs;
   final ValueChanged<JobPosting> onOpen;
-  final Color accent;
-  final Color divider;
-  final Color surface;
-  final Color onSurface;
 
-  const _FeaturedJobsRow({
-    required this.controller,
-    required this.jobs,
-    required this.onOpen,
-    required this.accent,
-    required this.divider,
-    required this.surface,
-    required this.onSurface,
-  });
+  const SuggestedJobsCarousel({super.key, required this.jobs, required this.onOpen});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
-      height: 172,
+      height: 180,
       child: ListView.separated(
-        controller: controller,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         itemCount: jobs.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, i) {
           final j = jobs[i];
           final hasPhoto = (j.companyLogoUrl ?? '').trim().startsWith('http');
-          return InkWell(
+          
+          return GestureDetector(
             onTap: () => onOpen(j),
-            splashFactory: NoSplash.splashFactory,
-            highlightColor: Colors.transparent,
             child: Container(
-              width: cardWidth,
-              padding: const EdgeInsets.all(14),
+              width: 280,
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadius.xl),
-                border: Border.all(color: accent.withValues(alpha: 0.35)),
-                color: surface.withValues(alpha: isDark ? 0.55 : 0.92),
-              ),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                    child: SizedBox(
-                      width: 86,
-                      height: double.infinity,
-                      child: hasPhoto
-                          ? Image.network(j.companyLogoUrl!, fit: BoxFit.cover)
-                          : DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [accent.withValues(alpha: 0.92), InstitutionalColors.navy.withValues(alpha: 0.95)],
-                                ),
-                              ),
-                              child: Center(child: Icon(Icons.work_rounded, color: Colors.white.withValues(alpha: 0.95))),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(AppRadius.full),
-                            color: accent.withValues(alpha: isDark ? 0.14 : 0.12),
-                            border: Border.all(color: divider),
-                          ),
-                          child: Text('À la une', style: context.textStyles.labelSmall?.copyWith(color: onSurface, fontWeight: FontWeight.w900)),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(j.title, style: context.textStyles.titleSmall?.copyWith(color: onSurface, fontWeight: FontWeight.w900), maxLines: 2, overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 4),
-                        Text(j.company, style: context.textStyles.bodySmall?.copyWith(color: onSurface.withValues(alpha: 0.72)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Icon(Icons.place_rounded, size: 16, color: onSurface.withValues(alpha: 0.60)),
-                            const SizedBox(width: 6),
-                            Expanded(child: Text(j.location, style: context.textStyles.bodySmall?.copyWith(color: onSurface.withValues(alpha: 0.70)), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _SuggestedJobsRow extends StatelessWidget {
-  static const double cardWidth = 320;
-  final ScrollController controller;
-  final List<JobPosting> jobs;
-  final ValueChanged<JobPosting> onOpen;
-  final Color accent;
-  final Color divider;
-  final Color surface;
-  final Color onSurface;
-
-  const _SuggestedJobsRow({
-    required this.controller,
-    required this.jobs,
-    required this.onOpen,
-    required this.accent,
-    required this.divider,
-    required this.surface,
-    required this.onSurface,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return SizedBox(
-      height: 196,
-      child: ListView.separated(
-        controller: controller,
-        scrollDirection: Axis.horizontal,
-        itemCount: jobs.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, i) {
-          final j = jobs[i];
-          final hasPhoto = (j.companyLogoUrl ?? '').trim().startsWith('http');
-          return InkWell(
-            onTap: () => onOpen(j),
-            splashFactory: NoSplash.splashFactory,
-            highlightColor: Colors.transparent,
-            child: Container(
-              width: cardWidth,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadius.xl),
-                border: Border.all(color: divider),
-                color: surface.withValues(alpha: isDark ? 0.55 : 0.92),
+                color: _JobColors.pureWhite,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _JobColors.cardBorder),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                    child: SizedBox(
-                      height: 92,
-                      width: double.infinity,
-                      child: hasPhoto
-                          ? Image.network(j.companyLogoUrl!, fit: BoxFit.cover)
-                          : DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [accent.withValues(alpha: 0.90), InstitutionalColors.navy.withValues(alpha: 0.92)],
-                                ),
-                              ),
-                              child: Center(child: Icon(Icons.auto_awesome_rounded, color: Colors.white.withValues(alpha: 0.95))),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(AppRadius.full),
-                          color: accent.withValues(alpha: isDark ? 0.14 : 0.12),
-                          border: Border.all(color: divider),
-                        ),
-                        child: Text('Suggestion', style: context.textStyles.labelSmall?.copyWith(color: onSurface, fontWeight: FontWeight.w900)),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: _JobColors.softBlue, borderRadius: BorderRadius.circular(8)),
+                        child: const Text('Suggéré pour vous', style: TextStyle(fontSize: 9, color: _JobColors.primaryBlue, fontWeight: FontWeight.w800)),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(j.company, style: context.textStyles.bodySmall?.copyWith(color: onSurface.withValues(alpha: 0.72)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
+                      const Spacer(),
+                      if (hasPhoto)
+                        ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(j.companyLogoUrl!, width: 24, height: 24, fit: BoxFit.cover))
+                      else
+                        const Icon(Icons.business_rounded, color: _JobColors.mutedText, size: 20),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Text(j.title, style: context.textStyles.titleSmall?.copyWith(color: onSurface, fontWeight: FontWeight.w900), maxLines: 2, overflow: TextOverflow.ellipsis),
                   const Spacer(),
-                  Row(
-                    children: [
-                      Icon(Icons.place_rounded, size: 16, color: onSurface.withValues(alpha: 0.60)),
-                      const SizedBox(width: 6),
-                      Expanded(child: Text(j.location, style: context.textStyles.bodySmall?.copyWith(color: onSurface.withValues(alpha: 0.70)), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                    ],
-                  ),
+                  Text(j.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: _JobColors.darkText), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 6),
+                  Text('${j.company} • ${j.location}', style: const TextStyle(fontSize: 11, color: _JobColors.mutedText, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),

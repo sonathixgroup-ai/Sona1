@@ -22,40 +22,56 @@ dependencies:
   carousel_slider: ^5.0.0
   flutter_svg: ^2.0.10+1
   shimmer: ^3.0.0
+  flutter_highlight: ^0.7.0
 
-  # State Management
+  # State Management & Hooks (Harmonisés)
   flutter_riverpod: ^2.5.1
-  flutter_bloc: ^8.1.6
+  hooks_riverpod: ^2.5.1
+  flutter_hooks: ^0.20.5
+  riverpod_annotation: ^2.3.5
 
-  # Backend
-  supabase_flutter: ^2.15.4
-
-  # Utils & Storage
-  intl: ^0.20.2
+  # Backend & API
+  supabase_flutter: ^2.8.0
+  dio: ^5.7.0
   http: ^1.2.2
+
+  # Database & Cache
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
   shared_preferences: ^2.3.2
   path_provider: ^2.1.4
-  collection: ^1.19.1
+  collection: 1.19.0
+
+  # JSON & Serialization
+  json_annotation: ^4.9.0
+  equatable: ^2.0.8
+
+  # Utils
+  intl: ^0.19.0
+  timeago: ^3.6.0
   timezone: ^0.9.4
   uuid: ^4.5.3
+  crypto: ^3.0.3
+  url_launcher: ^6.3.0
+  path: ^1.9.0
 
   # Media & Communication
   video_player: ^2.9.2
-  agora_rtc_engine: ^6.5.1
-  record: ^5.1.2
+  agora_rtc_engine: ^6.5.2
+  record: ^6.1.1
   image_picker: ^1.1.2
   audioplayers: ^6.1.0
-  cached_network_image: ^3.4.1
   flutter_rating_bar: ^4.0.1
-
+  flutter_audio_waveforms: ^1.2.1+8
+  cached_network_image: ^3.4.1 
   # Identification & Scanning
-  geolocator: ^13.0.4
+  geolocator: ^13.0.2
   geocoding: ^3.0.0
-  nfc_manager: ^4.0.1
-  mobile_scanner: ^5.0.1
+  nfc_manager: ^3.4.0
+  mobile_scanner: ^6.0.7
   qr_flutter: ^4.1.0
   barcode_widget: ^2.0.4
-
+  
   # OCR & IA
   google_ml_kit: ^0.16.0
 
@@ -77,36 +93,34 @@ dependencies:
 
   # Sécurité / Chiffrement
   encrypt: ^5.0.3
+  local_auth: ^2.1.6
+  flutter_secure_storage: ^9.2.4
 
   # Contacts
   flutter_contacts: ^1.1.9+2
 
-  # Others
-  timeago: ^3.6.0
-  url_launcher: ^6.3.0
-  crypto: ^3.0.3
-  equatable: ^2.0.8
-  local_auth: ^2.1.6
-  flutter_secure_storage: ^9.2.4  
+  # Maps
   flutter_map: ^6.1.0
   latlong2: ^0.9.0
-  google_maps_flutter: ^2.13.0
+  google_maps_flutter: ^2.12.3
 
-  # ==================== THIX MARKET ====================
-  debounce_throttle: ^2.0.0          # Recherche avec délai (advanced_search_bar)
-  table_calendar: ^3.1.2             # Calendrier de réservation (service_calendar)
-                   # Paiement par carte (payment_service)
-  csv: ^6.0.0                        # Export CSV (admin_reports)
-  excel: ^4.0.6                      # Import/Export Excel (optionnel)
-  flutter_image_compress: ^2.4.0     # Compression d'images avant upload
+  # THIX MARKET
+  debounce_throttle: ^2.0.0
+  table_calendar: ^3.1.2
+  csv: ^6.0.0
+  excel: ^4.0.6
+  flutter_image_compress: ^2.4.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
-  
-  
+  build_runner: 2.4.13
+  json_serializable: 6.8.0
+  hive_generator: 2.0.1
+  riverpod_generator: 2.4.0
+
 flutter_launcher_icons:
   android: true
   ios: true
@@ -117,7 +131,7 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
-
   assets:
     - assets/images/
     - assets/icons/
+    - lib/l10n/translations/
