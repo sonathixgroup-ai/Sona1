@@ -1,4 +1,4 @@
-// lib/presentation/chat/chat_list_page.dart
+ // lib/presentation/chat/chat_list_page.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,7 +19,7 @@ class _C {
   static const surfaceAlt = Color(0xFFF1F5F9);
   static const searchBg = Color(0xFFF1F5F9);
   static const border = Color(0xFFE2E8F0);
-  static const primary = Color(0xFF1D4ED8); // Bleu corporate profond
+  static const primary = Color(0xFF1D4ED8);
   static const primarySoft = Color(0xFFEFF6FF);
   static const textMain = Color(0xFF0F172A);
   static const textMuted = Color(0xFF64748B);
@@ -293,16 +293,15 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 ),
                 slivers: [
                   _buildCorporateAppBar(state.pendingEscalations),
+                  const SliverToBoxAdapter(child: SizedBox(height: 4)),
                   SliverToBoxAdapter(child: _searchBar()),
                   if (state.pendingEscalations > 0)
                     asl: SliverToBoxAdapter(child: _escalationBanner(state.pendingEscalations)),
                   SliverToBoxAdapter(child: _filters(state.filterIndex)),
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 6),
-                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
                   _chatList(state.filtered),
                   if (state.isLoadingMore)
-                    const SliverToBoxAdapter(
+                    const asl: SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 28),
                         child: Center(
@@ -313,7 +312,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         ),
                       ),
                     ),
-                  const asl: SliverToBoxAdapter(child: SizedBox(height: 120)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
                 ],
               ),
             ),
@@ -338,7 +337,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         ),
       ),
       actions: [
-        // Escalades
         Stack(
           alignment: Alignment.center,
           children: [
@@ -363,7 +361,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               ),
           ],
         ),
-        // Notifications
         Stack(
           alignment: Alignment.center,
           children: [
@@ -554,7 +551,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       );
     }
 
-    return asl: SliverList(
+    return SliverList(
       delegate: SliverChildBuilderDelegate(
         (ctx, idx) {
           final conv = list[idx];
