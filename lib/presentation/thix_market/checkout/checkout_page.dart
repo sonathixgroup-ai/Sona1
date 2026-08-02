@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/checkout/checkout_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,7 @@ import 'shipping_method_selector.dart';
 import 'payment_method_selector.dart';
 import 'order_summary_widget.dart';
 import 'order_confirmation_page.dart';
+import 'payment_waiting_page.dart';
 import '../delivery/delivery_address_selector.dart';
 import '../cart/cart_provider.dart';
 
@@ -54,7 +56,11 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         ),
         title: Text(
           _t(context, 'Validation de commande', 'Checkout Validation'),
-          style: const TextStyle(color: Color(0xFF0A1931), fontWeight: FontWeight.w900, fontSize: 18),
+          style: const TextStyle(
+            color: Color(0xFF0A1931),
+            fontWeight: FontWeight.w900,
+            fontSize: 18,
+          ),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
@@ -79,6 +85,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         idx = 2;
         break;
       case 'payment':
+      case 'waiting_payment':
         idx = 3;
         break;
       case 'success':
@@ -116,7 +123,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                       decoration: BoxDecoration(
                         color: active ? const Color(0xFFE5592F) : Colors.grey.shade200,
                         shape: BoxShape.circle,
-                        border: current ? Border.all(color: const Color(0xFFE5592F), width: 2) : null,
+                        border: current
+                            ? Border.all(color: const Color(0xFFE5592F), width: 2)
+                            : null,
                       ),
                       child: Center(
                         child: i < idx
@@ -163,8 +172,11 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
   Widget _buildBody(CheckoutState state, CheckoutNotifier notifier) {
     if (state.isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFFE5592F)));
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFE5592F)),
+      );
     }
+
     if (state.error != null) {
       return Center(
         child: Padding(
@@ -174,7 +186,11 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             children: [
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
-              Text(state.error!, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                state.error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: () => notifier.loadCheckoutData(),
@@ -183,7 +199,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFE5592F),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ],
@@ -206,26 +224,44 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           notifier: notifier,
           onContinue: () => notifier.goToStep('shipping'),
         );
+
       case 'shipping':
         return const ShippingMethodSelector();
+
       case 'summary':
       case 'confirmation':
         return const OrderSummaryWidget();
+
       case 'payment':
         return const PaymentMethodSelector();
+
+      case 'waiting_payment':
+        final orderId = state.createdOrder?['id']?.toString();
+        if (orderId == null) {
+          return Center(
+            child: Text(_t(context, 'Commande introuvable', 'Order not found')),
+          );
+        }
+        return PaymentWaitingPage(orderId: orderId);
+
       case 'success':
       case 'bon_de_commande':
         final order = state.createdOrder;
         if (order == null) {
-          return const Center(child: Text('Commande introuvable'));
+          return Center(
+            child: Text(_t(context, 'Commande introuvable', 'Order not found')),
+          );
         }
         final currencySymbol = ref.read(cartProvider.notifier).currencySymbol;
         return OrderConfirmationPage(
           order: order,
           currencySymbol: currencySymbol,
         );
+
       default:
-        return Center(child: Text('Étape inconnue: ${state.currentStep}'));
+        return Center(
+          child: Text('Étape inconnue: ${state.currentStep}'),
+        );
     }
   }
 }
@@ -288,12 +324,17 @@ class _AddressStep extends StatelessWidget {
                   backgroundColor: const Color(0xFFE5592F),
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: Colors.grey.shade200,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 0,
                 ),
                 child: Text(
                   _t(context, 'Continuer', 'Continue'),
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ),
