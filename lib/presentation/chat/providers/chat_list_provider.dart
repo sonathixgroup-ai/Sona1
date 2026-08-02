@@ -1,11 +1,11 @@
-// lib/presentation/chat/chat_list_provider.dart
+// lib/presentation/chat/providers/chat_list_provider.dart
 import 'dart:async';
+import 'package:flutter/foundation.dart'; // ← OBLIGATOIRE pour debugPrint
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/models/chat/chat_conversation.dart';
-
 class ChatListState {
   final List<ChatConversation> all;
   final List<ChatConversation> filtered;
