@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
+import '../../l10n/market_strings.dart';
 
 class PublishAnnouncementForm extends StatefulWidget {
   final String? shopId;
@@ -46,7 +47,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
   String? _shippingType;
   String? _currency = 'CDF';
   String? _city;
-  String _placement = 'normal'; // Par défaut 'normal'
+  String _placement = 'normal'; // normal | recommended (Hero) | flash_sale
   DateTime? _flashEndTime;
   bool _freeShipping = false;
   bool _isService = false;
@@ -55,35 +56,12 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
 
   Position? _currentPosition;
 
-  final List<Map<String, String>> _categories = [
-    {'id': 'fashion', 'name': 'Mode & Accessoires'},
-    {'id': 'electronics', 'name': 'Électronique'},
-    {'id': 'home', 'name': 'Maison & Jardin'},
-    {'id': 'services', 'name': 'Services'},
-    {'id': 'vehicles', 'name': 'Véhicules'},
-    {'id': 'realestate', 'name': 'Immobilier'},
-    {'id': 'food', 'name': 'Alimentation'},
-    {'id': 'beauty', 'name': 'Beauté & Bien-être'},
-    {'id': 'sports', 'name': 'Sports & Loisirs'},
+  // ids stables côté base — les libellés affichés sont localisés via context.mkt
+  static const List<String> _categoryIds = [
+    'fashion', 'electronics', 'home', 'services', 'vehicles', 'realestate', 'food', 'beauty', 'sports',
   ];
-
-  final List<Map<String, String>> _conditions = [
-    {'id': 'new', 'name': 'Neuf'},
-    {'id': 'like_new', 'name': 'Comme neuf'},
-    {'id': 'good', 'name': 'Bon état'},
-    {'id': 'fair', 'name': 'État correct'},
-  ];
-
-  final List<Map<String, String>> _shippingTypes = [
-    {'id': 'delivery', 'name': 'Livraison'},
-    {'id': 'pickup', 'name': 'Retrait en magasin'},
-    {'id': 'both', 'name': 'Les deux'},
-  ];
-
-  final List<Map<String, String>> _currencies = [
-    {'id': 'USD', 'name': 'USD (\$)'},
-    {'id': 'CDF', 'name': 'CDF (FC)'},
-  ];
+  static const List<String> _conditionIds = ['new', 'like_new', 'good', 'fair'];
+  static const List<String> _shippingTypeIds = ['delivery', 'pickup', 'both'];
 
   final List<String> _cities = [
     'Kinshasa', 'Lubumbashi', 'Mbuji-Mayi', 'Kananga', 'Kisangani',
@@ -291,21 +269,22 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
   }
 
   Future<void> _submitForm() async {
+    final t = context.mkt;
     if (!_formKey.currentState!.validate()) return;
-    
+
     if (_selectedImages.isEmpty && widget.editAnnouncement == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ajoutez au moins une image'), backgroundColor: thixRed));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.atLeastOneImage), backgroundColor: thixRed));
       return;
     }
-    
+
     final resolvedCity = _resolveCity();
     if (resolvedCity == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Précisez la ville de publication'), backgroundColor: thixRed));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.cityRequired), backgroundColor: thixRed));
       return;
     }
 
     if (_placement == 'flash_sale' && _flashEndTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez définir une date de fin pour la vente flash.'), backgroundColor: thixRed));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.flashDateRequired), backgroundColor: thixRed));
       return;
     }
 
@@ -335,6 +314,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
         'currency': _currency,
         'city': resolvedCity,
         'is_flash_sale': _placement == 'flash_sale',
+        // Ce flag alimente à la fois le hero banner ET la bande "Produits en vedette" de la home
         'is_featured': _placement == 'recommended',
         'expires_at': _placement == 'flash_sale' ? _flashEndTime?.toIso8601String() : null,
         'images': imageUrls,
@@ -356,7 +336,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
       }
     } catch (e) {
       debugPrint('Error submitting form: $e');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: thixRed));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t.genericErrorPrefix}${e.toString()}'), backgroundColor: thixRed));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -364,22 +344,21 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.mkt;
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ─── PLACEMENT (Standard, Hero, Flash) ───
-          const Text('Placement de l\'annonce', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
+          Text(t.placementTitle, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
           const SizedBox(height: 12),
-          _buildPlacementOption('normal', 'Annonce Standard', 'Affichage classique dans le flux de la marketplace', Icons.view_agenda_rounded),
+          _buildPlacementOption('normal', t.placementStandardTitle, t.placementStandardDesc, Icons.view_agenda_rounded),
           const SizedBox(height: 8),
-          _buildPlacementOption('recommended', 'Hero Banner', 'Bannière principale tout en haut de l\'accueil', Icons.branding_watermark_rounded),
+          _buildPlacementOption('recommended', t.placementHeroTitle, t.placementHeroDesc, Icons.branding_watermark_rounded),
           const SizedBox(height: 8),
-          _buildPlacementOption('flash_sale', 'Vente Flash', 'Mise en avant avec un compte à rebours', Icons.bolt_rounded),
+          _buildPlacementOption('flash_sale', t.placementFlashTitle, t.placementFlashDesc, Icons.bolt_rounded),
           const SizedBox(height: 16),
 
-          // ─── GESTION DU TEMPS (Si Vente Flash) ───
           if (_placement == 'flash_sale') ...[
             Container(
               padding: const EdgeInsets.all(16),
@@ -392,16 +371,19 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Fin de la vente flash', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.deepOrange)),
+                        Text(t.flashEndLabel, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.deepOrange)),
                         const SizedBox(height: 2),
-                        Text(_flashEndTime == null ? 'Aucune date définie' : DateFormat('dd MMM yyyy à HH:mm', 'fr_FR').format(_flashEndTime!), style: TextStyle(color: _flashEndTime == null ? Colors.grey : darkText, fontSize: 14, fontWeight: _flashEndTime == null ? FontWeight.normal : FontWeight.bold)),
+                        Text(
+                          _flashEndTime == null ? t.flashEndUnset : DateFormat('dd MMM yyyy à HH:mm', Localizations.localeOf(context).languageCode).format(_flashEndTime!),
+                          style: TextStyle(color: _flashEndTime == null ? Colors.grey : darkText, fontSize: 14, fontWeight: _flashEndTime == null ? FontWeight.normal : FontWeight.bold),
+                        ),
                       ],
                     ),
                   ),
                   TextButton(
                     onPressed: _pickDateTime,
                     style: TextButton.styleFrom(foregroundColor: Colors.deepOrange),
-                    child: const Text('Définir'),
+                    child: Text(t.setDate),
                   )
                 ],
               ),
@@ -411,8 +393,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
 
           const Divider(height: 32),
 
-          // ─── PHOTOS DU PRODUIT ───
-          const Text('Photos du produit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkText)),
+          Text(t.photosTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkText)),
           const SizedBox(height: 12),
           SizedBox(
             height: 100,
@@ -430,12 +411,12 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: thixRed.withOpacity(0.3), width: 1.5, style: BorderStyle.solid),
                       ),
-                      child: const Column(
+                      child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.add_photo_alternate_rounded, size: 28, color: thixRed),
-                          SizedBox(height: 6),
-                          Text('Ajouter', style: TextStyle(fontSize: 12, color: thixRed, fontWeight: FontWeight.w600)),
+                          const Icon(Icons.add_photo_alternate_rounded, size: 28, color: thixRed),
+                          const SizedBox(height: 6),
+                          Text(t.addPhoto, style: const TextStyle(fontSize: 12, color: thixRed, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -474,102 +455,103 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
           ),
           const SizedBox(height: 24),
 
-          // ─── CHAMPS TEXTES ───
-          _buildTextField(controller: _titleController, label: 'Titre de l\'annonce', isRequired: true),
+          _buildTextField(controller: _titleController, label: t.titleLabel, isRequired: true, t: t),
           const SizedBox(height: 16),
-          _buildTextField(controller: _descriptionController, label: 'Description détaillée', maxLines: 4, isRequired: true),
+          _buildTextField(controller: _descriptionController, label: t.descriptionLabel, maxLines: 4, isRequired: true, t: t),
           const SizedBox(height: 16),
-          
+
           Row(
             children: [
-              Expanded(child: _buildTextField(controller: _priceController, label: 'Prix', isRequired: true, type: TextInputType.number)),
+              Expanded(child: _buildTextField(controller: _priceController, label: t.priceLabel, isRequired: true, type: TextInputType.number, t: t)),
               const SizedBox(width: 12),
-              Expanded(child: _buildTextField(controller: _discountPriceController, label: 'Prix promo', type: TextInputType.number)),
+              Expanded(child: _buildTextField(controller: _discountPriceController, label: t.discountPriceLabel, type: TextInputType.number, t: t)),
             ],
           ),
           const SizedBox(height: 16),
 
           DropdownButtonFormField<String>(
             value: _currency,
-            decoration: _inputDecoration('Devise'),
-            items: _currencies.map((cur) => DropdownMenuItem(value: cur['id'], child: Text(cur['name']!))).toList(),
+            decoration: _inputDecoration(t.currencyLabel),
+            items: const [
+              DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
+              DropdownMenuItem(value: 'CDF', child: Text('CDF (FC)')),
+            ],
             onChanged: (v) => setState(() => _currency = v),
           ),
           const SizedBox(height: 16),
 
           Row(
             children: [
-              Expanded(child: _buildTextField(controller: _stockController, label: 'Stock disponible', isRequired: true, type: TextInputType.number)),
+              Expanded(child: _buildTextField(controller: _stockController, label: t.stockLabel, isRequired: true, type: TextInputType.number, t: t)),
               const SizedBox(width: 12),
-              Expanded(child: _buildTextField(controller: _brandController, label: 'Marque (Opt.)')),
+              Expanded(child: _buildTextField(controller: _brandController, label: t.brandLabel, t: t)),
             ],
           ),
           const SizedBox(height: 16),
 
           DropdownButtonFormField<String>(
             value: _category,
-            decoration: _inputDecoration('Catégorie *'),
-            items: _categories.map((cat) => DropdownMenuItem(value: cat['id'], child: Text(cat['name']!))).toList(),
+            decoration: _inputDecoration('${t.categoryLabel} *'),
+            items: _categoryIds.map((id) => DropdownMenuItem(value: id, child: Text(t.categoryName(id)))).toList(),
             onChanged: (v) => setState(() => _category = v),
-            validator: (v) => v == null ? 'Champ requis' : null,
+            validator: (v) => v == null ? t.requiredField : null,
           ),
           const SizedBox(height: 16),
 
           DropdownButtonFormField<String>(
             value: _condition,
-            decoration: _inputDecoration('État *'),
-            items: _conditions.map((cond) => DropdownMenuItem(value: cond['id'], child: Text(cond['name']!))).toList(),
+            decoration: _inputDecoration('${t.conditionLabel} *'),
+            items: _conditionIds.map((id) => DropdownMenuItem(value: id, child: Text(t.conditionName(id)))).toList(),
             onChanged: (v) => setState(() => _condition = v),
-            validator: (v) => v == null ? 'Champ requis' : null,
+            validator: (v) => v == null ? t.requiredField : null,
           ),
           const SizedBox(height: 16),
 
           DropdownButtonFormField<String>(
             value: _city,
-            decoration: _inputDecoration('Ville de publication *'),
+            decoration: _inputDecoration('${t.cityLabel} *'),
             items: _cities.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
             onChanged: (v) => setState(() => _city = v),
-            validator: (v) => v == null ? 'Champ requis' : null,
+            validator: (v) => v == null ? t.requiredField : null,
           ),
           if (_city == 'Autre') ...[
             const SizedBox(height: 8),
-            _buildTextField(controller: _customCityController, label: 'Précisez la ville', isRequired: true),
+            _buildTextField(controller: _customCityController, label: t.customCityLabel, isRequired: true, t: t),
           ],
           const SizedBox(height: 16),
 
           DropdownButtonFormField<String>(
             value: _shippingType,
-            decoration: _inputDecoration('Type de livraison *'),
-            items: _shippingTypes.map((type) => DropdownMenuItem(value: type['id'], child: Text(type['name']!))).toList(),
+            decoration: _inputDecoration('${t.shippingTypeLabel} *'),
+            items: _shippingTypeIds.map((id) => DropdownMenuItem(value: id, child: Text(t.shippingTypeName(id)))).toList(),
             onChanged: (v) => setState(() => _shippingType = v),
-            validator: (v) => v == null ? 'Champ requis' : null,
+            validator: (v) => v == null ? t.requiredField : null,
           ),
           const SizedBox(height: 16),
 
           Row(
             children: [
-              Expanded(child: _buildTextField(controller: _shippingCostController, label: 'Frais de livraison', type: TextInputType.number)),
+              Expanded(child: _buildTextField(controller: _shippingCostController, label: t.shippingCostLabel, type: TextInputType.number, t: t)),
               const SizedBox(width: 12),
-              Expanded(child: _buildTextField(controller: _warrantyController, label: 'Garantie (mois)', type: TextInputType.number)),
+              Expanded(child: _buildTextField(controller: _warrantyController, label: t.warrantyLabel, type: TextInputType.number, t: t)),
             ],
           ),
           const SizedBox(height: 12),
 
-          // ─── TOGGLES ───
           Container(
             decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(12)),
             child: Column(
               children: [
                 SwitchListTile(
-                  title: const Text('Livraison gratuite', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  title: Text(t.freeShipping, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                   value: _freeShipping,
                   onChanged: (v) => setState(() => _freeShipping = v),
                   activeColor: thixRed,
                 ),
                 const Divider(height: 1),
                 SwitchListTile(
-                  title: const Text('Ceci est un service', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: const Text('Sélectionnez ceci s\'il s\'agit d\'une réservation.', style: TextStyle(fontSize: 12)),
+                  title: Text(t.isServiceTitle, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  subtitle: Text(t.isServiceDesc, style: const TextStyle(fontSize: 12)),
                   value: _isService,
                   onChanged: (v) => setState(() => _isService = v),
                   activeColor: thixRed,
@@ -579,7 +561,6 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
           ),
           const SizedBox(height: 32),
 
-          // ─── BOUTON SUBMIT ───
           SizedBox(
             width: double.infinity,
             height: 56,
@@ -593,15 +574,13 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
               ),
               child: _isLoading || _isUploading
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : Text(widget.editAnnouncement != null ? 'Mettre à jour' : 'Publier l\'annonce', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                  : Text(widget.editAnnouncement != null ? t.update : t.publish, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
             ),
           ),
         ],
       ),
     );
   }
-
-  // --- WIDGETS HELPERS POUR LE DESIGN ---
 
   Widget _buildPlacementOption(String value, String title, String subtitle, IconData icon) {
     final isSelected = _placement == value;
@@ -641,12 +620,19 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     );
   }
 
-  Widget _buildTextField({required TextEditingController controller, required String label, int maxLines = 1, bool isRequired = false, TextInputType type = TextInputType.text}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    int maxLines = 1,
+    bool isRequired = false,
+    TextInputType type = TextInputType.text,
+    required MarketStrings t,
+  }) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
       keyboardType: type,
-      validator: isRequired ? (v) => v == null || v.trim().isEmpty ? 'Requis' : null : null,
+      validator: isRequired ? (v) => v == null || v.trim().isEmpty ? t.required : null : null,
       decoration: _inputDecoration(label),
     );
   }
