@@ -4,9 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/market_providers.dart';
 
-// ============================================================
-// CHARTE GRAPHIQUE
-// ============================================================
 class _MarketColors {
   static const red = Color(0xFFD81E2C);
   static const gold = Color(0xFFF0A93B);
@@ -19,9 +16,6 @@ class _MarketColors {
   static const creamBg = Color(0xFFFCEFDA);
 }
 
-// ============================================================
-// PROVIDER
-// ============================================================
 final priceAlertsProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final db = ref.read(supabaseClientProvider);
@@ -61,9 +55,6 @@ final priceAlertsProvider =
   return list;
 });
 
-// ============================================================
-// PAGE
-// ============================================================
 class PriceAlertsPage extends ConsumerStatefulWidget {
   const PriceAlertsPage({super.key});
 
@@ -137,9 +128,7 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
     final title = product['title']?.toString() ?? 'Produit';
 
     final targetCtrl = TextEditingController(
-      text: currentPrice > 0
-          ? (currentPrice * 0.9).toInt().toString() // -10% par défaut
-          : '',
+      text: currentPrice > 0 ? (currentPrice * 0.9).toInt().toString() : '',
     );
 
     final confirmed = await showModalBottomSheet<bool>(
@@ -202,7 +191,7 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'Prix cible (vous serez notifié en dessous)',
+                  'Prix cible (notification en dessous)',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -278,7 +267,6 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
     }
 
     try {
-      // Éviter les doublons
       final existing = await db
           .from('price_alerts')
           .select('id')
@@ -287,9 +275,9 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
           .maybeSingle();
 
       if (existing != null) {
-        await db.from('price_alerts').update({
-          'target_price': target,
-        }).eq('id', existing['id']);
+        await db
+            .from('price_alerts')
+            .update({'target_price': target}).eq('id', existing['id']);
       } else {
         await db.from('price_alerts').insert({
           'user_id': uid,
@@ -300,335 +288,6 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
 
       ref.invalidate(priceAlertsProvider);
 
-      // Clear search pour revenir à la liste
-      _searchCtrl.clear();
-      setState(() {
-        _query = '';
-        _searchResults = [];
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Alerte créée avec succès'),
-            backgroundColor: _MarketColors.successGreen,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('ErreurVoici une version complète de **Price Alerts** avec recherche + création d’alerte intégrée (comme le comparateur).
-
-Remplace tout le fichier  
-`lib/presentation/thix_market/pages/price_alerts_page.dart` :
-
-```dart
-// lib/presentation/thix_market/pages/price_alerts_page.dart
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../providers/market_providers.dart';
-
-// ============================================================
-// CHARTE GRAPHIQUE
-// ============================================================
-class _MarketColors {
-  static const red = Color(0xFFD81E2C);
-  static const gold = Color(0xFFF0A93B);
-  static const lightBg = Color(0xFFF7F7FA);
-  static const pureWhite = Color(0xFFFFFFFF);
-  static const darkText = Color(0xFF1A1A1A);
-  static const mutedText = Color(0xFF8A8A8F);
-  static const cardBorder = Color(0xFFF0F0F0);
-  static const successGreen = Color(0xFF00B074);
-  static const creamBg = Color(0xFFFCEFDA);
-}
-
-// ============================================================
-// PROVIDER
-// ============================================================
-final priceAlertsProvider =
-    FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final db = ref.read(supabaseClientProvider);
-  final uid = db.auth.currentUser?.id;
-  if (uid == null) return [];
-
-  final res = await db
-      .from('price_alerts')
-      .select(
-          'id, target_price, product_id, created_at, products(title, image_url, price, currency, shop:shops(name))')
-      .eq('user_id', uid)
-      .order('created_at', ascending: false);
-
-  final list = <Map<String, dynamic>>[];
-
-  for (final alert in (res as List)) {
-    final prodRaw = alert['products'];
-    Map<String, dynamic> prod = {};
-    if (prodRaw is Map) prod = Map<String, dynamic>.from(prodRaw);
-
-    final shopRaw = prod['shop'];
-    Map<String, dynamic> shop = {};
-    if (shopRaw is Map) shop = Map<String, dynamic>.from(shopRaw);
-
-    list.add({
-      'id': alert['id'].toString(),
-      'product_id': alert['product_id'].toString(),
-      'title': prod['title']?.toString() ?? 'Produit inconnu',
-      'image_url': prod['image_url']?.toString() ?? '',
-      'shop_name': shop['name']?.toString() ?? 'Boutique',
-      'current_price': prod['price'] ?? 0,
-      'target_price': alert['target_price'] ?? 0,
-      'currency': prod['currency']?.toString() ?? 'FC',
-    });
-  }
-
-  return list;
-});
-
-// ============================================================
-// PAGE
-// ============================================================
-class PriceAlertsPage extends ConsumerStatefulWidget {
-  const PriceAlertsPage({super.key});
-
-  @override
-  ConsumerState<PriceAlertsPage> createState() => _PriceAlertsPageState();
-}
-
-class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
-  final TextEditingController _searchCtrl = TextEditingController();
-  String _query = '';
-  bool _searching = false;
-  List<Map<String, dynamic>> _searchResults = [];
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _search(String q) async {
-    setState(() {
-      _query = q.trim();
-      _searching = true;
-    });
-
-    if (_query.isEmpty) {
-      setState(() {
-        _searchResults = [];
-        _searching = false;
-      });
-      return;
-    }
-
-    try {
-      final db = ref.read(supabaseClientProvider);
-      final res = await db
-          .from('products')
-          .select(
-              'id, title, price, currency, image_url, brand, shop:shops(name)')
-          .ilike('title', '%$_query%')
-          .limit(25);
-
-      if (mounted) {
-        setState(() {
-          _searchResults = List<Map<String, dynamic>>.from(res);
-          _searching = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _searchResults = [];
-          _searching = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _createAlert(Map<String, dynamic> product) async {
-    final db = ref.read(supabaseClientProvider);
-    final uid = db.auth.currentUser?.id;
-
-    if (uid == null) {
-      if (mounted) context.push('/login');
-      return;
-    }
-
-    final currentPrice = (product['price'] as num?)?.toDouble() ?? 0;
-    final currency = product['currency']?.toString() ?? 'FC';
-    final productId = product['id'].toString();
-    final title = product['title']?.toString() ?? 'Produit';
-
-    final targetCtrl = TextEditingController(
-      text: currentPrice > 0
-          ? (currentPrice * 0.9).toInt().toString() // -10% par défaut
-          : '',
-    );
-
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Créer une alerte de prix',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: _MarketColors.darkText,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: _MarketColors.mutedText,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Prix actuel : ${currentPrice.toInt()} $currency',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _MarketColors.red,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Prix cible (vous serez notifié en dessous)',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _MarketColors.darkText,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: targetCtrl,
-                  keyboardType: TextInputType.number,
-                  autofocus: true,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                  ),
-                  decoration: InputDecoration(
-                    suffixText: currency,
-                    filled: true,
-                    fillColor: _MarketColors.lightBg,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _MarketColors.red,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: const Text(
-                      'Créer l\'alerte',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (confirmed != true) return;
-
-    final target = double.tryParse(targetCtrl.text.trim());
-    if (target == null || target <= 0) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Prix cible invalide'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
-    try {
-      // Éviter les doublons
-      final existing = await db
-          .from('price_alerts')
-          .select('id')
-          .eq('user_id', uid)
-          .eq('product_id', productId)
-          .maybeSingle();
-
-      if (existing != null) {
-        await db.from('price_alerts').update({
-          'target_price': target,
-        }).eq('id', existing['id']);
-      } else {
-        await db.from('price_alerts').insert({
-          'user_id': uid,
-          'product_id': productId,
-          'target_price': target,
-        });
-      }
-
-      ref.invalidate(priceAlertsProvider);
-
-      // Clear search pour revenir à la liste
       _searchCtrl.clear();
       setState(() {
         _query = '';
@@ -702,7 +361,6 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
       ),
       body: Column(
         children: [
-          // ========== RECHERCHE ==========
           Container(
             color: _MarketColors.pureWhite,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -743,14 +401,13 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
               ),
             ),
           ),
-
-          // ========== CONTENU ==========
           Expanded(
             child: _query.isNotEmpty
                 ? _buildSearchResults()
                 : asyncAlerts.when(
                     loading: () => const Center(
-                      child: CircularProgressIndicator(color: _MarketColors.red),
+                      child:
+                          CircularProgressIndicator(color: _MarketColors.red),
                     ),
                     error: (e, _) => Center(child: Text('Erreur : $e')),
                     data: (alerts) {
@@ -776,9 +433,6 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
     );
   }
 
-  // ----------------------------------------------------------
-  // RÉSULTATS RECHERCHE
-  // ----------------------------------------------------------
   Widget _buildSearchResults() {
     if (_searching) {
       return const Center(
@@ -898,30 +552,17 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
     );
   }
 
-  // ----------------------------------------------------------
-  // EMPTY
-  // ----------------------------------------------------------
   Widget _empty() {
-    return Center(
+    return const Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: _MarketColors.creamBg,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.notifications_active_outlined,
-                size: 64,
-                color: _MarketColors.gold,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
+            Icon(Icons.notifications_active_outlined,
+                size: 64, color: _MarketColors.gold),
+            SizedBox(height: 24),
+            Text(
               'Aucune alerte de prix',
               style: TextStyle(
                 fontSize: 20,
@@ -929,8 +570,8 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
                 color: _MarketColors.darkText,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: 8),
+            Text(
               'Recherchez un produit ci-dessus\net créez une alerte de prix.',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -945,9 +586,6 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
     );
   }
 
-  // ----------------------------------------------------------
-  // CARTE ALERTE
-  // ----------------------------------------------------------
   Widget _alertCard(Map<String, dynamic> alert) {
     double current = 0;
     double target = 0;
@@ -980,8 +618,7 @@ class _PriceAlertsPageState extends ConsumerState<PriceAlertsPage> {
       ),
       onDismissed: (_) => _deleteAlert(alert['id'].toString()),
       child: GestureDetector(
-        onTap: () =>
-            context.push('/market/product/${alert['product_id']}'),
+        onTap: () => context.push('/market/product/${alert['product_id']}'),
         child: Container(
           decoration: BoxDecoration(
             color: _MarketColors.pureWhite,
