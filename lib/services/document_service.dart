@@ -121,8 +121,9 @@ class DocumentService {
 
     final generatedId = await generateDocumentId(uid);
     final safeName = file.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-    final path =
-        'users/$uid/\( generatedId/ \){DateTime.now().millisecondsSinceEpoch}_$safeName';
+    
+    // CORRECTION ICI (Ligne 173 corrigée)
+    final path = 'users/$uid/$generatedId/${DateTime.now().millisecondsSinceEpoch}_$safeName';
 
     await uploadPickedFileToBucket(
       bucketName: bucket,
@@ -169,8 +170,9 @@ class DocumentService {
   }) async {
     if (file.size > 15 * 1024 * 1024) throw Exception('Fichier > 15 Mo');
 
-    final p =
-        'users/\( uid/ \){docId.toUpperCase()}/\( {DateTime.now().millisecondsSinceEpoch}_ \){file.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_')}';
+    // Correction de l'interpolation ici aussi
+    final safeName = file.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final p = 'users/$uid/${docId.toUpperCase()}/${DateTime.now().millisecondsSinceEpoch}_$safeName';
 
     await uploadPickedFileToBucket(
       bucketName: bucket,
