@@ -1,5 +1,4 @@
-// Route: lib/presentation/chat/call/call_page.dart
-// PRODUCTION - CallPage Audio + Video - Riverpod - Sans double timer - Anti-crash
+// lib/presentation/chat/call/call_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
@@ -35,27 +34,30 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Initialisation post-frame pour éviter les modifications d'état pendant le build initial
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!widget.isCaller && widget.inviteId != null) {
+        // Callee → accept
         ref.read(callProvider.notifier).accept(
               channel: widget.channel,
               inviteId: widget.inviteId!,
               callType: widget.type,
             );
+      } else if (widget.isCaller) {
+        // Caller → start (si pas déjà fait)
+        // Note: normalement start() est appelé avant de naviguer vers cette page
       }
     });
   }
 
   String _formatDuration(Duration duration) {
     final s = duration.inSeconds;
-    final h = s ~/ 3600;
-    final m = (s % 3600) ~/ 60;
+    final h = s \~/ 3600;
+    final m = (s % 3600) \~/ 60;
     final sec = s % 60;
     if (h > 0) {
-      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
+      return '\( {h.toString().padLeft(2, '0')}: \){m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
     }
-    return '${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
+    return '\( {m.toString().padLeft(2, '0')}: \){sec.toString().padLeft(2, '0')}';
   }
 
   Future<void> _handleEnd() async {
@@ -67,13 +69,6 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      // Optionnel: gestion du passage en arrière-plan
-    }
   }
 
   @override
@@ -128,21 +123,27 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(widget.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800)),
+                            Text(
+                              widget.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                             const SizedBox(height: 2),
-                            Text(statusText,
-                                style: TextStyle(
-                                    color: provState.status == CallStatus.ongoing
-                                        ? const Color(0xFF1FA971)
-                                        : Colors.white60,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600)),
+                            Text(
+                              statusText,
+                              style: TextStyle(
+                                color: provState.status == CallStatus.ongoing
+                                    ? const Color(0xFF1FA971)
+                                    : Colors.white60,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -158,12 +159,36 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
               ),
             ),
 
-            // REMOTE NOT YET JOINED OVERLAY FOR VIDEO
-            if (isVideo && provState.remoteUid == null)
+            // ERROR BANNER
+            if (provState.hasError)
+              Positioned(
+                top: 90,
+                left: 16,
+                right: 16,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.18),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.redAccent.withOpacity(0.6)),
+                  ),
+                  child: Text(
+                    provState.errorMessage ?? 'Erreur inconnue',
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+
+            // REMOTE NOT YET JOINED (video)
+            if (isVideo && provState.remoteUid == null && !provState.hasError)
               Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.45),
                     borderRadius: BorderRadius.circular(20),
@@ -172,16 +197,22 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white)),
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
                       const SizedBox(width: 10),
-                      Text('Appel de ${widget.name}...',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600)),
+                      Text(
+                        'Appel de ${widget.name}...',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -193,8 +224,7 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
               left: 0,
               right: 0,
               child: Container(
-                padding: const EdgeInsets.only(
-                    top: 18, bottom: 34, left: 16, right: 16),
+                padding: const EdgeInsets.only(top: 18, bottom: 34, left: 16, right: 16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
@@ -209,12 +239,15 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (provState.status == CallStatus.ongoing)
-                      Text(_formatDuration(provState.duration),
-                          style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.1)),
+                      Text(
+                        _formatDuration(provState.duration),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
                     const SizedBox(height: 14),
                     CallControls(
                       isVideo: isVideo,
@@ -238,13 +271,18 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
   }
 
   String _getStatusText(CallState p) {
+    if (p.hasError) return 'Erreur';
     switch (p.status) {
       case CallStatus.ringing:
         return widget.isCaller ? 'Appel en cours...' : 'Connexion...';
+      case CallStatus.accepted:
+        return 'Connexion...';
       case CallStatus.ongoing:
         return p.remoteUid == null ? 'Sonnerie...' : 'En cours';
       case CallStatus.ended:
         return 'Terminé';
+      case CallStatus.failed:
+        return 'Échec';
       default:
         return p.status.name;
     }
@@ -261,14 +299,19 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
             imageUrl: widget.avatarUrl,
             size: 130,
             isVideo: false,
+            isRinging: prov.status == CallStatus.ringing ||
+                prov.status == CallStatus.accepted,
           ),
           const SizedBox(height: 20),
-          Text(widget.name,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.4)),
+          Text(
+            widget.name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.4,
+            ),
+          ),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -276,20 +319,26 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
               color: Colors.white.withOpacity(0.10),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text(status,
-                style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600)),
+            child: Text(
+              status,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           const SizedBox(height: 18),
           if (prov.status == CallStatus.ongoing && prov.remoteUid != null)
-            Text(_formatDuration(prov.duration),
-                style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.2)),
+            Text(
+              _formatDuration(prov.duration),
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.2,
+              ),
+            ),
         ],
       ),
     );
@@ -297,10 +346,10 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
 
   Widget _buildVideoLayout(CallState prov, CallNotifier notifier) {
     Widget remoteView;
-    if (prov.remoteUid != null) {
+    if (prov.remoteUid != null && notifier.callService.engine != null) {
       remoteView = AgoraVideoView(
         controller: VideoViewController.remote(
-          rtcEngine: notifier.callService.engine!, // Corrigé avec !
+          rtcEngine: notifier.callService.engine!,
           connection: RtcConnection(channelId: widget.channel),
           canvas: VideoCanvas(
             uid: prov.remoteUid,
@@ -317,6 +366,7 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
             imageUrl: widget.avatarUrl,
             size: 110,
             isVideo: true,
+            isRinging: true,
           ),
         ),
       );
@@ -327,7 +377,7 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
         SizedBox.expand(child: remoteView),
 
         // Local PIP
-        if (!prov.videoOff)
+        if (!prov.videoOff && notifier.callService.engine != null)
           Positioned(
             top: 90,
             right: 16,
@@ -347,55 +397,16 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(14),
-                child: Stack(
-                  children: [
-                    AgoraVideoView(
-                      controller: VideoViewController(
-                        rtcEngine: notifier.callService.engine!, // Corrigé avec !
-                        canvas: const VideoCanvas(
-                          uid: 0,
-                          renderMode: RenderModeType.renderModeHidden,
-                          mirrorMode: VideoMirrorModeType.videoMirrorModeEnabled,
-                        ),
-                      ),
+                child: AgoraVideoView(
+                  controller: VideoViewController(
+                    rtcEngine: notifier.callService.engine!,
+                    canvas: const VideoCanvas(
+                      uid: 0,
+                      renderMode: RenderModeType.renderModeHidden,
+                      mirrorMode: VideoMirrorModeType.videoMirrorModeEnabled,
                     ),
-                    Positioned(
-                      bottom: 6,
-                      left: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.55),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text('Vous',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700)),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-
-        if (prov.videoOff)
-          Positioned(
-            top: 90,
-            right: 16,
-            width: 112,
-            height: 168,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Center(
-                child: Icon(Icons.videocam_off_rounded,
-                    color: Colors.white38, size: 28),
               ),
             ),
           ),
@@ -404,9 +415,7 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
   }
 }
 
-// ============================================================================
-// COMPOSANT DES BOUTONS D'APPEL
-// ============================================================================
+// ================= CONTROLS =================
 class CallControls extends StatelessWidget {
   final bool isVideo;
   final bool muted;
@@ -481,11 +490,7 @@ class CallControls extends StatelessWidget {
           color: color,
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          icon,
-          color: iconColor,
-          size: isEndButton ? 32 : 28,
-        ),
+        child: Icon(icon, color: iconColor, size: isEndButton ? 32 : 28),
       ),
     );
   }
