@@ -879,14 +879,12 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Rendre accessible via la recherche (public)', style: TextStyle(fontSize: 12)),
-                  value: isPublic,
-                  activeThumbColor: _primary,
-                  onChanged: me == null
-                      ? null
-                      : (v) async {
-                          setSheet(() => isPublic = v);
+  contentPadding: EdgeInsets.zero,
+  title: const Text('Rendre public (accessible via la recherche)', style: TextStyle(fontSize: 12)),
+  value: _isPublic,
+  activeColor: _primary,   // ← au lieu de activeThumbColor
+  onChanged: (v) => setState(() => _isPublic = v),
+),
                           await _docs.togglePublic(uid: me.id, documentId: row['id'].toString(), docId: docId, isPublic: v);
                         },
                 ),
@@ -1829,12 +1827,12 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
               ],
               const SizedBox(height: AppSpacing.sm),
               SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Rendre public (accessible via la recherche)', style: TextStyle(fontSize: 12)),
-                value: _isPublic,
-                activeThumbColor: _primary,
-                onChanged: (v) => setState(() => _isPublic = v),
-              ),
+  contentPadding: EdgeInsets.zero,
+  title: const Text('Rendre public (accessible via la recherche)', style: TextStyle(fontSize: 12)),
+  value: _isPublic,
+  activeColor: _primary,   // ← au lieu de activeThumbColor
+  onChanged: (v) => setState(() => _isPublic = v),
+),
               const SizedBox(height: AppSpacing.md),
               SizedBox(
                 height: 44,
