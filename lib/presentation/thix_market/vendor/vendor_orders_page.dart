@@ -22,7 +22,25 @@ final vendorAllOrdersProvider =
 
   final shopIds = shops.map((s) => s['id']).toList();
 
-  var query = db
+  // IMPORTANT : .eq() AVANT .order()
+  if (statusFilter != null &&
+      statusFilter.isNotEmpty &&
+      statusFilter != 'all') {
+    final res = await db
+        .from('orders')
+        .select(
+          'id, total, status, payment_status, payout_status, payment_method, '
+          'currency, created_at, user_id, receipt_code, refund_requested, '
+          'refund_reason, received_at, shipping_method',
+        )
+        .inFilter('shop_id', shopIds)
+        .eq('status', statusFilter)
+        .order('created_at', ascending: false)
+        .limit(100);
+    return List<Map<String, dynamic>>.from(res);
+  }
+
+  final res = await db
       .from('orders')
       .select(
         'id, total, status, payment_status, payout_status, payment_method, '
@@ -30,15 +48,9 @@ final vendorAllOrdersProvider =
         'refund_reason, received_at, shipping_method',
       )
       .inFilter('shop_id', shopIds)
-      .order('created_at', ascending: false);
+      .order('created_at', ascending: false)
+      .limit(100);
 
-  if (statusFilter != null &&
-      statusFilter.isNotEmpty &&
-      statusFilter != 'all') {
-    query = query.eq('status', statusFilter);
-  }
-
-  final res = await query.limit(100);
   return List<Map<String, dynamic>>.from(res);
 });
 
