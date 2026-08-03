@@ -214,7 +214,6 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
     final sec = (s % 60).toString().padLeft(2, '0');
     return '$m:$sec';
   }
-
   Widget _buildActionButton({
     required IconData icon,
     required Color color,
