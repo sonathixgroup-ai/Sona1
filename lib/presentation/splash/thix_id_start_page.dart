@@ -1,21 +1,40 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thix_id/nav.dart';
 
 class ThixIdStartPage extends StatefulWidget {
   const ThixIdStartPage({super.key});
-  @override State<ThixIdStartPage> createState() => _ThixIdStartPageState();
+
+  @override
+  State<ThixIdStartPage> createState() => _ThixIdStartPageState();
 }
 
 class _ThixIdStartPageState extends State<ThixIdStartPage> {
+  static const String _logoAsset = 'assets/images/sonathix_logo.png';
+
   Timer? _timer;
   bool _navigated = false;
+  bool _revealed = false;
+  bool _didPrecache = false;
 
   @override
   void initState() {
     super.initState();
     _timer = Timer(const Duration(seconds: 3), _goHomeSafely);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _revealed = true);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didPrecache) return;
+    _didPrecache = true;
+    precacheImage(const AssetImage(_logoAsset), context);
   }
 
   void _goHomeSafely() {
@@ -25,55 +44,141 @@ class _ThixIdStartPageState extends State<ThixIdStartPage> {
   }
 
   @override
-  void dispose() { _timer?.cancel(); super.dispose(); }
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      body: _ThixIdStartBackdrop(
-        child: SafeArea(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _goHomeSafely,
-            child: Center(
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _goHomeSafely,
+        child: Stack(
+          children: [
+            const Positioned.fill(child: _ThixIdStartBackdrop()),
+            SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    const Spacer(),
-                    // LOGO FIX - plus de 404
-                    Image.asset(
-                      'assets/images/sonathix_logo.png',
-                      width: 120,
-                      errorBuilder: (_, __, ___) => Column(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 420),
+                  curve: Curves.easeOut,
+                  opacity: _revealed ? 1 : 0,
+                  child: Column(
+                    children: [
+                      const Spacer(flex: 2),
+                      const _LogoPanel(),
+                      const SizedBox(height: 28),
+                      Text(
+                        'THIX CENTRAL',
+                        textAlign: TextAlign.center,
+                        style: textTheme.headlineMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.0,
+                          height: 1.05,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'une identité vérifiée, avenir de confiance',
+                        textAlign: TextAlign.center,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.82),
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.3,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 26),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('THIX', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w900, color: const Color(0xFFFFD54A))),
-                          Text('ID', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w900, color: const Color(0xFFFFD54A))),
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: Color(0xFFEAF2FF),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Appuyez pour continuer',
+                            style: textTheme.labelLarge?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.88),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text('une identité vérifiée, avenir de confiance',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12, letterSpacing: 0.5)),
-                    const SizedBox(height: 18),
-                    const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD54A))),
-                    const SizedBox(height: 18),
-                    Text('Appuyez pour continuer', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.white.withOpacity(0.78), fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: 220, height: 46,
-                      child: FilledButton.icon(onPressed: _goHomeSafely, icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white), label: const Text('Continuer', style: TextStyle(color: Colors.white))),
-                    ),
-                    const Spacer(),
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 16),
-                      child: Text('BY SONATHIX GROUP', style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 2)),
-                    )
-                  ],
+                      const Spacer(flex: 3),
+                      Text(
+                        'BY SONATHIX GROUP',
+                        style: textTheme.labelSmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.68),
+                          letterSpacing: 2.3,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LogoPanel extends StatelessWidget {
+  const _LogoPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 20),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x29001A4A),
+              blurRadius: 28,
+              offset: Offset(0, 14),
+            ),
+          ],
+        ),
+        child: Image.asset(
+          'assets/images/sonathix_logo.png',
+          height: 84,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+          errorBuilder: (_, __, ___) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.verified_rounded,
+                size: 46,
+                color: Colors.white.withValues(alpha: 0.95),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'SONATHIX',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.3,
+                    ),
+              ),
+            ],
           ),
         ),
       ),
@@ -82,8 +187,84 @@ class _ThixIdStartPageState extends State<ThixIdStartPage> {
 }
 
 class _ThixIdStartBackdrop extends StatelessWidget {
-  final Widget child; const _ThixIdStartBackdrop({required this.child});
-  @override Widget build(BuildContext context) => Stack(children: [Positioned.fill(child: DecoratedBox(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF0B3B8F), Color(0xFF0A2A5C), Color(0xFF071B3A)])))), const Positioned.fill(child: _ThixIdStartWaves()), Positioned.fill(child: child)]);
+  const _ThixIdStartBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF0A1A3A),
+                    Color(0xFF0B3B8F),
+                    Color(0xFF0E2C63),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -180,
+            right: -120,
+            child: _GlowOrb(
+              size: 360,
+              color: const Color(0x33FFFFFF),
+            ),
+          ),
+          Positioned(
+            bottom: -220,
+            left: -140,
+            child: _GlowOrb(
+              size: 420,
+              color: const Color(0x26000000),
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.24),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
-class _ThixIdStartWaves extends StatelessWidget { const _ThixIdStartWaves(); @override Widget build(BuildContext context) => const Stack(children: [_WaveLayer(opacity: 0.10, top: -130, size: 560), _WaveLayer(opacity: 0.12, top: -60, size: 520), _WaveLayer(opacity: 0.14, top: 10, size: 480), _WaveLayer(opacity: 0.16, top: 80, size: 440)]); }
-class _WaveLayer extends StatelessWidget { final double opacity; final double top; final double size; const _WaveLayer({required this.opacity, required this.top, required this.size}); @override Widget build(BuildContext context) => Positioned(top: top, left: -120, right: -120, child: Center(child: Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(opacity), width: 38))))); }
+
+class _GlowOrb extends StatelessWidget {
+  const _GlowOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color, Colors.transparent],
+            stops: const [0, 1],
+          ),
+        ),
+      ),
+    );
+  }
+}
