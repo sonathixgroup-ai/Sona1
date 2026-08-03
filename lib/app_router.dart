@@ -137,6 +137,7 @@ import 'package:thix_id/presentation/thix_market/pages/notification_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/shop_detail_page.dart';
 import 'package:thix_id/presentation/thix_market/vendor/vendor_dashboard.dart';
 import 'package:thix_id/presentation/thix_market/vendor/delivery_management_page.dart';
+import 'package:thix_id/presentation/thix_market/vendor/vendor_orders_page.dart';
 
 import 'package:thix_id/presentation/thix_info/thix_info_home.dart';
 import 'package:thix_id/presentation/thix_info/article_detail_page.dart' as thixInfoArticle;
@@ -580,6 +581,11 @@ class AppRouter {
           GoRoute(path: 'live/:liveId/replay', name: 'marketLiveReplay', pageBuilder: (_, state) => NoTransitionPage(child: LiveReplayPage(liveId: state.pathParameters['liveId']!))),
           GoRoute(path: 'live/:liveId', name: 'marketLiveStream', pageBuilder: (_, state) => NoTransitionPage(child: LiveStreamPage(liveId: state.pathParameters['liveId']!))),
           GoRoute(path: 'chat/:conversationId', name: 'marketChat', pageBuilder: (_, state) => NoTransitionPage(child: ChatPage(conversationId: state.pathParameters['conversationId']!))),
+        GoRoute(
+  path: 'vendor/orders',
+  name: 'vendorOrders',
+  pageBuilder: (_, __) => const NoTransitionPage(child: VendorOrdersPage()),
+),
           GoRoute(path: 'shop/:shopId', name: 'marketShopDetail', pageBuilder: (_, state) => NoTransitionPage(child: ShopDetailPage(shopId: state.pathParameters['shopId']!))),
           GoRoute(path: 'messages', name: 'marketMessages', pageBuilder: (_, __) => const NoTransitionPage(child: MessagesPage())),
           GoRoute(path: 'notifications', name: 'marketNotifications', pageBuilder: (_, __) => const NoTransitionPage(child: NotificationPage())),
