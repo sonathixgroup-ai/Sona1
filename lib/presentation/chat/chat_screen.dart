@@ -64,7 +64,7 @@ final audioServiceProvider = Provider((ref) => AudioService(Supabase.instance.cl
 final groupServiceProvider = Provider((ref) => GroupService(Supabase.instance.client));
 final connectionServiceProvider = Provider((ref) => ConnectionService());
 
-final callProvider = ChangeNotifierProvider<CallProvider>((ref) => CallProvider());
+
 
 final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
   return ChatMsgNotifier(ref.read(chatServiceProvider), conversationId);
