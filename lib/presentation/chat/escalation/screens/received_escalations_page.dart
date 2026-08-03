@@ -96,10 +96,12 @@ class _ReceivedEscalationsPageState
   final user = Supabase.instance.client.auth.currentUser;
   if (user == null) return;
 
-  // On récupère l'escalade AVANT de l'accepter pour connaître conversationId
-  final step = ref.read(escalationProvider).pending
-      .where((s) => s.id == id)
-      .firstOrNull;
+  EscalationStep? step;
+  try {
+    step = ref.read(escalationProvider).pending.firstWhere((s) => s.id == id);
+  } catch (_) {
+    step = null;
+  }
 
   final ok = await ref.read(escalationProvider.notifier).accept(id, user.id);
 
@@ -112,8 +114,6 @@ class _ReceivedEscalationsPageState
         backgroundColor: Color(0xFF16A34A),
       ),
     );
-
-    // Ouvre automatiquement la conversation
     final conversationId = step?.conversationId ?? ok.conversationId;
     if (conversationId.isNotEmpty) {
       await _openConversation(conversationId);
