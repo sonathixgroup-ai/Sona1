@@ -12,9 +12,9 @@ import '../../theme.dart';
 
 const Color _facebookBlue = Color(0xFF1877F2);
 
-// =============================================================================
+// =============================================================
 // Widgets réutilisables
-// =============================================================================
+// =============================================================
 
 class CategoryChip extends StatelessWidget {
   final IconData icon;
@@ -170,9 +170,9 @@ class DocItem extends StatelessWidget {
   }
 }
 
-// =============================================================================
+// =============================================================
 // PAGE PRINCIPALE
-// =============================================================================
+// =============================================================
 
 class DocumentVaultPage extends StatefulWidget {
   const DocumentVaultPage({super.key});
@@ -244,7 +244,7 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
             ? DateTime.tryParse(createdAt)
             : null;
     if (date == null) return '—';
-    return '\( {date.day.toString().padLeft(2, '0')}/ \){date.month.toString().padLeft(2, '0')}/${date.year}';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
   String _formatSize(int sizeBytes) {
@@ -628,9 +628,9 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
   }
 }
 
-// =============================================================================
+// =============================================================
 // ONGLET DÉPÔT
-// =============================================================================
+// =============================================================
 
 class _DepotTab extends StatelessWidget {
   final AppUser? me;
@@ -660,7 +660,6 @@ class _DepotTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Catégories (filtre simple)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -687,8 +686,6 @@ class _DepotTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-
-          // Liste
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -712,7 +709,6 @@ class _DepotTab extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-
           if (me == null)
             Padding(
               padding: const EdgeInsets.all(16),
@@ -775,7 +771,7 @@ class _DepotTab extends StatelessWidget {
                     return DocItem(
                       icon: iconForMime(mime),
                       title: title,
-                      subtitle: '$dateStr • \( sizeStr \){docId.isNotEmpty ? ' • $docId' : ''}',
+                      subtitle: '$dateStr • $sizeStr${docId.isNotEmpty ? ' • $docId' : ''}',
                       onTap: () => onOpenDoc(data),
                       onMore: () => onMore(data),
                     );
@@ -783,10 +779,7 @@ class _DepotTab extends StatelessWidget {
                 );
               },
             ),
-
           const SizedBox(height: AppSpacing.lg),
-
-          // Bloc sécurité
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
@@ -840,9 +833,9 @@ class _DepotTab extends StatelessWidget {
   }
 }
 
-// =============================================================================
+// =============================================================
 // ONGLET ENVOYER
-// =============================================================================
+// =============================================================
 
 class _EnvoyerTab extends StatelessWidget {
   final AppUser? me;
@@ -895,109 +888,9 @@ class _EnvoyerTab extends StatelessWidget {
   }
 }
 
-// =============================================================================
+// =============================================================
 // ONGLET REÇU
-// =============================================================================
-
-class _RecuTab extends StatelessWidget {
-  final AppUser? me;
-  final DocumentService docsService;
-  final Future<void> Function(Map<String, dynamic>) onOpenDoc;
-  final String Function(dynamic) formatDate;
-
-  const _RecuTab({
-    required this.me,
-    required this.docsService,
-    required this.onOpenDoc,
-    required this.formatDate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (me == null) {
-      return const Center(child: Text('Connectez-vous pour voir les documents reçus.'));
-    }
-
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: docsService.streamReceivedShares(me!.id, me!.thixId),
-      builder: (context, snap) {
-        final shares = snap.data ?? [];
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (shares.isEmpty) {
-          return Center(
-            child: Text(
-              'Aucun document reçu.',
-              style: context.textStyles.bodyMedium?.copyWith(
-                color: LightModeColors.secondaryText,
-              ),
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          itemCount: shares.length,
-          itemBuilder: (context, i) {
-            final s = shares[i];
-            final subject = (s['subject'] as String?)?.trim().isNotEmpty == true
-                ? s['subject'] as String
-                : 'Document partagé';
-            final status = (s['status'] as String?) ?? 'pending';
-            final from = s['available_from'];
-            final auto = s['auto_destruct_at'];
-            final hasPassword = (s['password_hash'] as String?)?.isNotEmpty == true;
-
-            String statusLabel;
-            Color statusColor;
-            switch (status) {
-              case 'available':
-              case 'opened':
-                statusLabel = status == 'opened' ? 'Ouvert' : 'Disponible';
-                statusColor = Colors.green;
-                break;
-              case 'pending':
-                statusLabel = 'Verrouillé';
-                statusColor = Colors.orange;
-                break;
-              case 'expired':
-              case 'destroyed':
-                statusLabel = status == 'destroyed' ? 'Détruit' : 'Expiré';
-                statusColor = Colors.red;
-                break;
-              default:
-                statusLabel = status;
-                statusColor = Colors.grey;
-            }
-
-            return DocItem(
-              icon: Icons.mail_outline_rounded,
-              title: subject,
-              subtitle:
-                  'De: ${(s['sender_id'] as String?)?.substring(0, 8) ?? '—'} • ${formatDate(s['created_at'])}'
-                  '${hasPassword ? ' • 🔒' : ''}',
-              trailing: statusLabel,
-              onTap: () async {
-                // Vérification disponibilité
-                if (status == 'pending' && from != null) {
-                  final avail = DateTime.tryParse(from.toString());
-                  if (avail != null && avail.isAfter(DateTime.now())) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Disponible à partir du \( {avail.day.toString().padLeft(2, '0')}/ \){avail.month.toString().padLeft(2, '0')}/${avail.year}',
-                        ),
-                      ),
-                    );
-                    return;
-                  }
-                }
-                if (status == 'destroyed' || status == 'expired') {
-                  ScaffoldMessenger.of(context).showSnackBar(
-// =============================================================================
-// ONGLET REÇU (version complète)
-// =============================================================================
+// =============================================================
 
 class _RecuTab extends StatelessWidget {
   final AppUser? me;
@@ -1027,11 +920,10 @@ class _RecuTab extends StatelessWidget {
       return;
     }
 
-    // 1. Vérifier auto-destruction
     if (autoDestructRaw != null) {
       final autoAt = DateTime.tryParse(autoDestructRaw.toString());
       if (autoAt != null && autoAt.isBefore(DateTime.now())) {
-        await docsService.markShareDestroyed(shareId); // méthode à ajouter
+        await docsService.markShareDestroyed(shareId);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Ce document a été auto-détruit.')),
         );
@@ -1039,12 +931,11 @@ class _RecuTab extends StatelessWidget {
       }
     }
 
-    // 2. Vérifier disponibilité
     if (status == 'pending' || status == 'available') {
       if (availableFromRaw != null) {
         final avail = DateTime.tryParse(availableFromRaw.toString());
         if (avail != null && avail.isAfter(DateTime.now())) {
-          final d = '\( {avail.day.toString().padLeft(2, '0')}/ \){avail.month.toString().padLeft(2, '0')}/${avail.year}';
+          final d = '${avail.day.toString().padLeft(2, '0')}/${avail.month.toString().padLeft(2, '0')}/${avail.year}';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Document disponible à partir du $d.')),
           );
@@ -1060,7 +951,6 @@ class _RecuTab extends StatelessWidget {
       return;
     }
 
-    // 3. Demander le mot de passe si nécessaire
     String? enteredPassword;
     if (hasPassword) {
       enteredPassword = await showDialog<String>(
@@ -1090,9 +980,8 @@ class _RecuTab extends StatelessWidget {
         },
       );
 
-      if (enteredPassword == null) return; // annulé
+      if (enteredPassword == null) return;
 
-      // Vérification simple (à remplacer par vérification côté serveur plus tard)
       final stored = share['password_hash'] as String?;
       if (stored != enteredPassword) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1102,7 +991,6 @@ class _RecuTab extends StatelessWidget {
       }
     }
 
-    // 4. Récupérer le document lié
     try {
       final docRow = await docsService.fetchDocumentById(documentId);
       if (docRow == null) {
@@ -1112,10 +1000,7 @@ class _RecuTab extends StatelessWidget {
         return;
       }
 
-      // Marquer comme ouvert
       await docsService.markShareOpened(shareId);
-
-      // Ouvrir
       await onOpenDoc(docRow);
     } catch (e) {
       debugPrint('Open received share failed: $e');
@@ -1162,31 +1047,24 @@ class _RecuTab extends StatelessWidget {
             final screenshotCount = (s['screenshot_count'] as num?)?.toInt() ?? 0;
 
             String statusLabel;
-            Color statusColor;
             switch (status) {
               case 'available':
                 statusLabel = 'Disponible';
-                statusColor = Colors.green;
                 break;
               case 'opened':
                 statusLabel = 'Ouvert';
-                statusColor = Colors.blue;
                 break;
               case 'pending':
                 statusLabel = 'Verrouillé';
-                statusColor = Colors.orange;
                 break;
               case 'expired':
                 statusLabel = 'Expiré';
-                statusColor = Colors.red;
                 break;
               case 'destroyed':
                 statusLabel = 'Détruit';
-                statusColor = Colors.red.shade800;
                 break;
               default:
                 statusLabel = status;
-                statusColor = Colors.grey;
             }
 
             return DocItem(
@@ -1206,9 +1084,9 @@ class _RecuTab extends StatelessWidget {
   }
 }
 
-// =============================================================================
+// =============================================================
 // SHEET : DÉPÔT (simplifié – type uniquement)
-// =============================================================================
+// =============================================================
 
 class _UploadDocPayload {
   final String docType;
@@ -1263,7 +1141,7 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
     final expiryLabel = _expiresAt == null
         ? 'Choisir une date'
-        : '\( {_expiresAt!.year.toString().padLeft(4, '0')}- \){_expiresAt!.month.toString().padLeft(2, '0')}-${_expiresAt!.day.toString().padLeft(2, '0')}';
+        : '${_expiresAt!.year.toString().padLeft(4, '0')}-${_expiresAt!.month.toString().padLeft(2, '0')}-${_expiresAt!.day.toString().padLeft(2, '0')}';
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
@@ -1402,9 +1280,9 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
   }
 }
 
-// =============================================================================
+// =============================================================
 // SHEET : ENVOI
-// =============================================================================
+// =============================================================
 
 class _SendPayload {
   final String documentId;
@@ -1516,8 +1394,6 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
-
-              // Sélection document
               DropdownButtonFormField<String>(
                 value: _selectedDocId,
                 decoration: InputDecoration(
@@ -1536,8 +1412,6 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                 onChanged: (v) => setState(() => _selectedDocId = v),
               ),
               const SizedBox(height: AppSpacing.sm),
-
-              // Destinataires
               TextField(
                 controller: _recipientsC,
                 decoration: InputDecoration(
@@ -1550,8 +1424,6 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-
-              // Objet
               TextField(
                 controller: _subjectC,
                 decoration: InputDecoration(
@@ -1562,8 +1434,6 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-
-              // Corps
               TextField(
                 controller: _bodyC,
                 maxLines: 3,
@@ -1575,8 +1445,6 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-
-              // Mot de passe
               TextField(
                 controller: _passwordC,
                 obscureText: true,
@@ -1589,8 +1457,6 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-
-              // Dates
               Row(
                 children: [
                   Expanded(
@@ -1600,7 +1466,7 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                       label: Text(
                         _availableFrom == null
                             ? 'Disponible dès'
-                            : '\( {_availableFrom!.day}/ \){_availableFrom!.month}/${_availableFrom!.year}',
+                            : '${_availableFrom!.day}/${_availableFrom!.month}/${_availableFrom!.year}',
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
@@ -1613,7 +1479,7 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                       label: Text(
                         _autoDestructAt == null
                             ? 'Auto-destruction'
-                            : '\( {_autoDestructAt!.day}/ \){_autoDestructAt!.month}/${_autoDestructAt!.year}',
+                            : '${_autoDestructAt!.day}/${_autoDestructAt!.month}/${_autoDestructAt!.year}',
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
@@ -1621,7 +1487,6 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-
               SizedBox(
                 height: 46,
                 child: ElevatedButton.icon(
