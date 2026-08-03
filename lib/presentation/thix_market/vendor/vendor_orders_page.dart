@@ -7,7 +7,7 @@ import 'package:barcode_widget/barcode_widget.dart';
 import '../providers/market_providers.dart';
 
 // ============================================================
-// PROVIDER (Pointant vers market_orders)
+// PROVIDER (Utilise la table 'orders')
 // ============================================================
 final vendorAllOrdersProvider =
     FutureProvider.family<List<Map<String, dynamic>>, String?>((ref, statusFilter) async {
@@ -25,7 +25,7 @@ final vendorAllOrdersProvider =
       statusFilter.isNotEmpty &&
       statusFilter != 'all') {
     final res = await db
-        .from('market_orders')
+        .from('orders')
         .select(
           'id, total, status, payment_status, payout_status, payment_method, '
           'currency, created_at, user_id, receipt_code, refund_requested, '
@@ -40,7 +40,7 @@ final vendorAllOrdersProvider =
   }
 
   final res = await db
-      .from('market_orders')
+      .from('orders')
       .select(
         'id, total, status, payment_status, payout_status, payment_method, '
         'currency, created_at, user_id, receipt_code, refund_requested, '
@@ -156,7 +156,7 @@ class _VendorOrdersPageState extends ConsumerState<VendorOrdersPage> {
         payload['payout_status'] = 'refunded';
       }
 
-      await db.from('market_orders').update(payload).eq('id', orderId);
+      await db.from('orders').update(payload).eq('id', orderId);
 
       ref.invalidate(vendorAllOrdersProvider(_filter));
       ref.invalidate(vendorAllOrdersProvider(null));
@@ -602,7 +602,7 @@ class _VendorOrdersPageState extends ConsumerState<VendorOrdersPage> {
 }
 
 // ============================================================
-// ORDER DETAILS SHEET (Interroge market_order_items)
+// ORDER DETAILS SHEET (Interroge la table 'order_items')
 // ============================================================
 class _OrderDetailsSheet extends ConsumerStatefulWidget {
   final Map<String, dynamic> order;
@@ -646,9 +646,9 @@ class _OrderDetailsSheetState extends ConsumerState<_OrderDetailsSheet> {
       final orderId = widget.order['id'];
       final userId = widget.order['user_id'];
 
-      // Interroge market_order_items
+      // Interroge 'order_items'
       final itemsRes = await db
-          .from('market_order_items')
+          .from('order_items')
           .select('*, product:products(title, image_url, currency)')
           .eq('order_id', orderId);
       _items = List<Map<String, dynamic>>.from(itemsRes);
