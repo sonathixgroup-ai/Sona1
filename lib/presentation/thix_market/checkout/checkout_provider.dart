@@ -149,7 +149,8 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         try {
           selAddr = addresses.firstWhere(
             (a) =>
-                a['id'].toString() == userInfo['default_address_id'].toString(),
+                a['id'].toString() ==
+                userInfo['default_address_id'].toString(),
           );
         } catch (_) {}
       }
@@ -240,6 +241,38 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
     state = state.copyWith(selectedPayment: method);
   }
 
+  // ========== DEVISE (depuis produit / panier) ==========
+  String _resolveCurrency(List<Map<String, dynamic>> items) {
+    try {
+      final cartCurrency = ref.read(cartProvider.notifier).currencySymbol;
+      if (cartCurrency == '\$' || cartCurrency.toUpperCase() == 'USD') {
+        return 'USD';
+      }
+      if (cartCurrency == 'FC' ||
+          cartCurrency.toUpperCase() == 'CDF' ||
+          cartCurrency.toUpperCase() == 'XOF') {
+        return 'CDF';
+      }
+    } catch (_) {}
+
+    for (final item in items) {
+      final p = item['product'];
+      if (p is Map && p['currency'] != null) {
+        final c = p['currency'].toString().toUpperCase();
+        if (c == 'USD' || c == '\$') return 'USD';
+        if (c == 'CDF' || c == 'FC' || c == 'XOF' || c == 'FCFA') return 'CDF';
+        return c;
+      }
+      if (item['currency'] != null) {
+        final c = item['currency'].toString().toUpperCase();
+        if (c == 'USD' || c == '\$') return 'USD';
+        if (c == 'CDF' || c == 'FC' || c == 'XOF' || c == 'FCFA') return 'CDF';
+        return c;
+      }
+    }
+    return 'CDF';
+  }
+
   // ========== VALIDATION STOCK ==========
   Future<void> _validateStock(List<Map<String, dynamic>> items) async {
     final db = ref.read(supabaseClientProvider);
@@ -270,7 +303,8 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         throw Exception('Rupture de stock : $title');
       }
       if (qty > stock) {
-        throw Exception('Stock insuffisant pour "$title" (disponible : $stock)');
+        throw Exception(
+            'Stock insuffisant pour "$title" (disponible : $stock)');
       }
     }
   }
@@ -284,11 +318,12 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
     final userId = db.auth.currentUser?.id;
     if (userId == null) throw Exception('Non connecté');
     if (state.selectedAddress == null) throw Exception('Adresse requise');
-    if (state.selectedShipping == null) throw Exception('Mode livraison requis');
+    if (state.selectedShipping == null) {
+      throw Exception('Mode livraison requis');
+    }
     if (state.selectedPayment == null) throw Exception('Paiement requis');
     if (items.isEmpty) throw Exception('Panier vide');
 
-    // ===== VÉRIFICATION STOCK AVANT CRÉATION =====
     await _validateStock(items);
 
     state = state.copyWith(isProcessing: true);
@@ -305,6 +340,8 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         }
       }
 
+      final currency = _resolveCurrency(items);
+
       final orderData = {
         'user_id': userId,
         'shop_id': shopId,
@@ -312,13 +349,27 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         'shipping_method': state.selectedShipping!['id'],
         'shipping_cost': state.selectedShipping!['price'] ?? 0.0,
         'total': total,
+        'currency': currency,
+        // Statut initial : EN ATTENTE (pas processing)
         'status': 'pending',
         'payment_status': 'awaiting_payment',
+        // Argent bloqué jusqu'à scan client
+        'payout_status': 'held',
+        'refund_requested': false,
         'created_at': DateTime.now().toIso8601String(),
       };
 
       final orderRes =
           await db.from('orders').insert(orderData).select().single();
+
+      final orderId = orderRes['id'].toString();
+
+      // Code QR d'accusé de réception = id commande (simple & fiable)
+      try {
+        await db.from('orders').update({
+          'receipt_code': orderId,
+        }).eq('id', orderId);
+      } catch (_) {}
 
       for (var item in items) {
         String prodTitle = item['product_name']?.toString() ?? 'Produit';
@@ -332,7 +383,7 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         final qty = (item['quantity'] as num?)?.toInt() ?? 1;
 
         await db.from('order_items').insert({
-          'order_id': orderRes['id'],
+          'order_id': orderId,
           'product_id': productId,
           'quantity': qty,
           'price': item['price'] ?? 0,
@@ -341,7 +392,6 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
           'title_snapshot': prodTitle,
         });
 
-        // Décrémentation atomique du stock
         if (productId != null) {
           try {
             await db.rpc('decrement_product_stock', params: {
@@ -350,7 +400,6 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
             });
           } catch (e) {
             debugPrint('decrement stock error: $e');
-            // Fallback manuel si RPC absente
             try {
               final prod = await db
                   .from('products')
@@ -370,8 +419,14 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         }
       }
 
-      state = state.copyWith(createdOrder: orderRes, isProcessing: false);
-      return orderRes;
+      final finalOrder = {
+        ...orderRes,
+        'receipt_code': orderId,
+        'currency': currency,
+      };
+
+      state = state.copyWith(createdOrder: finalOrder, isProcessing: false);
+      return finalOrder;
     } catch (e) {
       state = state.copyWith(isProcessing: false);
       rethrow;
@@ -384,9 +439,10 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
     required List<Map<String, dynamic>> items,
     String? phoneNumber,
   }) async {
-    // 1. Créer la commande (avec validation stock)
+    // 1. Créer la commande
     final order = await createOrderOnly(total: total, items: items);
     final orderId = order['id'].toString();
+    final currency = order['currency']?.toString() ?? _resolveCurrency(items);
 
     // 2. Initier le paiement
     final paymentService =
@@ -396,13 +452,12 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
     final result = await paymentService.initiatePayment(
       orderId: orderId,
       amount: total,
-      currency: 'CDF',
+      currency: currency,
       paymentMethod: method,
       phoneNumber: phoneNumber ?? state.userInfo['phone']?.toString(),
     );
 
     if (result['success'] != true) {
-      // Annuler la commande si le paiement échoue immédiatement
       try {
         await ref
             .read(supabaseClientProvider)
@@ -413,15 +468,17 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
       throw Exception(result['error'] ?? 'Paiement échoué');
     }
 
-    // 3. Mettre à jour le status selon le type de paiement
+    // 3. Mettre à jour UNIQUEMENT payment_status
+    //    status commande reste "pending" (En attente)
     final paymentStatus = result['payment_status'] ?? 'awaiting_payment';
     await ref.read(supabaseClientProvider).from('orders').update({
       'payment_status': paymentStatus,
-      if (paymentStatus == 'paid' || paymentStatus == 'pending_delivery')
-        'status': 'processing',
+      'status': 'pending', // ← toujours En attente
+      'payout_status': 'held', // argent bloqué jusqu'au scan client
+      'payment_method': method,
     }).eq('id', orderId);
 
-    // 4. Si paiement immédiat (cash / thix), vider le panier
+    // 4. Paiement immédiat (cash / thix) → vider panier
     if (result['needs_waiting'] != true) {
       await ref.read(cartProvider.notifier).clearCart();
       final updated = await ref
@@ -445,7 +502,6 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
   }
 }
 
-// ===== PROVIDER EXPORTÉ (important pour les autres fichiers) =====
 final checkoutProvider =
     StateNotifierProvider<CheckoutNotifier, CheckoutState>(
   (ref) => CheckoutNotifier(ref),
