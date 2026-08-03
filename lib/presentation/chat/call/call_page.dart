@@ -300,7 +300,7 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
     if (prov.remoteUid != null) {
       remoteView = AgoraVideoView(
         controller: VideoViewController.remote(
-          rtcEngine: notifier.callService.engine, // Utilise l'instance active du service
+          rtcEngine: notifier.callService.engine!, // Corrigé avec !
           connection: RtcConnection(channelId: widget.channel),
           canvas: VideoCanvas(
             uid: prov.remoteUid,
@@ -351,7 +351,7 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
                   children: [
                     AgoraVideoView(
                       controller: VideoViewController(
-                        rtcEngine: notifier.callService.engine, // Utilise l'instance active
+                        rtcEngine: notifier.callService.engine!, // Corrigé avec !
                         canvas: const VideoCanvas(
                           uid: 0,
                           renderMode: RenderModeType.renderModeHidden,
