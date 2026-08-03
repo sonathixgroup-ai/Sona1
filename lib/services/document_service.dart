@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -115,7 +117,6 @@ class DocumentService {
 
   // ---------------------------------------------------------------------------
   // Génération d'identifiant unique
-  // Format : THIX-DOC-MMAAAA-6LETTRES-3LETTRES/CC
   // ---------------------------------------------------------------------------
 
   Future<String> generateDocumentId(String uid) async {
@@ -170,7 +171,7 @@ class DocumentService {
   }
 
   // ---------------------------------------------------------------------------
-  // Upload simplifié (recommandé) – type + dossier + visibilité
+  // Upload simplifié
   // ---------------------------------------------------------------------------
 
   Future<String> uploadPickedFileSimple({
@@ -188,7 +189,7 @@ class DocumentService {
 
     final generatedId = await generateDocumentId(uid);
     final safeName = file.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-    final path = 'users/$uid/$generatedId/${DateTime.now().millisecondsSinceEpoch}_$safeName';
+    final path = 'users/$uid/\( generatedId/ \){DateTime.now().millisecondsSinceEpoch}_$safeName';
 
     await uploadPickedFileToBucket(
       bucketName: bucket,
@@ -247,7 +248,7 @@ class DocumentService {
     if (file.size > 15 * 1024 * 1024) throw Exception('Fichier > 15 Mo');
 
     final safeName = file.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-    final p = 'users/$uid/${docId.toUpperCase()}/${DateTime.now().millisecondsSinceEpoch}_$safeName';
+    final p = 'users/\( uid/ \){docId.toUpperCase()}/${DateTime.now().millisecondsSinceEpoch}_$safeName';
 
     await uploadPickedFileToBucket(
       bucketName: bucket,
@@ -389,7 +390,7 @@ class DocumentService {
   }
 
   // ---------------------------------------------------------------------------
-  // Recherche publique par identifiant
+  // Recherche publique
   // ---------------------------------------------------------------------------
 
   Future<Map<String, dynamic>?> searchPublicDocument(String docId) async {
@@ -402,7 +403,7 @@ class DocumentService {
   }
 
   // ---------------------------------------------------------------------------
-  // Vérification d'un THIX ID (affiche le nom du destinataire)
+  // Vérification THIX ID
   // ---------------------------------------------------------------------------
 
   Future<Map<String, dynamic>?> verifyThixId(String thixId) async {
@@ -443,10 +444,17 @@ class DocumentService {
   }
 
   // ---------------------------------------------------------------------------
-  // PARTAGE / ENVOI DE DOCUMENTS
+  // Hash / Verify (local pour Vault + Edge Function pour partages)
   // ---------------------------------------------------------------------------
 
   Future<String?> _hashSecret(String action, String secret) async {
+    // Vault → hash local (SHA-256)
+    if (action == 'vault') {
+      final bytes = utf8.encode('${secret}THIX_VAULT_SALT_v1');
+      return sha256.convert(bytes).toString();
+    }
+
+    // Partages → Edge Function
     try {
       final res = await _db.functions.invoke(
         'vault-share-password',
@@ -463,6 +471,14 @@ class DocumentService {
     required String password,
     required String hash,
   }) async {
+    // Hash local (SHA-256 = 64 caractères hex, sans ":")
+    if (hash.length == 64 && !hash.contains(':')) {
+      final bytes = utf8.encode('${password}THIX_VAULT_SALT_v1');
+      final computed = sha256.convert(bytes).toString();
+      return computed == hash;
+    }
+
+    // Hash Edge Function
     try {
       final res = await _db.functions.invoke(
         'vault-share-password',
@@ -474,6 +490,10 @@ class DocumentService {
       return false;
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // PARTAGE / ENVOI DE DOCUMENTS
+  // ---------------------------------------------------------------------------
 
   Future<void> shareDocument({
     required String senderId,
@@ -640,7 +660,7 @@ class DocumentService {
   }
 
   // ---------------------------------------------------------------------------
-  // Historique (transactions)
+  // Historique
   // ---------------------------------------------------------------------------
 
   Future<List<Map<String, dynamic>>> fetchTransactions(String uid, {int limit = 50}) async {
@@ -663,7 +683,7 @@ class DocumentService {
   }
 
   // ---------------------------------------------------------------------------
-  // Verrou du panneau THIX DOC (PIN)
+  // Verrou du panneau THIX VAULT (PIN)
   // ---------------------------------------------------------------------------
 
   Future<bool> hasVaultLock(String uid) async {
@@ -682,34 +702,13 @@ class DocumentService {
   }
 
   Future<bool> verifyVaultPin({required String uid, required String pin}) async {
-  final res = await _db.from(vaultLocksTable).select('pin_hash').eq('user_id', uid).maybeSingle();
-  final hash = res?['pin_hash'] as String?;
-  
-  debugPrint('=== VAULT VERIFY ===');
-  debugPrint('PIN entered: "$pin"');
-  debugPrint('Hash from DB: $hash');
-  
-  if (hash == null) {
-    debugPrint('No hash found');
-    return false;
+    final res = await _db.from(vaultLocksTable).select('pin_hash').eq('user_id', uid).maybeSingle();
+    final hash = res?['pin_hash'] as String?;
+    if (hash == null) return false;
+    return verifyPassword(password: pin, hash: hash);
   }
+}
 
-  try {
-    final response = await _db.functions.invoke(
-      'vault-share-password',
-      body: {'action': 'verify', 'password': pin, 'hash': hash},
-    );
-    
-    debugPrint('Function response: ${response.data}');
-    debugPrint('Status: ${response.status}');
-    
-    return response.data?['valid'] == true;
-  } catch (e) {
-    debugPrint('Verify error: $e');
-    return false;
-  }
-}
-}
 // ---------------------------------------------------------------------------
 // Cache URL signée
 // ---------------------------------------------------------------------------
