@@ -58,10 +58,11 @@ class CartNotifier extends StateNotifier<CartState> {
     return original;
   }
 
+  /// Normalise toutes les devises vers USD ou FC uniquement
   String _normalizeCurrency(dynamic raw) {
     final c = (raw ?? 'FC').toString().toUpperCase().trim();
-    if (c == 'CDF' || c == 'XOF' || c == 'FC' || c == 'CDF') return 'FC';
     if (c == 'USD' || c == '\$' || c == 'DOLLAR') return 'USD';
+    // CDF, XOF, FCFA, FC, etc. → FC
     return 'FC';
   }
 
@@ -88,6 +89,16 @@ class CartNotifier extends StateNotifier<CartState> {
   String currencyForItem(Map<String, dynamic> item) {
     final p = item['product'] as Map?;
     return _normalizeCurrency(p?['currency']);
+  }
+
+  /// true si plusieurs devises présentes (ne devrait plus arriver)
+  bool get hasMixedCurrency {
+    if (state.items.length < 2) return false;
+    final first = currency;
+    for (final item in state.items) {
+      if (currencyForItem(item) != first) return true;
+    }
+    return false;
   }
 
   double get subtotal => state.items.fold(0.0, (sum, item) {
@@ -146,7 +157,6 @@ class CartNotifier extends StateNotifier<CartState> {
     return ((1 - real / oldP) * 100).round();
   }
 
-  /// true s'il y a au moins un article en rupture ou quantité > stock
   bool get hasOutOfStockItems {
     for (final item in state.items) {
       final product = item['product'] as Map?;
@@ -193,8 +203,10 @@ class CartNotifier extends StateNotifier<CartState> {
     });
   }
 
+  /// Enrichit les lignes panier + SUPPRIME les devises mixtes
   Future<void> _syncCartWithProducts(
-      List<Map<String, dynamic>> cartRecords) async {
+    List<Map<String, dynamic>> cartRecords,
+  ) async {
     if (cartRecords.isEmpty) {
       state = state.copyWith(items: [], isSyncing: false);
       return;
@@ -216,10 +228,46 @@ class CartNotifier extends StateNotifier<CartState> {
           if (product != null) {
             enriched.add({...cartItem, 'product': product});
           } else {
+            // Produit supprimé → retirer du panier
             await db.from('cart').delete().eq('id', cartItem['id']);
           }
         }
       }
+
+      // ===== PURGE DEVISES MIXTES =====
+      // On garde la devise du premier article, on supprime le reste
+      if (enriched.length > 1) {
+        final mainCurrency = _normalizeCurrency(
+          (enriched.first['product'] as Map?)?['currency'],
+        );
+
+        final toKeep = <Map<String, dynamic>>[];
+        final toRemove = <Map<String, dynamic>>[];
+
+        for (final item in enriched) {
+          final c = _normalizeCurrency(
+            (item['product'] as Map?)?['currency'],
+          );
+          if (c == mainCurrency) {
+            toKeep.add(item);
+          } else {
+            toRemove.add(item);
+          }
+        }
+
+        for (final item in toRemove) {
+          try {
+            await db.from('cart').delete().eq('id', item['id']);
+            debugPrint(
+              'Cart: removed mixed currency item ${item['id']} '
+              '(${_normalizeCurrency((item['product'] as Map?)?['currency'])} ≠ $mainCurrency)',
+            );
+          } catch (_) {}
+        }
+
+        enriched = toKeep;
+      }
+
       state = state.copyWith(items: enriched);
     } catch (e) {
       debugPrint('sync cart $e');
@@ -250,7 +298,7 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
-  // ========== ADD TO CART (stock + devise) ==========
+  // ========== ADD TO CART (stock + UNE SEULE DEVISE) ==========
   Future<void> addToCart({
     required String productId,
     int quantity = 1,
@@ -277,15 +325,16 @@ class CartNotifier extends StateNotifier<CartState> {
         throw Exception('Rupture de stock');
       }
 
-      // 3. Vérifier la devise (une seule devise par panier)
+      // 3. BLOQUER si devise différente
       final newCurrency = _normalizeCurrency(product['currency']);
 
       if (state.items.isNotEmpty) {
         final existingCurrency = currency;
         if (existingCurrency != newCurrency) {
           throw Exception(
-            'Votre panier contient déjà des articles en $existingCurrency. '
-            'Videz le panier pour ajouter un produit en $newCurrency.',
+            'Impossible d\'ajouter un produit en $newCurrency. '
+            'Votre panier est déjà en $existingCurrency. '
+            'Videz le panier ou retirez les autres articles.',
           );
         }
       }
@@ -414,8 +463,9 @@ class CartNotifier extends StateNotifier<CartState> {
 final cartProvider =
     StateNotifierProvider<CartNotifier, CartState>((ref) => CartNotifier(ref));
 
-final cartItemsProvider =
-    Provider<List<Map<String, dynamic>>>((ref) => ref.watch(cartProvider).items);
+final cartItemsProvider = Provider<List<Map<String, dynamic>>>(
+  (ref) => ref.watch(cartProvider).items,
+);
 
 final cartTotalProvider = Provider<double>((ref) {
   return ref.read(cartProvider.notifier).total;
