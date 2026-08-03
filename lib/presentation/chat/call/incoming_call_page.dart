@@ -1,26 +1,25 @@
 // Route: lib/presentation/chat/call/incoming_call_page.dart
-// Version PRODUCTION - Incoming Call Full Screen - Audio + Video
+// Version PRODUCTION - Incoming Call Full Screen - Audio + Video - Riverpod
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thix_id/models/chat/call_invite.dart';
 import 'package:thix_id/models/chat/call_status.dart';
 import 'package:thix_id/services/chat/call_signaling_service.dart';
 import 'call_page.dart';
-import 'providers/call_provider.dart';
 import 'widgets/call_avatar.dart';
 
-class IncomingCallPage extends StatefulWidget {
+class IncomingCallPage extends ConsumerStatefulWidget {
   final CallInvite invite;
   const IncomingCallPage({super.key, required this.invite});
 
   @override
-  State<IncomingCallPage> createState() => _IncomingCallPageState();
+  ConsumerState<IncomingCallPage> createState() => _IncomingCallPageState();
 }
 
-class _IncomingCallPageState extends State<IncomingCallPage>
+class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
     with SingleTickerProviderStateMixin {
   final _signal = CallSignalingService();
   late AnimationController _pulseController;
@@ -71,11 +70,6 @@ class _IncomingCallPageState extends State<IncomingCallPage>
     _timeoutTimer?.cancel();
     try {
       await _signal.update(widget.invite.id, 'rejected');
-      // Message système pour l'historique
-      // await ChatService().sendCallSystemMessage(
-      // conversationId: widget.invite.channelName,
-      // content: '📞 Appel refusé',
-      // );
     } catch (_) {}
     if (mounted) Navigator.pop(context);
   }
@@ -89,18 +83,17 @@ class _IncomingCallPageState extends State<IncomingCallPage>
     // Stop l'animation avant de naviguer
     _pulseController.stop();
 
+    // Navigation directe : CallPage gère son provider Riverpod en interne
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => ChangeNotifierProvider(
-          create: (_) => CallProvider(),
-          child: CallPage(
-            channel: widget.invite.channelName,
-            name: widget.invite.callerName?? 'Inconnu',
-            type: isVideo? CallType.video : CallType.audio,
-            inviteId: widget.invite.id,
-            isCaller: false,
-          ),
+        builder: (_) => CallPage(
+          channel: widget.invite.channelName,
+          name: widget.invite.callerName ?? 'Inconnu',
+          avatarUrl: widget.invite.callerAvatar,
+          type: isVideo ? CallType.video : CallType.audio,
+          inviteId: widget.invite.id,
+          isCaller: false,
         ),
       ),
     );
@@ -116,7 +109,7 @@ class _IncomingCallPageState extends State<IncomingCallPage>
   @override
   Widget build(BuildContext context) {
     final isVideo = widget.invite.callType == CallType.video;
-    final name = widget.invite.callerName?? 'Inconnu';
+    final name = widget.invite.callerName ?? 'Inconnu';
     final avatar = widget.invite.callerAvatar;
 
     return Scaffold(
@@ -125,8 +118,8 @@ class _IncomingCallPageState extends State<IncomingCallPage>
         children: [
           // Fond blur + avatar géant
           Positioned.fill(
-            child: avatar!= null && avatar.isNotEmpty
-               ? Image.network(avatar, fit: BoxFit.cover)
+            child: avatar != null && avatar.isNotEmpty
+                ? Image.network(avatar, fit: BoxFit.cover)
                 : Container(
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
@@ -150,7 +143,7 @@ class _IncomingCallPageState extends State<IncomingCallPage>
                 const SizedBox(height: 20),
                 // Top info
                 Text(
-                  isVideo? 'Appel vidéo entrant...' : 'Appel audio entrant...',
+                  isVideo ? 'Appel vidéo entrant...' : 'Appel audio entrant...',
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
@@ -162,8 +155,8 @@ class _IncomingCallPageState extends State<IncomingCallPage>
 
                 // Avatar pulsant
                 FadeTransition(
-                  opacity:
-                      Tween<double>(begin: 0.7, end: 1.0).animate(_pulseController),
+                  opacity: Tween<double>(begin: 0.7, end: 1.0)
+                      .animate(_pulseController),
                   child: CallAvatar(
                     name: name,
                     imageUrl: avatar,
@@ -188,14 +181,14 @@ class _IncomingCallPageState extends State<IncomingCallPage>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      isVideo? Icons.videocam_rounded : Icons.call_rounded,
+                      isVideo ? Icons.videocam_rounded : Icons.call_rounded,
                       size: 16,
                       color: Colors.white54,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       isVideo
-                         ? 'THIX CHAT Vidéo • ${_formatElapsed(_elapsedSeconds)}'
+                          ? 'THIX CHAT Vidéo • ${_formatElapsed(_elapsedSeconds)}'
                           : 'THIX CHAT Audio • ${_formatElapsed(_elapsedSeconds)}',
                       style: const TextStyle(
                         color: Colors.white54,
@@ -222,7 +215,7 @@ class _IncomingCallPageState extends State<IncomingCallPage>
                       ),
                       _buildActionButton(
                         icon: isVideo
-                           ? Icons.videocam_rounded
+                            ? Icons.videocam_rounded
                             : Icons.call_rounded,
                         color: const Color(0xFF1FA971),
                         label: 'Accepter',
@@ -270,7 +263,7 @@ class _IncomingCallPageState extends State<IncomingCallPage>
           animation: _pulseController,
           builder: (_, child) {
             return Transform.scale(
-              scale: isPrimary? 1.0 + (_pulseController.value * 0.08) : 1.0,
+              scale: isPrimary ? 1.0 + (_pulseController.value * 0.08) : 1.0,
               child: child,
             );
           },
