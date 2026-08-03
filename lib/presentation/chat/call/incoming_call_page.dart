@@ -1,5 +1,4 @@
-// Route: lib/presentation/chat/call/incoming_call_page.dart
-// Version PRODUCTION - Incoming Call Full Screen - Audio + Video - Riverpod
+// lib/presentation/chat/call/incoming_call_page.dart
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -34,14 +33,12 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
 
-    // Vibration + sonnerie système
     HapticFeedback.heavyImpact();
     _startTimeout();
     _startElapsedTimer();
   }
 
   void _startTimeout() {
-    // Auto manqué après 45s
     _timeoutTimer = Timer(const Duration(seconds: 45), () async {
       await _signal.update(widget.invite.id, 'missed');
       if (mounted) {
@@ -60,9 +57,7 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
         return;
       }
       setState(() => _elapsedSeconds++);
-      if (_elapsedSeconds % 2 == 0) {
-        HapticFeedback.vibrate();
-      }
+      if (_elapsedSeconds % 2 == 0) HapticFeedback.vibrate();
     });
   }
 
@@ -79,11 +74,8 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
     final isVideo = widget.invite.callType == CallType.video;
 
     if (!mounted) return;
-
-    // Stop l'animation avant de naviguer
     _pulseController.stop();
 
-    // Navigation directe : CallPage gère son provider Riverpod en interne
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -116,10 +108,9 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
       backgroundColor: const Color(0xFF0A1F44),
       body: Stack(
         children: [
-          // Fond blur + avatar géant
           Positioned.fill(
             child: avatar != null && avatar.isNotEmpty
-                ? Image.network(avatar, fit: BoxFit.cover)
+                ? Image.network(avatar, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: const Color(0xFF0A1F44)))
                 : Container(
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
@@ -136,35 +127,29 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
               child: Container(color: const Color(0xFF0A1F44).withOpacity(0.75)),
             ),
           ),
-
           SafeArea(
             child: Column(
               children: [
                 const SizedBox(height: 20),
-                // Top info
                 Text(
                   isVideo ? 'Appel vidéo entrant...' : 'Appel audio entrant...',
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
                   ),
                 ),
                 const SizedBox(height: 40),
-
-                // Avatar pulsant
                 FadeTransition(
-                  opacity: Tween<double>(begin: 0.7, end: 1.0)
-                      .animate(_pulseController),
+                  opacity: Tween<double>(begin: 0.7, end: 1.0).animate(_pulseController),
                   child: CallAvatar(
                     name: name,
                     imageUrl: avatar,
                     size: 120,
                     isVideo: isVideo,
+                    isRinging: true,
                   ),
                 ),
-
                 const SizedBox(height: 24),
                 Text(
                   name,
@@ -173,35 +158,16 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
                     color: Colors.white,
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      isVideo ? Icons.videocam_rounded : Icons.call_rounded,
-                      size: 16,
-                      color: Colors.white54,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      isVideo
-                          ? 'THIX CHAT Vidéo • ${_formatElapsed(_elapsedSeconds)}'
-                          : 'THIX CHAT Audio • ${_formatElapsed(_elapsedSeconds)}',
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                Text(
+                  isVideo
+                      ? 'THIX CHAT Vidéo • ${_formatElapsed(_elapsedSeconds)}'
+                      : 'THIX CHAT Audio • ${_formatElapsed(_elapsedSeconds)}',
+                  style: const TextStyle(color: Colors.white54, fontSize: 13),
                 ),
-
                 const Spacer(),
-
-                // Actions
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: Row(
@@ -214,25 +180,13 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
                         onTap: _onReject,
                       ),
                       _buildActionButton(
-                        icon: isVideo
-                            ? Icons.videocam_rounded
-                            : Icons.call_rounded,
+                        icon: isVideo ? Icons.videocam_rounded : Icons.call_rounded,
                         color: const Color(0xFF1FA971),
                         label: 'Accepter',
                         onTap: _onAccept,
                         isPrimary: true,
                       ),
                     ],
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-                const Text(
-                  'Glissez pour répondre',
-                  style: TextStyle(
-                    color: Colors.white38,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -245,7 +199,7 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
   }
 
   String _formatElapsed(int s) {
-    final m = (s ~/ 60).toString().padLeft(2, '0');
+    final m = (s \~/ 60).toString().padLeft(2, '0');
     final sec = (s % 60).toString().padLeft(2, '0');
     return '$m:$sec';
   }
