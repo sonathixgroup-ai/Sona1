@@ -1,41 +1,95 @@
 // Route: lib/presentation/chat/call/providers/call_provider.dart
-// PRODUCTION - CallProvider complet - State machine - Anti-crash
+// PRODUCTION - CallNotifier Riverpod - State machine - Anti-crash
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../models/chat/call_status.dart';
 import '../../../../services/chat/call_service.dart';
 import '../../../../services/chat/call_signaling_service.dart';
 
-class CallProvider extends ChangeNotifier {
-  final CallService _call = CallService();
-  final CallSignalingService _signal = CallSignalingService();
+// État immuable pour le Call
+class CallState {
+  final CallStatus status;
+  final CallType type;
+  final int? remoteUid;
+  final String? inviteId;
+  final String? channelName;
+  final bool muted;
+  final bool videoOff;
+  final bool speakerOn;
+  final bool isFrontCam;
+  final bool isConnecting;
+  final Duration duration;
 
-  // State
-  CallStatus status = CallStatus.ringing;
-  CallType type = CallType.audio;
-  int? remoteUid;
-  String? inviteId;
-  String? channelName;
+  const CallState({
+    this.status = CallStatus.ringing,
+    this.type = CallType.audio,
+    this.remoteUid,
+    this.inviteId,
+    this.channelName,
+    this.muted = false,
+    this.videoOff = false,
+    this.speakerOn = true,
+    this.isFrontCam = true,
+    this.isConnecting = true,
+    this.duration = Duration.zero,
+  });
 
-  // Controls
-  bool muted = false;
-  bool videoOff = false;
-  bool speakerOn = true;
-  bool isFrontCam = true;
-  bool isConnecting = true;
-
-  // Timer
-  Timer? _callTimer;
-  Duration duration = Duration.zero;
-
-  // Sub
-  StreamSubscription? _statusSub;
-  bool _disposed = false;
+  CallState copyWith({
+    CallStatus? status,
+    CallType? type,
+    int? remoteUid,
+    String? inviteId,
+    String? channelName,
+    bool? muted,
+    bool? videoOff,
+    bool? speakerOn,
+    bool? isFrontCam,
+    bool? isConnecting,
+    Duration? duration,
+  }) {
+    return CallState(
+      status: status ?? this.status,
+      type: type ?? this.type,
+      remoteUid: remoteUid ?? this.remoteUid,
+      inviteId: inviteId ?? this.inviteId,
+      channelName: channelName ?? this.channelName,
+      muted: muted ?? this.muted,
+      videoOff: videoOff ?? this.videoOff,
+      speakerOn: speakerOn ?? this.speakerOn,
+      isFrontCam: isFrontCam ?? this.isFrontCam,
+      isConnecting: isConnecting ?? this.isConnecting,
+      duration: duration ?? this.duration,
+    );
+  }
 
   bool get isVideo => type == CallType.video;
   bool get isOngoing => status == CallStatus.ongoing;
   bool get isRinging => status == CallStatus.ringing;
+}
+
+class CallNotifier extends AutoDisposeNotifier<CallState> {
+  final CallService _call = CallService();
+  final CallSignalingService _signal = CallSignalingService();
+
+  Timer? _callTimer;
+  StreamSubscription? _statusSub;
+
+  // Getter pour accéder au service Agora si nécessaire depuis la vue
+  CallService get callService => _call;
+
+  @override
+  CallState build() {
+    // Nettoyage automatique lorsque le provider est détruit (fermeture de la page)
+    ref.onDispose(() {
+      _callTimer?.cancel();
+      _statusSub?.cancel();
+      _call.dispose();
+      _signal.dispose();
+    });
+    return const CallState();
+  }
 
   // ============================================================
   // START - Caller lance l'appel
@@ -46,26 +100,28 @@ class CallProvider extends ChangeNotifier {
     required CallType callType,
   }) async {
     try {
-      channelName = channel;
-      type = callType;
-      status = CallStatus.ringing;
-      isConnecting = true;
-      remoteUid = null;
-      muted = false;
-      videoOff = callType == CallType.audio ? true : false;
-      speakerOn = callType == CallType.video;
-      duration = Duration.zero;
-      _safeNotify();
+      state = state.copyWith(
+        channelName: channel,
+        type: callType,
+        status: CallStatus.ringing,
+        isConnecting: true,
+        remoteUid: null,
+        muted: false,
+        videoOff: callType == CallType.audio,
+        speakerOn: callType == CallType.video,
+        duration: Duration.zero,
+      );
 
       // 1. Créer invite en DB
-      inviteId = await _signal.create(
+      final inviteId = await _signal.create(
         channel: channel,
         calleeId: calleeId,
         type: callType.name,
       );
+      state = state.copyWith(inviteId: inviteId);
 
       // 2. Ecouter changement status (rejected/ended par callee)
-      _listenStatusChange(inviteId!);
+      _listenStatusChange(inviteId);
 
       // 3. Join Agora
       await _call.join(
@@ -73,21 +129,20 @@ class CallProvider extends ChangeNotifier {
         type: callType,
         uid: 0,
         onJoin: (uid) {
-          remoteUid = uid;
-          status = CallStatus.ongoing;
-          isConnecting = false;
+          state = state.copyWith(
+            remoteUid: uid,
+            status: CallStatus.ongoing,
+            isConnecting: false,
+          );
           _startTimer();
-          _safeNotify();
         },
         onLeave: () {
-          // Remote a quitté
           end(silent: false);
         },
       );
     } catch (e) {
-      debugPrint('❌ CallProvider.start error: $e');
-      status = CallStatus.ended;
-      _safeNotify();
+      debugPrint('❌ CallNotifier.start error: $e');
+      state = state.copyWith(status: CallStatus.ended);
       rethrow;
     }
   }
@@ -101,12 +156,13 @@ class CallProvider extends ChangeNotifier {
     required CallType callType,
   }) async {
     try {
-      this.inviteId = inviteId;
-      channelName = channel;
-      type = callType;
-      status = CallStatus.accepted;
-      isConnecting = true;
-      _safeNotify();
+      state = state.copyWith(
+        inviteId: inviteId,
+        channelName: channel,
+        type: callType,
+        status: CallStatus.accepted,
+        isConnecting: true,
+      );
 
       await _signal.update(inviteId, 'accepted');
       _listenStatusChange(inviteId);
@@ -116,18 +172,18 @@ class CallProvider extends ChangeNotifier {
         type: callType,
         uid: 0,
         onJoin: (uid) {
-          remoteUid = uid;
-          status = CallStatus.ongoing;
-          isConnecting = false;
+          state = state.copyWith(
+            remoteUid: uid,
+            status: CallStatus.ongoing,
+            isConnecting: false,
+          );
           _startTimer();
-          _safeNotify();
         },
         onLeave: () => end(silent: false),
       );
     } catch (e) {
-      debugPrint('❌ CallProvider.accept error: $e');
-      status = CallStatus.ended;
-      _safeNotify();
+      debugPrint('❌ CallNotifier.accept error: $e');
+      state = state.copyWith(status: CallStatus.ended);
     }
   }
 
@@ -136,23 +192,23 @@ class CallProvider extends ChangeNotifier {
   // ============================================================
   Future<void> reject() async {
     try {
-      if (inviteId != null) {
-        await _signal.update(inviteId!, 'rejected');
+      if (state.inviteId != null) {
+        await _signal.update(state.inviteId!, 'rejected');
       }
     } finally {
       await _cleanup();
-      status = CallStatus.rejected;
-      _safeNotify();
+      state = state.copyWith(status: CallStatus.rejected);
     }
   }
 
   Future<void> markMissed() async {
     try {
-      if (inviteId != null) await _signal.update(inviteId!, 'missed');
+      if (state.inviteId != null) {
+        await _signal.update(state.inviteId!, 'missed');
+      }
     } finally {
       await _cleanup();
-      status = CallStatus.missed;
-      _safeNotify();
+      state = state.copyWith(status: CallStatus.missed);
     }
   }
 
@@ -160,45 +216,43 @@ class CallProvider extends ChangeNotifier {
   // CONTROLS
   // ============================================================
   Future<void> toggleMute() async {
-    muted = !muted;
+    final newMuted = !state.muted;
+    state = state.copyWith(muted: newMuted);
     try {
-      await _call.mute(muted);
+      await _call.mute(newMuted);
     } catch (e) {
       debugPrint('mute err $e');
-      muted = !muted;
+      state = state.copyWith(muted: !newMuted);
     }
-    _safeNotify();
   }
 
   Future<void> toggleVideo() async {
-    // Audio call ne peut pas activer video comme ça, on garde la logique
-    if (type == CallType.audio) return;
-    videoOff = !videoOff;
+    if (state.type == CallType.audio) return;
+    final newVideoOff = !state.videoOff;
+    state = state.copyWith(videoOff: newVideoOff);
     try {
-      await _call.videoOff(videoOff);
+      await _call.videoOff(newVideoOff);
     } catch (e) {
-      videoOff = !videoOff;
+      state = state.copyWith(videoOff: !newVideoOff);
       debugPrint('videoOff err $e');
     }
-    _safeNotify();
   }
 
   Future<void> toggleSpeaker() async {
-    speakerOn = !speakerOn;
+    final newSpeakerOn = !state.speakerOn;
+    state = state.copyWith(speakerOn: newSpeakerOn);
     try {
-      await _call.speaker(speakerOn);
+      await _call.speaker(newSpeakerOn);
     } catch (e) {
-      speakerOn = !speakerOn;
+      state = state.copyWith(speakerOn: !newSpeakerOn);
       debugPrint('speaker err $e');
     }
-    _safeNotify();
   }
 
   Future<void> switchCam() async {
     try {
       await _call.switchCam();
-      isFrontCam = !isFrontCam;
-      _safeNotify();
+      state = state.copyWith(isFrontCam: !state.isFrontCam);
     } catch (e) {
       debugPrint('switchCam err $e');
     }
@@ -210,17 +264,18 @@ class CallProvider extends ChangeNotifier {
   Future<void> end({bool silent = false}) async {
     try {
       _callTimer?.cancel();
-      if (!silent && inviteId != null) {
-        await _signal.update(inviteId!, 'ended');
+      if (!silent && state.inviteId != null) {
+        await _signal.update(state.inviteId!, 'ended');
       }
       await _call.leave();
     } catch (e) {
       debugPrint('end err $e');
     } finally {
       await _cleanup();
-      status = CallStatus.ended;
-      duration = Duration.zero;
-      _safeNotify();
+      state = state.copyWith(
+        status: CallStatus.ended,
+        duration: Duration.zero,
+      );
     }
   }
 
@@ -230,8 +285,7 @@ class CallProvider extends ChangeNotifier {
   void _startTimer() {
     _callTimer?.cancel();
     _callTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      duration += const Duration(seconds: 1);
-      _safeNotify();
+      state = state.copyWith(duration: state.duration + const Duration(seconds: 1));
     });
   }
 
@@ -246,7 +300,6 @@ class CallProvider extends ChangeNotifier {
           final row = list.first;
           final s = row['status'] as String?;
           if (s == 'ended' || s == 'rejected' || s == 'missed') {
-            // L'autre a raccroché
             end(silent: true);
           }
         });
@@ -257,18 +310,9 @@ class CallProvider extends ChangeNotifier {
     _statusSub?.cancel();
     _statusSub = null;
   }
-
-  void _safeNotify() {
-    if (!_disposed) notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    _callTimer?.cancel();
-    _statusSub?.cancel();
-    _call.dispose();
-    _signal.dispose();
-    super.dispose();
-  }
 }
+
+// Déclaration du Provider Riverpod
+final callProvider = AutoDisposeNotifierProvider<CallNotifier, CallState>(
+  CallNotifier.new,
+);
