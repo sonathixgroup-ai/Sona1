@@ -72,6 +72,26 @@ class CartNotifier extends StateNotifier<CartState> {
   bool get isSyncing => state.isSyncing;
   int get itemCount => state.items.length;
 
+  /// Sous-totaux regroupés par devise
+  Map<String, double> get subtotalsByCurrency {
+    final Map<String, double> totals = {};
+    for (final item in state.items) {
+      Map<String, dynamic> product = {};
+      if (item['product'] is Map) {
+        product = Map<String, dynamic>.from(item['product'] as Map);
+      }
+      int qty = 0;
+      if (item['quantity'] is num) {
+        qty = (item['quantity'] as num).toInt();
+      } else {
+        qty = int.tryParse(item['quantity'].toString()) ?? 0;
+      }
+      final curr = currencyForItem(item);
+      totals[curr] = (totals[curr] ?? 0.0) + (_getRealPrice(product) * qty);
+    }
+    return totals;
+  }
+
   int get totalQuantity => state.items.fold<int>(0, (sum, item) {
         final q = item['quantity'];
         if (q is num) return sum + q.toInt();
@@ -235,7 +255,6 @@ class CartNotifier extends StateNotifier<CartState> {
       }
 
       // ===== PURGE DEVISES MIXTES =====
-      // On garde la devise du premier article, on supprime le reste
       if (enriched.length > 1) {
         final mainCurrency = _normalizeCurrency(
           (enriched.first['product'] as Map?)?['currency'],
@@ -310,7 +329,6 @@ class CartNotifier extends StateNotifier<CartState> {
     if (uid == null) throw Exception('Veuillez vous connecter');
 
     try {
-      // 1. Récupérer le produit
       final product = await db
           .from('products')
           .select('stock, title, currency')
@@ -319,13 +337,11 @@ class CartNotifier extends StateNotifier<CartState> {
 
       if (product == null) throw Exception('Produit introuvable');
 
-      // 2. Vérifier le stock
       final stock = (product['stock'] as num?)?.toInt() ?? 0;
       if (stock <= 0) {
         throw Exception('Rupture de stock');
       }
 
-      // 3. BLOQUER si devise différente
       final newCurrency = _normalizeCurrency(product['currency']);
 
       if (state.items.isNotEmpty) {
@@ -339,7 +355,6 @@ class CartNotifier extends StateNotifier<CartState> {
         }
       }
 
-      // 4. Chercher si l'article existe déjà
       Map<String, dynamic>? existing;
       for (final i in state.items) {
         if (i['product_id'] == productId &&
