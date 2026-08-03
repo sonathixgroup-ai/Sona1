@@ -230,26 +230,35 @@ class EscalationService {
         .toList();
   }
 
-  // ─── CORRIGÉ : filtre aussi sur status = pending ───
-  // Aligné avec le badge (to_agent_id + status pending)
-  Future<List<EscalationStep>> getReceivedEscalations(
-    String agentId, {
-    int limit = 20,
-    int offset = 0,
-  }) async {
-    final response = await _supabase
-        .from('escalation_steps')
-        .select()
-        .eq('to_agent_id', agentId)
-        .eq('status', EscalationStatus.pending.index) // ← ajouté
-        .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
+  ///// Toutes les escalades destinées à cet agent (pending + accepted + rejected…).
+/// Sert d'historique « Escalades reçues ».
+Future<List<EscalationStep>> getReceivedEscalations(
+  String agentId, {
+  int limit = 20,
+  int offset = 0,
+}) async {
+  final response = await _supabase
+      .from('escalation_steps')
+      .select()
+      .eq('to_agent_id', agentId)
+      .order('created_at', ascending: false)
+      .range(offset, offset + limit - 1);
 
-    return (response as List)
-        .map((json) => EscalationStep.fromJson(json))
-        .toList();
-  }
+  return (response as List)
+      .map((json) => EscalationStep.fromJson(json))
+      .toList();
+}
 
+/// Uniquement les pending (pour le badge).
+Future<int> countPendingReceived(String agentId) async {
+  final r = await _supabase
+      .from('escalation_steps')
+      .select('id')
+      .eq('to_agent_id', agentId)
+      .eq('status', EscalationStatus.pending.index)
+      .count();
+  return (r.count as int?) ?? 0;
+}
   // Récupérer la conversation associée à une escalade
   Future<Map<String, dynamic>?> getConversation(String conversationId) async {
     try {
