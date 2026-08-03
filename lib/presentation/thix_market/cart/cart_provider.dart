@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/cart/cart_provider.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,11 +8,13 @@ class CartState {
   final List<Map<String, dynamic>> items;
   final bool isLoading;
   final bool isSyncing;
+
   const CartState({
     this.items = const [],
     this.isLoading = false,
     this.isSyncing = false,
   });
+
   CartState copyWith({
     List<Map<String, dynamic>>? items,
     bool? isLoading,
@@ -28,16 +31,19 @@ class CartNotifier extends StateNotifier<CartState> {
   CartNotifier(this.ref) : super(const CartState()) {
     _init();
   }
+
   final Ref ref;
   StreamSubscription? _sub;
   StreamSubscription? _authSub;
 
+  // ========== HELPERS PRIX ==========
   double _getRealPrice(Map<String, dynamic> product) {
     final raw = (product['price'] as num?)?.toDouble() ?? 0;
     final sale = (product['sale_price'] as num?)?.toDouble() ??
         (product['discount_price'] as num?)?.toDouble();
     final percent = (product['discount_percent'] as num?)?.toDouble() ?? 0;
     final original = (product['original_price'] as num?)?.toDouble() ?? raw;
+
     if (sale != null && sale > 0 && sale < raw) return sale;
     if (sale != null && sale > 0 && original > 0 && sale < original) return sale;
     if (percent > 0) return raw * (1 - percent / 100);
@@ -52,10 +58,19 @@ class CartNotifier extends StateNotifier<CartState> {
     return original;
   }
 
+  String _normalizeCurrency(dynamic raw) {
+    final c = (raw ?? 'FC').toString().toUpperCase().trim();
+    if (c == 'CDF' || c == 'XOF' || c == 'FC' || c == 'CDF') return 'FC';
+    if (c == 'USD' || c == '\$' || c == 'DOLLAR') return 'USD';
+    return 'FC';
+  }
+
+  // ========== GETTERS ==========
   List<Map<String, dynamic>> get cartItems => state.items;
   bool get isLoading => state.isLoading;
   bool get isSyncing => state.isSyncing;
   int get itemCount => state.items.length;
+
   int get totalQuantity => state.items.fold<int>(0, (sum, item) {
         final q = item['quantity'];
         if (q is num) return sum + q.toInt();
@@ -65,25 +80,14 @@ class CartNotifier extends StateNotifier<CartState> {
   String get currency {
     if (state.items.isEmpty) return 'FC';
     final p = state.items.first['product'] as Map?;
-    String raw = 'FC';
-    if (p != null && p['currency'] != null) {
-      raw = p['currency'].toString().toUpperCase();
-    }
-    if (raw == 'CDF' || raw == 'XOF' || raw == 'FC') return 'FC';
-    if (raw == 'USD' || raw == '\$') return 'USD';
-    return 'FC';
+    return _normalizeCurrency(p?['currency']);
   }
 
   String get currencySymbol => currency == 'USD' ? '\$' : 'FC';
 
   String currencyForItem(Map<String, dynamic> item) {
     final p = item['product'] as Map?;
-    String raw = currency;
-    if (p != null && p['currency'] != null) {
-      raw = p['currency'].toString().toUpperCase();
-    }
-    if (raw == 'USD' || raw == '\$') return 'USD';
-    return 'FC';
+    return _normalizeCurrency(p?['currency']);
   }
 
   double get subtotal => state.items.fold(0.0, (sum, item) {
@@ -116,7 +120,7 @@ class CartNotifier extends StateNotifier<CartState> {
 
   double get totalDiscount => originalSubtotal - subtotal;
   double get shippingCost => 0;
-  String get shippingSymbol => 'FC';
+  String get shippingSymbol => currencySymbol;
   double get total => subtotal + shippingCost;
 
   double getItemRealPrice(Map<String, dynamic> item) {
@@ -142,7 +146,7 @@ class CartNotifier extends StateNotifier<CartState> {
     return ((1 - real / oldP) * 100).round();
   }
 
-  /// Retourne true si tous les articles du panier ont encore du stock
+  /// true s'il y a au moins un article en rupture ou quantité > stock
   bool get hasOutOfStockItems {
     for (final item in state.items) {
       final product = item['product'] as Map?;
@@ -154,11 +158,11 @@ class CartNotifier extends StateNotifier<CartState> {
     return false;
   }
 
+  // ========== INIT ==========
   void _init() {
     final db = ref.read(supabaseClientProvider);
     _authSub = db.auth.onAuthStateChange.listen((data) {
-      final session = data.session;
-      if (session != null) {
+      if (data.session != null) {
         _setupRealtime();
         loadCart();
       } else {
@@ -177,11 +181,13 @@ class CartNotifier extends StateNotifier<CartState> {
     final db = ref.read(supabaseClientProvider);
     final uid = db.auth.currentUser?.id;
     if (uid == null) return;
+
     final stream = db
         .from('cart')
         .stream(primaryKey: ['id'])
         .eq('user_id', uid)
         .order('created_at', ascending: false);
+
     _sub = stream.listen((updated) async {
       await _syncCartWithProducts(List<Map<String, dynamic>>.from(updated));
     });
@@ -197,6 +203,7 @@ class CartNotifier extends StateNotifier<CartState> {
     try {
       final db = ref.read(supabaseClientProvider);
       List<Map<String, dynamic>> enriched = [];
+
       for (var cartItem in cartRecords) {
         final pid = cartItem['product_id'];
         if (pid != null) {
@@ -205,6 +212,7 @@ class CartNotifier extends StateNotifier<CartState> {
               .select('*, shop:shops(name, logo_url)')
               .eq('id', pid)
               .maybeSingle();
+
           if (product != null) {
             enriched.add({...cartItem, 'product': product});
           } else {
@@ -242,6 +250,7 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
+  // ========== ADD TO CART (stock + devise) ==========
   Future<void> addToCart({
     required String productId,
     int quantity = 1,
@@ -253,22 +262,35 @@ class CartNotifier extends StateNotifier<CartState> {
     if (uid == null) throw Exception('Veuillez vous connecter');
 
     try {
-      // ===== VÉRIFICATION STOCK =====
+      // 1. Récupérer le produit
       final product = await db
           .from('products')
-          .select('stock, title')
+          .select('stock, title, currency')
           .eq('id', productId)
           .maybeSingle();
 
-      if (product == null) {
-        throw Exception('Produit introuvable');
-      }
+      if (product == null) throw Exception('Produit introuvable');
 
+      // 2. Vérifier le stock
       final stock = (product['stock'] as num?)?.toInt() ?? 0;
       if (stock <= 0) {
         throw Exception('Rupture de stock');
       }
 
+      // 3. Vérifier la devise (une seule devise par panier)
+      final newCurrency = _normalizeCurrency(product['currency']);
+
+      if (state.items.isNotEmpty) {
+        final existingCurrency = currency;
+        if (existingCurrency != newCurrency) {
+          throw Exception(
+            'Votre panier contient déjà des articles en $existingCurrency. '
+            'Videz le panier pour ajouter un produit en $newCurrency.',
+          );
+        }
+      }
+
+      // 4. Chercher si l'article existe déjà
       Map<String, dynamic>? existing;
       for (final i in state.items) {
         if (i['product_id'] == productId &&
@@ -303,6 +325,7 @@ class CartNotifier extends StateNotifier<CartState> {
           'color': color,
         });
       }
+
       await loadCart();
     } catch (e) {
       debugPrint('addToCart $e');
@@ -310,6 +333,7 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
+  // ========== UPDATE QUANTITY ==========
   Future<void> updateQuantity(String cartItemId, int newQuantity) async {
     if (newQuantity <= 0) {
       await removeFromCart(cartItemId);
@@ -319,7 +343,6 @@ class CartNotifier extends StateNotifier<CartState> {
     try {
       final db = ref.read(supabaseClientProvider);
 
-      // Trouver l'article dans le panier
       final item = state.items.firstWhere(
         (i) => i['id'].toString() == cartItemId,
         orElse: () => {},
@@ -337,8 +360,8 @@ class CartNotifier extends StateNotifier<CartState> {
           .from('cart')
           .update({'quantity': newQuantity}).eq('id', cartItemId);
 
-      List<Map<String, dynamic>> newItems = [...state.items];
-      int idx =
+      final newItems = [...state.items];
+      final idx =
           newItems.indexWhere((i) => i['id'].toString() == cartItemId);
       if (idx != -1) {
         newItems[idx] = {...newItems[idx], 'quantity': newQuantity};
@@ -350,6 +373,7 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
+  // ========== REMOVE / CLEAR ==========
   Future<void> removeFromCart(String cartItemId) async {
     try {
       final db = ref.read(supabaseClientProvider);
@@ -386,6 +410,7 @@ class CartNotifier extends StateNotifier<CartState> {
   }
 }
 
+// ========== PROVIDERS ==========
 final cartProvider =
     StateNotifierProvider<CartNotifier, CartState>((ref) => CartNotifier(ref));
 
@@ -393,11 +418,9 @@ final cartItemsProvider =
     Provider<List<Map<String, dynamic>>>((ref) => ref.watch(cartProvider).items);
 
 final cartTotalProvider = Provider<double>((ref) {
-  final n = ref.read(cartProvider.notifier);
-  return n.total;
+  return ref.read(cartProvider.notifier).total;
 });
 
 final cartCountProvider = Provider<int>((ref) {
-  final n = ref.read(cartProvider.notifier);
-  return n.itemCount;
+  return ref.read(cartProvider.notifier).itemCount;
 });
