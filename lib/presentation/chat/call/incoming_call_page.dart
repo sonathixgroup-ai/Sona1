@@ -1,4 +1,3 @@
-// lib/presentation/chat/call/incoming_call_page.dart
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -210,10 +209,11 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
   }
 
   String _formatElapsed(int s) {
-    final m = (s \~/ 60).toString().padLeft(2, '0');
+    final m = (s ~/ 60).toString().padLeft(2, '0');
     final sec = (s % 60).toString().padLeft(2, '0');
     return '$m:$sec';
   }
+
   Widget _buildActionButton({
     required IconData icon,
     required Color color,
