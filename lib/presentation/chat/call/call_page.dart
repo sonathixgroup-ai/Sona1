@@ -36,15 +36,11 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!widget.isCaller && widget.inviteId != null) {
-        // Callee → accept
         ref.read(callProvider.notifier).accept(
               channel: widget.channel,
               inviteId: widget.inviteId!,
               callType: widget.type,
             );
-      } else if (widget.isCaller) {
-        // Caller → start (si pas déjà fait)
-        // Note: normalement start() est appelé avant de naviguer vers cette page
       }
     });
   }
@@ -87,10 +83,7 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
         backgroundColor: const Color(0xFF0A1F44),
         body: Stack(
           children: [
-            // VIDEO BACKGROUND
             if (isVideo) _buildVideoLayout(provState, provNotifier),
-
-            // AUDIO BACKGROUND
             if (!isVideo) _buildAudioLayout(statusText, provState),
 
             // TOP BAR
@@ -184,47 +177,14 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
                 ),
               ),
 
-            // REMOTE NOT YET JOINED (video)
-            if (isVideo && provState.remoteUid == null && !provState.hasError)
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.45),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Appel de ${widget.name}...',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
             // CONTROLS
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
               child: Container(
-                padding: const EdgeInsets.only(top: 18, bottom: 34, left: 16, right: 16),
+                padding: const EdgeInsets.only(
+                    top: 18, bottom: 34, left: 16, right: 16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
@@ -346,6 +306,7 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
 
   Widget _buildVideoLayout(CallState prov, CallNotifier notifier) {
     Widget remoteView;
+
     if (prov.remoteUid != null && notifier.callService.engine != null) {
       remoteView = AgoraVideoView(
         controller: VideoViewController.remote(
@@ -375,8 +336,6 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
     return Stack(
       children: [
         SizedBox.expand(child: remoteView),
-
-        // Local PIP
         if (!prov.videoOff && notifier.callService.engine != null)
           Positioned(
             top: 90,
@@ -415,7 +374,6 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
   }
 }
 
-// ================= CONTROLS =================
 class CallControls extends StatelessWidget {
   final bool isVideo;
   final bool muted;
