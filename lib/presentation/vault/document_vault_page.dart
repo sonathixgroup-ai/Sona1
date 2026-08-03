@@ -483,22 +483,26 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
     super.dispose();
   }
 
-  Future<void> _checkLock() async {
-    final me = context.read<AuthController>().currentUser;
-    if (me == null) {
-      setState(() {
-        _checkingLock = false;
-        _unlocked = true;
-      });
-      return;
-    }
+Future<void> _checkLock() async {
+  final me = context.read<AuthController>().currentUser;
+  if (me == null) {
+    setState(() {
+      _checkingLock = false;
+      _unlocked = true;
+    });
+    return;
+  }
+
+  try {
     final has = await _docs.hasVaultLock(me.id);
     if (!mounted) return;
+
     if (!has) {
       // Première utilisation : proposer de définir un code
       final pin = await _promptSetPin(context);
       if (pin != null) {
         await _docs.setVaultPin(uid: me.id, pin: pin);
+        if (!mounted) return;
         setState(() {
           _checkingLock = false;
           _unlocked = true;
@@ -511,11 +515,24 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
       }
       return;
     }
+
+    // Verrou déjà existant → demander le code
     setState(() {
       _checkingLock = false;
       _unlocked = false;
     });
+  } catch (e) {
+    debugPrint('Vault lock error: $e');
+    if (!mounted) return;
+    setState(() {
+      _checkingLock = false;
+      _unlocked = true; // fallback : on laisse entrer si erreur
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Impossible de sécuriser le coffre : $e')),
+    );
   }
+}
 
   Future<String?> _promptSetPin(BuildContext context) async {
     final ctrl = TextEditingController();
@@ -570,43 +587,66 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
   }
 
   Future<void> _unlock() async {
-    final me = context.read<AuthController>().currentUser;
-    if (me == null) return;
-    final ctrl = TextEditingController();
-    String? error;
-    final ok = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlg) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          title: const Text('Code d\'accès THIX VAULT'),
-          content: TextField(
-            controller: ctrl,
-            obscureText: true,
-            keyboardType: TextInputType.number,
-            autofocus: true,
-            decoration: InputDecoration(labelText: 'Code', errorText: error),
+  final me = context.read<AuthController>().currentUser;
+  if (me == null) return;
+
+  final ctrl = TextEditingController();
+  String? error;
+
+  final ok = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDlg) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: const Text('Code d\'accès THIX VAULT'),
+        content: TextField(
+          controller: ctrl,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: 'Code',
+            errorText: error,
           ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: _primary, foregroundColor: Colors.white),
-              onPressed: () async {
-                final valid = await _docs.verifyVaultPin(uid: me.id, pin: ctrl.text.trim());
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              try {
+                final valid = await _docs.verifyVaultPin(
+                  uid: me.id,
+                  pin: ctrl.text.trim(),
+                );
                 if (valid) {
                   Navigator.pop(ctx, true);
                 } else {
                   setDlg(() => error = 'Code incorrect');
                 }
-              },
-              child: const Text('Déverrouiller'),
-            ),
-          ],
-        ),
+              } catch (e) {
+                debugPrint('Vault unlock error: $e');
+                setDlg(() => error = 'Erreur de vérification');
+              }
+            },
+            child: const Text('Déverrouiller'),
+          ),
+        ],
       ),
-    );
-    if (ok == true) setState(() => _unlocked = true);
+    ),
+  );
+
+  if (ok == true && mounted) {
+    setState(() => _unlocked = true);
   }
+}
 
   // ---------------------------------------------------------------------------
   // Ouverture / URL
