@@ -2,584 +2,927 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import '../providers/market_providers.dart';
 
 // ============================================================
-// CHARTE GRAPHIQUE THIX MARKET
+// COULEURS
 // ============================================================
-class _MarketColors {
-  static const Color red = Color(0xFFD81E2C);
-  static const Color gold = Color(0xFFF0A93B);
-  static const Color lightBg = Color(0xFFF7F7FA);
-  static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF1A1A1A);
-  static const Color mutedText = Color(0xFF8A8A8F);
-  static const Color cardBorder = Color(0xFFF0F0F0);
-  static const Color successGreen = Color(0xFF00B074);
-  static const Color creamBg = Color(0xFFFCEFDA);
+class _C {
+  static const red = Color(0xFFD81E2C);
+  static const gold = Color(0xFFF0A93B);
+  static const bg = Color(0xFFF7F7FA);
+  static const white = Color(0xFFFFFFFF);
+  static const dark = Color(0xFF1A1A1A);
+  static const muted = Color(0xFF8A8A8F);
+  static const border = Color(0xFFF0F0F0);
+  static const green = Color(0xFF00B074);
+  static const blue = Color(0xFF2D6CDF);
 }
 
 // ============================================================
-// PROVIDER RIVERPOD (Chargement de la commande)
+// PROVIDER
 // ============================================================
-final orderDetailProvider = FutureProvider.family<Map<String, dynamic>, String>((ref, orderId) async {
-  final supabase = Supabase.instance.client;
+final orderDetailProvider =
+    FutureProvider.family<Map<String, dynamic>, String>((ref, orderId) async {
+  final db = ref.read(supabaseClientProvider);
 
-  // 1. Charger la commande principale
-  final orderResponse = await supabase
-      .from('orders')
-      .select()
-      .eq('id', orderId)
-      .single();
+  final orderRes =
+      await db.from('orders').select().eq('id', orderId).single();
+  final order = Map<String, dynamic>.from(orderRes);
 
-  final orderData = Map<String, dynamic>.from(orderResponse);
-
-  // 2. Charger les articles (items) de cette commande
+  // Items + snapshot produit
   try {
-    final itemsResponse = await supabase
+    final items = await db
         .from('order_items')
-        .select()
+        .select('*, product:products(title, image_url, currency)')
         .eq('order_id', orderId);
-    orderData['items'] = itemsResponse;
-  } catch (e) {
-    debugPrint('Erreur chargement items: $e');
-    orderData['items'] = [];
+    order['items'] = List<Map<String, dynamic>>.from(items);
+  } catch (_) {
+    try {
+      final items =
+          await db.from('order_items').select().eq('order_id', orderId);
+      order['items'] = List<Map<String, dynamic>>.from(items);
+    } catch (_) {
+      order['items'] = <Map<String, dynamic>>[];
+    }
   }
 
-  // 3. Charger l'adresse si un address_id est présent
-  if (orderData['address_id'] != null) {
+  // Adresse
+  if (order['address_id'] != null) {
     try {
-      final addressResponse = await supabase
+      order['address'] = await db
           .from('addresses')
           .select()
-          .eq('id', orderData['address_id'])
+          .eq('id', order['address_id'])
           .maybeSingle();
-      orderData['address'] = addressResponse;
-    } catch (e) {
-      debugPrint('Erreur chargement adresse: $e');
-    }
+    } catch (_) {}
   }
 
-  // 4. Charger la boutique si un shop_id est présent
-  if (orderData['shop_id'] != null) {
+  // Boutique (toujours)
+  if (order['shop_id'] != null) {
     try {
-      final shopResponse = await supabase
+      order['shop'] = await db
           .from('shops')
-          .select('name, logo_url')
-          .eq('id', orderData['shop_id'])
+          .select('id, name, logo_url, city, phone, is_verified')
+          .eq('id', order['shop_id'])
           .maybeSingle();
-      orderData['shop'] = shopResponse;
-    } catch (e) {
-      debugPrint('Erreur chargement boutique: $e');
+    } catch (_) {
+      try {
+        order['shop'] = await db
+            .from('shops')
+            .select('id, name, logo_url, city')
+            .eq('id', order['shop_id'])
+            .maybeSingle();
+      } catch (_) {}
     }
   }
 
-  return orderData;
+  return order;
 });
 
 // ============================================================
-// PAGE DETAIL COMMANDE
+// PAGE
 // ============================================================
 class OrderDetailPage extends ConsumerWidget {
   final String orderId;
+  const OrderDetailPage({super.key, required this.orderId});
 
-  const OrderDetailPage({
-    super.key, 
-    required this.orderId
-  });
+  String _cur(dynamic c) {
+    final v = (c ?? 'CDF').toString().toUpperCase().trim();
+    if (v == 'XOF' || v == 'FCFA' || v == 'FC' || v == 'CDF') return 'FC';
+    if (v == 'USD' || v == '\$') return '\$';
+    return v;
+  }
 
-  String _formatDate(String? dateStr) {
-    if (dateStr == null) return '—';
+  String _statusLabel(String s) {
+    switch (s) {
+      case 'pending':
+        return 'En attente';
+      case 'confirmed':
+        return 'Confirmée';
+      case 'processing':
+        return 'En préparation';
+      case 'shipped':
+        return 'Expédiée';
+      case 'delivered':
+        return 'Livrée';
+      case 'cancelled':
+        return 'Annulée';
+      default:
+        return s;
+    }
+  }
+
+  Color _statusColor(String s) {
+    switch (s) {
+      case 'delivered':
+        return _C.green;
+      case 'cancelled':
+        return _C.red;
+      case 'shipped':
+        return _C.blue;
+      case 'processing':
+      case 'confirmed':
+        return const Color(0xFF8B5CF6);
+      default:
+        return _C.gold;
+    }
+  }
+
+  String _formatDate(String? s) {
+    if (s == null) return '—';
     try {
-      final date = DateTime.parse(dateStr);
-      return DateFormat('dd MMM yyyy, HH:mm').format(date);
+      return DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(s));
     } catch (_) {
-      return dateStr;
+      return s;
     }
   }
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'pending': return _MarketColors.gold;
-      case 'processing': return Colors.blue;
-      case 'shipped': return Colors.purple;
-      case 'delivered': return _MarketColors.successGreen;
-      case 'cancelled': return _MarketColors.red;
-      default: return _MarketColors.mutedText;
-    }
-  }
-
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'pending': return 'En attente';
-      case 'processing': return 'En préparation';
-      case 'shipped': return 'Expédiée';
-      case 'delivered': return 'Livrée';
-      case 'cancelled': return 'Annulée';
-      default: return status;
-    }
+  String _money(num amount, String cur) {
+    if (cur == '\\( ') return ' \){amount.toStringAsFixed(2)} $cur';
+    return '${amount.toInt()} $cur';
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Écoute de l'état de la commande
-    final orderAsync = ref.watch(orderDetailProvider(orderId));
+    final async = ref.watch(orderDetailProvider(orderId));
 
     return Scaffold(
-      backgroundColor: _MarketColors.lightBg,
+      backgroundColor: _C.bg,
       appBar: AppBar(
+        backgroundColor: _C.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+          onPressed: () => context.pop(),
+        ),
         title: const Text(
           'Détail de la commande',
           style: TextStyle(
-            color: _MarketColors.darkText,
             fontWeight: FontWeight.w900,
-            fontSize: 18,
+            fontSize: 17,
+            color: _C.dark,
           ),
         ),
-        backgroundColor: _MarketColors.pureWhite,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _MarketColors.darkText, size: 20),
-          onPressed: () => context.pop(),
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: _MarketColors.cardBorder, height: 1),
-        ),
       ),
-      body: orderAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: _MarketColors.red)),
-        error: (error, stack) => _buildErrorState(context, ref, error.toString()),
-        data: (order) => _buildContent(context, ref, order),
+      body: async.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: _C.red)),
+        error: (e, _) => Center(child: Text('Erreur : $e')),
+        data: (order) => _Body(
+          order: order,
+          orderId: orderId,
+          curFn: _cur,
+          statusLabel: _statusLabel,
+          statusColor: _statusColor,
+          formatDate: _formatDate,
+          money: _money,
+          onRefresh: () => ref.invalidate(orderDetailProvider(orderId)),
+        ),
       ),
     );
   }
+}
 
-  Widget _buildErrorState(BuildContext context, WidgetRef ref, String error) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: _MarketColors.creamBg,
-              shape: BoxShape.circle,
+// ============================================================
+// BODY
+// ============================================================
+class _Body extends ConsumerStatefulWidget {
+  final Map<String, dynamic> order;
+  final String orderId;
+  final String Function(dynamic) curFn;
+  final String Function(String) statusLabel;
+  final Color Function(String) statusColor;
+  final String Function(String?) formatDate;
+  final String Function(num, String) money;
+  final VoidCallback onRefresh;
+
+  const _Body({
+    required this.order,
+    required this.orderId,
+    required this.curFn,
+    required this.statusLabel,
+    required this.statusColor,
+    required this.formatDate,
+    required this.money,
+    required this.onRefresh,
+  });
+
+  @override
+  ConsumerState<_Body> createState() => _BodyState();
+}
+
+class _BodyState extends ConsumerState<_Body> {
+  bool _busy = false;
+
+  Map<String, dynamic> get o => widget.order;
+  String get status => (o['status'] ?? 'pending').toString();
+  bool get isDelivered => status == 'delivered';
+  bool get isCancelled => status == 'cancelled';
+  bool get canConfirmReceipt =>
+      !isDelivered &&
+      !isCancelled &&
+      (status == 'shipped' || status == 'processing' || status == 'pending' || status == 'confirmed');
+  bool get canClaimRefund =>
+      !isDelivered &&
+      !isCancelled &&
+      (o['refund_requested'] != true);
+
+  String get currency {
+    // 1. Devise commande
+    if (o['currency'] != null && o['currency'].toString().isNotEmpty) {
+      return widget.curFn(o['currency']);
+    }
+    // 2. Devise premier item / produit
+    final items = List<Map<String, dynamic>>.from(o['items'] ?? []);
+    if (items.isNotEmpty) {
+      final p = items.first['product'];
+      if (p is Map && p['currency'] != null) {
+        return widget.curFn(p['currency']);
+      }
+      if (items.first['currency'] != null) {
+        return widget.curFn(items.first['currency']);
+      }
+    }
+    return 'FC';
+  }
+
+  Future<void> _openScanner() async {
+    final code = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const _ReceiptScanPage()),
+    );
+    if (code == null || code.isEmpty) return;
+    await _confirmReceipt(code);
+  }
+
+  Future<void> _confirmReceipt(String scannedCode) async {
+    setState(() => _busy = true);
+    try {
+      final db = ref.read(supabaseClientProvider);
+      final expected = (o['receipt_code'] ?? o['id']).toString();
+
+      // Accepte le code QR généré OU l'id commande
+      final ok = scannedCode.trim() == expected ||
+          scannedCode.trim() == o['id'].toString() ||
+          scannedCode.contains(o['id'].toString());
+
+      if (!ok) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Code invalide pour cette commande'),
+              backgroundColor: Colors.red,
             ),
-            child: const Icon(Icons.error_outline_rounded, size: 64, color: _MarketColors.gold),
+          );
+        }
+        return;
+      }
+
+      await db.from('orders').update({
+        'status': 'delivered',
+        'received_at': DateTime.now().toIso8601String(),
+        'payout_status': 'released', // argent libéré au vendeur
+        'payment_status': 'paid',
+      }).eq('id', widget.orderId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Réception confirmée. Merci !'),
+            backgroundColor: _C.green,
           ),
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              'Impossible de charger les détails : $error',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: _MarketColors.darkText,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
+        );
+        widget.onRefresh();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _claimRefund() async {
+    final reasonCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Réclamer un remboursement',
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Si vous n\'avez pas reçu la commande, expliquez le problème. Le paiement restera bloqué.',
+              style: TextStyle(fontSize: 13, color: _C.muted),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Ex: Colis non livré après 7 jours',
+                filled: true,
+                fillColor: _C.bg,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
           ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => ref.invalidate(orderDetailProvider(orderId)),
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-            label: const Text('Réessayer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _MarketColors.red,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
-            ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: _C.red),
+            child: const Text('Envoyer', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
+
+    if (ok != true) return;
+    final reason = reasonCtrl.text.trim();
+    if (reason.isEmpty) return;
+
+    setState(() => _busy = true);
+    try {
+      final db = ref.read(supabaseClientProvider);
+      await db.from('orders').update({
+        'refund_requested': true,
+        'refund_reason': reason,
+        'payout_status': 'held',
+      }).eq('id', widget.orderId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Réclamation envoyée. Support notifié.'),
+            backgroundColor: _C.gold,
+          ),
+        );
+        widget.onRefresh();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, Map<String, dynamic> order) {
-    final items = List<Map<String, dynamic>>.from(order['items'] ?? []);
-    final address = order['address'] as Map?;
-    final shop = order['shop'] as Map?;
-    final status = order['status'] ?? 'pending';
-    final total = (order['total'] as num?)?.toDouble() ?? 0;
-    final currency = order['currency'] ?? 'FC'; 
-    final createdAt = _formatDate(order['created_at']);
-    final paymentStatus = order['payment_status'] ?? 'pending';
+  Future<void> _cancelOrder() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Annuler la commande ?'),
+        content: const Text('Le stock sera rendu à la boutique.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Non')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: _C.red),
+            child: const Text('Oui, annuler', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // En-tête : statut et date
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _MarketColors.pureWhite,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _MarketColors.cardBorder),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Commande #${order['id'].toString().substring(0, 8)}',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: _MarketColors.darkText),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
+    setState(() => _busy = true);
+    try {
+      final db = ref.read(supabaseClientProvider);
+      try {
+        await db.rpc('cancel_order', params: {
+          'p_order_id': widget.orderId,
+          'p_reason_code': 'client_request',
+          'p_reason': 'Client depuis détail commande',
+        });
+      } catch (_) {
+        await db.from('orders').update({
+          'status': 'cancelled',
+          'payout_status': 'refunded',
+        }).eq('id', widget.orderId);
+      }
+      widget.onRefresh();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = List<Map<String, dynamic>>.from(o['items'] ?? []);
+    final shop = o['shop'] as Map?;
+    final address = o['address'] as Map?;
+    final total = (o['total'] as num?) ?? 0;
+    final cur = currency;
+    final color = widget.statusColor(status);
+    final shortId = widget.orderId.length > 8
+        ? widget.orderId.substring(0, 8)
+        : widget.orderId;
+
+    return Stack(
+      children: [
+        ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Header commande
+            _card(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.calendar_today_rounded, size: 12, color: _MarketColors.mutedText),
-                        const SizedBox(width: 4),
                         Text(
-                          createdAt,
-                          style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12, fontWeight: FontWeight.w500),
+                          'Commande #${shortId.toLowerCase()}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                            color: _C.dark,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_today_outlined,
+                                size: 13, color: _C.muted),
+                            const SizedBox(width: 4),
+                            Text(
+                              widget.formatDate(o['created_at']?.toString()),
+                              style: const TextStyle(fontSize: 12, color: _C.muted),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _statusColor(status).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(
-                    _statusLabel(status),
-                    style: TextStyle(
-                      color: _statusColor(status),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      widget.statusLabel(status),
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Boutique
-          if (shop != null)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _MarketColors.pureWhite,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _MarketColors.cardBorder),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
               ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Boutique
+            _card(
               child: Row(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      color: _MarketColors.lightBg,
-                      shape: BoxShape.circle,
-                    ),
-                    clipBehavior: Clip.hardEdge,
-                    child: shop['logo_url'] != null
-                        ? Image.network(
-                            shop['logo_url'],
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.storefront_rounded, size: 20, color: _MarketColors.mutedText),
-                          )
-                        : const Icon(Icons.storefront_rounded, size: 20, color: _MarketColors.mutedText),
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: _C.bg,
+                    backgroundImage: shop?['logo_url'] != null &&
+                            shop!['logo_url'].toString().isNotEmpty
+                        ? NetworkImage(shop['logo_url'].toString())
+                        : null,
+                    child: shop?['logo_url'] == null ||
+                            (shop?['logo_url']?.toString().isEmpty ?? true)
+                        ? const Icon(Icons.storefront_rounded, color: _C.muted)
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Vendu par', style: TextStyle(fontSize: 10, color: _MarketColors.mutedText, fontWeight: FontWeight.w600)),
-                        Text(
-                          shop['name'] ?? 'Boutique',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: _MarketColors.darkText),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _MarketColors.mutedText),
-                ],
-              ),
-            ),
-          const SizedBox(height: 16),
-
-          // Articles
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _MarketColors.pureWhite,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _MarketColors.cardBorder),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Articles commandés',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: _MarketColors.darkText),
-                ),
-                const SizedBox(height: 16),
-                
-                ...items.map((item) => _buildItemTile(item, currency)),
-                
-                const Divider(height: 32, color: _MarketColors.cardBorder),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Total payé',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: _MarketColors.darkText),
-                    ),
-                    Text(
-                      '${total.toInt()} $currency',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: _MarketColors.red),
-                    ),
-                  ],
-                ),
-                if (paymentStatus == 'paid')
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _MarketColors.successGreen.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            children: const [
-                              Icon(Icons.check_circle_rounded, size: 12, color: _MarketColors.successGreen),
-                              SizedBox(width: 4),
-                              Text('Paiement validé', style: TextStyle(color: _MarketColors.successGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                shop?['name']?.toString() ?? 'Boutique',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (shop?['is_verified'] == true) ...[
+                              const SizedBox(width: 4),
+                              const Icon(Icons.verified_rounded,
+                                  size: 14, color: _C.blue),
                             ],
-                          ),
+                          ],
                         ),
+                        if (shop?['city'] != null)
+                          Text(
+                            shop!['city'].toString(),
+                            style:
+                                const TextStyle(fontSize: 12, color: _C.muted),
+                          ),
+                        if (shop?['phone'] != null)
+                          Text(
+                            shop!['phone'].toString(),
+                            style:
+                                const TextStyle(fontSize: 12, color: _C.muted),
+                          ),
                       ],
                     ),
                   ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Adresse de livraison
-          if (address != null)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _MarketColors.pureWhite,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _MarketColors.cardBorder),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
               ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Articles
+            _card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.location_on_rounded, size: 18, color: _MarketColors.gold),
-                      SizedBox(width: 8),
-                      Text(
-                        'Adresse de livraison',
-                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: _MarketColors.darkText),
-                      ),
-                    ],
+                  const Text(
+                    'Articles commandés',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    address['full_name'] ?? '',
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: _MarketColors.darkText, fontSize: 13),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(address['address_line'] ?? '', style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12)),
-                  Text('${address['city'] ?? ''}, ${address['postal_code'] ?? ''}', style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12)),
-                  const SizedBox(height: 4),
+                  ...items.map((it) {
+                    final name = it['product_name'] ??
+                        it['title_snapshot'] ??
+                        it['product']?['title'] ??
+                        'Produit';
+                    final img = it['product_image'] ??
+                        it['product']?['image_url'] ??
+                        '';
+                    final qty = it['quantity'] ?? 1;
+                    final price = (it['price'] as num?) ?? 0;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: img.toString().isEmpty
+                                ? Container(
+                                    width: 52,
+                                    height: 52,
+                                    color: _C.bg,
+                                    child: const Icon(Icons.image_outlined),
+                                  )
+                                : Image.network(
+                                    img.toString(),
+                                    width: 52,
+                                    height: 52,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 52,
+                                      height: 52,
+                                      color: _C.bg,
+                                      child: const Icon(Icons.image_outlined),
+                                    ),
+                                  ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name.toString(),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  'Qté: $qty · ${widget.money(price, cur)}/u',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: _C.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            widget.money(price * (qty as num), cur),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const Divider(height: 20),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(Icons.phone_rounded, size: 12, color: _MarketColors.mutedText),
-                      const SizedBox(width: 4),
-                      Text(address['phone'] ?? '', style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Total payé',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        widget.money(total, cur),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                          color: _C.red,
+                        ),
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
-          const SizedBox(height: 24),
 
-          // Actions
-          if (status == 'pending' || status == 'processing')
-            Column(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => _showCancelConfirmDialog(context, ref),
-                  icon: const Icon(Icons.cancel_outlined, color: _MarketColors.red, size: 18),
-                  label: const Text('Annuler la commande', style: TextStyle(color: _MarketColors.red, fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
-                    side: const BorderSide(color: _MarketColors.red),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            const SizedBox(height: 12),
+
+            // Adresse
+            if (address != null)
+              _card(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.location_on_rounded,
+                            color: _C.gold, size: 20),
+                        SizedBox(width: 6),
+                        Text(
+                          'Adresse de livraison',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w900, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      address['full_name']?.toString() ??
+                          address['name']?.toString() ??
+                          '',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      [
+                        address['street'] ?? address['address_line1'],
+                        address['city'],
+                        address['postal_code'],
+                      ].where((e) => e != null && e.toString().isNotEmpty).join(', '),
+                      style: const TextStyle(color: _C.muted, fontSize: 13),
+                    ),
+                    if (address['phone'] != null)
+                      Text(
+                        '☎ ${address['phone']}',
+                        style: const TextStyle(color: _C.muted, fontSize: 13),
+                      ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 20),
+
+            // === ACCUSÉ DE RÉCEPTION ===
+            if (canConfirmReceipt) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: _busy ? null : _openScanner,
+                  icon: const Icon(Icons.qr_code_scanner_rounded),
+                  label: const Text(
+                    'Confirmer la réception (scanner)',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _C.green,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-              ],
-            ),
-            
-          ElevatedButton.icon(
-            onPressed: () => context.push('/market/orders'),
-            icon: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 18),
-            label: const Text('Retour à mes commandes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _MarketColors.darkText, 
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Scannez le code fourni par le livreur / vendeur. L\'argent ne sera versé au vendeur qu\'après confirmation.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: _C.muted, height: 1.3),
+              ),
+              const SizedBox(height: 12),
+            ],
 
-  Widget _buildItemTile(Map<String, dynamic> item, String currency) {
-    final name = item['product_name'] ?? 'Produit';
-    final quantity = item['quantity'] ?? 1;
-    final price = (item['price'] as num?)?.toDouble() ?? 0;
-    final imageUrl = item['product_image'] as String?;
+            if (isDelivered)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _C.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: _C.green),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Réception confirmée. Paiement libéré au vendeur.',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: _C.green,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              width: 56,
-              height: 56,
-              color: _MarketColors.lightBg,
-              child: imageUrl != null && imageUrl.isNotEmpty
-                  ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(child: CircularProgressIndicator(strokeWidth: 2, color: _MarketColors.red));
-                      },
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported_outlined, color: _MarketColors.mutedText),
-                    )
-                  : const Icon(Icons.image_outlined, color: _MarketColors.mutedText),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: _MarketColors.darkText, fontSize: 13),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+            if (o['refund_requested'] == true) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _C.gold.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Qté: $quantity  •  ${price.toInt()} $currency/u',
-                  style: const TextStyle(color: _MarketColors.mutedText, fontSize: 11, fontWeight: FontWeight.w600),
+                child: const Text(
+                  'Réclamation en cours de traitement.',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                 ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${(price * quantity).toInt()} $currency',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: _MarketColors.darkText),
               ),
             ],
+
+            const SizedBox(height: 12),
+
+            // Remboursement
+            if (canClaimRefund)
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : _claimRefund,
+                  icon: const Icon(Icons.money_off_csred_rounded, size: 18),
+                  label: const Text('Réclamer un remboursement'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _C.red,
+                    side: const BorderSide(color: _C.red),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Annuler
+            if (status == 'pending' || status == 'confirmed') ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : _cancelOrder,
+                  icon: const Icon(Icons.cancel_outlined, size: 18),
+                  label: const Text('Annuler la commande'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _C.red,
+                    side: const BorderSide(color: _C.red),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () => context.pop(),
+                icon: const Icon(Icons.receipt_long_rounded, size: 18),
+                label: const Text('Retour à mes commandes'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _C.dark,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+        if (_busy)
+          Container(
+            color: Colors.black26,
+            child: const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
-  void _showCancelConfirmDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Annuler la commande', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-        content: const Text(
-          'Êtes-vous sûr de vouloir annuler cette commande ? Cette action est irréversible.',
-          style: TextStyle(fontSize: 14, color: _MarketColors.darkText),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Non, garder', style: TextStyle(color: _MarketColors.mutedText, fontWeight: FontWeight.bold)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx); // Ferme la dialog
-              
-              try {
-                await Supabase.instance.client
-                    .from('orders')
-                    .update({'status': 'cancelled'})
-                    .eq('id', orderId);
-                    
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Commande annulée avec succès'),
-                      backgroundColor: _MarketColors.successGreen,
-                    ),
-                  );
-                }
-                
-                // Rafraîchir les données via Riverpod
-                ref.invalidate(orderDetailProvider(orderId));
-                
-              } catch (_) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Erreur lors de l’annulation'),
-                      backgroundColor: _MarketColors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _MarketColors.red,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              elevation: 0,
+  Widget _card({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _C.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _C.border),
+      ),
+      child: child,
+    );
+  }
+}
+
+// ============================================================
+// SCANNER QR
+// ============================================================
+class _ReceiptScanPage extends StatefulWidget {
+  const _ReceiptScanPage();
+
+  @override
+  State<_ReceiptScanPage> createState() => _ReceiptScanPageState();
+}
+
+class _ReceiptScanPageState extends State<_ReceiptScanPage> {
+  final MobileScannerController _controller = MobileScannerController();
+  bool _handled = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_handled) return;
+    final code = capture.barcodes.firstOrNull?.rawValue;
+    if (code == null || code.isEmpty) return;
+    _handled = true;
+    Navigator.of(context).pop(code);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        title: const Text('Scanner le code de livraison'),
+        foregroundColor: Colors.white,
+      ),
+      body: Stack(
+        children: [
+          MobileScanner(controller: _controller, onDetect: _onDetect),
+          Center(
+            child: Container(
+              width: 240,
+              height: 240,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white, width: 2),
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
-            child: const Text('Oui, annuler', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+          const Positioned(
+            bottom: 48,
+            left: 24,
+            right: 24,
+            child: Text(
+              'Alignez le QR code du livreur / vendeur dans le cadre',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
           ),
         ],
       ),
