@@ -1,19 +1,22 @@
+// Route: lib/presentation/chat/call/global_call_listener.dart
+// PRODUCTION - GlobalCallListener avec Riverpod (ConsumerStatefulWidget)
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/models/chat/call_invite.dart';
 
-class GlobalCallListener extends StatefulWidget {
+class GlobalCallListener extends ConsumerStatefulWidget {
   final Widget child;
   const GlobalCallListener({super.key, required this.child});
 
   @override
-  State<GlobalCallListener> createState() => _GlobalCallListenerState();
+  ConsumerState<GlobalCallListener> createState() => _GlobalCallListenerState();
 }
 
-class _GlobalCallListenerState extends State<GlobalCallListener> {
+class _GlobalCallListenerState extends ConsumerState<GlobalCallListener> {
   RealtimeChannel? _channel;
   StreamSubscription? _authSub;
 
@@ -38,7 +41,7 @@ class _GlobalCallListenerState extends State<GlobalCallListener> {
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: AppRoutes.tableCallInvites,
-          // 👇 CORRECTION 1 : Nouvelle syntaxe Supabase
+          // Correction syntaxe Supabase Realtime
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'callee_id',
@@ -51,19 +54,19 @@ class _GlobalCallListenerState extends State<GlobalCallListener> {
 
   void _onIncoming(PostgresChangePayload payload) {
     try {
-      // 👇 CORRECTION 2 : Utilisation de fromJson au lieu de fromMap
+      // Utilisation correcte de fromJson
       final invite = CallInvite.fromJson(payload.newRecord);
       
       if (invite.status != 'ringing') return;
       if (!mounted) return;
       
-      // évite double push si déjà sur incoming/ongoing
+      // Évite le double push si l'utilisateur est déjà sur l'écran d'appel
       final loc = GoRouterState.of(context).uri.toString();
       if (loc.contains(AppRoutes.callIncoming) || loc.contains(AppRoutes.callOngoing)) return;
 
       context.pushNamed(AppRoutes.callIncomingName, extra: invite);
     } catch (e) {
-      debugPrint('Erreur réception appel: $e');
+      debugPrint('❌ Erreur réception appel global: $e');
     }
   }
 
