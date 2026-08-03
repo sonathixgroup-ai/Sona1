@@ -57,7 +57,9 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
         return;
       }
       setState(() => _elapsedSeconds++);
-      if (_elapsedSeconds % 2 == 0) HapticFeedback.vibrate();
+      if (_elapsedSeconds % 2 == 0) {
+        HapticFeedback.vibrate();
+      }
     });
   }
 
@@ -110,7 +112,13 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
         children: [
           Positioned.fill(
             child: avatar != null && avatar.isNotEmpty
-                ? Image.network(avatar, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: const Color(0xFF0A1F44)))
+                ? Image.network(
+                    avatar,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) {
+                      return Container(color: const Color(0xFF0A1F44));
+                    },
+                  )
                 : Container(
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
@@ -141,7 +149,8 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
                 ),
                 const SizedBox(height: 40),
                 FadeTransition(
-                  opacity: Tween<double>(begin: 0.7, end: 1.0).animate(_pulseController),
+                  opacity: Tween<double>(begin: 0.7, end: 1.0)
+                      .animate(_pulseController),
                   child: CallAvatar(
                     name: name,
                     imageUrl: avatar,
@@ -180,7 +189,9 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage>
                         onTap: _onReject,
                       ),
                       _buildActionButton(
-                        icon: isVideo ? Icons.videocam_rounded : Icons.call_rounded,
+                        icon: isVideo
+                            ? Icons.videocam_rounded
+                            : Icons.call_rounded,
                         color: const Color(0xFF1FA971),
                         label: 'Accepter',
                         onTap: _onAccept,
