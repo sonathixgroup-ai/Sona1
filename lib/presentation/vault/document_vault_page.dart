@@ -13,13 +13,36 @@ import 'package:thix_id/services/document_service.dart';
 import '../../theme.dart';
 
 // =============================================================
-// Charte THIX ID — palette confiance / document
+// Charte THIX ID — palette confiance / document (version épurée)
 // =============================================================
 const Color _navyDeep = Color(0xFF0A1F44);
 const Color _navy = Color(0xFF123B7A);
 const Color _primary = Color(0xFF2D6CDF);
 const Color _gold = Color(0xFFE3B23C);
 const Color _ivory = Color(0xFFF6F7FB);
+
+// Couleurs douces par type de fichier (façon vignette colorée)
+Color typeAccentColor(String? mime, String? docType) {
+  final m = (mime ?? '').toLowerCase();
+  final t = (docType ?? '').toLowerCase();
+  if (m.contains('image')) return const Color(0xFFFF9F43); // orange doux
+  if (m.contains('pdf')) return const Color(0xFFEE5253); // rouge doux
+  if (t.contains('diplome') || t.contains('diplôme') || t.contains('attestation')) {
+    return const Color(0xFF10AC84); // vert doux
+  }
+  if (t == 'cin' || t == 'passeport' || t == 'permis') return const Color(0xFF2D6CDF); // bleu
+  return const Color(0xFF9C88FF); // violet par défaut
+}
+
+IconData typeIcon(String? mime, String? docType) {
+  final m = (mime ?? '').toLowerCase();
+  if (m.contains('pdf')) return Icons.picture_as_pdf_rounded;
+  if (m.contains('image')) return Icons.image_rounded;
+  final t = (docType ?? '').toLowerCase();
+  if (t.contains('diplome') || t.contains('diplôme')) return Icons.school_rounded;
+  if (t == 'cin' || t == 'passeport' || t == 'permis') return Icons.badge_rounded;
+  return Icons.description_rounded;
+}
 
 // =============================================================
 // Widgets réutilisables
@@ -50,14 +73,14 @@ class FolderChip extends StatelessWidget {
         margin: const EdgeInsets.only(right: AppSpacing.sm),
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
         decoration: BoxDecoration(
-          color: selected ? _navy : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+          color: selected ? _primary : _ivory,
+          borderRadius: BorderRadius.circular(AppRadius.full),
           border: Border.all(color: selected ? Colors.transparent : context.theme.dividerColor),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: selected ? _gold : LightModeColors.secondaryText),
+            Icon(icon, size: 14, color: selected ? Colors.white : _navy),
             const SizedBox(width: AppSpacing.xs),
             Text(
               label,
@@ -74,14 +97,16 @@ class FolderChip extends StatelessWidget {
   }
 }
 
-/// Carte document carrée avec "vision preview", ruban de type,
-/// et boutons QR / Numéro d'identifiant.
+/// Carte document carrée épurée : vraie vignette image si disponible,
+/// sinon icône colorée douce selon le type. QR + Numéro accessibles.
 class DocSquareCard extends StatelessWidget {
   final IconData icon;
+  final Color accentColor;
   final String title;
   final String docId;
   final String subtitle;
   final bool isPublic;
+  final Future<String>? previewUrlFuture;
   final VoidCallback? onTap;
   final VoidCallback? onMore;
   final VoidCallback? onShowQr;
@@ -90,15 +115,56 @@ class DocSquareCard extends StatelessWidget {
   const DocSquareCard({
     super.key,
     required this.icon,
+    required this.accentColor,
     required this.title,
     required this.docId,
     required this.subtitle,
     required this.isPublic,
+    this.previewUrlFuture,
     this.onTap,
     this.onMore,
     this.onShowQr,
     this.onShowId,
   });
+
+  Widget _buildPreview() {
+    if (previewUrlFuture == null) {
+      return Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          color: accentColor.withValues(alpha: 0.12),
+        ),
+        alignment: Alignment.center,
+        child: Icon(icon, color: accentColor, size: 32),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: FutureBuilder<String>(
+        future: previewUrlFuture,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done || !snap.hasData || snap.data!.isEmpty) {
+            return Container(
+              color: accentColor.withValues(alpha: 0.12),
+              alignment: Alignment.center,
+              child: Icon(icon, color: accentColor, size: 32),
+            );
+          }
+          return Image.network(
+            snap.data!,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (_, __, ___) => Container(
+              color: accentColor.withValues(alpha: 0.12),
+              alignment: Alignment.center,
+              child: Icon(icon, color: accentColor, size: 32),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,9 +178,9 @@ class DocSquareCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: context.theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: _navy.withValues(alpha: 0.15)),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 3)),
+              BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
             ],
           ),
           child: Stack(
@@ -122,19 +188,7 @@ class DocSquareCard extends StatelessWidget {
               // Zone preview
               Positioned.fill(
                 bottom: 44,
-                child: Container(
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [_navyDeep, _navy],
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(icon, color: _gold, size: 34),
-                ),
+                child: Padding(padding: const EdgeInsets.all(8), child: _buildPreview()),
               ),
               if (isPublic)
                 Positioned(
@@ -142,10 +196,7 @@ class DocSquareCard extends StatelessWidget {
                   left: 4,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: _gold,
-                      borderRadius: BorderRadius.circular(AppRadius.full),
-                    ),
+                    decoration: BoxDecoration(color: _gold, borderRadius: BorderRadius.circular(AppRadius.full)),
                     child: const Text('PUBLIC', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: _navyDeep)),
                   ),
                 ),
@@ -183,25 +234,20 @@ class DocSquareCard extends StatelessWidget {
                       bottomLeft: Radius.circular(AppRadius.lg),
                       bottomRight: Radius.circular(AppRadius.lg),
                     ),
-                    border: Border(top: BorderSide(color: _navy.withValues(alpha: 0.1))),
                   ),
                   child: Row(
                     children: [
                       Expanded(
                         child: InkWell(
                           onTap: onShowQr,
-                          child: const Center(
-                            child: Icon(Icons.qr_code_2_rounded, size: 18, color: _navy),
-                          ),
+                          child: const Center(child: Icon(Icons.qr_code_2_rounded, size: 18, color: _navy)),
                         ),
                       ),
-                      Container(width: 1, height: 20, color: _navy.withValues(alpha: 0.15)),
+                      Container(width: 1, height: 18, color: Colors.black.withValues(alpha: 0.06)),
                       Expanded(
                         child: InkWell(
                           onTap: onShowId,
-                          child: const Center(
-                            child: Icon(Icons.badge_outlined, size: 18, color: _navy),
-                          ),
+                          child: const Center(child: Icon(Icons.badge_outlined, size: 18, color: _navy)),
                         ),
                       ),
                     ],
@@ -218,9 +264,11 @@ class DocSquareCard extends StatelessWidget {
 
 class DocItem extends StatelessWidget {
   final IconData icon;
+  final Color accentColor;
   final String title;
   final String subtitle;
   final String? trailing;
+  final bool hasPassword;
   final VoidCallback? onTap;
   final VoidCallback? onMore;
   final Widget? progress;
@@ -228,9 +276,11 @@ class DocItem extends StatelessWidget {
   const DocItem({
     super.key,
     required this.icon,
+    this.accentColor = _primary,
     required this.title,
     required this.subtitle,
     this.trailing,
+    this.hasPassword = false,
     this.onTap,
     this.onMore,
     this.progress,
@@ -240,15 +290,16 @@ class DocItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.sm),
         padding: const EdgeInsets.all(AppSpacing.sm),
         decoration: BoxDecoration(
           color: context.theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: context.theme.dividerColor),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2)),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2)),
           ],
         ),
         child: Column(
@@ -256,19 +307,34 @@ class DocItem extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [_navyDeep, _navy],
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        color: accentColor.withValues(alpha: 0.12),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(icon, color: accentColor, size: 20),
                     ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(icon, color: _gold, size: 20),
+                    if (hasPassword)
+                      Positioned(
+                        right: -4,
+                        bottom: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: _navy,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: context.theme.colorScheme.surface, width: 2),
+                          ),
+                          child: const Icon(Icons.lock_rounded, size: 10, color: Colors.white),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
@@ -371,8 +437,7 @@ class _CountdownBarState extends State<CountdownBar> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(widget.label, style: const TextStyle(fontSize: 10, color: LightModeColors.secondaryText)),
-            Text(_fmt(remaining),
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: widget.color)),
+            Text(_fmt(remaining), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: widget.color)),
           ],
         ),
         const SizedBox(height: 3),
@@ -391,7 +456,7 @@ class _CountdownBarState extends State<CountdownBar> {
 }
 
 // =============================================================
-// Dialogues utilitaires : QR, Numéro, Nouveau dossier
+// Dialogues utilitaires : QR, Numéro
 // =============================================================
 
 void showQrDialog(BuildContext context, {required String title, required String value}) {
@@ -438,13 +503,8 @@ void showDocIdDialog(BuildContext context, {required String docId, required Stri
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
       title: Text(title, style: const TextStyle(fontSize: 15)),
-      content: SelectableText(
-        docId,
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: _navy),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer')),
-      ],
+      content: SelectableText(docId, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: _navy)),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer'))],
     ),
   );
 }
@@ -495,7 +555,6 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
     final has = await _docs.hasVaultLock(me.id);
     if (!mounted) return;
     if (!has) {
-      // Première utilisation : proposer de définir un code
       final pin = await _promptSetPin(context);
       if (pin != null) {
         await _docs.setVaultPin(uid: me.id, pin: pin);
@@ -555,9 +614,7 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
             style: ElevatedButton.styleFrom(backgroundColor: _primary, foregroundColor: Colors.white),
             onPressed: () {
               if (ctrl.text.trim().length < 4 || ctrl.text.trim() != ctrl2.text.trim()) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('Les codes ne correspondent pas.')),
-                );
+                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Les codes ne correspondent pas.')));
                 return;
               }
               Navigator.pop(ctx, ctrl.text.trim());
@@ -640,13 +697,6 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
     }
   }
 
-  IconData _iconForMime(String? mime) {
-    final m = (mime ?? '').toLowerCase();
-    if (m.contains('pdf')) return Icons.picture_as_pdf_rounded;
-    if (m.contains('image')) return Icons.image_rounded;
-    return Icons.description_rounded;
-  }
-
   String _formatDate(dynamic createdAt) {
     final date = createdAt is DateTime
         ? createdAt
@@ -714,6 +764,7 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
     if (res == null) return;
 
     try {
+      // Dépôt toujours privé par défaut — la visibilité publique se change ensuite depuis le menu du document.
       final generatedId = await _docs.uploadPickedFileSimple(
         uid: me.id,
         file: file,
@@ -721,7 +772,7 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
         expiresAt: res.expiresAt,
         title: res.title,
         folderId: res.folderId,
-        isPublic: res.isPublic,
+        isPublic: false,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Document déposé • $generatedId')));
@@ -787,7 +838,7 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
   }
 
   // ---------------------------------------------------------------------------
-  // RECHERCHE PAR ID (documents publics)
+  // RECHERCHE PAR ID (documents publics) — carte enrichie avec avatar
   // ---------------------------------------------------------------------------
 
   Future<void> _searchById() async {
@@ -823,23 +874,120 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
       return;
     }
 
+    final storagePath = (res['storage_path'] as String?) ?? '';
+    final mime = (res['mime_type'] as String?) ?? '';
+    final avatarUrl = (res['owner_avatar_url'] as String?) ?? '';
+    final isImage = mime.toLowerCase().contains('image');
+    final accent = typeAccentColor(mime, res['doc_type'] as String?);
+
+    Future<String>? downloadFuture;
+    if (storagePath.isNotEmpty) {
+      downloadFuture = _docs.createDownloadUrl(storagePath: storagePath);
+    }
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: const Text('Document trouvé'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Titre : ${res['title'] ?? '—'}'),
-            Text('Type : ${res['doc_type'] ?? '—'}'),
-            Text('Identifiant : ${res['generated_doc_id'] ?? '—'}'),
-            Text('Propriétaire : ${res['owner_name'] ?? '—'} (${res['owner_thix_id'] ?? '—'})'),
-            Text('Créé le : ${_formatDate(res['created_at'])}'),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: _primary.withValues(alpha: 0.12),
+                    backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                    child: avatarUrl.isEmpty
+                        ? Text(
+                            ((res['owner_name'] as String?)?.isNotEmpty == true
+                                    ? (res['owner_name'] as String).substring(0, 1)
+                                    : '?')
+                                .toUpperCase(),
+                            style: const TextStyle(color: _navy, fontWeight: FontWeight.w700),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text((res['owner_name'] as String?) ?? 'Propriétaire inconnu',
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                        Text((res['owner_thix_id'] as String?) ?? '—',
+                            style: const TextStyle(fontSize: 11, color: LightModeColors.secondaryText)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              InkWell(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                onTap: downloadFuture == null
+                    ? null
+                    : () async {
+                        try {
+                          final url = await downloadFuture!;
+                          if (!mounted) return;
+                          Navigator.pop(ctx);
+                          await _openUrl(url);
+                        } catch (_) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Ouverture impossible.')),
+                          );
+                        }
+                      },
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: isImage && downloadFuture != null
+                        ? FutureBuilder<String>(
+                            future: downloadFuture,
+                            builder: (context, snap) {
+                              if (!snap.hasData) return Center(child: Icon(typeIcon(mime, res['doc_type'] as String?), color: accent, size: 36));
+                              return Image.network(snap.data!, fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Center(child: Icon(typeIcon(mime, res['doc_type'] as String?), color: accent, size: 36)));
+                            },
+                          )
+                        : Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(typeIcon(mime, res['doc_type'] as String?), color: accent, size: 36),
+                                const SizedBox(height: 6),
+                                Text('Toucher pour ouvrir', style: TextStyle(fontSize: 11, color: accent)),
+                              ],
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(res['title'] as String? ?? '—', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              const SizedBox(height: 2),
+              Text('${res['doc_type'] ?? '—'} • ${res['generated_doc_id'] ?? '—'}',
+                  style: const TextStyle(fontSize: 11, color: LightModeColors.secondaryText)),
+              const SizedBox(height: 2),
+              Text('Créé le : ${_formatDate(res['created_at'])}',
+                  style: const TextStyle(fontSize: 11, color: LightModeColors.secondaryText)),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer')),
+              ),
+            ],
+          ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer'))],
       ),
     );
   }
@@ -890,22 +1038,37 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
                   style: ElevatedButton.styleFrom(backgroundColor: _primary, foregroundColor: Colors.white, elevation: 0),
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Rendre accessible via la recherche (public)', style: TextStyle(fontSize: 12)),
-                  value: isPublic,
-                  activeColor: _primary,
-                  onChanged: me == null
-                      ? null
-                      : (v) async {
-                          setSheet(() => isPublic = v);
-                          await _docs.togglePublic(
-                            uid: me.id,
-                            documentId: row['id'].toString(),
-                            docId: docId,
-                            isPublic: v,
-                          );
-                        },
+                // Visibilité : jamais choisie au dépôt — uniquement ici, activable puis désactivable.
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: _ivory,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: SwitchListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    title: Text(
+                      isPublic ? 'Document public (visible via la recherche)' : 'Document privé',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      isPublic ? 'Retirer pour le rendre privé' : 'Activer pour le rendre accessible via la recherche',
+                      style: const TextStyle(fontSize: 10, color: LightModeColors.secondaryText),
+                    ),
+                    value: isPublic,
+                    activeColor: _primary,
+                    onChanged: me == null
+                        ? null
+                        : (v) async {
+                            setSheet(() => isPublic = v);
+                            await _docs.togglePublic(
+                              uid: me.id,
+                              documentId: row['id'].toString(),
+                              docId: docId,
+                              isPublic: v,
+                            );
+                          },
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 OutlinedButton.icon(
@@ -954,7 +1117,7 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
     final me = context.watch<AuthController>().currentUser;
 
     return Scaffold(
-      backgroundColor: context.theme.scaffoldBackgroundColor,
+      backgroundColor: _ivory,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -965,7 +1128,6 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
               decoration: const BoxDecoration(
                 gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_navyDeep, _navy]),
                 borderRadius: BorderRadius.only(bottomLeft: Radius.circular(AppRadius.lg), bottomRight: Radius.circular(AppRadius.lg)),
-                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
               ),
               clipBehavior: Clip.antiAlias,
               child: Padding(
@@ -1039,7 +1201,6 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
                   _DepotTab(
                     me: me,
                     docsService: _docs,
-                    iconForMime: _iconForMime,
                     formatDate: _formatDate,
                     formatSize: _formatSize,
                     onOpenDoc: _openDoc,
@@ -1130,7 +1291,6 @@ class _LockScreen extends StatelessWidget {
 class _DepotTab extends StatelessWidget {
   final AppUser? me;
   final DocumentService docsService;
-  final IconData Function(String?) iconForMime;
   final String Function(dynamic) formatDate;
   final String Function(int) formatSize;
   final Future<void> Function(Map<String, dynamic>) onOpenDoc;
@@ -1143,7 +1303,6 @@ class _DepotTab extends StatelessWidget {
   const _DepotTab({
     required this.me,
     required this.docsService,
-    required this.iconForMime,
     required this.formatDate,
     required this.formatSize,
     required this.onOpenDoc,
@@ -1194,12 +1353,7 @@ class _DepotTab extends StatelessWidget {
             },
           ),
           const SizedBox(height: AppSpacing.md),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("Mes documents", style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w600, fontSize: 14)),
-            ],
-          ),
+          Text("Mes documents", style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w600, fontSize: 14)),
           const SizedBox(height: AppSpacing.sm),
           StreamBuilder<List<Map<String, dynamic>>>(
             stream: docsService.streamDocuments(me!.id),
@@ -1236,18 +1390,22 @@ class _DepotTab extends StatelessWidget {
                   final data = docs[i];
                   final title = (data['title'] as String?) ?? (data['generated_doc_id'] as String?) ?? (data['doc_id'] as String?) ?? 'Document';
                   final mime = (data['mime_type'] as String?) ?? (data['mimeType'] as String?);
+                  final docType = data['doc_type'] as String?;
                   final sizeBytes = (data['size_bytes'] as num?)?.toInt() ?? (data['sizeBytes'] as num?)?.toInt() ?? 0;
                   final dateStr = formatDate(data['created_at']);
                   final sizeStr = formatSize(sizeBytes);
                   final docId = (data['generated_doc_id'] as String?) ?? (data['doc_id'] as String?) ?? '';
                   final isPublic = (data['is_public'] as bool?) ?? false;
+                  final isImage = (mime ?? '').toLowerCase().contains('image');
 
                   return DocSquareCard(
-                    icon: iconForMime(mime),
+                    icon: typeIcon(mime, docType),
+                    accentColor: typeAccentColor(mime, docType),
                     title: title,
                     docId: docId,
                     subtitle: '$dateStr • $sizeStr',
                     isPublic: isPublic,
+                    previewUrlFuture: isImage ? docsService.resolveRowDownloadUrl(data) : null,
                     onTap: () => onOpenDoc(data),
                     onMore: () => onMore(data),
                     onShowQr: () => showQrDialog(context, title: title, value: docId.isNotEmpty ? docId : title),
@@ -1263,7 +1421,7 @@ class _DepotTab extends StatelessWidget {
             decoration: BoxDecoration(
               color: context.theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(color: _primary.withValues(alpha: 0.3)),
+              border: Border.all(color: _primary.withValues(alpha: 0.15)),
             ),
             child: Row(
               children: [
@@ -1297,16 +1455,23 @@ class _DepotTab extends StatelessWidget {
 }
 
 // =============================================================
-// ONGLET ENVOYER
+// ONGLET ENVOYER (avec disparition auto des envois expirés)
 // =============================================================
 
-class _EnvoyerTab extends StatelessWidget {
+class _EnvoyerTab extends StatefulWidget {
   final AppUser? me;
   final DocumentService docsService;
   final String Function(dynamic) formatDate;
   final VoidCallback onOpenSend;
 
   const _EnvoyerTab({required this.me, required this.docsService, required this.formatDate, required this.onOpenSend});
+
+  @override
+  State<_EnvoyerTab> createState() => _EnvoyerTabState();
+}
+
+class _EnvoyerTabState extends State<_EnvoyerTab> {
+  final Set<String> _autoDestroyed = {};
 
   String _statusLabel(String status) {
     switch (status) {
@@ -1327,7 +1492,7 @@ class _EnvoyerTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (me == null) {
+    if (widget.me == null) {
       return const Center(child: Text('Connectez-vous pour envoyer des documents.'));
     }
     return SingleChildScrollView(
@@ -1343,11 +1508,11 @@ class _EnvoyerTab extends StatelessWidget {
                 Text('Envoyer un document sécurisé',
                     style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w700), textAlign: TextAlign.center),
                 const SizedBox(height: 6),
-                Text('Mot de passe • Auto-destruction précise • Disponibilité différée\nNotification d\'ouverture',
+                Text('Mot de passe • Auto-destruction optionnelle • Disponibilité différée\nNotification d\'ouverture',
                     style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4), textAlign: TextAlign.center),
                 const SizedBox(height: 20),
                 ElevatedButton.icon(
-                  onPressed: onOpenSend,
+                  onPressed: widget.onOpenSend,
                   icon: const Icon(Icons.send_rounded, size: 18),
                   label: const Text('NOUVEL ENVOI'),
                   style: ElevatedButton.styleFrom(
@@ -1364,27 +1529,49 @@ class _EnvoyerTab extends StatelessWidget {
           Text("Suivi des envois", style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w600, fontSize: 14)),
           const SizedBox(height: AppSpacing.sm),
           StreamBuilder<List<Map<String, dynamic>>>(
-            stream: docsService.streamSentShares(me!.id),
+            stream: widget.docsService.streamSentShares(widget.me!.id),
             builder: (context, snap) {
               final shares = snap.data ?? const [];
-              if (shares.isEmpty) {
-                return Text('Aucun envoi pour le moment.',
+              final now = DateTime.now();
+              final visible = <Map<String, dynamic>>[];
+
+              for (final s in shares) {
+                final status = (s['status'] as String?) ?? 'pending';
+                final shareId = s['id']?.toString();
+                final autoDestructAt = DateTime.tryParse((s['auto_destruct_at'] ?? '').toString());
+
+                if (status == 'destroyed' || status == 'expired') continue; // disparu
+
+                if (autoDestructAt != null && autoDestructAt.isBefore(now)) {
+                  if (shareId != null && _autoDestroyed.add(shareId)) {
+                    widget.docsService.markShareDestroyed(shareId);
+                  }
+                  continue; // disparaît immédiatement de la liste
+                }
+                visible.add(s);
+              }
+
+              if (visible.isEmpty) {
+                return Text('Aucun envoi actif pour le moment.',
                     style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText));
               }
               return Column(
-                children: shares.map((s) {
+                children: visible.map((s) {
                   final status = (s['status'] as String?) ?? 'pending';
+                  final hasPassword = (s['password_hash'] as String?)?.isNotEmpty == true;
                   final autoDestructAt = DateTime.tryParse((s['auto_destruct_at'] ?? '').toString());
                   final createdAt = DateTime.tryParse((s['created_at'] ?? '').toString()) ?? DateTime.now();
                   Widget? progress;
-                  if (autoDestructAt != null && status != 'destroyed' && status != 'expired') {
+                  if (autoDestructAt != null) {
                     progress = CountdownBar(start: createdAt, target: autoDestructAt, label: 'Auto-destruction', color: Colors.redAccent);
                   }
                   return DocItem(
                     icon: status == 'opened' ? Icons.mark_email_read_rounded : Icons.mail_outline_rounded,
+                    accentColor: status == 'opened' ? const Color(0xFF10AC84) : _primary,
                     title: (s['recipient_thix_id'] as String?) ?? '—',
                     subtitle: (s['subject'] as String?)?.isNotEmpty == true ? s['subject'] as String : 'Sans objet',
                     trailing: _statusLabel(status),
+                    hasPassword: hasPassword,
                     progress: progress,
                   );
                 }).toList(),
@@ -1398,16 +1585,23 @@ class _EnvoyerTab extends StatelessWidget {
 }
 
 // =============================================================
-// ONGLET REÇU
+// ONGLET REÇU (avec disparition auto des envois expirés)
 // =============================================================
 
-class _RecuTab extends StatelessWidget {
+class _RecuTab extends StatefulWidget {
   final AppUser? me;
   final DocumentService docsService;
   final Future<void> Function(Map<String, dynamic>) onOpenDoc;
   final String Function(dynamic) formatDate;
 
   const _RecuTab({required this.me, required this.docsService, required this.onOpenDoc, required this.formatDate});
+
+  @override
+  State<_RecuTab> createState() => _RecuTabState();
+}
+
+class _RecuTabState extends State<_RecuTab> {
+  final Set<String> _autoDestroyed = {};
 
   Future<void> _handleOpenShare(BuildContext context, Map<String, dynamic> share) async {
     final status = (share['status'] as String?) ?? 'pending';
@@ -1425,7 +1619,7 @@ class _RecuTab extends StatelessWidget {
     if (autoDestructRaw != null) {
       final autoAt = DateTime.tryParse(autoDestructRaw.toString());
       if (autoAt != null && autoAt.isBefore(DateTime.now())) {
-        await docsService.markShareDestroyed(shareId);
+        await widget.docsService.markShareDestroyed(shareId);
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ce document a été auto-détruit.')));
         return;
       }
@@ -1470,7 +1664,7 @@ class _RecuTab extends StatelessWidget {
                     Navigator.pop(ctx, ctrl.text);
                     return;
                   }
-                  final valid = await docsService.verifyPassword(password: ctrl.text, hash: stored);
+                  final valid = await widget.docsService.verifyPassword(password: ctrl.text, hash: stored);
                   if (valid) {
                     Navigator.pop(ctx, ctrl.text);
                   } else {
@@ -1488,13 +1682,13 @@ class _RecuTab extends StatelessWidget {
     }
 
     try {
-      final docRow = await docsService.fetchDocumentById(documentId);
+      final docRow = await widget.docsService.fetchDocumentById(documentId);
       if (docRow == null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Document introuvable.')));
         return;
       }
-      await docsService.markShareOpened(shareId, uid: docRow['user_id']?.toString(), docId: docRow['generated_doc_id']?.toString());
-      await onOpenDoc(docRow);
+      await widget.docsService.markShareOpened(shareId, uid: docRow['user_id']?.toString(), docId: docRow['generated_doc_id']?.toString());
+      await widget.onOpenDoc(docRow);
     } catch (e) {
       debugPrint('Open received share failed: $e');
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impossible d\'ouvrir le document.')));
@@ -1503,26 +1697,45 @@ class _RecuTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (me == null) {
+    if (widget.me == null) {
       return const Center(child: Text('Connectez-vous pour voir les documents reçus.'));
     }
 
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: docsService.streamReceivedShares(me!.id, me!.thixId),
+      stream: widget.docsService.streamReceivedShares(widget.me!.id, widget.me!.thixId),
       builder: (context, snap) {
         final shares = snap.data ?? [];
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (shares.isEmpty) {
+
+        final now = DateTime.now();
+        final visible = <Map<String, dynamic>>[];
+        for (final s in shares) {
+          final status = (s['status'] as String?) ?? 'pending';
+          final shareId = s['id']?.toString();
+          final autoDestructAt = DateTime.tryParse((s['auto_destruct_at'] ?? '').toString());
+
+          if (status == 'destroyed' || status == 'expired') continue;
+
+          if (autoDestructAt != null && autoDestructAt.isBefore(now)) {
+            if (shareId != null && _autoDestroyed.add(shareId)) {
+              widget.docsService.markShareDestroyed(shareId);
+            }
+            continue;
+          }
+          visible.add(s);
+        }
+
+        if (visible.isEmpty) {
           return Center(child: Text('Aucun document reçu.', style: context.textStyles.bodyMedium?.copyWith(color: LightModeColors.secondaryText)));
         }
 
         return ListView.builder(
           padding: const EdgeInsets.all(AppSpacing.md),
-          itemCount: shares.length,
+          itemCount: visible.length,
           itemBuilder: (context, i) {
-            final s = shares[i];
+            final s = visible[i];
             final subject = (s['subject'] as String?)?.trim().isNotEmpty == true ? s['subject'] as String : 'Document partagé';
             final status = (s['status'] as String?) ?? 'pending';
             final hasPassword = (s['password_hash'] as String?)?.isNotEmpty == true;
@@ -1542,12 +1755,6 @@ class _RecuTab extends StatelessWidget {
               case 'pending':
                 statusLabel = 'Verrouillé';
                 break;
-              case 'expired':
-                statusLabel = 'Expiré';
-                break;
-              case 'destroyed':
-                statusLabel = 'Détruit';
-                break;
               default:
                 statusLabel = status;
             }
@@ -1555,17 +1762,17 @@ class _RecuTab extends StatelessWidget {
             Widget? progress;
             if (status == 'pending' && availableFrom != null && availableFrom.isAfter(DateTime.now())) {
               progress = CountdownBar(start: createdAt, target: availableFrom, label: 'Disponible dans', color: _primary);
-            } else if (autoDestructAt != null && status != 'destroyed' && status != 'expired') {
+            } else if (autoDestructAt != null) {
               progress = CountdownBar(start: createdAt, target: autoDestructAt, label: 'Auto-destruction dans', color: Colors.redAccent);
             }
 
             return DocItem(
               icon: Icons.mail_outline_rounded,
+              accentColor: _primary,
               title: subject,
-              subtitle: '${formatDate(s['created_at'])}'
-                  '${hasPassword ? ' • 🔒' : ''}'
-                  '${screenshotCount > 0 ? ' • 📸 $screenshotCount' : ''}',
+              subtitle: '${widget.formatDate(s['created_at'])}${screenshotCount > 0 ? ' • 📸 $screenshotCount' : ''}',
               trailing: statusLabel,
+              hasPassword: hasPassword,
               onTap: () => _handleOpenShare(context, s),
               progress: progress,
             );
@@ -1664,7 +1871,7 @@ class _HistoriqueTab extends StatelessWidget {
 }
 
 // =============================================================
-// SHEET : DÉPÔT (dossier + type + visibilité)
+// SHEET : DÉPÔT (dossier + type — pas de choix de visibilité ici)
 // =============================================================
 
 class _UploadDocPayload {
@@ -1672,8 +1879,7 @@ class _UploadDocPayload {
   final String? title;
   final DateTime? expiresAt;
   final String? folderId;
-  final bool isPublic;
-  const _UploadDocPayload({required this.docType, this.title, this.expiresAt, this.folderId, this.isPublic = false});
+  const _UploadDocPayload({required this.docType, this.title, this.expiresAt, this.folderId});
 }
 
 class _UploadDocumentSheet extends StatefulWidget {
@@ -1697,7 +1903,6 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
   String _type = 'Autre';
   DateTime? _expiresAt;
   String? _folderId;
-  bool _isPublic = false;
   final _titleC = TextEditingController();
 
   @override
@@ -1761,6 +1966,15 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
               const SizedBox(height: 4),
               Text('L\'identifiant unique sera généré automatiquement\n(THIX-DOC-MMAAAA-XXXXXX-XXX/CC)',
                   style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, fontSize: 11)),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.lock_outline_rounded, size: 12, color: LightModeColors.secondaryText),
+                  const SizedBox(width: 4),
+                  Text('Déposé en privé par défaut — rendez-le public plus tard si besoin.',
+                      style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, fontSize: 10)),
+                ],
+              ),
               const SizedBox(height: AppSpacing.md),
               DropdownButtonFormField<String?>(
                 value: _folderId,
@@ -1844,14 +2058,6 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
                   ),
                 ),
               ],
-              const SizedBox(height: AppSpacing.sm),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Rendre public (accessible via la recherche)', style: TextStyle(fontSize: 12)),
-                value: _isPublic,
-                activeColor: _primary,
-                onChanged: (v) => setState(() => _isPublic = v),
-              ),
               const SizedBox(height: AppSpacing.md),
               SizedBox(
                 height: 44,
@@ -1866,7 +2072,6 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
                       title: _titleC.text.trim().isEmpty ? null : _titleC.text.trim(),
                       expiresAt: _expiresAt,
                       folderId: _folderId,
-                      isPublic: _isPublic,
                     ));
                   },
                   icon: const Icon(Icons.cloud_upload_rounded, color: Colors.white, size: 18),
@@ -1888,7 +2093,7 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
 }
 
 // =============================================================
-// SHEET : ENVOI (vérification THIX ID + durée d'auto-destruction)
+// SHEET : ENVOI (vérification THIX ID + auto-destruction optionnelle)
 // =============================================================
 
 class _SendPayload {
@@ -1932,6 +2137,7 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
   final _passwordC = TextEditingController();
   final _durationValueC = TextEditingController(text: '10');
   String _durationUnit = 'minutes'; // secondes | minutes | heures | jours
+  bool _autoDestructEnabled = false; // désactivé par défaut — case à cocher explicite
   DateTime? _availableFrom;
   bool _sending = false;
 
@@ -1969,6 +2175,7 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
   }
 
   Duration? _computeDuration() {
+    if (!_autoDestructEnabled) return null;
     final v = int.tryParse(_durationValueC.text.trim());
     if (v == null || v <= 0) return null;
     switch (_durationUnit) {
@@ -2077,35 +2284,49 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              Text('Auto-destruction après', style: context.textStyles.labelMedium?.copyWith(fontSize: 12, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: TextField(
-                      controller: _durationValueC,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(labelText: 'Durée', border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md))),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 3,
-                    child: DropdownButtonFormField<String>(
-                      value: _durationUnit,
-                      items: const [
-                        DropdownMenuItem(value: 'secondes', child: Text('Secondes')),
-                        DropdownMenuItem(value: 'minutes', child: Text('Minutes')),
-                        DropdownMenuItem(value: 'heures', child: Text('Heures')),
-                        DropdownMenuItem(value: 'jours', child: Text('Jours')),
-                      ],
-                      onChanged: (v) => setState(() => _durationUnit = v ?? 'minutes'),
-                      decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md))),
-                    ),
-                  ),
-                ],
+              // Auto-destruction : désactivée par défaut, case à cocher explicite
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(color: _ivory, borderRadius: BorderRadius.circular(AppRadius.md)),
+                child: SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  title: const Text('Activer l\'auto-destruction', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Le document disparaîtra après la durée choisie', style: TextStyle(fontSize: 10, color: LightModeColors.secondaryText)),
+                  value: _autoDestructEnabled,
+                  activeColor: Colors.redAccent,
+                  onChanged: (v) => setState(() => _autoDestructEnabled = v),
+                ),
               ),
+              if (_autoDestructEnabled) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: _durationValueC,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(labelText: 'Durée', border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md))),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 3,
+                      child: DropdownButtonFormField<String>(
+                        value: _durationUnit,
+                        items: const [
+                          DropdownMenuItem(value: 'secondes', child: Text('Secondes')),
+                          DropdownMenuItem(value: 'minutes', child: Text('Minutes')),
+                          DropdownMenuItem(value: 'heures', child: Text('Heures')),
+                          DropdownMenuItem(value: 'jours', child: Text('Jours')),
+                        ],
+                        onChanged: (v) => setState(() => _durationUnit = v ?? 'minutes'),
+                        decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md))),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: AppSpacing.sm),
               OutlinedButton.icon(
                 onPressed: _pickAvailableDate,
