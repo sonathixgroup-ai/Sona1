@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/nav.dart';
 
 class ThixIdStartPage extends StatefulWidget {
@@ -18,11 +20,13 @@ class _ThixIdStartPageState extends State<ThixIdStartPage> {
   bool _navigated = false;
   bool _revealed = false;
   bool _didPrecache = false;
+  String? _statusMessage;
+  bool _hasError = false;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(seconds: 3), _goHomeSafely);
+    _initializeAppAndNavigate();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() => _revealed = true);
@@ -37,10 +41,61 @@ class _ThixIdStartPageState extends State<ThixIdStartPage> {
     precacheImage(const AssetImage(_logoAsset), context);
   }
 
+  Future<void> _initializeAppAndNavigate() async {
+    try {
+      if (!mounted) return;
+      
+      setState(() => _statusMessage = 'Initialisation...');
+      
+      // Get AuthController from Provider
+      final authController = Provider.of<AuthController>(context, listen: false);
+      
+      // Initialize auth if not already done
+      if (!authController.isAuthenticated) {
+        setState(() => _statusMessage = 'Vérification authentification...');
+        await authController.init();
+      }
+      
+      setState(() => _statusMessage = 'Chargement complet...');
+      
+      // Set minimum display time for splash screen (2 seconds)
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (!mounted) return;
+      
+      _goHomeSafely();
+    } catch (e) {
+      debugPrint('Splash initialization error: $e');
+      if (!mounted) return;
+      
+      setState(() {
+        _statusMessage = 'Erreur: $e';
+        _hasError = true;
+      });
+      
+      // Try navigating anyway after 3 seconds
+      _timer = Timer(const Duration(seconds: 3), _goHomeSafely);
+    }
+  }
+
   void _goHomeSafely() {
     if (!mounted || _navigated) return;
     _navigated = true;
-    context.go(AppRoutes.home);
+    
+    try {
+      final authController = context.read<AuthController>();
+      
+      // Navigate based on auth state
+      if (authController.isAuthenticated) {
+        context.go(AppRoutes.home);
+      } else {
+        context.go(AppRoutes.login);
+      }
+    } catch (e) {
+      debugPrint('Navigation error: $e');
+      // Fallback navigation
+      context.go(AppRoutes.home);
+    }
   }
 
   @override
@@ -56,7 +111,7 @@ class _ThixIdStartPageState extends State<ThixIdStartPage> {
     return Scaffold(
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: _goHomeSafely,
+        onTap: _navigated ? null : _goHomeSafely,
         child: Stack(
           children: [
             const Positioned.fill(child: _ThixIdStartBackdrop()),
@@ -94,27 +149,59 @@ class _ThixIdStartPageState extends State<ThixIdStartPage> {
                         ),
                       ),
                       const SizedBox(height: 26),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.2,
-                              color: Color(0xFFEAF2FF),
+                      if (_statusMessage != null)
+                        Column(
+                          children: [
+                            if (!_hasError)
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: Color(0xFFEAF2FF),
+                                ),
+                              )
+                            else
+                              Icon(
+                                Icons.warning_rounded,
+                                size: 18,
+                                color: Colors.redAccent.shade200,
+                              ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _statusMessage!,
+                              textAlign: TextAlign.center,
+                              style: textTheme.labelMedium?.copyWith(
+                                color: _hasError
+                                    ? Colors.redAccent.shade200
+                                    : Colors.white.withValues(alpha: 0.88),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Appuyez pour continuer',
-                            style: textTheme.labelLarge?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.88),
-                              fontWeight: FontWeight.w700,
+                          ],
+                        )
+                      else
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: Color(0xFFEAF2FF),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Appuyez pour continuer',
+                              style: textTheme.labelLarge?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.88),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       const Spacer(flex: 3),
                       Text(
                         'BY SONATHIX GROUP',
