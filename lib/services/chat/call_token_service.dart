@@ -1,22 +1,14 @@
-// Route: lib/services/chat/call_token_service.dart
-// PRODUCTION - Token Service avec cache + retry + fallback
+// lib/services/chat/call_token_service.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CallTokenService {
   final SupabaseClient _client = Supabase.instance.client;
-
-  // Cache simple en mémoire pour éviter de spammer la function
-  // Clé = "$channel:$uid"
   final Map<String, _CachedToken> _cache = {};
 
   static const Duration _cacheTtl = Duration(minutes: 50);
   static const Duration _timeout = Duration(seconds: 12);
-
-  // Si tu veux mettre ton AppId en fallback (optionnel)
-  // Laisse vide, la function le renvoie normalement
-  static const String _fallbackAppId = '';
 
   Future<Map<String, String>> getToken({
     required String channel,
@@ -25,22 +17,20 @@ class CallTokenService {
     final cacheKey = '$channel:$uid';
     final now = DateTime.now();
 
-    // 1. Check cache
     final cached = _cache[cacheKey];
-    if (cached!= null && now.difference(cached.createdAt) < _cacheTtl) {
-      debugPrint('🎟️ Token cache hit for $channel');
+    if (cached != null && now.difference(cached.createdAt) < _cacheTtl) {
+      debugPrint('🎟️ Token cache hit → $channel');
       return {'token': cached.token, 'appId': cached.appId};
     }
 
-    // 2. Try Edge Function avec retry
-    int attempts = 0;
     Exception? lastError;
 
-    while (attempts < 2) {
-      attempts++;
+    for (var attempt = 1; attempt <= 2; attempt++) {
       try {
+        debugPrint('🔑 Requesting agora-token (attempt $attempt)...');
+
         final res = await _client.functions
-           .invoke(
+            .invoke(
               'agora-token',
               body: {
                 'channelName': channel,
@@ -49,59 +39,51 @@ class CallTokenService {
                 'expire': 3600,
               },
             )
-           .timeout(_timeout);
+            .timeout(_timeout);
 
         if (res.data == null) {
           throw Exception('Empty response from agora-token');
         }
 
-        final data = res.data as Map<String, dynamic>;
+        final data = Map<String, dynamic>.from(res.data as Map);
 
         final token = data['token'] as String?;
-        final appId = (data['appId']?? data['app_id']?? _fallbackAppId) as String?;
+        final appId = (data['appId'] ?? data['app_id']) as String?;
 
         if (token == null || token.isEmpty) {
-          throw Exception('Token missing in response: $data');
+          throw Exception('Token missing: $data');
         }
-
         if (appId == null || appId.isEmpty) {
-          throw Exception('appId missing in response and no fallback');
+          throw Exception('appId missing: $data');
         }
 
-        // Cache
         _cache[cacheKey] = _CachedToken(
           token: token,
           appId: appId,
           createdAt: now,
         );
 
-        debugPrint('✅ Token fetched for $channel uid $uid');
+        debugPrint('✅ Token OK for $channel (uid=$uid)');
         return {'token': token, 'appId': appId};
       } on TimeoutException {
-        lastError = Exception('agora-token timeout (attempt $attempts)');
+        lastError = Exception('agora-token timeout (attempt $attempt)');
         debugPrint('⏱️ $lastError');
       } catch (e) {
         lastError = Exception('agora-token error: $e');
         debugPrint('❌ $lastError');
-        if (attempts >= 2) break;
-        await Future.delayed(const Duration(milliseconds: 600));
+        if (attempt < 2) {
+          await Future.delayed(const Duration(milliseconds: 700));
+        }
       }
     }
 
-    // 3. Fallback: si cache expiré existe encore, on l'utilise
-    if (cached!= null) {
-      debugPrint('⚠️ Using expired cache as fallback for $channel');
+    // Fallback cache expiré
+    if (cached != null) {
+      debugPrint('⚠️ Using expired cache as fallback');
       return {'token': cached.token, 'appId': cached.appId};
     }
 
-    // 4. Echec total
-    throw lastError?? Exception('Failed to get Agora token');
-  }
-
-  /// Pour tests : forcer un token sans serveur (NE PAS UTILISER EN PROD)
-  /// Retourne un token vide si AppId est en mode test sans token.
-  Map<String, String> getTestToken(String appId) {
-    return {'token': '', 'appId': appId};
+    throw lastError ?? Exception('Failed to get Agora token');
   }
 
   void clearCache() => _cache.clear();
