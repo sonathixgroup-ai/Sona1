@@ -2,13 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:barcode_widget/barcode_widget.dart';
 import '../providers/market_providers.dart';
 
 // ============================================================
-// PROVIDER
+// PROVIDER (Pointant vers market_orders)
 // ============================================================
 final vendorAllOrdersProvider =
     FutureProvider.family<List<Map<String, dynamic>>, String?>((ref, statusFilter) async {
@@ -26,7 +25,7 @@ final vendorAllOrdersProvider =
       statusFilter.isNotEmpty &&
       statusFilter != 'all') {
     final res = await db
-        .from('orders')
+        .from('market_orders')
         .select(
           'id, total, status, payment_status, payout_status, payment_method, '
           'currency, created_at, user_id, receipt_code, refund_requested, '
@@ -41,7 +40,7 @@ final vendorAllOrdersProvider =
   }
 
   final res = await db
-      .from('orders')
+      .from('market_orders')
       .select(
         'id, total, status, payment_status, payout_status, payment_method, '
         'currency, created_at, user_id, receipt_code, refund_requested, '
@@ -157,7 +156,7 @@ class _VendorOrdersPageState extends ConsumerState<VendorOrdersPage> {
         payload['payout_status'] = 'refunded';
       }
 
-      await db.from('orders').update(payload).eq('id', orderId);
+      await db.from('market_orders').update(payload).eq('id', orderId);
 
       ref.invalidate(vendorAllOrdersProvider(_filter));
       ref.invalidate(vendorAllOrdersProvider(null));
@@ -603,7 +602,7 @@ class _VendorOrdersPageState extends ConsumerState<VendorOrdersPage> {
 }
 
 // ============================================================
-// ORDER DETAILS SHEET (Détails complets, client, articles, actions)
+// ORDER DETAILS SHEET (Interroge market_order_items)
 // ============================================================
 class _OrderDetailsSheet extends ConsumerStatefulWidget {
   final Map<String, dynamic> order;
@@ -634,7 +633,6 @@ class _OrderDetailsSheetState extends ConsumerState<_OrderDetailsSheet> {
   static const muted = Color(0xFF7386A8);
   static const red = Color(0xFFD81E2C);
   static const green = Color(0xFF00B074);
-  static const gold = Color(0xFFF0A93B);
 
   @override
   void initState() {
@@ -648,14 +646,13 @@ class _OrderDetailsSheetState extends ConsumerState<_OrderDetailsSheet> {
       final orderId = widget.order['id'];
       final userId = widget.order['user_id'];
 
-      // Charger les items de la commande avec leur prix exact de commande
+      // Interroge market_order_items
       final itemsRes = await db
-          .from('order_items')
+          .from('market_order_items')
           .select('*, product:products(title, image_url, currency)')
           .eq('order_id', orderId);
       _items = List<Map<String, dynamic>>.from(itemsRes);
 
-      // Charger le profil client
       if (userId != null) {
         final profileRes = await db
             .from('profiles')
@@ -690,7 +687,7 @@ class _OrderDetailsSheetState extends ConsumerState<_OrderDetailsSheet> {
     final cur = _cur(o['currency']);
     final date = DateTime.tryParse(o['created_at']?.toString() ?? '');
     final shippingMethod = o['shipping_method']?.toString() ?? 'Standard';
-    final shippingAddress = o['shipping_address']?.toString() ?? 'Non spécifiée';
+    final shippingAddress = o['shipping_address']?.toString() ?? o['address']?.toString() ?? 'Non spécifiée';
 
     final clientName = _profile?['full_name'] ?? o['customer_name'] ?? _profile?['name'] ?? 'Client';
     final clientPhone = _profile?['phone'] ?? o['customer_phone'] ?? _profile?['phone_number'] ?? 'Non renseigné';
@@ -737,7 +734,7 @@ class _OrderDetailsSheetState extends ConsumerState<_OrderDetailsSheet> {
             ),
           const SizedBox(height: 20),
 
-          // 1. INFORMATIONS CLIENT & LIVRAISON
+          // 1. CLIENT & LIVRAISON
           _sectionTitle('Client & Livraison'),
           const SizedBox(height: 8),
           Container(
@@ -764,7 +761,7 @@ class _OrderDetailsSheetState extends ConsumerState<_OrderDetailsSheet> {
           ),
           const SizedBox(height: 20),
 
-          // 2. ARTICLES DE LA COMMANDE (Prix de la commande)
+          // 2. ARTICLES DE LA COMMANDE
           _sectionTitle('Articles commandés'),
           const SizedBox(height: 8),
           _loading
@@ -787,10 +784,7 @@ class _OrderDetailsSheetState extends ConsumerState<_OrderDetailsSheet> {
                         final product = item['product'] as Map? ?? {};
                         final title = product['title'] ?? item['title'] ?? 'Produit';
                         final qty = (item['quantity'] as num?)?.toInt() ?? 1;
-                        
-                        // Utilise strictement le prix unitaire enregistré lors de la commande
                         final price = (item['price'] as num?) ?? 0;
-                        
                         final variant = item['variant']?.toString();
                         final color = item['color']?.toString();
                         final imageUrl = product['image_url']?.toString();
@@ -852,7 +846,7 @@ class _OrderDetailsSheetState extends ConsumerState<_OrderDetailsSheet> {
                     ),
           const SizedBox(height: 20),
 
-          // 3. PAIEMENT & MONTANT TOTAL
+          // 3. FACTURATION
           _sectionTitle('Facturation'),
           const SizedBox(height: 8),
           Container(
@@ -895,7 +889,7 @@ class _OrderDetailsSheetState extends ConsumerState<_OrderDetailsSheet> {
           ),
           const SizedBox(height: 24),
 
-          // 4. ACTIONS RAPIDES
+          // 4. ACTIONS
           _sectionTitle('Actions'),
           const SizedBox(height: 10),
           if (status == 'pending')
