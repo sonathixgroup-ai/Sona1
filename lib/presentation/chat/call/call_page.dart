@@ -1,14 +1,13 @@
 // Route: lib/presentation/chat/call/call_page.dart
-// PRODUCTION - CallPage Audio + Video - Timer - Controls - PIP
-import 'dart:async';
+// PRODUCTION - CallPage Audio + Video - Riverpod - Sans double timer - Anti-crash
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:provider/provider.dart';
 import '../../../../models/chat/call_status.dart';
 import 'providers/call_provider.dart';
-import 'widgets/call_avatar.dart'; // Assure-toi que ce fichier existe bien, sinon on fera la même chose !
+import 'widgets/call_avatar.dart';
 
-class CallPage extends StatefulWidget {
+class CallPage extends ConsumerStatefulWidget {
   final String channel;
   final String name;
   final String? avatarUrl;
@@ -27,236 +26,218 @@ class CallPage extends StatefulWidget {
   });
 
   @override
-  State<CallPage> createState() => _CallPageState();
+  ConsumerState<CallPage> createState() => _CallPageState();
 }
 
-class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
-  Timer? _timer;
-  int _seconds = 0;
-  bool _isConnecting = true;
-
+class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    final p = context.read<CallProvider>();
 
-    if (widget.isCaller == false && widget.inviteId != null) {
-      p.accept(
-        channel: widget.channel,
-        inviteId: widget.inviteId!,
-        callType: widget.type,
-      );
-    }
-
-    _startTimer();
-  }
-
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      final prov = context.read<CallProvider>();
-      if (prov.status == CallStatus.ongoing) {
-        if (_isConnecting) setState(() => _isConnecting = false);
-        setState(() => _seconds++);
+    // Initialisation post-frame pour éviter les modifications d'état pendant le build initial
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!widget.isCaller && widget.inviteId != null) {
+        ref.read(callProvider.notifier).accept(
+              channel: widget.channel,
+              inviteId: widget.inviteId!,
+              callType: widget.type,
+            );
       }
     });
   }
 
-  String _formatTime(int s) {
+  String _formatDuration(Duration duration) {
+    final s = duration.inSeconds;
     final h = s ~/ 3600;
     final m = (s % 3600) ~/ 60;
     final sec = s % 60;
     if (h > 0) {
-      return '${h.toString().padLeft(2,'0')}:${m.toString().padLeft(2,'0')}:${sec.toString().padLeft(2,'0')}';
+      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
     }
-    return '${m.toString().padLeft(2,'0')}:${sec.toString().padLeft(2,'0')}';
+    return '${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
   }
 
   Future<void> _handleEnd() async {
-    final prov = context.read<CallProvider>();
-    await prov.end();
+    await ref.read(callProvider.notifier).end();
     if (mounted) Navigator.pop(context);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _timer?.cancel();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      // Optionnel: mettre en background audio
+      // Optionnel: gestion du passage en arrière-plan
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<CallProvider>(
-      builder: (_, prov, __) {
-        final isVideo = prov.isVideo;
-        final statusText = _getStatusText(prov);
+    final provState = ref.watch(callProvider);
+    final provNotifier = ref.read(callProvider.notifier);
+    final isVideo = provState.isVideo;
+    final statusText = _getStatusText(provState);
 
-        return PopScope(
-          canPop: false,
-          onPopInvokedWithResult: (didPop, _) async {
-            if (!didPop) await _handleEnd();
-          },
-          child: Scaffold(
-            backgroundColor: const Color(0xFF0A1F44),
-            body: Stack(
-              children: [
-                // VIDEO BACKGROUND
-                if (isVideo) _buildVideoLayout(prov),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (!didPop) await _handleEnd();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0A1F44),
+        body: Stack(
+          children: [
+            // VIDEO BACKGROUND
+            if (isVideo) _buildVideoLayout(provState, provNotifier),
 
-                // AUDIO BACKGROUND
-                if (!isVideo) _buildAudioLayout(statusText, prov),
+            // AUDIO BACKGROUND
+            if (!isVideo) _buildAudioLayout(statusText, provState),
 
-                // TOP BAR
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: SafeArea(
-                    child: Container(
-                      height: 70,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withOpacity(0.55),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                                color: Colors.white70, size: 20),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(widget.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800)),
-                                const SizedBox(height: 2),
-                                Text(statusText,
-                                    style: TextStyle(
-                                        color: prov.status == CallStatus.ongoing
-                                            ? const Color(0xFF1FA971)
-                                            : Colors.white60,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600)),
-                              ],
-                            ),
-                          ),
-                          if (isVideo)
-                            IconButton(
-                              icon: const Icon(Icons.flip_camera_ios_rounded,
-                                  color: Colors.white70),
-                              onPressed: prov.switchCam,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // REMOTE NOT YET JOINED OVERLAY FOR VIDEO
-                if (isVideo && prov.remoteUid == null)
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.45),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white)),
-                          const SizedBox(width: 10),
-                          Text('Appel de ${widget.name}...',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // CONTROLS
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.only(
-                        top: 18, bottom: 34, left: 16, right: 16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.85),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (prov.status == CallStatus.ongoing)
-                          Text(_formatTime(_seconds),
-                              style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 1.1)),
-                        const SizedBox(height: 14),
-                        CallControls(
-                          isVideo: isVideo,
-                          muted: prov.muted,
-                          videoOff: prov.videoOff,
-                          speakerOn: prov.speakerOn,
-                          onMute: prov.toggleMute,
-                          onVideo: prov.toggleVideo,
-                          onSwitch: prov.switchCam,
-                          onSpeaker: prov.toggleSpeaker,
-                          onEnd: _handleEnd,
-                        ),
+            // TOP BAR
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Container(
+                  height: 70,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.55),
+                        Colors.transparent,
                       ],
                     ),
                   ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                            color: Colors.white70, size: 20),
+                        onPressed: _handleEnd,
+                      ),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(widget.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800)),
+                            const SizedBox(height: 2),
+                            Text(statusText,
+                                style: TextStyle(
+                                    color: provState.status == CallStatus.ongoing
+                                        ? const Color(0xFF1FA971)
+                                        : Colors.white60,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                      if (isVideo)
+                        IconButton(
+                          icon: const Icon(Icons.flip_camera_ios_rounded,
+                              color: Colors.white70),
+                          onPressed: provNotifier.switchCam,
+                        ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
-          ),
-        );
-      },
+
+            // REMOTE NOT YET JOINED OVERLAY FOR VIDEO
+            if (isVideo && provState.remoteUid == null)
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 18, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.45),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white)),
+                      const SizedBox(width: 10),
+                      Text('Appel de ${widget.name}...',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+
+            // CONTROLS
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.only(
+                    top: 18, bottom: 34, left: 16, right: 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.85),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (provState.status == CallStatus.ongoing)
+                      Text(_formatDuration(provState.duration),
+                          style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.1)),
+                    const SizedBox(height: 14),
+                    CallControls(
+                      isVideo: isVideo,
+                      muted: provState.muted,
+                      videoOff: provState.videoOff,
+                      speakerOn: provState.speakerOn,
+                      onMute: provNotifier.toggleMute,
+                      onVideo: provNotifier.toggleVideo,
+                      onSwitch: provNotifier.switchCam,
+                      onSpeaker: provNotifier.toggleSpeaker,
+                      onEnd: _handleEnd,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  String _getStatusText(CallProvider p) {
+  String _getStatusText(CallState p) {
     switch (p.status) {
       case CallStatus.ringing:
         return widget.isCaller ? 'Appel en cours...' : 'Connexion...';
@@ -269,7 +250,7 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
     }
   }
 
-  Widget _buildAudioLayout(String status, CallProvider prov) {
+  Widget _buildAudioLayout(String status, CallState prov) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -290,8 +271,7 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
                   letterSpacing: -0.4)),
           const SizedBox(height: 8),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.10),
               borderRadius: BorderRadius.circular(20),
@@ -304,7 +284,7 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 18),
           if (prov.status == CallStatus.ongoing && prov.remoteUid != null)
-            Text(_formatTime(_seconds),
+            Text(_formatDuration(prov.duration),
                 style: const TextStyle(
                     color: Colors.white54,
                     fontSize: 14,
@@ -315,12 +295,12 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildVideoLayout(CallProvider prov) {
+  Widget _buildVideoLayout(CallState prov, CallNotifier notifier) {
     Widget remoteView;
     if (prov.remoteUid != null) {
       remoteView = AgoraVideoView(
         controller: VideoViewController.remote(
-          rtcEngine: createAgoraRtcEngine(),
+          rtcEngine: notifier.callService.engine, // Utilise l'instance active du service
           connection: RtcConnection(channelId: widget.channel),
           canvas: VideoCanvas(
             uid: prov.remoteUid,
@@ -371,7 +351,7 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
                   children: [
                     AgoraVideoView(
                       controller: VideoViewController(
-                        rtcEngine: createAgoraRtcEngine(),
+                        rtcEngine: notifier.callService.engine, // Utilise l'instance active
                         canvas: const VideoCanvas(
                           uid: 0,
                           renderMode: RenderModeType.renderModeHidden,
@@ -425,7 +405,7 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
 }
 
 // ============================================================================
-// COMPOSANT DES BOUTONS D'APPEL INTÉGRÉ DIRECTEMENT ICI
+// COMPOSANT DES BOUTONS D'APPEL
 // ============================================================================
 class CallControls extends StatelessWidget {
   final bool isVideo;
@@ -456,15 +436,12 @@ class CallControls extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        // Bouton Micro
         _buildButton(
           icon: muted ? Icons.mic_off : Icons.mic,
           color: muted ? Colors.white : Colors.white24,
           iconColor: muted ? Colors.black : Colors.white,
           onTap: onMute,
         ),
-        
-        // Bouton Vidéo (Uniquement si appel vidéo)
         if (isVideo)
           _buildButton(
             icon: videoOff ? Icons.videocam_off : Icons.videocam,
@@ -472,16 +449,12 @@ class CallControls extends StatelessWidget {
             iconColor: videoOff ? Colors.black : Colors.white,
             onTap: onVideo,
           ),
-          
-        // Bouton Haut-parleur
         _buildButton(
           icon: speakerOn ? Icons.volume_up : Icons.volume_down,
           color: speakerOn ? Colors.white : Colors.white24,
           iconColor: speakerOn ? Colors.black : Colors.white,
           onTap: onSpeaker,
         ),
-        
-        // Bouton Raccrocher
         _buildButton(
           icon: Icons.call_end,
           color: Colors.redAccent,
