@@ -144,7 +144,7 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
 
   void _handleServiceTap(String serviceKey) {
     switch (serviceKey) {
-      case 'tdia': context.push(AppRoutes.thixMedia); break;
+      case 'thixMedia': context.push(AppRoutes.thixMedia); break;
       case 'thixMarket': context.push(AppRoutes.thixMarket); break;
       case 'formations': context.push(AppRoutes.trainingHome); break;
       case 'emplois': context.push(AppRoutes.jobs); break;
@@ -152,7 +152,7 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
       case 'opportunites': context.push(AppRoutes.opportunities); break;
       case 'evenements': context.push('/thix-event'); break;
       // Réseau Pro est dans la branche 1 → go() pour basculer sans empiler
-      case 'thixPro': context.go(AppRoutes.network); break;
+      case 'reseauPro': context.go(AppRoutes.network); break;
       case 'thixSante': context.push(AppRoutes.thixSante); break;
       case 'thixMoney': context.push(AppRoutes.thixMoney); break;
       case 'monPays': context.push(AppRoutes.monPays); break;
@@ -286,9 +286,9 @@ class _QuickActionsRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return Row(children: [
       Expanded(child: Center(child: _QuickActionItem(icon: Icons.smart_toy_rounded, label: l10n.t('quickThixIA'), accent: AppColors.premiumAccent, onTap: onScanTap))),
-      Expanded(child: Center(child: _QuickActionItem(icon: Icons.folder_shared_rounded, label: l10n.t('quickthixDoc'), accent: AppColors.domainLearning, onTap: onDocumentTap))),
+      Expanded(child: Center(child: _QuickActionItem(icon: Icons.folder_shared_rounded, label: l10n.t('quickDocument'), accent: AppColors.domainLearning, onTap: onDocumentTap))),
       Expanded(child: Center(child: _QuickActionItem(icon: Icons.forum_rounded, label: l10n.t('quickChat'), accent: AppColors.domainNetwork, onTap: onChatTap))),
-      Expanded(child: Center(child: _QuickActionItem(icon: Icons.emergency_rounded, label: l10n.t('quickthixSos'), accent: AppColors.dangerRed, onTap: onSecurityTap))),
+      Expanded(child: Center(child: _QuickActionItem(icon: Icons.emergency_rounded, label: l10n.t('quickUrgence'), accent: AppColors.dangerRed, onTap: onSecurityTap))),
     ]);
   }
 }
