@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/escalation_status.dart';
+import '../models/escalation_step.dart';   // ← AJOUTER CETTE LIGNE
 import '../providers/escalation_provider.dart';
 import '../../chat_screen.dart';
 import '../../../../services/chat/chat_service.dart';
