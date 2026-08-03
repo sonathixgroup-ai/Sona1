@@ -93,30 +93,40 @@ class _ReceivedEscalationsPageState
   }
 
   Future<void> _accept(String id) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+  final user = Supabase.instance.client.auth.currentUser;
+  if (user == null) return;
 
-    final ok =
-        await ref.read(escalationProvider.notifier).accept(id, user.id);
+  // On récupère l'escalade AVANT de l'accepter pour connaître conversationId
+  final step = ref.read(escalationProvider).pending
+      .where((s) => s.id == id)
+      .firstOrNull;
 
-    if (!mounted) return;
+  final ok = await ref.read(escalationProvider.notifier).accept(id, user.id);
 
-    if (ok != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Escalade acceptée'),
-          backgroundColor: Color(0xFF16A34A),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: ${ref.read(escalationProvider).error}'),
-          backgroundColor: _C.red,
-        ),
-      );
+  if (!mounted) return;
+
+  if (ok != null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Escalade acceptée'),
+        backgroundColor: Color(0xFF16A34A),
+      ),
+    );
+
+    // Ouvre automatiquement la conversation
+    final conversationId = step?.conversationId ?? ok.conversationId;
+    if (conversationId.isNotEmpty) {
+      await _openConversation(conversationId);
     }
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Erreur: ${ref.read(escalationProvider).error}'),
+        backgroundColor: _C.red,
+      ),
+    );
   }
+}
 
   Future<void> _reject(String id) async {
     final reasonController = TextEditingController();
