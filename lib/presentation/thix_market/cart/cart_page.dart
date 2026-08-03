@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/cart/cart_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +17,8 @@ class CartPage extends ConsumerWidget {
     final cartState = ref.watch(cartProvider);
     final cart = ref.read(cartProvider.notifier);
     final hasOutOfStock = cart.hasOutOfStockItems;
+    final hasMixed = cart.hasMixedCurrency;
+    final blocked = hasOutOfStock || hasMixed;
 
     return Scaffold(
       backgroundColor: bg,
@@ -88,6 +91,43 @@ class CartPage extends ConsumerWidget {
               ? _buildEmptyCart(context)
               : Column(
                   children: [
+                    // ===== ALERTE MULTI-DEVISES =====
+                    if (hasMixed)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.orange.withOpacity(0.4),
+                          ),
+                        ),
+                        child: const Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.currency_exchange_rounded,
+                                color: Colors.orange, size: 20),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Votre panier contient des devises différentes (USD et FC). '
+                                'Retirez les articles d\'une devise pour continuer.',
+                                style: TextStyle(
+                                  color: Color(0xFF9A5B00),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
                     // ===== ALERTE RUPTURE DE STOCK =====
                     if (hasOutOfStock)
                       Container(
@@ -184,26 +224,111 @@ class CartPage extends ConsumerWidget {
                       ),
                     ),
 
-                    // ===== RÉSUMÉ + BOUTON =====
-                    // On désactive le passage au checkout s'il y a rupture
-                    IgnorePointer(
-                      ignoring: hasOutOfStock,
-                      child: Opacity(
-                        opacity: hasOutOfStock ? 0.5 : 1.0,
-                        child: CartSummaryWidget(
-                          subtotal: cart.subtotal,
-                          originalSubtotal: cart.originalSubtotal,
-                          discount: cart.totalDiscount,
-                          shippingCost: cart.shippingCost,
-                          total: cart.total,
-                          itemCount: cart.totalQuantity,
-                          currency:
-                              cart.currency == 'XOF' ? 'FC' : cart.currency,
+                    // ===== RÉSUMÉ =====
+                    // Multi-devise → afficher totaux séparés + bloquer checkout
+                    if (hasMixed)
+                      _mixedCurrencySummary(cart)
+                    else
+                      IgnorePointer(
+                        ignoring: blocked,
+                        child: Opacity(
+                          opacity: blocked ? 0.5 : 1.0,
+                          child: CartSummaryWidget(
+                            subtotal: cart.subtotal,
+                            originalSubtotal: cart.originalSubtotal,
+                            discount: cart.totalDiscount,
+                            shippingCost: cart.shippingCost,
+                            total: cart.total,
+                            itemCount: cart.totalQuantity,
+                            currency: cart.currencySymbol,
+                          ),
                         ),
+                      ),
+                  ],
+                ),
+    );
+  }
+
+  /// Totaux séparés quand devises mélangées
+  Widget _mixedCurrencySummary(CartNotifier cart) {
+    final byCur = cart.subtotalsByCurrency;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Totaux par devise',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                color: navy,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ...byCur.entries.map((e) {
+              final symbol = e.key == 'USD' ? '\$' : 'FC';
+              final val = e.key == 'USD'
+                  ? e.value.toStringAsFixed(2)
+                  : e.value.toInt().toString();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Sous-total ($symbol)',
+                        style: const TextStyle(color: Color(0xFF6B7280))),
+                    Text(
+                      '$val $symbol',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                        color: navy,
                       ),
                     ),
                   ],
                 ),
+              );
+            }),
+            const SizedBox(height: 8),
+            const Text(
+              'Retirez une devise pour valider la commande.',
+              style: TextStyle(fontSize: 12, color: Colors.orange),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: null,
+                style: ElevatedButton.styleFrom(
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  'Devises mixtes — impossible de continuer',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
