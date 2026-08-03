@@ -11,6 +11,9 @@ class DocumentService {
   static const String bucket = 'documents';
   static const String sharesTable = 'document_shares';
   static const String screenshotsTable = 'document_share_screenshots';
+  static const String foldersTable = 'document_folders';
+  static const String transactionsTable = 'document_transactions';
+  static const String vaultLocksTable = 'vault_locks';
 
   final SupabaseClient _client;
   DocumentService({SupabaseClient? client}) : _client = client ?? SupabaseConfig.client;
@@ -51,6 +54,26 @@ class DocumentService {
       'webm': 'video/webm',
     };
     return m[(f.extension ?? '').toLowerCase()] ?? 'application/octet-stream';
+  }
+
+  Future<void> _logTransaction({
+    required String uid,
+    String? documentId,
+    String? docId,
+    required String action,
+    String? detail,
+  }) async {
+    try {
+      await _db.from(transactionsTable).insert({
+        'user_id': uid,
+        'document_id': documentId,
+        'doc_id': docId,
+        'action': action,
+        'detail': detail,
+      });
+    } catch (e) {
+      debugPrint('DocumentService: log transaction failed → $e');
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -105,7 +128,49 @@ class DocumentService {
   }
 
   // ---------------------------------------------------------------------------
-  // Upload simplifié (recommandé) – type uniquement
+  // Dossiers
+  // ---------------------------------------------------------------------------
+
+  Future<List<Map<String, dynamic>>> fetchFolders(String uid) async {
+    final res = await _db
+        .from(foldersTable)
+        .select()
+        .eq('user_id', uid)
+        .order('created_at', ascending: true);
+    return (res as List).cast<Map<String, dynamic>>();
+  }
+
+  Stream<List<Map<String, dynamic>>> streamFolders(String uid) {
+    return _db
+        .from(foldersTable)
+        .stream(primaryKey: ['id'])
+        .eq('user_id', uid)
+        .order('created_at', ascending: true)
+        .map((rows) => rows.cast<Map<String, dynamic>>().toList());
+  }
+
+  Future<String> createFolder({
+    required String uid,
+    required String name,
+    String icon = 'folder',
+    String color = '#2D6CDF',
+  }) async {
+    final res = await _db
+        .from(foldersTable)
+        .insert({'user_id': uid, 'name': name.trim(), 'icon': icon, 'color': color})
+        .select('id')
+        .single();
+    final id = res['id'].toString();
+    await _logTransaction(uid: uid, action: 'folder_create', detail: name.trim());
+    return id;
+  }
+
+  Future<void> deleteFolder({required String uid, required String folderId}) async {
+    await _db.from(foldersTable).delete().eq('id', folderId).eq('user_id', uid);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Upload simplifié (recommandé) – type + dossier + visibilité
   // ---------------------------------------------------------------------------
 
   Future<String> uploadPickedFileSimple({
@@ -114,6 +179,8 @@ class DocumentService {
     required String docType,
     DateTime? expiresAt,
     String? title,
+    String? folderId,
+    bool isPublic = false,
   }) async {
     if (file.size > 15 * 1024 * 1024) {
       throw Exception('Fichier trop volumineux (> 15 Mo)');
@@ -121,8 +188,6 @@ class DocumentService {
 
     final generatedId = await generateDocumentId(uid);
     final safeName = file.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-    
-    // CORRECTION ICI (Ligne 173 corrigée)
     final path = 'users/$uid/$generatedId/${DateTime.now().millisecondsSinceEpoch}_$safeName';
 
     await uploadPickedFileToBucket(
@@ -132,8 +197,9 @@ class DocumentService {
       file: file,
     );
 
+    String? insertedId;
     try {
-      await _db.from(table).insert({
+      final row = await _db.from(table).insert({
         'user_id': uid,
         'doc_id': generatedId,
         'generated_doc_id': generatedId,
@@ -146,12 +212,22 @@ class DocumentService {
         'storage_path': path,
         'expires_at': expiresAt?.toIso8601String(),
         'country_code': generatedId.contains('/') ? generatedId.split('/').last : null,
-      });
+        'folder_id': folderId,
+        'is_public': isPublic,
+      }).select('id').single();
+      insertedId = row['id'].toString();
     } catch (e) {
-      // Rollback storage
       await _db.storage.from(bucket).remove([path]).catchError((_) => []);
       rethrow;
     }
+
+    await _logTransaction(
+      uid: uid,
+      documentId: insertedId,
+      docId: generatedId,
+      action: 'upload',
+      detail: file.name,
+    );
 
     return generatedId;
   }
@@ -170,7 +246,6 @@ class DocumentService {
   }) async {
     if (file.size > 15 * 1024 * 1024) throw Exception('Fichier > 15 Mo');
 
-    // Correction de l'interpolation ici aussi
     final safeName = file.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
     final p = 'users/$uid/${docId.toUpperCase()}/${DateTime.now().millisecondsSinceEpoch}_$safeName';
 
@@ -209,16 +284,17 @@ class DocumentService {
     String uid, {
     int limit = 20,
     int offset = 0,
+    String? folderId,
   }) =>
       _retry(() async {
-        final res = await _db
+        var q = _db
             .from(table)
             .select(
-              'id,doc_id,generated_doc_id,title,doc_type,status,file_name,mime_type,size_bytes,storage_path,created_at,expires_at,country_code',
+              'id,doc_id,generated_doc_id,title,doc_type,status,file_name,mime_type,size_bytes,storage_path,created_at,expires_at,country_code,folder_id,is_public',
             )
-            .eq('user_id', uid)
-            .order('created_at', ascending: false)
-            .range(offset, offset + limit - 1);
+            .eq('user_id', uid);
+        if (folderId != null) q = q.eq('folder_id', folderId);
+        final res = await q.order('created_at', ascending: false).range(offset, offset + limit - 1);
         return (res as List).cast<Map<String, dynamic>>();
       });
 
@@ -258,11 +334,13 @@ class DocumentService {
     required String uid,
     required String documentId,
     String? storagePath,
+    String? docId,
   }) async {
     await _db.from(table).delete().eq('id', documentId).eq('user_id', uid);
     if (storagePath != null && storagePath.isNotEmpty) {
       await _db.storage.from(bucket).remove([storagePath]).catchError((_) => []);
     }
+    await _logTransaction(uid: uid, documentId: documentId, docId: docId, action: 'delete');
   }
 
   Future<void> deleteLatestDocumentByDocId({
@@ -275,6 +353,7 @@ class DocumentService {
         uid: uid,
         documentId: r['id'].toString(),
         storagePath: r['storage_path']?.toString(),
+        docId: docId,
       );
     }
   }
@@ -288,6 +367,53 @@ class DocumentService {
       'status': status,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', documentId).eq('user_id', uid);
+  }
+
+  Future<void> togglePublic({
+    required String uid,
+    required String documentId,
+    required String? docId,
+    required bool isPublic,
+  }) async {
+    await _db.from(table).update({
+      'is_public': isPublic,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', documentId).eq('user_id', uid);
+    await _logTransaction(
+      uid: uid,
+      documentId: documentId,
+      docId: docId,
+      action: 'public_toggle',
+      detail: isPublic ? 'public' : 'privé',
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Recherche publique par identifiant
+  // ---------------------------------------------------------------------------
+
+  Future<Map<String, dynamic>?> searchPublicDocument(String docId) async {
+    if (docId.trim().isEmpty) return null;
+    final res = await _db.rpc('search_public_document', params: {'p_doc_id': docId.trim()});
+    if (res == null) return null;
+    final list = (res as List);
+    if (list.isEmpty) return null;
+    return (list.first as Map).cast<String, dynamic>();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Vérification d'un THIX ID (affiche le nom du destinataire)
+  // ---------------------------------------------------------------------------
+
+  Future<Map<String, dynamic>?> verifyThixId(String thixId) async {
+    final clean = thixId.trim().toUpperCase();
+    if (clean.isEmpty) return null;
+    final res = await _db
+        .from('profiles')
+        .select('id, thix_id, full_name')
+        .eq('thix_id', clean)
+        .maybeSingle();
+    return res == null ? null : (res as Map).cast<String, dynamic>();
   }
 
   // ---------------------------------------------------------------------------
@@ -320,15 +446,15 @@ class DocumentService {
   // PARTAGE / ENVOI DE DOCUMENTS
   // ---------------------------------------------------------------------------
 
-  Future<String?> _hashPassword(String password) async {
+  Future<String?> _hashSecret(String action, String secret) async {
     try {
       final res = await _db.functions.invoke(
         'vault-share-password',
-        body: {'action': 'hash', 'password': password},
+        body: {'action': 'hash', 'password': secret},
       );
       return res.data?['hash'] as String?;
     } catch (e) {
-      debugPrint('DocumentService: hash password failed → $e');
+      debugPrint('DocumentService: hash failed ($action) → $e');
       return null;
     }
   }
@@ -352,12 +478,13 @@ class DocumentService {
   Future<void> shareDocument({
     required String senderId,
     required String documentId,
+    String? docId,
     required List<String> recipientThixIds,
     String? subject,
     String? body,
     String? password,
     DateTime? availableFrom,
-    DateTime? autoDestructAt,
+    Duration? autoDestructIn,
   }) async {
     final cleanIds = recipientThixIds
         .map((e) => e.trim().toUpperCase())
@@ -369,7 +496,6 @@ class DocumentService {
       throw Exception('Aucun destinataire valide');
     }
 
-    // Résoudre les user_id à partir des THIX ID
     final profiles = await _db
         .from('profiles')
         .select('id, thix_id')
@@ -381,13 +507,13 @@ class DocumentService {
       if (tid != null) mapThixToUid[tid] = p['id'] as String;
     }
 
-    // Hash du mot de passe si fourni
     String? passwordHash;
     if (password != null && password.trim().isNotEmpty) {
-      passwordHash = await _hashPassword(password.trim());
+      passwordHash = await _hashSecret('share', password.trim());
     }
 
     final now = DateTime.now().toUtc();
+    final autoDestructAt = autoDestructIn != null ? now.add(autoDestructIn) : null;
     final rows = <Map<String, dynamic>>[];
 
     for (final thix in cleanIds) {
@@ -404,12 +530,20 @@ class DocumentService {
         'body': body?.trim(),
         'password_hash': passwordHash,
         'available_from': availableFrom?.toUtc().toIso8601String(),
-        'auto_destruct_at': autoDestructAt?.toUtc().toIso8601String(),
+        'auto_destruct_at': autoDestructAt?.toIso8601String(),
+        'auto_destruct_seconds': autoDestructIn?.inSeconds,
         'status': status,
       });
     }
 
     await _db.from(sharesTable).insert(rows);
+    await _logTransaction(
+      uid: senderId,
+      documentId: documentId,
+      docId: docId,
+      action: 'send',
+      detail: '${cleanIds.length} destinataire(s)',
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -445,12 +579,15 @@ class DocumentService {
   // Actions sur les partages
   // ---------------------------------------------------------------------------
 
-  Future<void> markShareOpened(String shareId) async {
+  Future<void> markShareOpened(String shareId, {String? uid, String? docId}) async {
     await _db.from(sharesTable).update({
       'status': 'opened',
       'opened_at': DateTime.now().toUtc().toIso8601String(),
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', shareId);
+    if (uid != null) {
+      await _logTransaction(uid: uid, docId: docId, action: 'open');
+    }
   }
 
   Future<void> markShareDestroyed(String shareId) async {
@@ -483,11 +620,9 @@ class DocumentService {
       'storage_path': storagePath,
     });
 
-    // Incrémenter le compteur
     try {
       await _db.rpc('increment_screenshot_count', params: {'p_share_id': shareId});
     } catch (_) {
-      // Fallback manuel
       final current = await _db
           .from(sharesTable)
           .select('screenshot_count')
@@ -501,6 +636,56 @@ class DocumentService {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', shareId);
     }
+    await _logTransaction(uid: capturedBy, action: 'screenshot');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Historique (transactions)
+  // ---------------------------------------------------------------------------
+
+  Future<List<Map<String, dynamic>>> fetchTransactions(String uid, {int limit = 50}) async {
+    final res = await _db
+        .from(transactionsTable)
+        .select()
+        .eq('user_id', uid)
+        .order('created_at', ascending: false)
+        .limit(limit);
+    return (res as List).cast<Map<String, dynamic>>();
+  }
+
+  Stream<List<Map<String, dynamic>>> streamTransactions(String uid) {
+    return _db
+        .from(transactionsTable)
+        .stream(primaryKey: ['id'])
+        .eq('user_id', uid)
+        .order('created_at', ascending: false)
+        .map((rows) => rows.cast<Map<String, dynamic>>().toList());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Verrou du panneau THIX DOC (PIN)
+  // ---------------------------------------------------------------------------
+
+  Future<bool> hasVaultLock(String uid) async {
+    final res = await _db.from(vaultLocksTable).select('user_id').eq('user_id', uid).maybeSingle();
+    return res != null;
+  }
+
+  Future<void> setVaultPin({required String uid, required String pin}) async {
+    final hash = await _hashSecret('vault', pin);
+    if (hash == null) throw Exception('Impossible de sécuriser le code');
+    await _db.from(vaultLocksTable).upsert({
+      'user_id': uid,
+      'pin_hash': hash,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
+  Future<bool> verifyVaultPin({required String uid, required String pin}) async {
+    final res = await _db.from(vaultLocksTable).select('pin_hash').eq('user_id', uid).maybeSingle();
+    final hash = res?['pin_hash'] as String?;
+    if (hash == null) return false;
+    return verifyPassword(password: pin, hash: hash);
   }
 }
 
