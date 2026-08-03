@@ -214,35 +214,42 @@ class EscalationNotifier extends Notifier<EscalationState> {
   }
 
   Future<EscalationStep?> accept(String escalationId, String agentId) async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    try {
-      final step = await _service.acceptEscalation(escalationId, agentId);
-      state = state.copyWith(
-        pending: state.pending.where((s) => s.id != escalationId).toList(),
-        history: [step, ...state.history],
-        isLoading: false,
-      );
-      return step;
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
-      return null;
-    }
+  state = state.copyWith(isLoading: true, clearError: true);
+  try {
+    final step = await _service.acceptEscalation(escalationId, agentId);
+    // Met à jour l'item dans la liste au lieu de le retirer
+    final updated = state.pending.map((s) {
+      return s.id == escalationId ? step : s;
+    }).toList();
+    state = state.copyWith(
+      pending: updated,
+      history: [step, ...state.history],
+      isLoading: false,
+    );
+    return step;
+  } catch (e) {
+    state = state.copyWith(error: e.toString(), isLoading: false);
+    return null;
   }
+}
 
-  Future<EscalationStep?> reject(String escalationId, String reason) async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    try {
-      final step = await _service.rejectEscalation(escalationId, reason);
-      state = state.copyWith(
-        pending: state.pending.where((s) => s.id != escalationId).toList(),
-        isLoading: false,
-      );
-      return step;
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
-      return null;
-    }
+Future<EscalationStep?> reject(String escalationId, String reason) async {
+  state = state.copyWith(isLoading: true, clearError: true);
+  try {
+    final step = await _service.rejectEscalation(escalationId, reason);
+    final updated = state.pending.map((s) {
+      return s.id == escalationId ? step : s;
+    }).toList();
+    state = state.copyWith(
+      pending: updated,
+      isLoading: false,
+    );
+    return step;
+  } catch (e) {
+    state = state.copyWith(error: e.toString(), isLoading: false);
+    return null;
   }
+}
 
   Future<EscalationStep?> resolve(String escalationId) async {
     state = state.copyWith(isLoading: true, clearError: true);
