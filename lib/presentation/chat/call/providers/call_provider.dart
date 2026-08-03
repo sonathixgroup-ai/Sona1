@@ -76,12 +76,10 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
   Timer? _callTimer;
   StreamSubscription? _statusSub;
 
-  // Getter pour accéder au service Agora si nécessaire depuis la vue
   CallService get callService => _call;
 
   @override
   CallState build() {
-    // Nettoyage automatique lorsque le provider est détruit (fermeture de la page)
     ref.onDispose(() {
       _callTimer?.cancel();
       _statusSub?.cancel();
@@ -89,6 +87,18 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
       _signal.dispose();
     });
     return const CallState();
+  }
+
+  // Génération d'un UID stable basé sur l'ID Supabase de l'utilisateur
+  int _agoraUid() {
+    final id = Supabase.instance.client.auth.currentUser?.id ?? '';
+    var hash = 0x811c9dc5;
+    for (final c in id.codeUnits) {
+      hash ^= c;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    final uid = hash & 0x7fffffff;
+    return uid == 0 ? 1 : uid;
   }
 
   // ============================================================
@@ -123,11 +133,11 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
       // 2. Ecouter changement status (rejected/ended par callee)
       _listenStatusChange(inviteId);
 
-      // 3. Join Agora
+      // 3. Join Agora avec UID stable
       await _call.join(
         channel: channel,
         type: callType,
-        uid: 0,
+        uid: _agoraUid(),
         onJoin: (uid) {
           state = state.copyWith(
             remoteUid: uid,
@@ -138,6 +148,10 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
         },
         onLeave: () {
           end(silent: false);
+        },
+        onError: (reason) {
+          debugPrint('Agora join error: $reason');
+          state = state.copyWith(status: CallStatus.ended);
         },
       );
     } catch (e) {
@@ -167,10 +181,11 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
       await _signal.update(inviteId, 'accepted');
       _listenStatusChange(inviteId);
 
+      // Join Agora avec UID stable
       await _call.join(
         channel: channel,
         type: callType,
-        uid: 0,
+        uid: _agoraUid(),
         onJoin: (uid) {
           state = state.copyWith(
             remoteUid: uid,
@@ -180,6 +195,10 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
           _startTimer();
         },
         onLeave: () => end(silent: false),
+        onError: (reason) {
+          debugPrint('Agora join error: $reason');
+          state = state.copyWith(status: CallStatus.ended);
+        },
       );
     } catch (e) {
       debugPrint('❌ CallNotifier.accept error: $e');
