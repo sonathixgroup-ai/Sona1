@@ -192,7 +192,11 @@ class EscalationService {
   }
 
   // ─── PAGINATION AJOUTÉE ICI ───
-  Future<List<EscalationStep>> getEscalationHistory(String conversationId, {int limit = 20, int offset = 0}) async {
+  Future<List<EscalationStep>> getEscalationHistory(
+    String conversationId, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
     final response = await _supabase
         .from('escalation_steps')
         .select()
@@ -200,11 +204,19 @@ class EscalationService {
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
 
-    return (response as List).map((json) => EscalationStep.fromJson(json)).toList();
+    return (response as List)
+        .map((json) => EscalationStep.fromJson(json))
+        .toList();
   }
 
   // ─── PAGINATION AJOUTÉE ICI ───
-  Future<List<EscalationStep>> getPendingEscalations(String agentId, EscalationLevel agentLevel, {int limit = 20, int offset = 0}) async {
+  // Utilisé pour un dashboard par niveau (senior, etc.)
+  Future<List<EscalationStep>> getPendingEscalations(
+    String agentId,
+    EscalationLevel agentLevel, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
     final response = await _supabase
         .from('escalation_steps')
         .select()
@@ -213,19 +225,29 @@ class EscalationService {
         .order('created_at', ascending: true)
         .range(offset, offset + limit - 1);
 
-    return (response as List).map((json) => EscalationStep.fromJson(json)).toList();
+    return (response as List)
+        .map((json) => EscalationStep.fromJson(json))
+        .toList();
   }
 
-  // ─── PAGINATION AJOUTÉE ICI ───
-  Future<List<EscalationStep>> getReceivedEscalations(String agentId, {int limit = 20, int offset = 0}) async {
+  // ─── CORRIGÉ : filtre aussi sur status = pending ───
+  // Aligné avec le badge (to_agent_id + status pending)
+  Future<List<EscalationStep>> getReceivedEscalations(
+    String agentId, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
     final response = await _supabase
         .from('escalation_steps')
         .select()
         .eq('to_agent_id', agentId)
+        .eq('status', EscalationStatus.pending.index) // ← ajouté
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
 
-    return (response as List).map((json) => EscalationStep.fromJson(json)).toList();
+    return (response as List)
+        .map((json) => EscalationStep.fromJson(json))
+        .toList();
   }
 
   // Récupérer la conversation associée à une escalade
