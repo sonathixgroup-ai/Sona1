@@ -682,10 +682,31 @@ class DocumentService {
   }
 
   Future<bool> verifyVaultPin({required String uid, required String pin}) async {
-    final res = await _db.from(vaultLocksTable).select('pin_hash').eq('user_id', uid).maybeSingle();
-    final hash = res?['pin_hash'] as String?;
-    if (hash == null) return false;
-    return verifyPassword(password: pin, hash: hash);
+  final res = await _db.from(vaultLocksTable).select('pin_hash').eq('user_id', uid).maybeSingle();
+  final hash = res?['pin_hash'] as String?;
+  
+  debugPrint('=== VAULT VERIFY ===');
+  debugPrint('PIN entered: "$pin"');
+  debugPrint('Hash from DB: $hash');
+  
+  if (hash == null) {
+    debugPrint('No hash found');
+    return false;
+  }
+
+  try {
+    final response = await _db.functions.invoke(
+      'vault-share-password',
+      body: {'action': 'verify', 'password': pin, 'hash': hash},
+    );
+    
+    debugPrint('Function response: ${response.data}');
+    debugPrint('Status: ${response.status}');
+    
+    return response.data?['valid'] == true;
+  } catch (e) {
+    debugPrint('Verify error: $e');
+    return false;
   }
 }
 
