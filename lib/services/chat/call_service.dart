@@ -16,14 +16,16 @@ class CallService {
   bool _isInitializing = false;
   final _tokenService = CallTokenService();
   String? _currentChannel;
+  CallType? _lastType;
 
   RtcEngine? get engine => _engine;
   bool get isJoined => _joined;
 
   Future<void> initEngine(String appId) async {
-    if (_isInitializing || _engine != null) return;
-    _isInitializing = true;
+    if (_isInitializing) return;
+    if (_engine != null) return;
 
+    _isInitializing = true;
     try {
       _engine = createAgoraRtcEngine();
       await _engine!.initialize(
@@ -38,6 +40,7 @@ class CallService {
         profile: AudioProfileType.audioProfileMusicHighQuality,
         scenario: AudioScenarioType.audioScenarioGameStreaming,
       );
+      // Toujours activer le module vidéo (on mute/unmute selon le type)
       await _engine!.enableVideo();
       await _engine!.setEnableSpeakerphone(true);
       await _engine!.enableLocalAudio(true);
@@ -62,6 +65,7 @@ class CallService {
   }) async {
     try {
       _currentChannel = channel;
+      _lastType = type;
 
       // Permissions
       final mic = await Permission.microphone.request();
@@ -84,19 +88,19 @@ class CallService {
       _engine!.registerEventHandler(
         RtcEngineEventHandler(
           onJoinChannelSuccess: (conn, elapsed) {
-            _joined = true;
             debugPrint('✅ Joined channel ${conn.channelId}');
+            _joined = true;
           },
           onUserJoined: (conn, remoteUid, elapsed) {
-            debugPrint('👤 Remote user $remoteUid joined');
+            debugPrint('👤 Remote joined: $remoteUid');
             onUserJoined(remoteUid);
           },
           onUserOffline: (conn, remoteUid, reason) {
-            debugPrint('👋 Remote $remoteUid left');
+            debugPrint('👤 Remote left: $remoteUid ($reason)');
             onUserLeft();
           },
           onError: (err, msg) {
-            debugPrint('❌ Agora error $err : $msg');
+            debugPrint('❌ Agora error: $err - $msg');
             onError('Agora error: $err - $msg');
           },
           onConnectionStateChanged: (conn, state, reason) {
@@ -107,7 +111,8 @@ class CallService {
           },
           onTokenPrivilegeWillExpire: (conn, _) async {
             try {
-              final newCred = await _tokenService.getToken(channel: channel, uid: uid);
+              final newCred =
+                  await _tokenService.getToken(channel: channel, uid: uid);
               await _engine!.renewToken(newCred['token']!);
             } catch (e) {
               debugPrint('Token renew failed: $e');
@@ -115,6 +120,19 @@ class CallService {
           },
         ),
       );
+
+      // ─── RESET MÉDIA selon le type (corrige vidéo→audio résiduel) ───
+      if (type == CallType.video) {
+        await _engine!.enableVideo();
+        await _engine!.enableLocalVideo(true);
+        await _engine!.muteLocalVideoStream(false);
+        await _engine!.startPreview();
+      } else {
+        await _engine!.muteLocalVideoStream(true);
+        await _engine!.enableLocalVideo(false);
+        await _engine!.stopPreview();
+        // On ne disableVideo() plus définitivement pour permettre un switch ultérieur
+      }
 
       final options = ChannelMediaOptions(
         clientRoleType: ClientRoleType.clientRoleBroadcaster,
@@ -132,13 +150,7 @@ class CallService {
         options: options,
       );
 
-      if (type == CallType.audio) {
-        await _engine!.disableVideo();
-        await _engine!.muteLocalVideoStream(true);
-      } else {
-        await _engine!.enableVideo();
-        await _engine!.startPreview();
-      }
+      debugPrint('📞 Joined as $type channel=$channel uid=$uid');
     } catch (e) {
       debugPrint('❌ CallService.join error: $e');
       _joined = false;
@@ -149,15 +161,16 @@ class CallService {
 
   Future<void> leave() async {
     try {
-      if (_joined && _engine != null) {
+      if (_engine != null) {
         await _engine!.stopPreview();
-        await _engine!.leaveChannel();
+        if (_joined) await _engine!.leaveChannel();
       }
     } catch (e) {
       debugPrint('leave error: $e');
     } finally {
       _joined = false;
       _currentChannel = null;
+      _lastType = null;
     }
   }
 
@@ -172,12 +185,15 @@ class CallService {
     if (off) {
       await _engine?.stopPreview();
     } else {
+      await _engine?.enableVideo();
       await _engine?.startPreview();
     }
   }
 
   Future<void> switchCam() async => await _engine?.switchCamera();
-  Future<void> speaker(bool enable) async => await _engine?.setEnableSpeakerphone(enable);
+
+  Future<void> speaker(bool enable) async =>
+      await _engine?.setEnableSpeakerphone(enable);
 
   void dispose() {
     try {
@@ -185,5 +201,7 @@ class CallService {
     } catch (_) {}
     _engine = null;
     _joined = false;
+    _currentChannel = null;
+    _lastType = null;
   }
 }
