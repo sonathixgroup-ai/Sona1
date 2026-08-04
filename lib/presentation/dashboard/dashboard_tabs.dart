@@ -702,9 +702,12 @@ class DocumentsTab extends StatelessWidget {
                         final expiresAt = exp is DateTime
                             ? exp
                             : (exp is String ? DateTime.tryParse(exp) : null);
+                        
+                        // CORRECTION : Utilisation de la syntaxe ${...} correcte
                         final dateStr = expiresAt == null
                             ? '—'
-                            : '\( {expiresAt.day.toString().padLeft(2, '0')}/ \){expiresAt.month.toString().padLeft(2, '0')}/${expiresAt.year}';
+                            : '${expiresAt.day.toString().padLeft(2, '0')}/${expiresAt.month.toString().padLeft(2, '0')}/${expiresAt.year}';
+                            
                         final chip = _DocStatusChip.from(status);
 
                         return DocRow(
@@ -902,8 +905,6 @@ class ExperienceSkillsTab extends StatelessWidget {
             ],
           ),
         ),
-        // ... le reste (compétences, CV, paiements, sécurité) conserve la même logique
-        // avec les tailles déjà réduites via _TabSectionCard
       ],
     );
   }
@@ -969,9 +970,12 @@ class PaymentsTab extends StatelessWidget {
                         : (created is String
                             ? DateTime.tryParse(created)
                             : null);
+                            
+                    // CORRECTION : Utilisation de la syntaxe ${...} correcte
                     final dateStr = dt == null
                         ? '—'
-                        : '\( {dt.day.toString().padLeft(2, '0')}/ \){dt.month.toString().padLeft(2, '0')}/${dt.year}';
+                        : '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+                        
                     final amountStr =
                         '${(amount is num ? amount.toStringAsFixed(2) : amount?.toString() ?? '0.00')} $currency';
 
@@ -1070,9 +1074,12 @@ class _ReceiptPdf {
     final dt = created is DateTime
         ? created
         : (created is String ? DateTime.tryParse(created) : null);
+        
+    // CORRECTION : Utilisation de la syntaxe ${...} correcte
     final dateStr = dt == null
         ? '—'
-        : '\( {dt.year.toString().padLeft(4, '0')}- \){dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+        : '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+        
     final amountStr =
         '${(amount is num ? amount.toStringAsFixed(2) : amount?.toString() ?? '0.00')} $currency';
 
@@ -1236,9 +1243,11 @@ class SecurityTab extends StatelessWidget {
                             : (created is String
                                 ? DateTime.tryParse(created)
                                 : null);
+                                
+                        // CORRECTION : Utilisation de la syntaxe ${...} correcte
                         final dateStr = dt == null
                             ? '—'
-                            : '\( {dt.day.toString().padLeft(2, '0')}/ \){dt.month.toString().padLeft(2, '0')} à \( {dt.hour.toString().padLeft(2, '0')}: \){dt.minute.toString().padLeft(2, '0')}';
+                            : '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} à ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 6),
