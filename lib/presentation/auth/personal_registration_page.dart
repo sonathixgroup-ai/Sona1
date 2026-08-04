@@ -46,13 +46,27 @@ class ThixIdGenerator {
     }
     return sum % 10;
   }
+
+  /// Génération locale de secours si le RPC Supabase échoue
+  static String generateLocal({String? countryName}) {
+    final cc = _countryCode(countryName);
+    final now = DateTime.now();
+    final mmyy = '\( {now.month.toString().padLeft(2, '0')} \){now.year % 100}';
+    final random5 = List.generate(5, (_) => _secureRandom.nextInt(10)).join();
+    final code3 = String.fromCharCodes(
+      List.generate(3, (_) => _alphabet.codeUnitAt(_secureRandom.nextInt(_alphabet.length))),
+    );
+    final body = 'THIX-$cc-$mmyy-$random5-$code3';
+    final check = _checkDigit(body);
+    return '$body-$check';
+  }
 }
 
 class ThixIdValidator {
   static bool isValid(String thixId) {
     final parts = thixId.split('-');
     if (parts.length != 6 || parts[0] != 'THIX') return false;
-    final body = parts.sublist(1, 5).join('-');
+    final body = parts.sublist(0, 5).join('-');
     final expected = ThixIdGenerator._checkDigit(body);
     final actual = int.tryParse(parts[5]);
     return actual != null && actual == expected;
@@ -294,18 +308,18 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     setState(() => _resendCooldown = _resendCooldownDuration);
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) { timer.cancel(); return; }
-      if (_resendCooldown <= 1) {
+      if (_resendCountdown <= 1) {
         timer.cancel();
-        setState(() => _resendCooldown = 0);
+        setState(() => _resendCountdown = 0);
       } else {
-        setState(() => _resendCooldown -= 1);
+        setState(() => _resendCountdown -= 1);
       }
     });
   }
 
   Future<void> _sendOtp() async {
     final isLoading = ref.read(authControllerProvider).isLoading;
-    if (isLoading || _resendCooldown > 0) return;
+    if (isLoading || _resendCountdown > 0) return;
 
     final email = _emailC.text.trim().toLowerCase();
     final pass = _passwordC.text;
@@ -335,7 +349,7 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
       if (!mounted) return;
       
       setState(() => _otpSent = true);
-      _startResendCooldown();
+      _startResendCountdown();
       _snack('Un code OTP vous a été envoyé par email.');
       
     } catch (e) {
@@ -343,7 +357,7 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
       if (message.contains('inscription enregistrée') || message.contains('confirm') || message.contains('confirmez')) {
         if (!mounted) return;
         setState(() => _otpSent = true);
-        _startResendCooldown();
+        _startResendCountdown();
         _snack('Un code OTP vous a été envoyé par email.');
       } else {
         _snack(_userFacingError(e), isError: true);
@@ -351,6 +365,7 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     }
   }
 
+  /// CORRECTION PRINCIPALE : génération THIX ID + passage garanti à l'étape 3
   Future<void> _verifyAndRegister() async {
     final isLoading = ref.read(authControllerProvider).isLoading;
     if (isLoading) return;
@@ -362,7 +377,9 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     }
 
     final desiredChatRaw = _thixChatC.text.trim();
-    final desiredChat = desiredChatRaw.isNotEmpty ? desiredChatRaw : '@${_nameC.text.split(' ').first.toLowerCase()}${DateTime.now().millisecondsSinceEpoch % 10000}';
+    final desiredChat = desiredChatRaw.isNotEmpty
+        ? desiredChatRaw
+        : '@\( {_nameC.text.split(' ').first.toLowerCase()} \){DateTime.now().millisecondsSinceEpoch % 10000}';
     
     if (!_isValidThixChat(desiredChat)) {
       _snack('THIX CHAT invalide : utilisez 3 à 20 caractères (lettres minuscules, chiffres, "." ou "_").', isError: true);
@@ -372,16 +389,40 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     final authNotifier = ref.read(authControllerProvider.notifier);
 
     try {
-      await authNotifier.verifyOTP(email: _emailC.text.trim().toLowerCase(), token: code);
+      // 1. Vérifier l'OTP
+      await authNotifier.verifyOTP(
+        email: _emailC.text.trim().toLowerCase(),
+        token: code,
+      );
       
       final me = ref.read(authControllerProvider).value;
       if (me == null) throw Exception('Utilisateur introuvable après vérification.');
 
-      final claimed = await _userService.ensureThixChat(uid: me.id, desired: desiredChat);
+      // 2. Réserver le THIX CHAT
+      final claimed = await _userService.ensureThixChat(
+        uid: me.id,
+        desired: desiredChat,
+      );
 
-      final countryCode = ThixIdGenerator._countryCode(_country);
-      final officialThixId = await Supabase.instance.client.rpc('generate_thix_id', params: {'country_code': countryCode}) as String;
+      // 3. Générer le VRAI THIX ID (RPC d'abord, fallback local)
+      String officialThixId;
+      try {
+        final countryCode = ThixIdGenerator._countryCode(_country);
+        final result = await Supabase.instance.client.rpc(
+          'generate_thix_id',
+          params: {'country_code': countryCode},
+        );
+        officialThixId = (result as String?)?.trim() ?? '';
+        if (officialThixId.isEmpty ||
+            officialThixId.toUpperCase().startsWith('THIX-PENDING')) {
+          throw Exception('RPC a retourné un ID invalide');
+        }
+      } catch (rpcErr) {
+        debugPrint('[PersonalRegistration] RPC generate_thix_id failed: $rpcErr → fallback local');
+        officialThixId = ThixIdGenerator.generateLocal(countryName: _country);
+      }
 
+      // 4. Écrire dans Supabase (profiles)
       await _userService.updateProfile(
         uid: me.id,
         thixId: officialThixId,
@@ -389,14 +430,29 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
         registrationStatus: 'active',
       );
 
-      if (mounted) {
-        setState(() {
-          _thixIdGenerated = officialThixId;
-          _thixChatC.text = claimed;
-          _step = 3;
-        });
-        _snack('Compte activé avec succès !');
+      // 5. Mettre à jour l'AuthController en mémoire (critique pour le dashboard)
+      try {
+        await authNotifier.updateCurrentUser(
+          me.copyWith(
+            thixId: officialThixId,
+            thixChat: claimed,
+            registrationStatus: 'active',
+            updatedAt: DateTime.now(),
+          ),
+        );
+      } catch (e) {
+        debugPrint('[PersonalRegistration] updateCurrentUser failed (non bloquant): $e');
       }
+
+      if (!mounted) return;
+
+      // 6. Afficher OBLIGATOIREMENT l'étape 3 (tableau de succès)
+      setState(() {
+        _thixIdGenerated = officialThixId;
+        _thixChatC.text = claimed;
+        _step = 3;
+      });
+      _snack('Compte activé avec succès !');
     } catch (e) {
       _snack(_userFacingError(e), isError: true);
     }
@@ -504,7 +560,7 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
         return _Step2Account(
           emailC: _emailC, passwordC: _passwordC, confirmC: _confirmC,
           otpC: _otpC, thixChatC: _thixChatC, onSendOtp: _sendOtp,
-          isOtpSent: _otpSent, isLoading: isLoading, resendCooldown: _resendCooldown,
+          isOtpSent: _otpSent, isLoading: isLoading, resendCountdown: _resendCountdown,
         );
       case 3:
         return _Step3Final(
@@ -535,7 +591,7 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
       ),
     );
     if (picked != null) {
-      final v = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+      final v = '\( {picked.year}- \){picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
       setState(() => _dobC.text = v);
     }
   }
@@ -546,7 +602,7 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     switch (_step) {
       case 1: label = 'Suivant'; onPressed = _goToStep2; break;
       case 2: label = isLoading ? 'Vérification...' : 'Confirmer l\'inscription'; onPressed = _verifyAndRegister; break;
-      case 3: label = 'Accéder au Tableau de Bord'; onPressed = () => context.go(AppRoutes.home); break;
+      case 3: label = 'Accéder au Tableau de Bord'; onPressed = () => context.go(AppRoutes.userDashboard); break;
       default: label = ''; onPressed = null;
     }
     return Padding(
@@ -654,13 +710,13 @@ class _Step2Account extends StatelessWidget {
   final TextEditingController emailC, passwordC, confirmC, otpC, thixChatC;
   final VoidCallback onSendOtp;
   final bool isOtpSent, isLoading;
-  final int resendCooldown;
+  final int resendCountdown;
 
-  const _Step2Account({required this.emailC, required this.passwordC, required this.confirmC, required this.otpC, required this.thixChatC, required this.onSendOtp, required this.isOtpSent, required this.isLoading, required this.resendCooldown});
+  const _Step2Account({required this.emailC, required this.passwordC, required this.confirmC, required this.otpC, required this.thixChatC, required this.onSendOtp, required this.isOtpSent, required this.isLoading, required this.resendCountdown});
 
   @override
   Widget build(BuildContext context) {
-    final canResend = !isLoading && resendCooldown == 0;
+    final canResend = !isLoading && resendCountdown == 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -687,7 +743,7 @@ class _Step2Account extends StatelessWidget {
           child: OutlinedButton.icon(
             onPressed: canResend ? onSendOtp : null,
             icon: Icon(isOtpSent ? Icons.check_circle_outline_rounded : Icons.send_rounded, size: 20),
-            label: Text(!canResend && resendCooldown > 0 ? 'Renvoyer dans ${resendCooldown}s' : (isOtpSent ? 'Code envoyé - Renvoyer' : 'Obtenir le code OTP'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            label: Text(!canResend && resendCountdown > 0 ? 'Renvoyer dans ${resendCountdown}s' : (isOtpSent ? 'Code envoyé - Renvoyer' : 'Obtenir le code OTP'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             style: OutlinedButton.styleFrom(
               foregroundColor: _AppColors.primary,
               side: BorderSide(color: isOtpSent ? _AppColors.success : _AppColors.primary, width: 1.5),
@@ -760,16 +816,17 @@ class _Step3Final extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(child: Text(thixId, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  IconButton(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: thixId));
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('THIX ID copié !'), backgroundColor: _AppColors.success));
-                    },
-                    icon: const Icon(Icons.copy_rounded, color: Colors.white, size: 18),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  )
+                  Expanded(child: Text(thixId.isEmpty ? 'Génération...' : thixId, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  if (thixId.isNotEmpty)
+                    IconButton(
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: thixId));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('THIX ID copié !'), backgroundColor: _AppColors.success));
+                      },
+                      icon: const Icon(Icons.copy_rounded, color: Colors.white, size: 18),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    )
                 ],
               ),
               const SizedBox(height: 24),
