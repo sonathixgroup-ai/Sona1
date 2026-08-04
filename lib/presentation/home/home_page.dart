@@ -345,9 +345,52 @@ class _HeadlinesCarouselState extends State<_HeadlinesCarousel> { late final Str
 class _CarouselDots extends StatefulWidget { final PageController controller; final int count; const _CarouselDots({required this.controller, required this.count}); @override State<_CarouselDots> createState() => _CarouselDotsState(); }
 class _CarouselDotsState extends State<_CarouselDots> { int _page = 0; @override void initState() { super.initState(); widget.controller.addListener(_onScroll); } void _onScroll() { if (!widget.controller.hasClients) return; final p = widget.controller.page?.round() ?? 0; if (p != _page && mounted) setState(() => _page = p); } @override void dispose() { widget.controller.removeListener(_onScroll); super.dispose(); } @override Widget build(BuildContext context) { final activePage = widget.count == 0 ? 0 : _page.clamp(0, widget.count - 1); return Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(widget.count, (i) { final active = i == activePage; return AnimatedContainer(duration: const Duration(milliseconds: 200), margin: const EdgeInsets.symmetric(horizontal: 3), width: active ? 16 : 6, height: 6, decoration: BoxDecoration(color: active ? AppColors.premiumAccent : AppColors.cardBorder, borderRadius: BorderRadius.circular(3))); })); } }
 class _HeadlineBanner extends StatelessWidget { final String label; final String title; final IconData icon; final Color accent; final String? imageUrl; final double height; final VoidCallback onTap; const _HeadlineBanner({required this.label, required this.title, required this.icon, required this.accent, required this.height, this.imageUrl, required this.onTap}); @override Widget build(BuildContext context) { final hasImage = (imageUrl ?? '').trim().isNotEmpty; return GestureDetector(onTap: onTap, child: ClipRRect(borderRadius: BorderRadius.circular(AppRadius.mainCard), child: Container(height: height, decoration: BoxDecoration(color: accent.withValues(alpha: 0.10), boxShadow: AppShadows.main), child: Stack(fit: StackFit.expand, children: [if (hasImage) Image.network(imageUrl!.trim(), fit: BoxFit.cover, loadingBuilder: (context, child, progress) { if (progress == null) return child; return Container(color: accent.withValues(alpha: 0.10), child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: accent)))); }, errorBuilder: (_, __, ___) => Container(color: accent.withValues(alpha: 0.14), alignment: Alignment.center, child: Icon(icon, color: accent, size: 40))) else Container(color: accent.withValues(alpha: 0.14), alignment: Alignment.center, child: Icon(icon, color: accent, size: 40)), Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withValues(alpha: 0.0), Colors.black.withValues(alpha: hasImage ? 0.55 : 0.25)], stops: const [0.35, 1.0])))), Positioned(left: AppSpacing.l, right: AppSpacing.l, bottom: AppSpacing.m, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(8)), child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800))), const SizedBox(height: 6), Text(title, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, height: 1.15), maxLines: 2, overflow: TextOverflow.ellipsis)])), Positioned(right: AppSpacing.m, top: AppSpacing.m, child: Container(width: 30, height: 30, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.85), shape: BoxShape.circle), child: const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.darkText)))])))); } }
-class _PersonalisedSection extends StatelessWidget { @override Widget build(BuildContext context) { final l10n = AppLocalizations.of(context); final items = [_MiniRoundAction(icon: Icons.account_balance_wallet_rounded, label: l10n.t('home_mini_top_up')), _MiniRoundAction(icon: Icons.shopping_cart_rounded, label: l10n.t('home_mini_buy')), _MiniRoundAction(icon: Icons.shield_rounded, label: l10n.t('home_mini_secure')), _MiniRoundAction(icon: Icons.local_atm_rounded, label: l10n.t('home_mini_cash_out'))]; return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(l10n.t('home_personalised_title'), style: const TextStyle(color: AppColors.darkText, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.2)), const SizedBox(height: AppSpacing.m), Row(children: [for (final item in items) Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: item))])]); } }
-class _MiniRoundAction extends StatelessWidget { final IconData icon; final String label; const _MiniRoundAction({required this.icon, required this.label}); @override Widget build(BuildContext context) { return GestureDetector(onTap: () {}, child: Column(children: [Container(width: 48, height: 48, decoration: BoxDecoration(color: AppColors.white, shape: BoxShape.circle, border: Border.all(color: AppColors.cardBorder, width: 0.5), boxShadow: AppShadows.secondary), child: Icon(icon, size: 20, color: AppColors.darkText)), const SizedBox(height: 8), Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w700), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)])); } }
-
+class _PersonalisedSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(l10n.t('home_personalised_title'), style: const TextStyle(color: AppColors.darkText, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+      const SizedBox(height: AppSpacing.m),
+      Row(children: [
+        Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: _MiniRoundAction(icon: Icons.favorite_rounded, label: 'Mariage', accent: Color(0xFFE25A6A), onTap: () => context.push('/thix-weeding')))),
+        Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: _MiniRoundAction(icon: Icons.shopping_cart_rounded, label: l10n.t('home_mini_buy'), onTap: () {}))),
+        Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: _MiniRoundAction(icon: Icons.shield_rounded, label: l10n.t('home_mini_secure'), onTap: () {}))),
+        Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: _MiniRoundAction(icon: Icons.local_atm_rounded, label: l10n.t('home_mini_cash_out'), onTap: () {}))),
+      ])
+    ]);
+  }
+}
+class _MiniRoundAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color accent;
+  final VoidCallback onTap;
+  const _MiniRoundAction({required this.icon, required this.label, this.accent = AppColors.darkText, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    final isWedding = label == 'Mariage';
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(children: [
+        Container(
+          width: 48, height: 48,
+          decoration: BoxDecoration(
+            color: isWedding ? Color(0xFFFFF0F2) : AppColors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: isWedding ? Color(0xFFE25A6A).withValues(alpha: 0.4) : AppColors.cardBorder, width: 0.8),
+            boxShadow: AppShadows.secondary,
+          ),
+          child: Icon(icon, size: 20, color: isWedding ? Color(0xFFE25A6A) : AppColors.darkText),
+          // Si tu veux utiliser le PNG transparent que je viens de générer:
+          // child: Padding(padding: EdgeInsets.all(10), child: Image.asset('assets/wedding_logo.png')),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: TextStyle(color: isWedding ? Color(0xFFE25A6A) : AppColors.textSecondary, fontSize: 11, fontWeight: isWedding ? FontWeight.w800 : FontWeight.w700), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)
+      ]),
+    );
+  }
+}
 enum _AccountRequestChoice { personal }
 
 class AccountRequestSheet extends StatelessWidget { 
