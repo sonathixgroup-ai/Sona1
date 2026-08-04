@@ -1,86 +1,80 @@
-// Route: lib/presentation/chat/call/global_call_listener.dart
-// PRODUCTION - GlobalCallListener avec Riverpod (ConsumerStatefulWidget)
-import 'dart:async';
+// lib/presentation/chat/call/global_call_listener.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/nav.dart';
 import 'package:thix_id/models/chat/call_invite.dart';
+import 'package:thix_id/services/chat/call_signaling_service.dart';
+import 'incoming_call_page.dart';
 
-class GlobalCallListener extends ConsumerStatefulWidget {
+/// À placer une seule fois au-dessus de l'app (après auth).
+/// Écoute les appels entrants et ouvre IncomingCallPage.
+class GlobalCallListener extends StatefulWidget {
   final Widget child;
-  const GlobalCallListener({super.key, required this.child});
+  final GlobalKey<NavigatorState>? navigatorKey;
+
+  const GlobalCallListener({
+    super.key,
+    required this.child,
+    this.navigatorKey,
+  });
 
   @override
-  ConsumerState<GlobalCallListener> createState() => _GlobalCallListenerState();
+  State<GlobalCallListener> createState() => _GlobalCallListenerState();
 }
 
-class _GlobalCallListenerState extends ConsumerState<GlobalCallListener> {
-  RealtimeChannel? _channel;
-  StreamSubscription? _authSub;
+class _GlobalCallListenerState extends State<GlobalCallListener> {
+  final _signal = CallSignalingService();
+  String? _listeningFor;
+  String? _lastInviteId; // anti-doublon
 
   @override
   void initState() {
     super.initState();
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((e) {
-      if (e.event == AuthChangeEvent.signedIn) _start();
-      if (e.event == AuthChangeEvent.signedOut) _stop();
-    });
-    if (Supabase.instance.client.auth.currentUser != null) _start();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureListening());
   }
 
-  void _start() {
-    final myId = Supabase.instance.client.auth.currentUser?.id;
-    if (myId == null) return;
-    _stop();
-    
-    _channel = Supabase.instance.client
-        .channel('calls:$myId')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: AppRoutes.tableCallInvites,
-          // Correction syntaxe Supabase Realtime
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'callee_id',
-            value: myId,
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _ensureListening();
+  }
+
+  void _ensureListening() {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    if (_listeningFor == uid) return;
+
+    _listeningFor = uid;
+    debugPrint('🔔 GlobalCallListener: listening for $uid');
+
+    _signal.listenMyInvites(uid, (CallInvite invite) {
+      // Anti-doublon : même invite déjà affichée
+      if (_lastInviteId == invite.id) return;
+      _lastInviteId = invite.id;
+
+      debugPrint('📞 Incoming invite \( {invite.id} type= \){invite.callType}');
+
+      final nav = widget.navigatorKey?.currentState;
+      if (nav != null) {
+        nav.push(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => IncomingCallPage(invite: invite),
           ),
-          callback: _onIncoming,
-        )
-        .subscribe();
-  }
-
-  void _onIncoming(PostgresChangePayload payload) {
-    try {
-      // Utilisation correcte de fromJson
-      final invite = CallInvite.fromJson(payload.newRecord);
-      
-      if (invite.status != 'ringing') return;
-      if (!mounted) return;
-      
-      // Évite le double push si l'utilisateur est déjà sur l'écran d'appel
-      final loc = GoRouterState.of(context).uri.toString();
-      if (loc.contains(AppRoutes.callIncoming) || loc.contains(AppRoutes.callOngoing)) return;
-
-      context.pushNamed(AppRoutes.callIncomingName, extra: invite);
-    } catch (e) {
-      debugPrint('❌ Erreur réception appel global: $e');
-    }
-  }
-
-  void _stop() {
-    if (_channel != null) {
-      Supabase.instance.client.removeChannel(_channel!);
-      _channel = null;
-    }
+        );
+      } else if (mounted) {
+        Navigator.of(context, rootNavigator: true).push(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => IncomingCallPage(invite: invite),
+          ),
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
-    _stop();
-    _authSub?.cancel();
+    _signal.dispose();
     super.dispose();
   }
 
