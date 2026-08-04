@@ -1,46 +1,110 @@
 // lib/presentation/thix_weeding/pages/staff/invités/rsvp_management_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-final rsvpStatsProvider = FutureProvider.family<Map<String,int>, String>((ref, weddingId) async {
-  final all = await Supabase.instance.client.from('thix_weeding_guests').select('rsvp_status').eq('wedding_id', weddingId);
-  int total=all.length, yes=all.where((e)=>e['rsvp_status']=='yes').length, no=all.where((e)=>e['rsvp_status']=='no').length, pending=all.where((e)=>e['rsvp_status']=='pending').length, maybe=all.where((e)=>e['rsvp_status']=='maybe').length;
-  return {'total':total,'yes':yes,'no':no,'pending':pending,'maybe':maybe};
-});
+// CENTRAUX - juste guestsProvider
+import '../../../staff/models/thix_weeding_models.dart';
+import '../../../staff/providers/thix_weeding_providers.dart';
 
 class RsvpManagementPage extends ConsumerWidget {
   final String weddingId;
   const RsvpManagementPage({super.key, required this.weddingId});
-  @override Widget build(BuildContext context, WidgetRef ref){
-    final stats = ref.watch(rsvpStatsProvider(weddingId));
-    return Scaffold(appBar: AppBar(title: const Text('Gestion RSVP')), body: stats.when(
-      loading: ()=> const Center(child: CircularProgressIndicator()),
-      error: (e,s)=> Center(child: Text('$e')),
-      data: (s)=> ListView(padding: const EdgeInsets.all(16), children: [
-        Row(children: [
-          Expanded(child: _StatCard(label:'Total', value:s['total']!, color: Colors.blue)),
-          const SizedBox(width:8),
-          Expanded(child: _StatCard(label:'Confirmés', value:s['yes']!, color: Colors.green)),
-          const SizedBox(width:8),
-          Expanded(child: _StatCard(label:'Refusés', value:s['no']!, color: Colors.red)),
-          const SizedBox(width:8),
-          Expanded(child: _StatCard(label:'En attente', value:s['pending']!, color: Colors.grey)),
-        ]),
-        const SizedBox(height:20),
-        const Text('Détails par invité - Temps réel DB', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height:12),
-        FutureBuilder(future: Supabase.instance.client.from('thix_weeding_guests').select().eq('wedding_id', weddingId).order('rsvp_status'), builder: (c,snap){
-          if(!snap.hasData) return const CircularProgressIndicator();
-          final list = snap.data as List;
-          return Column(children: list.map((g)=> ListTile(leading: CircleAvatar(child: Text(g['name'][0])), title: Text(g['name']), subtitle: Text('ID ${g['id'].toString().substring(0,8)}'), trailing: Text(g['rsvp_status'], style: const TextStyle(fontWeight: FontWeight.bold)))).toList());
-        }),
-      ]),
-    ));
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final guestsAsync = ref.watch(guestsProvider(weddingId));
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(title: const Text('Gestion RSVP'), backgroundColor: Colors.white),
+      body: guestsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => Center(child: Text('Erreur: $e')),
+        data: (List<GuestModel> guests) {
+          final total = guests.length;
+          final yes = guests.where((g) => g.rsvpStatus == 'yes' || g.rsvpStatus == 'accepted').length;
+          final no = guests.where((g) => g.rsvpStatus == 'no' || g.rsvpStatus == 'declined').length;
+          final pending = guests.where((g) => g.rsvpStatus == 'pending').length;
+          final maybe = guests.where((g) => g.rsvpStatus == 'maybe').length;
+
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(guestsProvider(weddingId)),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _StatsRow(total: total, yes: yes, no: no, pending: pending),
+                const SizedBox(height: 20),
+                const Text('Détails par invité - Temps réel DB', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                if (maybe > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text('$maybe peut-être', style: const TextStyle(color: Colors.orange, fontSize: 12)),
+                  ),
+                ...guests.map((g) => _GuestRsvpTile(guest: g)),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }
-class _StatCard extends StatelessWidget{
+
+// ================= INTERNES =================
+
+class _StatsRow extends StatelessWidget {
+  final int total, yes, no, pending;
+  const _StatsRow({required this.total, required this.yes, required this.no, required this.pending});
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        Expanded(child: _StatCard(label: 'Total', value: total, color: Colors.blue)),
+        const SizedBox(width: 8),
+        Expanded(child: _StatCard(label: 'Confirmés', value: yes, color: Colors.green)),
+        const SizedBox(width: 8),
+        Expanded(child: _StatCard(label: 'Refusés', value: no, color: Colors.red)),
+        const SizedBox(width: 8),
+        Expanded(child: _StatCard(label: 'En attente', value: pending, color: Colors.grey)),
+      ]);
+}
+
+class _StatCard extends StatelessWidget {
   final String label; final int value; final Color color;
   const _StatCard({required this.label, required this.value, required this.color});
-  @override Widget build(BuildContext context)=> Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Column(children: [Text('$value', style: TextStyle(fontSize:22, fontWeight: FontWeight.w900, color: color)), Text(label, style: TextStyle(fontSize:11, color: color))]));
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+        child: Column(children: [
+          Text('$value', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color)),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+        ]),
+      );
+}
+
+class _GuestRsvpTile extends StatelessWidget {
+  final GuestModel guest;
+  const _GuestRsvpTile({required this.guest});
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        child: ListTile(
+          leading: CircleAvatar(backgroundColor: const Color(0xFF0B3B8F).withOpacity(0.1), child: Text(guest.name[0].toUpperCase())),
+          title: Text(guest.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          subtitle: Text('ID ${guest.id.substring(0, 8)} • ${guest.groupName}'),
+          trailing: _Badge(status: guest.rsvpStatus),
+        ),
+      );
+}
+
+class _Badge extends StatelessWidget {
+  final String status;
+  const _Badge({required this.status});
+  @override
+  Widget build(BuildContext context) {
+    Color c = status == 'yes' || status == 'accepted' ? Colors.green : status == 'no' || status == 'declined' ? Colors.red : status == 'maybe' ? Colors.orange : Colors.grey;
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: c.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(status, style: TextStyle(color: c, fontSize: 10, fontWeight: FontWeight.bold)));
+  }
 }
