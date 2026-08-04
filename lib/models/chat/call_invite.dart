@@ -1,5 +1,4 @@
-// Route: lib/models/chat/call_invite.dart
-// PRODUCTION - Model complet avec JSON + copyWith
+// lib/models/chat/call_invite.dart
 import 'call_status.dart';
 
 class CallInvite {
@@ -34,7 +33,8 @@ class CallInvite {
   factory CallInvite.fromJson(Map<String, dynamic> json) {
     return CallInvite(
       id: json['id'] as String,
-      channelName: json['channel_name'] as String,
+      // Compatible avec la vraie colonne "channel"
+      channelName: (json['channel'] ?? json['channel_name'] ?? '') as String,
       callerId: json['caller_id'] as String,
       calleeId: json['callee_id'] as String,
       callType: CallType.fromString(json['call_type'] as String? ?? 'audio'),
@@ -42,13 +42,15 @@ class CallInvite {
       callerName: json['caller_name'] as String?,
       callerAvatar: json['caller_avatar'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String? ?? json['created_at'] as String),
+      updatedAt: DateTime.parse(
+        (json['updated_at'] ?? json['created_at']) as String,
+      ),
     );
   }
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'channel_name': channelName,
+        'channel': channelName,
         'caller_id': callerId,
         'callee_id': calleeId,
         'call_type': callType.name,
@@ -86,12 +88,15 @@ class CallInvite {
   }
 
   @override
-  String toString() => 'CallInvite($id, $callType, $status, $callerId->$calleeId)';
+  String toString() =>
+      'CallInvite($id, $callType, $status, $callerId->$calleeId)';
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is CallInvite && runtimeType == other.runtimeType && id == other.id;
+      other is CallInvite &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
 
   @override
   int get hashCode => id.hashCode;
