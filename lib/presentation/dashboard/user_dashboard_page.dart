@@ -213,8 +213,9 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
 
     return ChangeNotifierProvider.value(
       value: _ctrl,
+      // CORRECTION : Passage de length à 5 onglets
       child: DefaultTabController(
-        length: 7,
+        length: 5, 
         child: Scaffold(
           backgroundColor: const Color(0xFFF5F6FB),
           body: Consumer<UserDashboardCtrl>(
@@ -245,8 +246,8 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
               final mergedUser = ctrl.mergedUser!;
               final score = ctrl.score;
 
-              // Photo de couverture : coverUrl du profil, sinon photoUrl, sinon null
-              final coverUrl = (profile.coverUrl ?? profile.photoUrl ?? '')
+              // CORRECTION : On utilise profile.photoUrl pour coverUrl puisqu'il n'y a pas de coverUrl dans ThixProfile
+              final coverUrl = (profile.photoUrl ?? '')
                   .toString()
                   .trim();
               final avatarUrl = (mergedUser.photoUrl ?? '').toString().trim();
@@ -290,12 +291,13 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
 
                       // ── TABS ──
                       const SliverToBoxAdapter(
-                        child: DashboardTabsHeader(),
+                        child: DashboardTabsHeader(), // Assurez-vous que le DashboardTabsHeader définit bien 5 Tab()
                       ),
 
                       // ── CONTENU ONGLET (hauteur réduite) ──
                       SliverFillRemaining(
                         hasScrollBody: true,
+                        // CORRECTION : Seulement 5 KeepAliveWrapper pour correspondre au DefaultTabController(length: 5)
                         child: TabBarView(
                           children: [
                             KeepAliveWrapper(
@@ -325,15 +327,6 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
                                 profile: profile,
                                 profileService: _profileService,
                               ),
-                            ),
-                            KeepAliveWrapper(
-                              child: FormationsTab(
-                                user: me,
-                                userService: _userService,
-                              ),
-                            ),
-                            KeepAliveWrapper(
-                              child: CvTab(user: mergedUser),
                             ),
                             KeepAliveWrapper(
                               child: PaymentsTab(
