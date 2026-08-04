@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
@@ -11,6 +12,23 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
   bool _hasMore = true;
   bool get hasMore => _hasMore;
 
+  // ⏱️ NOUVEAU : Suivi de la dernière activité
+  DateTime? _lastActivityTime;
+
+  /// Vérifie si on doit appliquer le Smart Mix (après 60s d'inactivité)
+  bool _shouldMix() {
+    if (_currentType != 'all') return false; // On ne mixe que l'onglet "Tous"
+    if (_lastActivityTime == null) return true; // On mixe toujours au tout premier chargement
+    
+    final secondsSinceLastActivity = DateTime.now().difference(_lastActivityTime!).inSeconds;
+    return secondsSinceLastActivity >= 60;
+  }
+
+  /// Met à jour le chronomètre d'activité
+  void _updateActivityTimer() {
+    _lastActivityTime = DateTime.now();
+  }
+
   @override
   Future<List<NetworkPost>> build() async {
     _hasMore = true;
@@ -22,11 +40,12 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
       
       _hasMore = posts.length >= limit;
       
-      // 🌟 LE SMART MIX : On mélange la liste si on est sur l'onglet Tous
-      if (_currentType == 'all') {
+      // 🌟 LE SMART MIX INTELLIGENT
+      if (_shouldMix()) {
         posts.shuffle();
       }
       
+      _updateActivityTimer(); // On relance le chrono
       return posts;
     } catch (e) {
       debugPrint('🔥 Erreur dans Feed.build: $e');
@@ -46,11 +65,12 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
       final posts = await service.getFeedPosts(feedType: _currentType, limit: limit, offset: 0);
       _hasMore = posts.length >= limit;
       
-      // 🌟 LE SMART MIX
-      if (_currentType == 'all') {
+      // 🌟 LE SMART MIX INTELLIGENT
+      if (force || _shouldMix()) {
         posts.shuffle();
       }
       
+      _updateActivityTimer(); // On relance le chrono
       state = AsyncData(posts); 
     } catch (e, stack) {
       debugPrint('🔥 Erreur dans Feed.loadFeed: $e');
@@ -60,6 +80,7 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
 
   void addPostOnTop(NetworkPost post) {
     final current = state.valueOrNull ?? [];
+    _updateActivityTimer(); // Publier = Activité
     state = AsyncData([post, ...current]);
   }
 
@@ -73,11 +94,12 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
       
       _hasMore = more.length >= limit;
       
-      // On mélange aussi les nouveaux résultats ajoutés en bas de page
-      if (_currentType == 'all') {
+      // En scrollant vers le bas, on applique la même règle des 60s
+      if (_shouldMix()) {
         more.shuffle();
       }
       
+      _updateActivityTimer(); // Scroller = Activité
       state = AsyncData([...current, ...more]);
     } catch (e) {
       debugPrint('🔥 Erreur dans Feed.loadMore: $e');
@@ -86,6 +108,7 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
 
   Future<void> deletePost(String postId) async {
     final current = state.valueOrNull ?? [];
+    _updateActivityTimer(); // Supprimer = Activité
     state = AsyncData(current.where((p) => p.id != postId).toList());
     try { await ref.read(networkServiceProvider).deletePost(postId); } catch (_) { state = AsyncData(current); }
   }
@@ -100,6 +123,8 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
     try {
       final updated = (old as dynamic).copyWith(isLiked: !wasLiked, likesCount: wasLiked ? count - 1 : count + 1) as NetworkPost;
       final list = [...current]; list[idx] = updated;
+      
+      _updateActivityTimer(); // Liker = Activité
       state = AsyncData(list);
     } catch (_) {}
     try {
