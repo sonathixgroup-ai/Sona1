@@ -96,7 +96,7 @@ Future<List<Map<String, dynamic>>> homeCategories(HomeCategoriesRef ref) async {
     {'label': 'Vidéastes', 'icon': Icons.videocam_outlined},
     {'label': 'DJ', 'icon': Icons.music_note_outlined},
     {'label': 'Robes', 'icon': Icons.checkroom_outlined},
-    {'label': 'Costumes', 'icon': Icons.styler_outlined},
+{'label': 'Costumes', 'icon': Icons.checkroom_outlined},
     {'label': 'Plus', 'icon': Icons.grid_view_rounded},
   ];
 }
