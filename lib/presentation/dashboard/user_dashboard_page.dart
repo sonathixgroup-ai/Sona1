@@ -19,18 +19,19 @@ import 'dashboard_tabs.dart';
 import 'dashboard_editors.dart';
 
 // =============================================================================
-// STATE MANAGEMENT: CONTRÔLEUR HAUTE PERFORMANCE (SANS STREAM)
+// STATE MANAGEMENT
 // =============================================================================
 
 class DashboardCache {
   static final DashboardCache _i = DashboardCache._();
   DashboardCache._();
   factory DashboardCache() => _i;
-  
+
   ThixProfile? lastProfile;
   DateTime? lastFetch;
-  
-  bool get isStale => lastFetch == null || DateTime.now().difference(lastFetch!).inMinutes > 5;
+
+  bool get isStale =>
+      lastFetch == null || DateTime.now().difference(lastFetch!).inMinutes > 5;
 }
 
 class UserDashboardCtrl extends ChangeNotifier {
@@ -51,8 +52,16 @@ class UserDashboardCtrl extends ChangeNotifier {
   });
 
   Future<void> init(AppUser authUser) async {
-    unawaited(userService.logSecurityEvent(uid: authUser.id, type: 'dashboard_open', label: 'Ouverture dashboard').catchError((_) {}));
-    unawaited(profileService.ensureProfileExists(user: authUser).catchError((_) {}));
+    unawaited(userService
+        .logSecurityEvent(
+          uid: authUser.id,
+          type: 'dashboard_open',
+          label: 'Ouverture dashboard',
+        )
+        .catchError((_) {}));
+    unawaited(
+      profileService.ensureProfileExists(user: authUser).catchError((_) {}),
+    );
 
     if (!DashboardCache().isStale && DashboardCache().lastProfile != null) {
       profile = DashboardCache().lastProfile;
@@ -69,11 +78,15 @@ class UserDashboardCtrl extends ChangeNotifier {
 
     try {
       profile = await profileService.fetchPublicProfileByUserId(authUser.id);
-      profile ??= ThixProfile.fallback(userId: authUser.id, thixId: authUser.thixId, displayName: authUser.displayName);
-      
+      profile ??= ThixProfile.fallback(
+        userId: authUser.id,
+        thixId: authUser.thixId,
+        displayName: authUser.displayName,
+      );
+
       DashboardCache().lastProfile = profile;
       DashboardCache().lastFetch = DateTime.now();
-      
+
       _mergeAndCompute(authUser);
     } catch (e) {
       error = 'Impossible de charger les données du profil.';
@@ -86,7 +99,8 @@ class UserDashboardCtrl extends ChangeNotifier {
 
   Future<void> refreshSilently(AppUser authUser) async {
     try {
-      final freshProfile = await profileService.fetchPublicProfileByUserId(authUser.id);
+      final freshProfile =
+          await profileService.fetchPublicProfileByUserId(authUser.id);
       if (freshProfile != null) {
         profile = freshProfile;
         DashboardCache().lastProfile = freshProfile;
@@ -101,8 +115,16 @@ class UserDashboardCtrl extends ChangeNotifier {
 
   void _mergeAndCompute(AppUser authUser) {
     if (profile == null) return;
-    
+
+    // Priorité au vrai thix_id du profil Supabase
+    final profileThix = profile!.thixId.trim();
+    final resolvedThixId = (profileThix.isNotEmpty &&
+            !profileThix.toUpperCase().startsWith('THIX-PENDING'))
+        ? profileThix
+        : authUser.thixId;
+
     mergedUser = authUser.copyWith(
+      thixId: resolvedThixId,
       displayName: profile!.displayName,
       photoUrl: profile!.photoUrl,
       bio: profile!.bio,
@@ -130,12 +152,12 @@ class UserDashboardCtrl extends ChangeNotifier {
 }
 
 // =============================================================================
-// INTERFACE UTILISATEUR (UI) - CLASSE RENOMMÉE
+// PAGE DASHBOARD
 // =============================================================================
 
 class ThixUserDashboardPage extends StatefulWidget {
   const ThixUserDashboardPage({super.key});
-  @override 
+  @override
   State<ThixUserDashboardPage> createState() => _ThixUserDashboardPageState();
 }
 
@@ -144,7 +166,7 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
   late final UserService _userService;
   late final DocumentService _docsService;
   late final UserDashboardCtrl _ctrl;
-  
+
   final _docFilter = ValueNotifier<String>('Tous');
 
   @override
@@ -153,7 +175,7 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
     _profileService = ProfileService();
     _userService = UserService(Supabase.instance.client);
     _docsService = DocumentService();
-    
+
     _ctrl = UserDashboardCtrl(
       profileService: _profileService,
       userService: _userService,
@@ -162,9 +184,7 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final me = context.read<AuthController>().currentUser;
-      if (me != null) {
-        _ctrl.init(me);
-      }
+      if (me != null) _ctrl.init(me);
     });
   }
 
@@ -175,11 +195,20 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
     super.dispose();
   }
 
+  Future<void> _logout() async {
+    await context.read<AuthController>().signOut();
+    if (mounted) context.go(AppRoutes.home);
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = context.watch<AuthController>().currentUser;
     if (me == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF0D2CC1))));
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF0D2CC1)),
+        ),
+      );
     }
 
     return ChangeNotifierProvider.value(
@@ -187,11 +216,13 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
       child: DefaultTabController(
         length: 7,
         child: Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          backgroundColor: const Color(0xFFF5F6FB),
           body: Consumer<UserDashboardCtrl>(
             builder: (context, ctrl, _) {
               if (ctrl.loading && ctrl.profile == null) {
-                return const Center(child: CircularProgressIndicator(color: Color(0xFF0D2CC1)));
+                return const Center(
+                  child: CircularProgressIndicator(color: Color(0xFF0D2CC1)),
+                );
               }
 
               if (ctrl.error != null && ctrl.profile == null) {
@@ -201,7 +232,10 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
                     children: [
                       Text(ctrl.error!, style: const TextStyle(color: Colors.red)),
                       const SizedBox(height: 12),
-                      ElevatedButton(onPressed: () => ctrl.init(me), child: const Text('Réessayer'))
+                      ElevatedButton(
+                        onPressed: () => ctrl.init(me),
+                        child: const Text('Réessayer'),
+                      ),
                     ],
                   ),
                 );
@@ -211,64 +245,129 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
               final mergedUser = ctrl.mergedUser!;
               final score = ctrl.score;
 
+              // Photo de couverture : coverUrl du profil, sinon photoUrl, sinon null
+              final coverUrl = (profile.coverUrl ?? profile.photoUrl ?? '')
+                  .toString()
+                  .trim();
+              final avatarUrl = (mergedUser.photoUrl ?? '').toString().trim();
+
               return SafeArea(
-                child: Stack(
-                  children: [
-                    const DashboardBackground(),
-                    RefreshIndicator(
-                      color: const Color(0xFF0D2CC1),
-                      onRefresh: () => ctrl.refreshSilently(me),
-                      child: Column(
-                        children: [
-                          DashboardTopBar(
-                            user: mergedUser, 
-                            score: score,
-                            onBack: () => context.go(AppRoutes.home),
-                            onOpenSettings: () => context.push(AppRoutes.settings),
-                            onLogout: () async { 
-                              await context.read<AuthController>().signOut(); 
-                              if (context.mounted) context.go(AppRoutes.home); 
-                            },
-                            onEditProfile: () async {
-                              await ProfileEditorSheet.show(context, profile: profile, profileService: _profileService, authUser: me);
-                              if (context.mounted) ctrl.refreshSilently(me);
-                            },
-                            onDownloadCv: () => DefaultTabController.of(context).animateTo(4),
-                            onShareProfile: () => ShareProfileSheet.show(context, profile),
-                          ),
-                          const DashboardTabsHeader(),
-                          Expanded(
-                            child: TabBarView(
-                              children: [
-                                KeepAliveWrapper(child: ProfileTab(authUser: me, profile: profile, score: score, profileService: _profileService, userService: _userService)),
-                                KeepAliveWrapper(child: ValueListenableBuilder(valueListenable: _docFilter, builder: (_, filter, __) => DocumentsTab(uid: me.id, docs: _docsService, userService: _userService, filter: filter, onChangeFilter: (v) => _docFilter.value = v))),
-                                KeepAliveWrapper(child: ExperienceSkillsTab(profile: profile, profileService: _profileService)),
-                                KeepAliveWrapper(child: FormationsTab(user: me, userService: _userService)),
-                                KeepAliveWrapper(child: CvTab(user: mergedUser)),
-                                KeepAliveWrapper(child: PaymentsTab(uid: me.id, userService: _userService, user: me)),
-                                KeepAliveWrapper(child: SecurityTab(uid: me.id, user: me, userService: _userService)),
-                              ],
-                            ),
-                          ),
-                        ],
+                top: false,
+                child: RefreshIndicator(
+                  color: const Color(0xFF0D2CC1),
+                  onRefresh: () => ctrl.refreshSilently(me),
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      // ── HEADER COMPACT + PHOTO DE COUVERTURE ──
+                      SliverToBoxAdapter(
+                        child: _CompactCoverHeader(
+                          coverUrl: coverUrl,
+                          avatarUrl: avatarUrl,
+                          displayName: mergedUser.displayName,
+                          thixId: mergedUser.thixId,
+                          bio: (mergedUser.bio ?? '').toString(),
+                          country: (mergedUser.countryOrOrigin ?? '').toString(),
+                          profession: (mergedUser.occupation ??
+                                  mergedUser.profession ??
+                                  '')
+                              .toString(),
+                          score: score,
+                          onBack: () => context.go(AppRoutes.home),
+                          onSettings: () => context.push(AppRoutes.settings),
+                          onLogout: _logout,
+                          onEditProfile: () async {
+                            await ProfileEditorSheet.show(
+                              context,
+                              profile: profile,
+                              profileService: _profileService,
+                              authUser: me,
+                            );
+                            if (context.mounted) ctrl.refreshSilently(me);
+                          },
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      top: 18, 
-                      right: 18, 
-                      child: GestureDetector(onTap: () => context.push(AppRoutes.chat), child: const ChatFab())
-                    ),
-                  ],
+
+                      // ── TABS ──
+                      const SliverToBoxAdapter(
+                        child: DashboardTabsHeader(),
+                      ),
+
+                      // ── CONTENU ONGLET (hauteur réduite) ──
+                      SliverFillRemaining(
+                        hasScrollBody: true,
+                        child: TabBarView(
+                          children: [
+                            KeepAliveWrapper(
+                              child: ProfileTab(
+                                authUser: me,
+                                profile: profile,
+                                score: score,
+                                profileService: _profileService,
+                                userService: _userService,
+                              ),
+                            ),
+                            KeepAliveWrapper(
+                              child: ValueListenableBuilder(
+                                valueListenable: _docFilter,
+                                builder: (_, filter, __) => DocumentsTab(
+                                  uid: me.id,
+                                  docs: _docsService,
+                                  userService: _userService,
+                                  filter: filter,
+                                  onChangeFilter: (v) =>
+                                      _docFilter.value = v,
+                                ),
+                              ),
+                            ),
+                            KeepAliveWrapper(
+                              child: ExperienceSkillsTab(
+                                profile: profile,
+                                profileService: _profileService,
+                              ),
+                            ),
+                            KeepAliveWrapper(
+                              child: FormationsTab(
+                                user: me,
+                                userService: _userService,
+                              ),
+                            ),
+                            KeepAliveWrapper(
+                              child: CvTab(user: mergedUser),
+                            ),
+                            KeepAliveWrapper(
+                              child: PaymentsTab(
+                                uid: me.id,
+                                userService: _userService,
+                                user: me,
+                              ),
+                            ),
+                            KeepAliveWrapper(
+                              child: SecurityTab(
+                                uid: me.id,
+                                user: me,
+                                userService: _userService,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
           ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => ThixIdentitySheets.showQrScanSheet(context),
-            icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white),
-            label: Text(
-              "Scanner ID", 
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w900)
+            icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 18),
+            label: const Text(
+              'Scanner ID',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+              ),
             ),
             backgroundColor: const Color(0xFF0D2CC1),
             elevation: 4,
@@ -280,23 +379,369 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
 }
 
 // =============================================================================
-// WIDGET OPTIMISATION (CONSERVATION D'ÉTAT)
+// HEADER COMPACT AVEC PHOTO DE COUVERTURE RÉELLE
 // =============================================================================
 
-class KeepAliveWrapper extends StatefulWidget { 
-  final Widget child; 
-  const KeepAliveWrapper({super.key, required this.child}); 
-  @override 
-  State<KeepAliveWrapper> createState() => _KeepAliveWrapperState(); 
+class _CompactCoverHeader extends StatelessWidget {
+  final String coverUrl;
+  final String avatarUrl;
+  final String displayName;
+  final String thixId;
+  final String bio;
+  final String country;
+  final String profession;
+  final int score;
+  final VoidCallback onBack;
+  final VoidCallback onSettings;
+  final Future<void> Function() onLogout;
+  final VoidCallback onEditProfile;
+
+  const _CompactCoverHeader({
+    required this.coverUrl,
+    required this.avatarUrl,
+    required this.displayName,
+    required this.thixId,
+    required this.bio,
+    required this.country,
+    required this.profession,
+    required this.score,
+    required this.onBack,
+    required this.onSettings,
+    required this.onLogout,
+    required this.onEditProfile,
+  });
+
+  bool get _hasCover => coverUrl.isNotEmpty;
+  bool get _hasAvatar => avatarUrl.isNotEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
+
+    return Column(
+      children: [
+        // ── ZONE COUVERTURE (hauteur réduite \~140px + safe area) ──
+        SizedBox(
+          height: topPad + 130,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Photo de couverture RÉELLE (pas mock-up)
+              if (_hasCover)
+                Image.network(
+                  coverUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _fallbackCover(),
+                )
+              else
+                _fallbackCover(),
+
+              // Overlay sombre léger pour lisibilité des boutons
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.35),
+                      Colors.black.withOpacity(0.05),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Boutons : retour | déconnexion | settings
+              Positioned(
+                top: topPad + 8,
+                left: 12,
+                right: 12,
+                child: Row(
+                  children: [
+                    _RoundIconBtn(
+                      icon: Icons.arrow_back_ios_new_rounded,
+                      onTap: onBack,
+                    ),
+                    const Spacer(),
+                    // ❌ Chat retiré → Déconnexion
+                    _RoundIconBtn(
+                      icon: Icons.logout_rounded,
+                      onTap: () => onLogout(),
+                    ),
+                    const SizedBox(width: 8),
+                    _RoundIconBtn(
+                      icon: Icons.settings_rounded,
+                      onTap: onSettings,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ── CARTE PROFIL COMPACTE (chevauche la couverture) ──
+        Transform.translate(
+          offset: const Offset(0, -36),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Column(
+              children: [
+                // Avatar centré + badge score
+                Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 36,
+                        backgroundColor: const Color(0xFFEFF4FF),
+                        backgroundImage:
+                            _hasAvatar ? NetworkImage(avatarUrl) : null,
+                        child: !_hasAvatar
+                            ? const Icon(
+                                Icons.person,
+                                size: 36,
+                                color: Colors.grey,
+                              )
+                            : null,
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D2CC1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: Text(
+                          '$score pts',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                // Nom
+                Text(
+                  displayName.isEmpty ? 'Utilisateur' : displayName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    color: Color(0xFF0A1E8A),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+
+                const SizedBox(height: 2),
+
+                // THIX ID (compact)
+                Text(
+                  thixId,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+
+                const SizedBox(height: 4),
+
+                // Bio courte
+                if (bio.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      bio,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.black87,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else
+                  const Text(
+                    'Complétez votre biographie…',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Colors.black45,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+
+                const SizedBox(height: 6),
+
+                // Localisation + Profession
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (country.isNotEmpty) ...[
+                      const Icon(Icons.location_on_outlined,
+                          size: 13, color: Colors.black45),
+                      const SizedBox(width: 2),
+                      Flexible(
+                        child: Text(
+                          country,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black54,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                    if (country.isNotEmpty && profession.isNotEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Text('•',
+                            style: TextStyle(color: Colors.black38)),
+                      ),
+                    if (profession.isNotEmpty) ...[
+                      const Icon(Icons.work_outline_rounded,
+                          size: 13, color: Colors.black45),
+                      const SizedBox(width: 2),
+                      Flexible(
+                        child: Text(
+                          profession,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black54,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                // Bouton Modifier (compact)
+                SizedBox(
+                  height: 34,
+                  child: OutlinedButton.icon(
+                    onPressed: onEditProfile,
+                    icon: const Icon(Icons.edit_rounded, size: 14),
+                    label: const Text(
+                      'Modifier le profil',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0D2CC1),
+                      side: BorderSide(
+                        color: const Color(0xFF0D2CC1).withOpacity(0.3),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _fallbackCover() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0D2CC1), Color(0xFF0A1E8A)],
+        ),
+      ),
+    );
+  }
 }
 
-class _KeepAliveWrapperState extends State<KeepAliveWrapper> with AutomaticKeepAliveClientMixin { 
-  @override 
-  bool get wantKeepAlive => true; 
-  
-  @override 
-  Widget build(BuildContext context) { 
-    super.build(context); 
-    return widget.child; 
-  } 
+class _RoundIconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _RoundIconBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withOpacity(0.92),
+      shape: const CircleBorder(),
+      elevation: 2,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(icon, size: 16, color: const Color(0xFF0A1E8A)),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// KEEP ALIVE
+// =============================================================================
+
+class KeepAliveWrapper extends StatefulWidget {
+  final Widget child;
+  const KeepAliveWrapper({super.key, required this.child});
+  @override
+  State<KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
 }
