@@ -264,7 +264,9 @@ class AppRouter {
   static GoRouter create(AuthController auth, {Listenable? extraRefreshListenable}) {
     final refresh = extraRefreshListenable ?? auth;
     return GoRouter(
-      initialLocation: AppRoutes.home,
+      // 1. OBLIGATOIRE : L'application doit démarrer sur le Splash Screen
+      initialLocation: AppRoutes.start,
+      
       refreshListenable: refresh,
       errorBuilder: (context, state) => Scaffold(
         backgroundColor: const Color(0xFF0B3D91),
@@ -276,21 +278,53 @@ class AppRouter {
           ElevatedButton(onPressed: () => context.go(AppRoutes.home), child: const Text('Accueil')),
         ])),
       ),
+      
+      // 2. REDIRECT : Contrôle absolu de l'authentification et des "sauts"
       redirect: (context, state) {
         try {
           final loc = state.matchedLocation;
-          final isAuthPage = loc == AppRoutes.login || loc == AppRoutes.personalReg || loc == AppRoutes.enterpriseReg;
-          final isPublic = loc == AppRoutes.start || loc == AppRoutes.home || loc == AppRoutes.publicProfile ||
-              loc == AppRoutes.jobs || loc == AppRoutes.opportunities || loc == AppRoutes.education ||
-              loc == AppRoutes.trainingHome || loc.startsWith('${AppRoutes.trainingDetailsBasePath}/') ||
-              loc == AppRoutes.monPays || loc.startsWith('${AppRoutes.monPays}/') ||
-              loc.startsWith('/thix-event') || loc.startsWith('/thix-urgent') || loc.startsWith('/thix-weeding') ||
-              loc.startsWith('/thix-reservation/delivery') || isAuthPage;
+          
+          // A. Ne jamais interrompre le Splash Screen (qui gère sa propre navigation avec timer)
+          if (loc == AppRoutes.start) return null;
+
+          // B. Identifier les pages liées à l'authentification
+          final isLoginPage = loc == AppRoutes.login;
+          final isRegPage = loc == AppRoutes.personalReg || loc == AppRoutes.enterpriseReg;
+
+          // C. Définir les pages strictement publiques (NOTE : AppRoutes.home a été retiré d'ici)
+          final isPublic = isLoginPage || isRegPage ||
+              loc == AppRoutes.publicProfile ||
+              loc == AppRoutes.jobs || 
+              loc == AppRoutes.opportunities || 
+              loc == AppRoutes.education ||
+              loc == AppRoutes.trainingHome || 
+              loc.startsWith('${AppRoutes.trainingDetailsBasePath}/') ||
+              loc == AppRoutes.monPays || 
+              loc.startsWith('${AppRoutes.monPays}/') ||
+              loc.startsWith('/thix-event') || 
+              loc.startsWith('/thix-urgent') || 
+              loc.startsWith('/thix-weeding') ||
+              loc.startsWith('/thix-reservation/delivery');
 
           final logged = auth.isAuthenticated;
 
-          if (!logged && !isPublic) return AppRoutes.login;
-          if (logged && isAuthPage) return AppRoutes.userDashboard;
+          // D. Logique Utilisateur NON CONNECTÉ (ou DÉCONNECTÉ)
+          if (!logged) {
+            // S'il essaie d'aller sur Accueil, Dashboard ou toute page privée -> on le jette vers Login
+            if (!isPublic) return AppRoutes.login;
+            
+            // S'il navigue sur une page publique autorisée -> on le laisse faire
+            return null;
+          }
+
+          // E. Logique Utilisateur CONNECTÉ
+          if (logged) {
+            // S'il essaie d'aller sur la page de connexion -> on le redirige vers l'accueil
+            if (isLoginPage) return AppRoutes.home;
+            
+            // S'il est sur la page d'inscription -> on ne fait RIEN pour laisser l'écran de succès (Step 3) s'afficher
+            if (isRegPage) return null;
+          }
 
           return null;
         } catch (e) {
