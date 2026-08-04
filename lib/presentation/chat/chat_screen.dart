@@ -367,21 +367,64 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     });
   }
 
-  void _startCall(CallType type) {
+  Future<void> _startCall(CallType type) async {
     final svc = ref.read(chatServiceProvider);
-    final otherId = widget.conversation.participantIds.firstWhere((id) => id != svc.currentUserId, orElse: () => '');
-    ref.read(callProvider.notifier).start(channel: widget.conversationId, calleeId: otherId, callType: type);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CallPage(
-          channel: widget.conversationId,
-          name: widget.conversation.displayName,
-          type: type,
-          isCaller: true,
+    final currentUserId = svc.currentUserId;
+
+    debugPrint('📞 _startCall type=$type');
+    debugPrint('📞 currentUserId=$currentUserId');
+    debugPrint('📞 participants=${widget.conversation.participantIds}');
+    debugPrint('📞 conversationId=${widget.conversationId}');
+
+    if (currentUserId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Non authentifié')),
+      );
+      return;
+    }
+
+    final otherId = widget.conversation.participantIds
+        .firstWhere((id) => id != currentUserId, orElse: () => '');
+
+    debugPrint('📞 otherId=$otherId');
+
+    if (otherId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Destinataire introuvable')),
+      );
+      return;
+    }
+
+    try {
+      await ref.read(callProvider.notifier).start(
+            channel: widget.conversationId,
+            calleeId: otherId,
+            callType: type,
+          );
+
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CallPage(
+            channel: widget.conversationId,
+            name: widget.conversation.displayName,
+            type: type,
+            isCaller: true,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e, st) {
+      debugPrint('❌ _startCall error: $e');
+      debugPrint('$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur appel: $e')),
+      );
+    }
   }
 
   Future<void> _sendMessage() async {
