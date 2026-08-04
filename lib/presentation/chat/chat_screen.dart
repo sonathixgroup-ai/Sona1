@@ -33,7 +33,8 @@ import 'package:thix_id/presentation/chat/call/call_page.dart';
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 
 // Import du provider de la liste (ajuste le chemin si besoin)
-import 'package:thix_id/presentation/chat/chat_list_provider.dart'; // ← adapte selon ton projet
+import 'package:thix_id/presentation/chat/providers/chat_list_provider.dart';
+ // ← adapte selon ton projet
 
 class _C {
   static const bg = Color(0xFFF0F2F5);
@@ -57,7 +58,7 @@ final audioServiceProvider = Provider((ref) => AudioService(Supabase.instance.cl
 final groupServiceProvider = Provider((ref) => GroupService(Supabase.instance.client));
 final connectionServiceProvider = Provider((ref) => ConnectionService());
 
-final callProvider = ChangeNotifierProvider<CallProvider>((ref) => CallProvider());
+//final callProvider = ChangeNotifierProvider<CallProvider>((ref) => CallProvider());
 
 final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
   return ChatMsgNotifier(ref.read(chatServiceProvider), conversationId);
