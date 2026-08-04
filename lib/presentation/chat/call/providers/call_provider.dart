@@ -19,7 +19,7 @@ class CallState {
   final bool isFrontCam;
   final bool isConnecting;
   final Duration duration;
-  final String? errorMessage; // ← NOUVEAU
+  final String? errorMessage;
 
   const CallState({
     this.status = CallStatus.ringing,
@@ -77,11 +77,13 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
   final CallSignalingService _signal = CallSignalingService();
 
   Timer? _callTimer;
+  Timer? _ringTimeout; // ← timeout appelant
   StreamSubscription? _statusSub;
 
   CallService get callService => _call;
 
-  // Génère un uid stable à partir de l'userId
+  static const _ringTimeoutDuration = Duration(seconds: 45);
+
   int _uidFromUserId(String userId) {
     var hash = 0x811c9dc5;
     for (final c in userId.codeUnits) {
@@ -96,11 +98,34 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
   CallState build() {
     ref.onDispose(() {
       _callTimer?.cancel();
+      _ringTimeout?.cancel();
       _statusSub?.cancel();
       _call.dispose();
       _signal.dispose();
     });
     return const CallState();
+  }
+
+  void _cancelRingTimeout() {
+    _ringTimeout?.cancel();
+    _ringTimeout = null;
+  }
+
+  void _startRingTimeout() {
+    _cancelRingTimeout();
+    _ringTimeout = Timer(_ringTimeoutDuration, () async {
+      // Si toujours en sonnerie / en attente d'accept → missed
+      if (state.status == CallStatus.ringing ||
+          state.status == CallStatus.accepted) {
+        debugPrint('⏰ Ring timeout → missed');
+        try {
+          if (state.inviteId != null) {
+            await _signal.update(state.inviteId!, 'missed');
+          }
+        } catch (_) {}
+        await end(silent: true);
+      }
+    });
   }
 
   Future<void> start({
@@ -113,6 +138,8 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
       if (myId == null) throw Exception('Not authenticated');
 
       final uid = _uidFromUserId(myId);
+
+      debugPrint('📞 CallNotifier.start type=$callType channel=$channel callee=$calleeId');
 
       state = state.copyWith(
         channelName: channel,
@@ -129,16 +156,18 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
       final inviteId = await _signal.create(
         channel: channel,
         calleeId: calleeId,
-        type: callType.name,
+        type: callType.name, // "audio" | "video"
       );
       state = state.copyWith(inviteId: inviteId);
       _listenStatusChange(inviteId);
+      _startRingTimeout(); // ← timeout côté appelant
 
       await _call.join(
         channel: channel,
         type: callType,
         uid: uid,
         onUserJoined: (remoteUid) {
+          _cancelRingTimeout();
           state = state.copyWith(
             remoteUid: remoteUid,
             status: CallStatus.ongoing,
@@ -149,6 +178,7 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
         },
         onUserLeft: () => end(silent: false),
         onError: (msg) {
+          _cancelRingTimeout();
           state = state.copyWith(
             status: CallStatus.failed,
             isConnecting: false,
@@ -158,6 +188,7 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
       );
     } catch (e) {
       debugPrint('❌ CallNotifier.start error: $e');
+      _cancelRingTimeout();
       state = state.copyWith(
         status: CallStatus.failed,
         isConnecting: false,
@@ -177,17 +208,21 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
 
       final uid = _uidFromUserId(myId);
 
+      debugPrint('📞 CallNotifier.accept type=$callType invite=$inviteId');
+
       state = state.copyWith(
         inviteId: inviteId,
         channelName: channel,
         type: callType,
         status: CallStatus.accepted,
         isConnecting: true,
+        videoOff: callType == CallType.audio,
         clearError: true,
       );
 
       await _signal.update(inviteId, 'accepted');
       _listenStatusChange(inviteId);
+      // Pas de ring timeout côté callee qui a déjà accepté
 
       await _call.join(
         channel: channel,
@@ -222,6 +257,7 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
   }
 
   Future<void> reject() async {
+    _cancelRingTimeout();
     try {
       if (state.inviteId != null) {
         await _signal.update(state.inviteId!, 'rejected');
@@ -233,6 +269,7 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
   }
 
   Future<void> end({bool silent = false}) async {
+    _cancelRingTimeout();
     try {
       _callTimer?.cancel();
       if (!silent && state.inviteId != null) {
@@ -288,7 +325,9 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
   void _startTimer() {
     _callTimer?.cancel();
     _callTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      state = state.copyWith(duration: state.duration + const Duration(seconds: 1));
+      state = state.copyWith(
+        duration: state.duration + const Duration(seconds: 1),
+      );
     });
   }
 
@@ -301,7 +340,8 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
         .listen((list) {
       if (list.isEmpty) return;
       final s = list.first['status'] as String?;
-      if (s == 'ended' || s == 'rejected' || s == 'missed') {
+      if (s == 'ended' || s == 'rejected' || s == 'missed' || s == 'busy') {
+        _cancelRingTimeout();
         end(silent: true);
       }
     });
@@ -309,6 +349,7 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
 
   Future<void> _cleanup() async {
     _callTimer?.cancel();
+    _cancelRingTimeout();
     _statusSub?.cancel();
     _statusSub = null;
   }
