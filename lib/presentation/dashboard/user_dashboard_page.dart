@@ -15,7 +15,6 @@ import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/presentation/common/thix_identity_sheets.dart';
 import '../../nav.dart';
 import '../../theme.dart';
-import 'dashboard_ui.dart'; 
 import 'dashboard_tabs.dart';
 import 'dashboard_editors.dart';
 
@@ -132,7 +131,7 @@ class UserDashboardCtrl extends ChangeNotifier {
 }
 
 // =============================================================================
-// INTERFACE UTILISATEUR (UI) - DESIGN MODERNE
+// INTERFACE UTILISATEUR (UI) - DESIGN COMPACT ET MODERNE
 // =============================================================================
 
 class ThixUserDashboardPage extends StatefulWidget {
@@ -215,81 +214,37 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
               final mergedUser = ctrl.mergedUser!;
               final score = ctrl.score;
 
-              return Stack(
-                children: [
-                  // 1. COVER PHOTO (Background Image) - Dégradé vers le bas
-                  Positioned(
-                    top: 0, left: 0, right: 0,
-                    height: 380,
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        image: DecorationImage(
-                          // Image par défaut si l'utilisateur n'a pas de cover
-                          image: NetworkImage('https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1000&auto=format&fit=crop'),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.15), // Assombrit légèrement le haut
-                              Colors.transparent,
-                              bgColor, // Se fond parfaitement avec le fond du Scaffold
-                            ],
-                            stops: const [0.0, 0.4, 1.0],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // 2. CONTENU PRINCIPAL
-                  SafeArea(
-                    child: RefreshIndicator(
-                      color: const Color(0xFF0D2CC1),
-                      onRefresh: () => ctrl.refreshSilently(me),
+              return NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) {
+                  return [
+                    SliverToBoxAdapter(
                       child: Column(
                         children: [
-                          // App Bar en Glassmorphism
-                          _buildModernTopBar(context, profile, me),
-                          
-                          // Avatar et Informations Modernes
-                          _buildModernProfileInfo(mergedUser, score),
-                          
-                          const SizedBox(height: 16),
-
-                          // Header des Tabs (Original préservé)
+                          // En-tête Compact (Cover + Avatar + Infos + Actions alignées)
+                          _buildCompactHeader(context, profile, mergedUser, score, me),
+                          const SizedBox(height: 8),
+                          // Header des Tabs
                           const DashboardTabsHeader(),
-                          
-                          // Vues des Tabs
-                          Expanded(
-                            child: TabBarView(
-                              children: [
-                                KeepAliveWrapper(child: ProfileTab(authUser: me, profile: profile, score: score, profileService: _profileService, userService: _userService)),
-                                KeepAliveWrapper(child: ValueListenableBuilder(valueListenable: _docFilter, builder: (_, filter, __) => DocumentsTab(uid: me.id, docs: _docsService, userService: _userService, filter: filter, onChangeFilter: (v) => _docFilter.value = v))),
-                                KeepAliveWrapper(child: ExperienceSkillsTab(profile: profile, profileService: _profileService)),
-                                KeepAliveWrapper(child: FormationsTab(user: me, userService: _userService)),
-                                KeepAliveWrapper(child: CvTab(user: mergedUser)),
-                                KeepAliveWrapper(child: PaymentsTab(uid: me.id, userService: _userService, user: me)),
-                                KeepAliveWrapper(child: SecurityTab(uid: me.id, user: me, userService: _userService)),
-                              ],
-                            ),
-                          ),
                         ],
                       ),
                     ),
+                  ];
+                },
+                body: RefreshIndicator(
+                  color: const Color(0xFF0D2CC1),
+                  onRefresh: () => ctrl.refreshSilently(me),
+                  child: TabBarView(
+                    children: [
+                      KeepAliveWrapper(child: ProfileTab(authUser: me, profile: profile, score: score, profileService: _profileService, userService: _userService)),
+                      KeepAliveWrapper(child: ValueListenableBuilder(valueListenable: _docFilter, builder: (_, filter, __) => DocumentsTab(uid: me.id, docs: _docsService, userService: _userService, filter: filter, onChangeFilter: (v) => _docFilter.value = v))),
+                      KeepAliveWrapper(child: ExperienceSkillsTab(profile: profile, profileService: _profileService)),
+                      KeepAliveWrapper(child: FormationsTab(user: me, userService: _userService)),
+                      KeepAliveWrapper(child: CvTab(user: mergedUser)),
+                      KeepAliveWrapper(child: PaymentsTab(uid: me.id, userService: _userService, user: me)),
+                      KeepAliveWrapper(child: SecurityTab(uid: me.id, user: me, userService: _userService)),
+                    ],
                   ),
-                  
-                  // Bouton Chat Flottant
-                  Positioned(
-                    top: MediaQuery.of(context).padding.top + 12, 
-                    right: 80, 
-                    child: GestureDetector(onTap: () => context.push(AppRoutes.chat), child: _buildGlassButton(Icons.chat_bubble_outline_rounded, () => context.push(AppRoutes.chat)))
-                  ),
-                ],
+                ),
               );
             },
           ),
@@ -308,159 +263,243 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
     );
   }
 
-  // --- Composants UI Modernes ---
+  // --- En-tête Compact et Moderne (Style Facebook / Tout intégré) ---
 
-  Widget _buildModernTopBar(BuildContext context, ThixProfile profile, AppUser me) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _buildGlassButton(Icons.arrow_back_rounded, () => context.go(AppRoutes.home)),
-          Row(
+  Widget _buildCompactHeader(BuildContext context, ThixProfile profile, AppUser me, int score, AppUser authUser) {
+    const double coverHeight = 160.0;
+    const double avatarRadius = 38.0;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // 1. Cover Photo avec dégradé et bouton de chargement de photo de couverture
+        Container(
+          height: coverHeight,
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: NetworkImage('https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1000&auto=format&fit=crop'),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.3),
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.4),
+                ],
+              ),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildGlassButton(Icons.arrow_back_rounded, () => context.go(AppRoutes.home)),
+                    Row(
+                      children: [
+                        // Bouton d'édition fonctionnel
+                        _buildGlassButton(Icons.edit_rounded, () async {
+                          await ProfileEditorSheet.show(context, profile: profile, profileService: _profileService, authUser: authUser);
+                          if (context.mounted) _ctrl.refreshSilently(authUser);
+                        }),
+                        const SizedBox(width: 8),
+                        // Bouton Chat aligné
+                        _buildGlassButton(Icons.chat_bubble_outline_rounded, () => context.push(AppRoutes.chat)),
+                        const SizedBox(width: 8),
+                        // Bouton Paramètres / Déconnexion fonctionnel
+                        _buildGlassButton(Icons.settings_rounded, () => context.push(AppRoutes.settings)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Bouton de chargement de photo background (Couverture) positionné en bas à droite de la cover
+        Positioned(
+          top: coverHeight - 36,
+          right: 16,
+          child: GestureDetector(
+            onTap: () async {
+              // Action pour changer la photo de couverture
+              await ProfileEditorSheet.show(context, profile: profile, profileService: _profileService, authUser: authUser);
+              if (context.mounted) _ctrl.refreshSilently(authUser);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
+                  SizedBox(width: 4),
+                  Text("Modifier couverture", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // 2. Informations du Profil (Avatar superposé)
+        Container(
+          margin: EdgeInsets.only(top: coverHeight - 45),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
             children: [
-              _buildGlassButton(Icons.edit_rounded, () async {
-                await ProfileEditorSheet.show(context, profile: profile, profileService: _profileService, authUser: me);
-                if (context.mounted) _ctrl.refreshSilently(me);
-              }),
-              const SizedBox(width: 12),
-              _buildGlassButton(Icons.settings_rounded, () => context.push(AppRoutes.settings)),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Avatar avec badge score
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                        ),
+                        child: CircleAvatar(
+                          radius: avatarRadius,
+                          backgroundColor: Colors.grey.shade300,
+                          backgroundImage: (me.photoUrl != null && me.photoUrl!.isNotEmpty) 
+                              ? NetworkImage(me.photoUrl!) 
+                              : null,
+                          child: (me.photoUrl == null || me.photoUrl!.isEmpty)
+                              ? const Icon(Icons.person, size: 35, color: Colors.white)
+                              : null,
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF3B82F6),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: Text(
+                            '$score pts',
+                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  me.displayName,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.5,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.verified, size: 16, color: Color(0xFF3B82F6)),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            (me.profession != null && me.profession!.isNotEmpty) ? me.profession! : "Membre Thix ID",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 10),
+
+              // Bio compacte
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  (me.bio != null && me.bio!.isNotEmpty) ? me.bio! : "Aucune biographie pour le moment.",
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                    height: 1.3,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Localisation
+              Row(
+                children: [
+                  Icon(Icons.location_on_outlined, size: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
+                  const SizedBox(width: 4),
+                  Text(
+                    (me.countryOrOrigin != null && me.countryOrOrigin!.isNotEmpty) ? me.countryOrOrigin! : "Non spécifié",
+                    style: TextStyle(fontSize: 11.5, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6)),
+                  ),
+                ],
+              ),
             ],
-          )
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildGlassButton(IconData icon, VoidCallback onTap) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(12),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(16),
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             ),
-            child: Icon(icon, color: Colors.white, size: 22),
+            child: Icon(icon, color: Colors.white, size: 18),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildModernProfileInfo(AppUser user, int score) {
-    final bioText = (user.bio != null && user.bio!.isNotEmpty) ? user.bio! : "Complétez votre biographie...";
-    final locationText = (user.countryOrOrigin != null && user.countryOrOrigin!.isNotEmpty) ? user.countryOrOrigin! : "Localisation inconnue";
-    
-    return Column(
-      children: [
-        const SizedBox(height: 20),
-        // Avatar avec bordure et badge
-        Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.bottomCenter,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFF3B82F6), // Bordure bleue façon image de référence
-              ),
-              child: CircleAvatar(
-                radius: 46,
-                backgroundColor: Colors.grey.shade300,
-                backgroundImage: (user.photoUrl != null && user.photoUrl!.isNotEmpty) 
-                    ? NetworkImage(user.photoUrl!) 
-                    : null,
-                child: (user.photoUrl == null || user.photoUrl!.isEmpty)
-                    ? const Icon(Icons.person, size: 40, color: Colors.white)
-                    : null,
-              ),
-            ),
-            // Petit badge (Score)
-            Positioned(
-              bottom: -6,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: Text(
-                  '$score pts',
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ],
-        ),
-        
-        const SizedBox(height: 16),
-        
-        // Nom propre et élégant
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              user.displayName,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(width: 6),
-            const Icon(Icons.public, size: 16, color: Color(0xFF3B82F6)), // Icône globe
-          ],
-        ),
-        
-        const SizedBox(height: 8),
-        
-        // Petite Bio avec Emoji
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text(
-            "🌙 $bioText",
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13,
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ),
-        
-        const SizedBox(height: 12),
-        
-        // Informations secondaires (Localisation, Profession)
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.location_on_outlined, size: 14, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
-            const SizedBox(width: 4),
-            Text(
-              locationText,
-              style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(width: 16),
-            Icon(Icons.work_outline_rounded, size: 14, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
-            const SizedBox(width: 4),
-            Text(
-              (user.profession != null && user.profession!.isNotEmpty) ? user.profession! : "Profession",
-              style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }
