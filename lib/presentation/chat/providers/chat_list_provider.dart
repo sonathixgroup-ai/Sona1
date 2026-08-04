@@ -1,5 +1,6 @@
 // lib/presentation/chat/chat_list_provider.dart
 import 'dart:async';
+import 'package:flutter/foundation.dart'; // 🌟 AJOUT : Nécessaire pour debugPrint
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/services/chat/chat_service.dart';
@@ -227,6 +228,18 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
     }
 
     state = state.copyWith(filtered: base);
+  }
+
+  // 🌟 AJOUT : Méthode appelée depuis l'interface (chat_list_page)
+  Future<void> markAsRead(String convId) async {
+    debugPrint('Marquer la conversation $convId comme lue');
+    try {
+      // Dé-commentez la ligne ci-dessous si votre ChatService gère déjà cette méthode :
+      // await _chatService.markConversationAsRead(convId);
+      await _refreshCounts();
+    } catch (e) {
+      debugPrint('❌ Erreur markAsRead: $e');
+    }
   }
 
   Future<void> refresh() => loadInitial();
