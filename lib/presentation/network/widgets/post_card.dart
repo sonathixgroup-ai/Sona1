@@ -137,7 +137,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
     return spans;
   }
 
-  // 🌟 NOUVEAU : Analyse de la couleur Hexadécimale
+  // 🌟 Analyse de la couleur Hexadécimale
   Color? _parseColor(String? hexColor) {
     if (hexColor == null || hexColor.isEmpty) return null;
     final hexCode = hexColor.replaceAll('#', '');
@@ -149,7 +149,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
     return null;
   }
 
-  // 🌟 NOUVEAU : Construction du bloc de texte avec ou sans Fond de Couleur
+  // 🌟 Construction du bloc de texte avec ou sans Fond de Couleur
   Widget _buildPostContent(NetworkPost post) {
     if (post.content.isEmpty) return const SizedBox.shrink();
     
@@ -235,7 +235,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
     if (options.isEmpty) return const SizedBox.shrink(); int totalVotes = 0; for (var opt in options) totalVotes += ((opt['votes'] as List?)?.length?? 0);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: options.asMap().entries.map((entry) {
       final index = entry.key; final opt = entry.value; final text = opt['text']?? ''; final voters = (opt['votes'] as List?)?? []; final double percentage = totalVotes > 0? voters.length / totalVotes : 0.0;
-      return Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: InkWell(onTap: () async { try { await ref.read(networkServiceProvider).votePoll(post.id, index); widget.onRefresh?.call(); } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur vote: $e'), backgroundColor: _PostColors.red)); } }, borderRadius: BorderRadius.circular(14), child: Container(padding: const EdgeInsets.all(13), decoration: BoxDecoration(color: _PostColors.background, borderRadius: BorderRadius.circular(14), border: Border.all(color: _PostColors.border)), child: Stack(children: [Positioned.fill(child: FractionallySizedBox(alignment: Alignment.centerLeft, widthFactor: percentage, child: Container(decoration: BoxDecoration(gradient: LinearGradient(colors: [_PostColors.primary.withValues(alpha: 0.16), _PostColors.gold.withValues(alpha: 0.12)]), borderRadius: BorderRadius.circular(10))))), Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text(text, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _PostColors.textDark))), Text('${(percentage * 100).toStringAsFixed(0)}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _PostColors.primaryDeep))])]))));
+      return Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: InkWell(onTap: () async { try { await ref.read(networkServiceProvider).votePoll(post.id, index); if (!mounted) return; widget.onRefresh?.call(); } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur vote: $e'), backgroundColor: _PostColors.red)); } }, borderRadius: BorderRadius.circular(14), child: Container(padding: const EdgeInsets.all(13), decoration: BoxDecoration(color: _PostColors.background, borderRadius: BorderRadius.circular(14), border: Border.all(color: _PostColors.border)), child: Stack(children: [Positioned.fill(child: FractionallySizedBox(alignment: Alignment.centerLeft, widthFactor: percentage, child: Container(decoration: BoxDecoration(gradient: LinearGradient(colors: [_PostColors.primary.withValues(alpha: 0.16), _PostColors.gold.withValues(alpha: 0.12)]), borderRadius: BorderRadius.circular(10))))), Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text(text, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _PostColors.textDark))), Text('${(percentage * 100).toStringAsFixed(0)}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _PostColors.primaryDeep))])]))));
     }).toList());
   }
 
@@ -278,8 +278,6 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
         final likesCount = ref.watch(postItemProvider.select((p) => p.likesCount));
         final isOwner = widget.currentProfileId == post.userId;
 
-        // Carte élevée à coins arrondis — cohérente avec la barre de post et
-        // le carrousel de suggestions du fil (network_pro_home.dart).
         return Container(
           margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           decoration: BoxDecoration(
@@ -308,18 +306,84 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
                   Expanded(child: GestureDetector(onTap: () => context.push('/network/profile/${post.userId}'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: _PostColors.textDark), maxLines: 1, overflow: TextOverflow.ellipsis), if (post.authorTitle!= null && post.authorTitle!.isNotEmpty) Text(post.authorTitle!, style: const TextStyle(fontSize: 10.5, color: _PostColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis), Row(children: [Text(_getTimeAgo(post.createdAt), style: const TextStyle(fontSize: 10, color: _PostColors.textSecondary, fontWeight: FontWeight.w600)), const SizedBox(width: 4), const Icon(Icons.public_rounded, size: 11, color: _PostColors.textSecondary)])]))),
                   Container(
                     decoration: const BoxDecoration(color: _PostColors.softBlue, shape: BoxShape.circle),
-                    child: PopupMenuButton<String>(icon: const Icon(Icons.more_vert_rounded, size: 18, color: _PostColors.primaryDeep), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), onSelected: (v) async {
-                      switch(v){
-                        case 'edit': _editPost(post, ref); break;
-                        case 'pin': await ref.read(networkServiceProvider).pinPost(post.id); widget.onPin?.call(); break;
-                        case 'delete': final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Supprimer?'), actions: [TextButton(onPressed: ()=>Navigator.pop(context,false), child: const Text('Annuler')), TextButton(onPressed: ()=>Navigator.pop(context,true), child: const Text('Supprimer'))])); if(ok==true){ await ref.read(networkServiceProvider).deletePost(post.id); widget.onDelete?.call(); widget.onRefresh?.call(); } break;
-                        case 'save': await ref.read(postItemProvider.notifier).toggleSave(); widget.onSave?.call(); break;
-                        case 'repost': _repost(post, ref); break;
-                        case 'hide': await ref.read(networkServiceProvider).hidePost(post.id); widget.onRefresh?.call(); break;
-                        case 'report': _reportPost(post, ref); break;
-                        case 'share': widget.onShare?.call(); break;
-                      }
-                    }, itemBuilder: (_) => [if(isOwner)...[const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_rounded, size: 18, color: _PostColors.primary), SizedBox(width: 8), Text('Modifier')])), const PopupMenuItem(value: 'pin', child: Row(children: [Icon(Icons.push_pin_rounded, size: 18, color: _PostColors.gold), SizedBox(width: 8), Text('Épingler')])), const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_rounded, size: 18, color: _PostColors.red), SizedBox(width: 8), Text('Supprimer', style: TextStyle(color: _PostColors.red))]))], const PopupMenuItem(value: 'save', child: Row(children: [Icon(Icons.bookmark_border_rounded, size: 18, color: _PostColors.primaryDeep), SizedBox(width: 8), Text('Sauvegarder')])), const PopupMenuItem(value: 'repost', child: Row(children: [Icon(Icons.repeat_rounded, size: 18), SizedBox(width: 8), Text('Reposter')])), const PopupMenuItem(value: 'hide', child: Row(children: [Icon(Icons.visibility_off_rounded, size: 18), SizedBox(width: 8), Text('Masquer')])), const PopupMenuItem(value: 'report', child: Row(children: [Icon(Icons.flag_rounded, size: 18, color: Colors.orange), SizedBox(width: 8), Text('Signaler')])), const PopupMenuItem(value: 'share', child: Row(children: [Icon(Icons.share_rounded, size: 18), SizedBox(width: 8), Text('Partager')]))]),
+                    child: PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert_rounded, size: 18, color: _PostColors.primaryDeep),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      onSelected: (v) async {
+                        switch(v){
+                          case 'edit': 
+                            _editPost(post, ref); 
+                            break;
+                          case 'pin': 
+                            try {
+                              await ref.read(networkServiceProvider).pinPost(post.id); 
+                              if (!mounted) return; 
+                              widget.onPin?.call(); 
+                            } catch (e) {
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red));
+                            }
+                            break;
+                          case 'delete': 
+                            final ok = await showDialog<bool>(
+                              context: context, 
+                              builder: (_) => AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), 
+                                title: const Text('Supprimer?'), 
+                                actions: [
+                                  TextButton(onPressed: ()=>Navigator.pop(context,false), child: const Text('Annuler')), 
+                                  TextButton(onPressed: ()=>Navigator.pop(context,true), child: const Text('Supprimer', style: TextStyle(color: _PostColors.red)))
+                                ]
+                              )
+                            ); 
+                            if(ok == true){ 
+                              try {
+                                await ref.read(networkServiceProvider).deletePost(post.id); 
+                                if (!mounted) return; // 🛑 LA CORRECTION DU CRASH
+                                widget.onDelete?.call(); 
+                                widget.onRefresh?.call(); 
+                              } catch(e) {
+                                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red));
+                              }
+                            } 
+                            break;
+                          case 'save': 
+                            await ref.read(postItemProvider.notifier).toggleSave(); 
+                            if (!mounted) return;
+                            widget.onSave?.call(); 
+                            break;
+                          case 'repost': 
+                            _repost(post, ref); 
+                            break;
+                          case 'hide': 
+                            try {
+                              await ref.read(networkServiceProvider).hidePost(post.id); 
+                              if (!mounted) return;
+                              widget.onRefresh?.call(); 
+                            } catch (e) {
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red));
+                            }
+                            break;
+                          case 'report': 
+                            _reportPost(post, ref); 
+                            break;
+                          case 'share': 
+                            widget.onShare?.call(); 
+                            break;
+                        }
+                      }, 
+                      itemBuilder: (_) => [
+                        if(isOwner)...[
+                          const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_rounded, size: 18, color: _PostColors.primary), SizedBox(width: 8), Text('Modifier')])), 
+                          const PopupMenuItem(value: 'pin', child: Row(children: [Icon(Icons.push_pin_rounded, size: 18, color: _PostColors.gold), SizedBox(width: 8), Text('Épingler')])), 
+                          const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_rounded, size: 18, color: _PostColors.red), SizedBox(width: 8), Text('Supprimer', style: TextStyle(color: _PostColors.red))]))
+                        ], 
+                        const PopupMenuItem(value: 'save', child: Row(children: [Icon(Icons.bookmark_border_rounded, size: 18, color: _PostColors.primaryDeep), SizedBox(width: 8), Text('Sauvegarder')])), 
+                        const PopupMenuItem(value: 'repost', child: Row(children: [Icon(Icons.repeat_rounded, size: 18), SizedBox(width: 8), Text('Reposter')])), 
+                        const PopupMenuItem(value: 'hide', child: Row(children: [Icon(Icons.visibility_off_rounded, size: 18), SizedBox(width: 8), Text('Masquer')])), 
+                        const PopupMenuItem(value: 'report', child: Row(children: [Icon(Icons.flag_rounded, size: 18, color: Colors.orange), SizedBox(width: 8), Text('Signaler')])), 
+                        const PopupMenuItem(value: 'share', child: Row(children: [Icon(Icons.share_rounded, size: 18), SizedBox(width: 8), Text('Partager')]))
+                      ]
+                    ),
                   ),
                 ]),
                 const SizedBox(height: 13),
@@ -359,20 +423,45 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
     final result = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Reposter'), content: TextField(controller: _quoteController, decoration: InputDecoration(hintText: 'Ajouter un commentaire (optionnel)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(14))), maxLines: 3), actions: [TextButton(onPressed: ()=>Navigator.pop(ctx,false), child: const Text('Annuler')), ElevatedButton(onPressed: ()=>Navigator.pop(ctx,true), style: ElevatedButton.styleFrom(backgroundColor: _PostColors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), child: const Text('Reposter'))]));
     if (result!=true) return;
     setState(()=>_isReposting=true);
-    try { await ref.read(networkServiceProvider).repost(post.id, _quoteController.text); ref.read(postItemProvider.notifier).incRepost(); if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Post reposté'), backgroundColor: _PostColors.green)); widget.onRefresh?.call(); } catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red)); } finally { if(mounted) setState(()=>_isReposting=false); _quoteController.clear(); }
+    try { 
+      await ref.read(networkServiceProvider).repost(post.id, _quoteController.text); 
+      if (!mounted) return;
+      ref.read(postItemProvider.notifier).incRepost(); 
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Post reposté'), backgroundColor: _PostColors.green)); 
+      widget.onRefresh?.call(); 
+    } catch(e){ 
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red)); 
+    } finally { 
+      if(mounted) setState(()=>_isReposting=false); 
+      _quoteController.clear(); 
+    }
   }
 
   Future<void> _editPost(NetworkPost post, WidgetRef ref) async {
     final controller = TextEditingController(text: post.content);
     final newContent = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Modifier'), content: TextField(controller: controller, maxLines: 5, decoration: InputDecoration(hintText: 'Modifiez...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)))), actions: [TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text('Annuler')), ElevatedButton(onPressed: ()=>Navigator.pop(ctx, controller.text), style: ElevatedButton.styleFrom(backgroundColor: _PostColors.primary), child: const Text('Enregistrer'))]));
     if (newContent==null||newContent==post.content) return;
-    try { await ref.read(networkServiceProvider).updatePost(post.id, newContent); ref.read(postItemProvider.notifier).updateContent(newContent); setState((){ _disposeRecognizers(); _isExpanded=false; _cacheParsedContent(); }); widget.onEdit?.call(); widget.onRefresh?.call(); } catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red)); }
+    try { 
+      await ref.read(networkServiceProvider).updatePost(post.id, newContent); 
+      if (!mounted) return;
+      ref.read(postItemProvider.notifier).updateContent(newContent); 
+      setState((){ _disposeRecognizers(); _isExpanded=false; _cacheParsedContent(); }); 
+      widget.onEdit?.call(); 
+      widget.onRefresh?.call(); 
+    } catch(e){ 
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red)); 
+    }
   }
 
   Future<void> _reportPost(NetworkPost post, WidgetRef ref) async {
     final reason = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Signaler'), content: Column(mainAxisSize: MainAxisSize.min, children: [ListTile(leading: const Icon(Icons.warning, color: Colors.orange), title: const Text('Spam'), onTap: ()=>Navigator.pop(ctx,'Spam')), ListTile(leading: const Icon(Icons.block, color: _PostColors.red), title: const Text('Contenu inapproprié'), onTap: ()=>Navigator.pop(ctx,'Contenu inapproprié')), ListTile(leading: const Icon(Icons.person_off, color: Colors.purple), title: const Text('Harcèlement'), onTap: ()=>Navigator.pop(ctx,'Harcèlement')), ListTile(leading: const Icon(Icons.info_outline, color: _PostColors.primary), title: const Text('Fausse information'), onTap: ()=>Navigator.pop(ctx,'Fausse information'))])));
     if (reason==null) return;
-    try { await ref.read(networkServiceProvider).reportPost(post.id, reason); if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Publication signalée'), backgroundColor: Colors.orange)); } catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red)); }
+    try { 
+      await ref.read(networkServiceProvider).reportPost(post.id, reason); 
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Publication signalée'), backgroundColor: Colors.orange)); 
+    } catch(e){ 
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red)); 
+    }
   }
 }
 
