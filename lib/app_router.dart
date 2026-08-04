@@ -14,7 +14,6 @@ import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/presentation/thix_media/create_post_page.dart';
 import 'package:thix_id/presentation/thix_media/user_profile_page.dart';
 
-
 import 'package:thix_id/presentation/home/home_page.dart';
 import 'package:thix_id/presentation/auth/login_page.dart';
 import 'presentation/auth/personal_registration_page.dart';
@@ -246,6 +245,7 @@ import 'presentation/admin/admin_home_page.dart' as thix_admin;
 import 'presentation/admin/admin_articles_list_page.dart' as thix_admin_list;
 import 'presentation/admin/admin_article_form_page.dart' as thix_admin_form;
 import 'package:thix_id/presentation/thix_ia/thix_ia_screen.dart';
+import 'presentation/thix_weeding/thix_weeding_routes.dart';
 
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
@@ -284,7 +284,7 @@ class AppRouter {
               loc == AppRoutes.jobs || loc == AppRoutes.opportunities || loc == AppRoutes.education ||
               loc == AppRoutes.trainingHome || loc.startsWith('${AppRoutes.trainingDetailsBasePath}/') ||
               loc == AppRoutes.monPays || loc.startsWith('${AppRoutes.monPays}/') ||
-              loc.startsWith('/thix-event') || loc.startsWith('/thix-urgent') ||
+              loc.startsWith('/thix-event') || loc.startsWith('/thix-urgent') || loc.startsWith('/thix-weeding') ||
               loc.startsWith('/thix-reservation/delivery') || isAuthPage;
 
           final logged = auth.isAuthenticated;
@@ -313,25 +313,13 @@ class AppRouter {
         }),
         GoRoute(path: AppRoutes.publicProfile, name: 'publicProfile', pageBuilder: (_, state) => NoTransitionPage(child: public_profile.PublicProfilePage(initialThixId: state.uri.queryParameters['thixId']))),
         
-        // =====================================================
-        // FILETS DE SÉCURITÉ : Redirigent les anciens liens erronés
-        // =====================================================
         GoRoute(path: '/user/dashboard', redirect: (_, __) => AppRoutes.userDashboard),
         GoRoute(path: '/user-dashboard', redirect: (_, __) => AppRoutes.userDashboard),
 
-        // =====================================================
-        // SHELL PRINCIPAL : 4 branches avec piles de navigation
-        // indépendantes (état conservé à la sortie/retour).
-        //   0 → Accueil  (/)
-        //   1 → Pro      (/network + sous-routes)
-        //   2 → Chat     (/chat + sous-routes)
-        //   3 → Profil   (/dashboard)
-        // =====================================================
         StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) =>
               MainAppShell(navigationShell: navigationShell),
           branches: [
-            // ── Branche 0 : Accueil ──────────────────────────────
             StatefulShellBranch(routes: [
               GoRoute(
                 path: AppRoutes.home,
@@ -339,8 +327,6 @@ class AppRouter {
                 pageBuilder: (_, __) => const NoTransitionPage(child: HomePagePremium()),
               ),
             ]),
-
-            // ── Branche 1 : Réseau Pro ───────────────────────────
             StatefulShellBranch(routes: [
               GoRoute(
                 path: AppRoutes.network,
@@ -372,8 +358,6 @@ class AppRouter {
                 ],
               ),
             ]),
-
-            // ── Branche 2 : Chat ─────────────────────────────────
             StatefulShellBranch(routes: [
               GoRoute(
                 path: AppRoutes.chat,
@@ -411,7 +395,6 @@ class AppRouter {
                     return NoTransitionPage(child: EscalationDashboardPage(agentId: agentId, agentLevel: level));
                   }),
                   GoRoute(path: 'escalation/received', name: 'chatEscalationReceived', pageBuilder: (context, state) => const NoTransitionPage(child: ReceivedEscalationsPage())),
-                  // :conversationId doit être en dernier pour ne pas masquer les routes littérales ci-dessus
                   GoRoute(path: ':conversationId', name: 'chat_conversation', pageBuilder: (_, state) {
                     final convId = state.pathParameters['conversationId']!;
                     final conv = (state.extra as ChatConversation?) ?? ChatConversation(id: convId, isGroup: false, participantIds: [], updatedAt: DateTime.now());
@@ -420,8 +403,6 @@ class AppRouter {
                 ],
               ),
             ]),
-
-            // ── Branche 3 : Profil / Dashboard ───────────────────
             StatefulShellBranch(routes: [
               GoRoute(
                 path: AppRoutes.userDashboard,
@@ -432,13 +413,7 @@ class AppRouter {
           ],
         ),
 
-        // ── Routes hors du shell ──────────────────────────────────
-        // Ces routes se superposent au shell (push). En appuyant sur
-        // « retour », l'utilisateur revient au shell exactement là où
-        // il l'avait quitté (branche et page préservées).
-
         GoRoute(path: '/connections', name: 'connections', pageBuilder: (context, state) => const NoTransitionPage(child: ConnectionsPage())),
-        // Appels entrants / sortants (plein écran, sans barre de nav)
         GoRoute(path: AppRoutes.callIncoming, name: AppRoutes.callIncomingName, builder: (c, s) => IncomingCallPage(invite: s.extra as CallInvite)),
         GoRoute(path: AppRoutes.callOngoing, name: AppRoutes.callOngoingName, builder: (c, s) { final e = s.extra as Map<String, dynamic>; return CallPage(channel: e['channel'], name: e['name'], type: e['type'] == 'video' ? CallType.video : CallType.audio, inviteId: e['inviteId'], isCaller: e['isCaller'] ?? true, avatarUrl: e['avatarUrl']); }),
         GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => const NoTransitionPage(child: DocumentVaultPage())),
@@ -489,23 +464,11 @@ class AppRouter {
         ...educationRoutes,
         ...instructorRoutes,
         ...ThixMoneyRouter.routes,
-                // Route pour créer une publication dans le Fil
-        GoRoute(
-          path: '/create-post',
-          name: 'createPost',
-          pageBuilder: (_, __) => const NoTransitionPage(child: CreatePostPage()),
-        ),
-
-        // Route dynamique pour voir le profil d'un utilisateur et gérer le Follow/Unfollow
-        GoRoute(
-          path: '/profile/:userId',
-          name: 'userProfileRoute',
-          pageBuilder: (_, state) {
-            final userId = state.pathParameters['userId']!;
-            return NoTransitionPage(child: UserProfilePage(userId: userId));
-          },
-        ),
-
+        GoRoute(path: '/create-post', name: 'createPost', pageBuilder: (_, __) => const NoTransitionPage(child: CreatePostPage())),
+        GoRoute(path: '/profile/:userId', name: 'userProfileRoute', pageBuilder: (_, state) {
+          final userId = state.pathParameters['userId']!;
+          return NoTransitionPage(child: UserProfilePage(userId: userId));
+        }),
         GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => const NoTransitionPage(child: ThixInfoHome())),
         GoRoute(path: AppRoutes.thixInfoArticle, name: 'thixInfoArticle', pageBuilder: (_, state) => NoTransitionPage(child: thixInfoArticle.ArticleDetailPage(articleId: state.pathParameters['articleId']!))),
         GoRoute(path: AppRoutes.thixInfoSearch, name: 'thixInfoSearch', pageBuilder: (_, __) => const NoTransitionPage(child: infoSearch.SearchPage())),
@@ -581,11 +544,7 @@ class AppRouter {
           GoRoute(path: 'live/:liveId/replay', name: 'marketLiveReplay', pageBuilder: (_, state) => NoTransitionPage(child: LiveReplayPage(liveId: state.pathParameters['liveId']!))),
           GoRoute(path: 'live/:liveId', name: 'marketLiveStream', pageBuilder: (_, state) => NoTransitionPage(child: LiveStreamPage(liveId: state.pathParameters['liveId']!))),
           GoRoute(path: 'chat/:conversationId', name: 'marketChat', pageBuilder: (_, state) => NoTransitionPage(child: ChatPage(conversationId: state.pathParameters['conversationId']!))),
-        GoRoute(
-  path: 'vendor/orders',
-  name: 'vendorOrders',
-  pageBuilder: (_, __) => const NoTransitionPage(child: VendorOrdersPage()),
-),
+          GoRoute(path: 'vendor/orders', name: 'vendorOrders', pageBuilder: (_, __) => const NoTransitionPage(child: VendorOrdersPage())),
           GoRoute(path: 'shop/:shopId', name: 'marketShopDetail', pageBuilder: (_, state) => NoTransitionPage(child: ShopDetailPage(shopId: state.pathParameters['shopId']!))),
           GoRoute(path: 'messages', name: 'marketMessages', pageBuilder: (_, __) => const NoTransitionPage(child: MessagesPage())),
           GoRoute(path: 'notifications', name: 'marketNotifications', pageBuilder: (_, __) => const NoTransitionPage(child: NotificationPage())),
@@ -620,6 +579,10 @@ class AppRouter {
           GoRoute(path: 'admin/provinces', name: 'monPaysAdminProvinces', pageBuilder: (_, __) => const NoTransitionPage(child: AdminProvincesPage())),
           GoRoute(path: 'admin/provinces/form', name: 'monPaysAdminProvinceForm', pageBuilder: (_, state) => NoTransitionPage(child: AdminProvinceFormPage(province: state.extra as Province?))),
         ]),
+
+        // --- THIX WEEDING MODULE COMPLET ---
+        ...ThixWeedingRoutes.routes,
+
         GoRoute(path: '${AppRoutes.admin}/:module', name: 'admin', pageBuilder: (_, state) => NoTransitionPage(child: AdminPage(module: AdminModuleX.fromSlug(state.pathParameters['module'])))),
         GoRoute(path: AppRoutes.admin, name: 'adminRoot', redirect: (_, __) => '${AppRoutes.admin}/${AdminModule.overview.slug}'),
       ],
