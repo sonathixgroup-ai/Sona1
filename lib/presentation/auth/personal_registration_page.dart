@@ -11,8 +11,9 @@ import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/theme.dart';
 import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
+
 // ============================================================================
-// THIX ID — GÉNÉRATION & VALIDATION
+// THIX ID — GÉNÉRATION & VALIDATION (Logique Intacte)
 // ============================================================================
 class ThixIdGenerator {
   static const _alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -59,16 +60,23 @@ class ThixIdValidator {
 }
 
 // ============================================================================
-// DESIGN — champs compacts façon app native
+// DESIGN SYSTEM — Enterprise Level
 // ============================================================================
-class _FormColors {
-  static const Color navy = Color(0xFF0A3D62);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color border = Color(0xFFE5E7EB);
-  static const Color fieldBg = Color(0xFFFFFFFF);
+class _AppColors {
+  static const Color primary = Color(0xFF0A3D62);
+  static const Color primaryLight = Color(0xFF1A5A8C);
+  static const Color accent = Color(0xFFF8961E);
+  static const Color accentLight = Color(0xFFF9C74F);
+  static const Color background = Color(0xFFF8FAFC);
+  static const Color surface = Colors.white;
+  static const Color textDark = Color(0xFF1E293B);
+  static const Color textMuted = Color(0xFF64748B);
+  static const Color border = Color(0xFFE2E8F0);
+  static const Color success = Color(0xFF10B981);
+  static const Color successBg = Color(0xFFD1FAE5);
 }
 
-class _CompactField extends StatefulWidget {
+class _PremiumField extends StatefulWidget {
   final String label;
   final String hint;
   final IconData icon;
@@ -79,7 +87,7 @@ class _CompactField extends StatefulWidget {
   final VoidCallback? onTap;
   final Widget? trailing;
 
-  const _CompactField({
+  const _PremiumField({
     required this.label,
     this.hint = '',
     required this.icon,
@@ -92,10 +100,10 @@ class _CompactField extends StatefulWidget {
   });
 
   @override
-  State<_CompactField> createState() => _CompactFieldState();
+  State<_PremiumField> createState() => _PremiumFieldState();
 }
 
-class _CompactFieldState extends State<_CompactField> {
+class _PremiumFieldState extends State<_PremiumField> {
   late bool _obscured = widget.isPassword;
 
   @override
@@ -103,39 +111,33 @@ class _CompactFieldState extends State<_CompactField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(widget.label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: _FormColors.navy)),
-        const SizedBox(height: 6),
-        Container(
-          height: 48,
-          decoration: BoxDecoration(
-            color: _FormColors.fieldBg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _FormColors.border),
-          ),
-          child: TextField(
-            controller: widget.controller,
-            obscureText: _obscured,
-            keyboardType: widget.keyboardType,
-            readOnly: widget.readOnly,
-            onTap: widget.onTap,
-            style: const TextStyle(fontSize: 13.5, color: _FormColors.navy),
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: widget.hint,
-              hintStyle: const TextStyle(fontSize: 13, color: _FormColors.textSecondary),
-              prefixIcon: Icon(widget.icon, size: 17, color: _FormColors.textSecondary),
-              prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 20),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              suffixIcon: widget.trailing ??
-                  (widget.isPassword
-                      ? IconButton(
-                          splashRadius: 16,
-                          icon: Icon(_obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 16, color: _FormColors.textSecondary),
-                          onPressed: () => setState(() => _obscured = !_obscured),
-                        )
-                      : null),
-            ),
+        Text(widget.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _AppColors.textDark)),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: widget.controller,
+          obscureText: _obscured,
+          keyboardType: widget.keyboardType,
+          readOnly: widget.readOnly,
+          onTap: widget.onTap,
+          style: const TextStyle(fontSize: 14, color: _AppColors.textDark, fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            hintText: widget.hint,
+            hintStyle: const TextStyle(color: _AppColors.textMuted, fontWeight: FontWeight.w400),
+            prefixIcon: Icon(widget.icon, size: 20, color: _AppColors.textMuted),
+            suffixIcon: widget.trailing ??
+                (widget.isPassword
+                    ? IconButton(
+                        splashRadius: 20,
+                        icon: Icon(_obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 20, color: _AppColors.textMuted),
+                        onPressed: () => setState(() => _obscured = !_obscured),
+                      )
+                    : null),
+            filled: true,
+            fillColor: _AppColors.surface,
+            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.primary, width: 1.5)),
           ),
         ),
       ],
@@ -143,14 +145,14 @@ class _CompactFieldState extends State<_CompactField> {
   }
 }
 
-class _CompactDropdown extends StatelessWidget {
+class _PremiumDropdown extends StatelessWidget {
   final String label;
   final IconData icon;
   final String? value;
   final List<String> items;
   final ValueChanged<String?> onChanged;
 
-  const _CompactDropdown({
+  const _PremiumDropdown({
     required this.label,
     required this.icon,
     required this.value,
@@ -163,36 +165,24 @@ class _CompactDropdown extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: _FormColors.navy)),
-        const SizedBox(height: 6),
-        Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: _FormColors.fieldBg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _FormColors.border),
+        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _AppColors.textDark)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: value,
+          icon: const Icon(Icons.expand_more_rounded, size: 20, color: _AppColors.textMuted),
+          style: const TextStyle(fontSize: 14, color: _AppColors.textDark, fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, size: 20, color: _AppColors.textMuted),
+            filled: true,
+            fillColor: _AppColors.surface,
+            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.primary, width: 1.5)),
           ),
-          child: Row(
-            children: [
-              Icon(icon, size: 17, color: _FormColors.textSecondary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: value,
-                    isExpanded: true,
-                    isDense: true,
-                    icon: const Icon(Icons.expand_more_rounded, size: 18, color: _FormColors.textSecondary),
-                    style: const TextStyle(fontSize: 13.5, color: _FormColors.navy),
-                    hint: const Text('Sélectionner', style: TextStyle(fontSize: 13, color: _FormColors.textSecondary)),
-                    items: items.map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis))).toList(),
-                    onChanged: onChanged,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          hint: const Text('Sélectionner', style: TextStyle(color: _AppColors.textMuted, fontWeight: FontWeight.w400)),
+          items: items.map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis))).toList(),
+          onChanged: onChanged,
         ),
       ],
     );
@@ -226,7 +216,6 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
   final _thixChatC = TextEditingController();
 
   String _thixIdGenerated = '';
-  String _uid = '';
   
   bool _otpSent = false;
   bool _isNavigating = false;
@@ -254,9 +243,11 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
-        backgroundColor: isError ? Colors.red.shade600 : null,
-        duration: const Duration(seconds: 5),
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w500)),
+        backgroundColor: isError ? Colors.red.shade700 : _AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -265,21 +256,11 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     debugPrint('[PersonalRegistration] erreur brute: $e');
     final msg = e.toString().toLowerCase();
 
-    if (msg.contains('already registered') || msg.contains('already exists')) {
-      return 'Un compte existe déjà avec cet email.';
-    }
-    if (msg.contains('invalid login') || msg.contains('invalid credentials')) {
-      return 'Email ou mot de passe incorrect.';
-    }
-    if (msg.contains('token') && (msg.contains('expired') || msg.contains('invalid'))) {
-      return 'Le code saisi est invalide ou a expiré. Demandez un nouveau code.';
-    }
-    if (msg.contains('rate limit') || msg.contains('too many')) {
-      return 'Trop de tentatives. Merci de patienter quelques instants.';
-    }
-    if (msg.contains('23505')) {
-      return 'Ce THIX CHAT est déjà pris, merci d\'en choisir un autre.';
-    }
+    if (msg.contains('already registered') || msg.contains('already exists')) return 'Un compte existe déjà avec cet email.';
+    if (msg.contains('invalid login') || msg.contains('invalid credentials')) return 'Email ou mot de passe incorrect.';
+    if (msg.contains('token') && (msg.contains('expired') || msg.contains('invalid'))) return 'Le code saisi est invalide ou a expiré. Demandez un nouveau code.';
+    if (msg.contains('rate limit') || msg.contains('too many')) return 'Trop de tentatives. Merci de patienter quelques instants.';
+    if (msg.contains('23505')) return 'Ce THIX CHAT est déjà pris, merci d\'en choisir un autre.';
     return 'Erreur exacte : $e';
   }
 
@@ -287,9 +268,7 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
 
   String? _passwordIssue(String pass) {
     if (pass.length < 8) return 'Le mot de passe doit contenir au moins 8 caractères.';
-    if (!RegExp(r'[A-Za-z]').hasMatch(pass) || !RegExp(r'[0-9]').hasMatch(pass)) {
-      return 'Le mot de passe doit contenir au moins une lettre et un chiffre.';
-    }
+    if (!RegExp(r'[A-Za-z]').hasMatch(pass) || !RegExp(r'[0-9]').hasMatch(pass)) return 'Le mot de passe doit contenir au moins une lettre et un chiffre.';
     return null;
   }
 
@@ -400,7 +379,6 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
 
       final claimed = await _userService.ensureThixChat(uid: me.id, desired: desiredChat);
 
-      // --- NOUVELLE LOGIQUE SCALABLE RPC ---
       final countryCode = ThixIdGenerator._countryCode(_country);
       final officialThixId = await Supabase.instance.client.rpc('generate_thix_id', params: {'country_code': countryCode}) as String;
 
@@ -410,16 +388,14 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
         thixChat: claimed,
         registrationStatus: 'active',
       );
-      // -------------------------------------
 
       if (mounted) {
         setState(() {
           _thixIdGenerated = officialThixId;
-          _uid = me.id;
           _thixChatC.text = claimed;
           _step = 3;
         });
-        _snack('Email vérifié avec succès !');
+        _snack('Compte activé avec succès !');
       }
     } catch (e) {
       _snack(_userFacingError(e), isError: true);
@@ -428,70 +404,91 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
 
   @override
   Widget build(BuildContext context) {
-    // Écoute de l'état de chargement Riverpod
     final isLoading = ref.watch(authControllerProvider).isLoading;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: _AppColors.background,
       body: SafeArea(
+        top: false,
         child: Stack(
           children: [
+            // Header Gradient
             Positioned(
-              top: 0, left: 0, right: 0, height: 160,
+              top: 0, left: 0, right: 0, height: 260,
               child: Container(
+                padding: const EdgeInsets.only(top: 60),
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0A3D62), Color(0xFF1A5A8C)]),
+                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_AppColors.primary, _AppColors.primaryLight]),
                 ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('THIX ID', style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: LightModeColors.accent, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 4),
-                      Text(
-                        _step == 1 ? 'Étape 1/2 : Votre profil' : _step == 2 ? 'Étape 2/2 : Création du compte' : 'Inscription terminée',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                      ),
-                    ],
-                  ),
+                child: Column(
+                  children: [
+                    Text('THIX ID', style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: _AppColors.accentLight, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+                    const SizedBox(height: 16),
+                    _buildStepper(),
+                  ],
                 ),
               ),
             ),
-            SingleChildScrollView(
-              padding: const EdgeInsets.only(top: 130, bottom: 40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 16),
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      color: Colors.white, borderRadius: BorderRadius.circular(24),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 20, offset: const Offset(0, 8))],
+            // Scrollable Content
+            Positioned.fill(
+              top: 160,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Main Card
+                    Container(
+                      padding: const EdgeInsets.all(28),
+                      decoration: BoxDecoration(
+                        color: _AppColors.surface, 
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 24, offset: const Offset(0, 8))],
+                      ),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 400), 
+                        switchInCurve: Curves.easeOutCubic, 
+                        switchOutCurve: Curves.easeInCubic,
+                        child: KeyedSubtree(key: ValueKey(_step), child: _buildStepContent(isLoading)),
+                      ),
                     ),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 400), switchInCurve: Curves.easeOutCubic, switchOutCurve: Curves.easeInCubic,
-                      child: KeyedSubtree(key: ValueKey(_step), child: _buildStepContent(isLoading)),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildMainButton(isLoading),
-                  const SizedBox(height: 16),
-                  if (_step < 3)
-                    TextButton(
-                      onPressed: () {
-                        if (_step == 2) setState(() => _step = 1);
-                        else context.go(AppRoutes.login);
-                      },
-                      child: Text(_step == 2 ? 'Revenir à l\'étape 1' : 'Déjà un compte ? Se connecter'),
-                    ),
-                ],
+                    const SizedBox(height: 24),
+                    _buildMainButton(isLoading),
+                    const SizedBox(height: 16),
+                    if (_step < 3)
+                      TextButton(
+                        onPressed: () {
+                          if (_step == 2) setState(() => _step = 1);
+                          else context.go(AppRoutes.login);
+                        },
+                        style: TextButton.styleFrom(foregroundColor: _AppColors.textMuted),
+                        child: Text(
+                          _step == 2 ? '← Revenir à l\'étape 1' : 'Déjà un compte ? Se connecter', 
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)
+                        ),
+                      ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStepper() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _StepDot(isActive: true, isDone: _step > 1),
+        _StepLine(isActive: _step > 1),
+        _StepDot(isActive: _step >= 2, isDone: _step > 2),
+        _StepLine(isActive: _step > 2),
+        _StepDot(isActive: _step == 3, isDone: _step == 3, isFinal: true),
+      ],
     );
   }
 
@@ -510,7 +507,15 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
           isOtpSent: _otpSent, isLoading: isLoading, resendCooldown: _resendCooldown,
         );
       case 3:
-        return _Step3Final(thixId: _thixIdGenerated, thixChat: _thixChatC.text, uid: _uid);
+        return _Step3Final(
+          thixId: _thixIdGenerated, 
+          thixChat: _thixChatC.text,
+          name: _nameC.text,
+          email: _emailC.text,
+          dob: _dobC.text,
+          country: _country ?? '',
+          occupation: _occupationC.text,
+        );
       default:
         return const SizedBox.shrink();
     }
@@ -525,7 +530,7 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
       firstDate: DateTime(now.year - 110),
       lastDate: DateTime(now.year - 10),
       builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(colorScheme: Theme.of(context).colorScheme.copyWith(primary: LightModeColors.accent)),
+        data: Theme.of(context).copyWith(colorScheme: Theme.of(context).colorScheme.copyWith(primary: _AppColors.primary)),
         child: child!,
       ),
     );
@@ -539,43 +544,33 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     String label;
     VoidCallback? onPressed;
     switch (_step) {
-      case 1:
-        label = 'SUIVANT →';
-        onPressed = _goToStep2;
-        break;
-      case 2:
-        label = isLoading ? 'VÉRIFICATION...' : 'CONFIRMER LE CODE OTP';
-        onPressed = _verifyAndRegister;
-        break;
-      case 3:
-        label = 'ACCUEIL';
-        onPressed = () => context.go(AppRoutes.home);
-        break;
-      default:
-        label = '';
-        onPressed = null;
+      case 1: label = 'Suivant'; onPressed = _goToStep2; break;
+      case 2: label = isLoading ? 'Vérification...' : 'Confirmer l\'inscription'; onPressed = _verifyAndRegister; break;
+      case 3: label = 'Accéder au Tableau de Bord'; onPressed = () => context.go(AppRoutes.home); break;
+      default: label = ''; onPressed = null;
     }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: GestureDetector(
-        onTap: isLoading ? null : onPressed,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFFF9C74F), Color(0xFFF8961E)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [BoxShadow(color: Colors.orange.shade300.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 6))],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isLoading) ...const [
-                SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white))),
-                SizedBox(width: 12),
-              ],
-              Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1.2)),
+      child: ElevatedButton(
+        onPressed: isLoading ? null : onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _AppColors.primary,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          elevation: 4,
+          shadowColor: _AppColors.primary.withValues(alpha: 0.4),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isLoading) ...const [
+              SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white))),
+              SizedBox(width: 12),
             ],
-          ),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, letterSpacing: 0.5)),
+            if (!isLoading && _step < 3) const Padding(padding: EdgeInsets.only(left: 8), child: Icon(Icons.arrow_forward_rounded, size: 20)),
+          ],
         ),
       ),
     );
@@ -583,8 +578,49 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
 }
 
 // ============================================================================
-// SOUS-WIDGETS (IDENTIQUES AU PREMIER BLOC)
+// SOUS-WIDGETS : ÉTAPES & DESIGN
 // ============================================================================
+
+class _StepDot extends StatelessWidget {
+  final bool isActive;
+  final bool isDone;
+  final bool isFinal;
+  const _StepDot({required this.isActive, required this.isDone, this.isFinal = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: 28, height: 28,
+      decoration: BoxDecoration(
+        color: isDone || isActive ? _AppColors.accentLight : Colors.white.withValues(alpha: 0.2),
+        shape: BoxShape.circle,
+        border: Border.all(color: isActive ? Colors.white : Colors.transparent, width: 2),
+      ),
+      child: Center(
+        child: Icon(
+          isFinal ? Icons.check_rounded : (isDone ? Icons.check_rounded : Icons.circle),
+          size: 14, color: isDone || isActive ? _AppColors.primary : Colors.white.withValues(alpha: 0.5),
+        ),
+      ),
+    );
+  }
+}
+
+class _StepLine extends StatelessWidget {
+  final bool isActive;
+  const _StepLine({required this.isActive});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: 40, height: 3,
+      color: isActive ? _AppColors.accentLight : Colors.white.withValues(alpha: 0.2),
+    );
+  }
+}
+
 class _Step1Profile extends StatelessWidget {
   final TextEditingController nameC, dobC, occupationC;
   final String? country;
@@ -598,17 +634,17 @@ class _Step1Profile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Informations personnelles', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _FormColors.navy)),
-        const SizedBox(height: 14),
-        _CompactField(label: 'Nom complet *', hint: 'Ex : Jean Mukendi', icon: Icons.person_outline_rounded, controller: nameC),
-        const SizedBox(height: 10),
-        _CompactField(label: 'Date de naissance *', hint: 'JJ-MM-AAAA', icon: Icons.calendar_today_rounded, controller: dobC, readOnly: true, onTap: onPickDob, trailing: const Icon(Icons.expand_more_rounded, size: 18, color: _FormColors.textSecondary)),
-        const SizedBox(height: 10),
-        _CompactDropdown(label: 'Pays *', icon: Icons.public_rounded, value: country, items: const ['République Démocratique du Congo', 'Rwanda', 'Burundi', 'Ouganda', 'Angola', "Côte d'Ivoire", 'Sénégal', 'Cameroun', 'France', 'Belgique', 'Canada', 'États-Unis', 'Autre'], onChanged: onCountryChanged),
-        const SizedBox(height: 10),
-        _CompactField(label: 'Occupation (facultatif)', hint: 'Ex : Étudiant, Entrepreneur...', icon: Icons.work_outline_rounded, controller: occupationC),
-        const SizedBox(height: 10),
-        Text('Ces informations permettront de générer votre identifiant THIX ID unique.', style: TextStyle(color: Colors.grey.shade600, fontSize: 11.5)),
+        const Text('Informations personnelles', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _AppColors.primary)),
+        const SizedBox(height: 6),
+        const Text('Ces informations permettront de générer votre identité numérique.', style: TextStyle(fontSize: 14, color: _AppColors.textMuted)),
+        const SizedBox(height: 24),
+        _PremiumField(label: 'Nom complet *', hint: 'Ex : Jean Mukendi', icon: Icons.person_outline_rounded, controller: nameC),
+        const SizedBox(height: 16),
+        _PremiumField(label: 'Date de naissance *', hint: 'JJ-MM-AAAA', icon: Icons.calendar_today_rounded, controller: dobC, readOnly: true, onTap: onPickDob, trailing: const Icon(Icons.expand_more_rounded, color: _AppColors.textMuted)),
+        const SizedBox(height: 16),
+        _PremiumDropdown(label: 'Pays *', icon: Icons.public_rounded, value: country, items: const ['République Démocratique du Congo', 'Rwanda', 'Burundi', 'Ouganda', 'Angola', "Côte d'Ivoire", 'Sénégal', 'Cameroun', 'France', 'Belgique', 'Canada', 'États-Unis', 'Autre'], onChanged: onCountryChanged),
+        const SizedBox(height: 16),
+        _PremiumField(label: 'Occupation (facultatif)', hint: 'Ex : Entrepreneur, Ingénieur...', icon: Icons.work_outline_rounded, controller: occupationC),
       ],
     );
   }
@@ -628,147 +664,181 @@ class _Step2Account extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Création du compte', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _FormColors.navy)),
-        const SizedBox(height: 14),
-        _CompactField(label: 'Email *', hint: 'votre@email.com', icon: Icons.email_outlined, controller: emailC, keyboardType: TextInputType.emailAddress),
-        const SizedBox(height: 10),
-        _CompactField(label: 'Mot de passe * (8 car. min, 1 lettre + 1 chiffre)', hint: '••••••••', icon: Icons.lock_outline_rounded, controller: passwordC, isPassword: true),
-        const SizedBox(height: 10),
-        _CompactField(label: 'Confirmer le mot de passe *', hint: '••••••••', icon: Icons.lock_outline_rounded, controller: confirmC, isPassword: true),
-        const SizedBox(height: 14),
+        const Text('Sécurité du compte', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _AppColors.primary)),
+        const SizedBox(height: 6),
+        const Text('Définissez vos identifiants de connexion.', style: TextStyle(fontSize: 14, color: _AppColors.textMuted)),
+        const SizedBox(height: 24),
+        
+        _PremiumField(label: 'Adresse Email *', hint: 'votre@email.com', icon: Icons.email_outlined, controller: emailC, keyboardType: TextInputType.emailAddress),
+        const SizedBox(height: 16),
+        _PremiumField(label: 'Mot de passe *', hint: 'Min. 8 caractères, 1 chiffre, 1 lettre', icon: Icons.lock_outline_rounded, controller: passwordC, isPassword: true),
+        const SizedBox(height: 16),
+        _PremiumField(label: 'Confirmer le mot de passe *', hint: 'Répétez le mot de passe', icon: Icons.lock_outline_rounded, controller: confirmC, isPassword: true),
+        const SizedBox(height: 24),
+        
+        const Divider(color: _AppColors.border),
+        const SizedBox(height: 16),
+        
+        const Text('Vérification', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _AppColors.textDark)),
+        const SizedBox(height: 16),
+
         SizedBox(
-          height: 46,
-          child: ElevatedButton.icon(
+          height: 50,
+          child: OutlinedButton.icon(
             onPressed: canResend ? onSendOtp : null,
-            icon: Icon(isOtpSent ? Icons.refresh_rounded : Icons.send_rounded, size: 16),
-            label: Text(!canResend && resendCooldown > 0 ? 'Renvoyer dans ${resendCooldown}s' : (isOtpSent ? 'Renvoyer le code OTP' : 'Envoyer le code OTP'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-            style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: Colors.white, disabledBackgroundColor: LightModeColors.accent.withValues(alpha: 0.4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-          ),
-        ),
-        if (isOtpSent) ...[
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.blue.shade100)),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.mark_email_read_outlined, color: Colors.blue.shade700, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Un code OTP vous a été envoyé par email', style: TextStyle(color: Colors.blue.shade800, fontWeight: FontWeight.w700, fontSize: 12)),
-                      const SizedBox(height: 2),
-                      Text('Vérifiez aussi vos spams. Le code expire après quelques minutes.', style: TextStyle(color: Colors.blue.shade700, fontSize: 10.5)),
-                    ],
-                  ),
-                ),
-              ],
+            icon: Icon(isOtpSent ? Icons.check_circle_outline_rounded : Icons.send_rounded, size: 20),
+            label: Text(!canResend && resendCooldown > 0 ? 'Renvoyer dans ${resendCooldown}s' : (isOtpSent ? 'Code envoyé - Renvoyer' : 'Obtenir le code OTP'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _AppColors.primary,
+              side: BorderSide(color: isOtpSent ? _AppColors.success : _AppColors.primary, width: 1.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
+        ),
+        
+        if (isOtpSent) ...[
+          const SizedBox(height: 16),
+          _PremiumField(label: 'Code reçu par email *', hint: '000000', icon: Icons.confirmation_number_outlined, controller: otpC, keyboardType: TextInputType.number),
         ],
-        const SizedBox(height: 14),
-        _CompactField(label: 'Code de vérification reçu par email *', hint: '000000', icon: Icons.confirmation_number_outlined, controller: otpC, keyboardType: TextInputType.number),
-        const SizedBox(height: 10),
-        _CompactField(label: 'THIX CHAT (nom d\'utilisateur public) *', hint: '@john_doe_123', icon: Icons.chat_outlined, controller: thixChatC),
-        const SizedBox(height: 8),
-        Text('Choisissez un identifiant unique pour vos discussions. (3 à 20 caractères : lettres, chiffres, "." ou "_")', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+
+        const SizedBox(height: 24),
+        _PremiumField(label: 'THIX CHAT (Pseudo public) *', hint: '@pseudo_123', icon: Icons.alternate_email_rounded, controller: thixChatC),
       ],
     );
   }
 }
 
 class _Step3Final extends StatelessWidget {
-  final String thixId, thixChat, uid;
-  const _Step3Final({required this.thixId, required this.thixChat, required this.uid});
+  final String thixId, thixChat, name, email, dob, country, occupation;
+
+  const _Step3Final({
+    required this.thixId, required this.thixChat, 
+    required this.name, required this.email, 
+    required this.dob, required this.country, required this.occupation
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('🎉 Inscription terminée !', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF0A3D62))),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.green.shade200)),
-          child: Row(children: [const Icon(Icons.verified, color: Colors.green, size: 28), const SizedBox(width: 12), Expanded(child: Text('Votre compte est actif et votre identité THIX ID est générée.', style: TextStyle(color: Colors.green.shade800)))]),
+        Center(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: _AppColors.successBg, shape: BoxShape.circle),
+            child: const Icon(Icons.verified_rounded, color: _AppColors.success, size: 48),
+          ),
         ),
-        const SizedBox(height: 24),
-        _NativeInfoGroup(
-          rows: [
-            _NativeInfoRow(label: 'THIX ID', value: thixId, icon: Icons.verified_user, iconColor: Colors.blue, showCopy: true),
-            _NativeInfoRow(label: 'THIX CHAT', value: thixChat, icon: Icons.chat, iconColor: Colors.orange, showCopy: true),
-            _NativeInfoRow(label: 'UID (identifiant unique)', value: uid, icon: Icons.fingerprint, iconColor: Colors.grey.shade700, showCopy: false),
-          ],
-        ),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(16)),
-          child: Row(children: [const Icon(Icons.qr_code, color: Colors.black), const SizedBox(width: 12), Expanded(child: Text('Un QR code sera disponible dans votre profil pour un partage sécurisé.', style: TextStyle(color: Colors.grey.shade700)))]),
-        ),
+        const SizedBox(height: 20),
+        const Text('Félicitations !', textAlign: TextAlign.center, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: _AppColors.primary)),
         const SizedBox(height: 8),
-        Text('Format THIX ID : ${thixId.length >= 15 ? thixId.substring(0, 15) : thixId}... (clé de vérification incluse)', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+        Text('Votre compte est actif. Bienvenue sur THIX ID, $name.', textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, color: _AppColors.textMuted, height: 1.4)),
+        
+        const SizedBox(height: 32),
+        
+        // DIGITAL ID CARD
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [_AppColors.primary, _AppColors.primaryLight], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: _AppColors.primary.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('CARTE D\'IDENTITÉ THIX', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+                  Icon(Icons.contactless_rounded, color: Colors.white.withValues(alpha: 0.8), size: 20),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const Text('THIX ID OFFICIEL', style: TextStyle(color: _AppColors.accentLight, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: Text(thixId, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  IconButton(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: thixId));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('THIX ID copié !'), backgroundColor: _AppColors.success));
+                    },
+                    icon: const Icon(Icons.copy_rounded, color: Colors.white, size: 18),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  )
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('THIX CHAT', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(thixChat, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.qr_code_2_rounded, color: Colors.white, size: 40),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 32),
+        const Text('Résumé de vos informations', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _AppColors.textDark)),
+        const SizedBox(height: 16),
+        
+        // SUMMARY TABLE
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: _AppColors.background,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _AppColors.border),
+          ),
+          child: Column(
+            children: [
+              _SummaryRow(label: 'Nom complet', value: name),
+              const Divider(height: 1, color: _AppColors.border),
+              _SummaryRow(label: 'Email', value: email),
+              const Divider(height: 1, color: _AppColors.border),
+              _SummaryRow(label: 'Date de naissance', value: dob),
+              const Divider(height: 1, color: _AppColors.border),
+              _SummaryRow(label: 'Pays', value: country),
+              if (occupation.isNotEmpty) ...[
+                const Divider(height: 1, color: _AppColors.border),
+                _SummaryRow(label: 'Occupation', value: occupation),
+              ]
+            ],
+          ),
+        ),
       ],
     );
   }
 }
 
-class _NativeInfoRow {
-  final String label, value;
-  final IconData icon;
-  final Color iconColor;
-  final bool showCopy;
-  const _NativeInfoRow({required this.label, required this.value, required this.icon, required this.iconColor, required this.showCopy});
-}
-
-class _NativeInfoGroup extends StatelessWidget {
-  final List<_NativeInfoRow> rows;
-  const _NativeInfoGroup({required this.rows});
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _SummaryRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))]),
-      child: Column(
-        children: [
-          for (var i = 0; i < rows.length; i++) ...[
-            _buildRow(context, rows[i]),
-            if (i != rows.length - 1) Divider(height: 1, indent: 60, endIndent: 16, color: Colors.grey.shade200),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRow(BuildContext context, _NativeInfoRow row) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(width: 34, height: 34, decoration: BoxDecoration(color: row.iconColor.withValues(alpha: 0.12), shape: BoxShape.circle), child: Icon(row.icon, color: row.iconColor, size: 18)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(row.label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 2),
-                Text(row.value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-          if (row.showCopy)
-            IconButton(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: row.value));
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${row.label} copié dans le presse-papier !'), backgroundColor: Colors.green));
-              },
-              icon: const Icon(Icons.copy, size: 18), tooltip: 'Copier', visualDensity: VisualDensity.compact,
-            ),
+          Expanded(flex: 2, child: Text(label, style: const TextStyle(color: _AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w500))),
+          Expanded(flex: 3, child: Text(value, textAlign: TextAlign.right, style: const TextStyle(color: _AppColors.textDark, fontSize: 13, fontWeight: FontWeight.w600))),
         ],
       ),
     );
