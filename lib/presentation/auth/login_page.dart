@@ -218,7 +218,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     showDialog(
       context: context,
-      barrierDismissible: false, // Empêche de fermer par erreur en cliquant à côté
+      barrierDismissible: false,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -333,8 +333,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: isSending ? null : () async {
-                              
-                              // ACTION : ÉTAPE 1 -> ENVOI DE L'EMAIL
                               if (!isOtpSent) {
                                 if (!canSend) return;
                                 final email = emailC.text.trim();
@@ -346,13 +344,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 if (dialogContext.mounted) {
                                   setDialogState(() {
                                     isSending = false;
-                                    isOtpSent = true; // Passe à l'étape 2
+                                    isOtpSent = true;
                                   });
                                 }
-                              } 
-                              
-                              // ACTION : ÉTAPE 2 -> VÉRIFICATION & CHANGEMENT
-                              else {
+                              } else {
                                 final otp = otpC.text.trim();
                                 final newPass = newPasswordC.text;
                                 
@@ -362,14 +357,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 setDialogState(() => isSending = true);
                                 
                                 try {
-                                  // 1. Validation de l'OTP de récupération
                                   final res = await Supabase.instance.client.auth.verifyOTP(
                                     email: emailC.text.trim(),
                                     token: otp,
                                     type: OtpType.recovery,
                                   );
                                   
-                                  // 2. Si valide, mise à jour immédiate du mot de passe
                                   if (res.user != null) {
                                     await Supabase.instance.client.auth.updateUser(
                                       UserAttributes(password: newPass),
@@ -426,30 +419,33 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         top: false,
         child: Stack(
           children: [
-            // Header Gradient Design (THIX CENTRAL Style)
+            // Header Gradient Design épuré (Intégration du logo complet sans texte redondant)
             Positioned(
-              top: 0, left: 0, right: 0, height: 300,
+              top: 0, left: 0, right: 0, height: 260,
               child: Container(
-                padding: const EdgeInsets.only(top: 80),
+                padding: const EdgeInsets.only(top: 60),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_AppColors.primary, _AppColors.primaryLight]),
                 ),
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      width: 64, height: 64,
-                      decoration: BoxDecoration(
-                        color: _AppColors.surface.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.security_rounded, color: _AppColors.accentLight, size: 32),
+                    Image.asset(
+                      'assets/images/thix_id_logo.png', // Assurez-vous du chemin correct de votre logo
+                      height: 55,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Text(
+                          'THIX CENTRAL',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 20,
+                            letterSpacing: 1.0,
+                          ),
+                        );
+                      },
                     ),
-                    const SizedBox(height: 16),
-                    Text('THIX CENTRAL', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 24, letterSpacing: 1.5)),
-                    const SizedBox(height: 8),
-                    Text('PORTAIL D\'AUTHENTIFICATION UNIFIÉ', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _AppColors.accentLight, fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 1.2)),
                   ],
                 ),
               ),
@@ -457,7 +453,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             
             // Scrollable Form Content
             Positioned.fill(
-              top: 240,
+              top: 200,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                 physics: const BouncingScrollPhysics(),
