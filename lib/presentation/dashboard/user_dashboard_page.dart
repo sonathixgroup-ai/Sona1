@@ -15,9 +15,10 @@ import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/presentation/common/thix_identity_sheets.dart';
 import '../../nav.dart';
 import '../../theme.dart';
-// Note: DashboardTopBar est retiré car nous utilisons le nouveau design intégré
+import 'dashboard_ui.dart'; 
 import 'dashboard_tabs.dart';
 import 'dashboard_editors.dart';
+
 
 // =============================================================================
 // STATE MANAGEMENT: CONTRÔLEUR HAUTE PERFORMANCE (SANS STREAM)
