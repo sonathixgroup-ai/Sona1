@@ -1,5 +1,4 @@
 // lib/presentation/thix_weeding/providers/rsvp_provider.dart
-import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../core/failure.dart';
 import '../data/repositories/wedding_repository_impl.dart';
@@ -7,68 +6,43 @@ import '../domain/entities/wedding_entity.dart';
 
 part 'rsvp_provider.g.dart';
 
-@immutable
 class RsvpFormState {
   final String guestName;
-  final String status; // yes, no, maybe
+  final String status;
   final int count;
   final String message;
-  final bool isValid;
-
-  const RsvpFormState({
-    this.guestName = '',
-    this.status = 'yes',
-    this.count = 1,
-    this.message = '',
-    this.isValid = false,
-  });
-
-  RsvpFormState copyWith({String? guestName, String? status, int? count, String? message}) {
-    final newName = guestName ?? this.guestName;
-    final valid = newName.trim().length >= 2;
-    return RsvpFormState(
-      guestName: newName,
-      status: status ?? this.status,
-      count: count ?? this.count,
-      message: message ?? this.message,
-      isValid: valid,
-    );
-  }
+  const RsvpFormState({this.guestName = '', this.status = 'yes', this.count = 1, this.message = ''});
+  RsvpFormState copyWith({String? guestName, String? status, int? count, String? message}) => RsvpFormState(guestName: guestName ?? this.guestName, status: status ?? this.status, count: count ?? this.count, message: message ?? this.message);
 }
 
-/// Formulaire local - pas d'appel réseau, donc Notifier simple
 @riverpod
 class RsvpForm extends _$RsvpForm {
   @override
   RsvpFormState build() => const RsvpFormState();
-
   void updateName(String v) => state = state.copyWith(guestName: v);
   void updateStatus(String v) => state = state.copyWith(status: v);
-  void updateCount(int v) => state = state.copyWith(count: v.clamp(1, 10));
+  void updateCount(int v) {
+    if (v < 1) return;
+    if (v > 10) return;
+    state = state.copyWith(count: v);
+  }
   void updateMessage(String v) => state = state.copyWith(message: v);
   void reset() => state = const RsvpFormState();
 }
 
-/// Controller de soumission - gère loading/error/success
 @riverpod
 class RsvpController extends _$RsvpController {
   @override
-  FutureOr<void> build() {
-    // idle au départ
-    return null;
-  }
+  FutureOr<void> build() {}
 
   Future<bool> submit(String weddingId) async {
     final form = ref.read(rsvpFormProvider);
-    if (!form.isValid) {
+    if (form.guestName.trim().length < 2) {
       state = AsyncError(const Failure('Nom invalide (min 2 caractères)'), StackTrace.current);
       return false;
     }
-
-    state = const AsyncLoading();
-    final repo = ref.read(weddingRepositoryProvider);
-
-    final result = await AsyncValue.guard(() async {
+    try {
+      state = const AsyncLoading();
       final entity = RsvpEntity(
         weddingId: weddingId,
         guestName: form.guestName.trim(),
@@ -76,10 +50,16 @@ class RsvpController extends _$RsvpController {
         count: form.count,
         message: form.message.trim(),
       );
+      final repo = ref.read(weddingRepositoryProvider);
       await repo.submitRsvp(entity);
-    });
-
-    state = result;
-    return !result.hasError;
+      state = const AsyncData(null);
+      return true;
+    } on Failure catch (e) {
+      state = AsyncError(e, StackTrace.current);
+      return false;
+    } catch (e) {
+      state = AsyncError(Failure(e.toString()), StackTrace.current);
+      return false;
+    }
   }
 }
