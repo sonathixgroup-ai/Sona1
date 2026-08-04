@@ -34,6 +34,10 @@ class SupabaseAuthManager implements AuthManager {
   @override
   AppUser? get currentUser => _currentUser.value;
 
+  // ==========================================================================
+  // INITIALISATION ET GESTION DE SESSION
+  // ==========================================================================
+
   @override
   Future<void> init() async {
     await _sub?.cancel();
@@ -74,7 +78,6 @@ class SupabaseAuthManager implements AuthManager {
     }
   }
 
-  /// Nettoie les listeners et la mémoire lors d'une déconnexion
   Future<void> _cleanupSession() async {
     await _profileSub?.cancel();
     _profileSub = null;
@@ -82,7 +85,10 @@ class SupabaseAuthManager implements AuthManager {
     unawaited(PushNotificationService.instance.onSignedOut());
   }
 
-  /// True si l'ID est encore un placeholder PENDING
+  // ==========================================================================
+  // MÉTHODES PRIVÉES DE SYNCHRONISATION
+  // ==========================================================================
+
   bool _isPendingThixId(String? id) {
     if (id == null) return true;
     final v = id.trim().toUpperCase();
@@ -92,9 +98,8 @@ class SupabaseAuthManager implements AuthManager {
         v.startsWith('THIX-PENDING-');
   }
 
-  /// Synchronise en temps réel le profil THIX ID avec le cache local
   void _bindProfileSync(String uid) {
-    unawaited(_profileSub?.cancel()); // Évite les multiples écoutes
+    unawaited(_profileSub?.cancel());
 
     _profileSub = _profiles.streamMyProfile(uid).listen(
       (p) {
@@ -102,13 +107,11 @@ class SupabaseAuthManager implements AuthManager {
         final cur = _currentUser.value;
         if (cur == null || cur.id != uid) return;
 
-        // Priorité absolue au thix_id venant de Supabase s'il n'est plus PENDING
         final incomingThixId = p.thixId.trim();
         final resolvedThixId = (!_isPendingThixId(incomingThixId))
             ? incomingThixId
             : cur.thixId;
 
-        // Fusion des données pour éviter d'écraser les données locales non synchronisées
         final merged = cur.copyWith(
           thixId: resolvedThixId,
           thixChat: (p.thixChat ?? '').trim().isEmpty
@@ -144,7 +147,6 @@ class SupabaseAuthManager implements AuthManager {
           updatedAt: p.updatedAt,
         );
 
-        // Optimisation : ne pas notifier si rien n'a changé
         final unchanged = merged.displayName == cur.displayName &&
             merged.photoUrl == cur.photoUrl &&
             merged.bio == cur.bio &&
@@ -171,7 +173,6 @@ class SupabaseAuthManager implements AuthManager {
     );
   }
 
-  /// Hydrate l'utilisateur Auth Supabase avec les données de la table 'profiles'
   Future<AppUser> _hydrateUser(User user) async {
     final uid = user.id;
     final email = (user.email ?? '').toLowerCase();
@@ -179,7 +180,6 @@ class SupabaseAuthManager implements AuthManager {
 
     final row = await _selectProfileRow(uid);
     if (row == null) {
-      // Profil inexistant : construit à partir des metadatas d'inscription
       String? s(String k) {
         final v = meta[k];
         if (v == null) return null;
@@ -199,7 +199,7 @@ class SupabaseAuthManager implements AuthManager {
         return const <String>[];
       }
 
-      // Générer un vrai THIX ID dès la création (plus de PENDING permanent)
+      // Générer un vrai THIX ID dès la création
       final realThixId = ThixIdService.generate();
 
       final base = AppUser(
@@ -247,7 +247,6 @@ class SupabaseAuthManager implements AuthManager {
       return base;
     }
 
-    // Profil existe déjà
     var appUser = _appUserFromProfileRow(
       uid: uid,
       email: email,
@@ -255,7 +254,6 @@ class SupabaseAuthManager implements AuthManager {
       phone: user.phone,
     );
 
-    // Si l'ID en base est encore PENDING → le remplacer automatiquement
     if (_isPendingThixId(appUser.thixId)) {
       try {
         final realId = ThixIdService.generate();
@@ -312,8 +310,9 @@ class SupabaseAuthManager implements AuthManager {
       orElse: () => AccountType.personal,
     );
 
-    List<String> strList(Object? v) =>
-        (v is List) ? v.whereType<String>().toList(growable: false) : const <String>[];
+    List<String> strList(Object? v) => (v is List)
+        ? v.whereType<String>().toList(growable: false)
+        : const <String>[];
     List<Map<String, dynamic>> mapList(Object? v) => (v is List)
         ? v
             .whereType<Map>()
@@ -378,8 +377,11 @@ class SupabaseAuthManager implements AuthManager {
 
   Future<Map<String, dynamic>?> _selectProfileRow(String uid) async {
     try {
-      final row =
-          await _client.from('profiles').select('*').eq('id', uid).maybeSingle();
+      final row = await _client
+          .from('profiles')
+          .select('*')
+          .eq('id', uid)
+          .maybeSingle();
       if (row != null) return (row as Map).cast<String, dynamic>();
     } catch (e) {
       debugPrint(
@@ -443,6 +445,10 @@ class SupabaseAuthManager implements AuthManager {
       rethrow;
     }
   }
+
+  bool _isValidEmail(String email) =>
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+
 
   // ==========================================================================
   // MÉTHODES D'AUTHENTIFICATION PUBLIQUES
@@ -523,7 +529,6 @@ class SupabaseAuthManager implements AuthManager {
       final session = res.session;
       final user = res.user;
 
-      // Confirmation email requise → pas de session tout de suite
       if (user == null || session == null) {
         throw AuthException(
           'Inscription enregistrée. Confirmez votre email pour continuer.',
@@ -566,7 +571,6 @@ class SupabaseAuthManager implements AuthManager {
     required String token,
   }) async {
     try {
-      // ✅ signup = confirmation d'inscription (pas OtpType.email)
       final res = await _client.auth.verifyOTP(
         email: email.trim().toLowerCase(),
         token: token.trim(),
@@ -599,7 +603,7 @@ class SupabaseAuthManager implements AuthManager {
     }
   }
 
-  /// Récupère activement la session actuelle et met à jour l'utilisateur local
+  @override
   Future<AppUser> refreshCurrentUser() async {
     final session = _client.auth.currentSession;
     if (session == null) {
@@ -618,7 +622,7 @@ class SupabaseAuthManager implements AuthManager {
   Future<void> resendOTP({required String email}) async {
     try {
       await _client.auth.resend(
-        type: OtpType.signup, // cohérent avec verifyOTP
+        type: OtpType.signup,
         email: email.trim().toLowerCase(),
       );
     } on sup.AuthException catch (e) {
@@ -705,696 +709,9 @@ class SupabaseAuthManager implements AuthManager {
     _currentUser.value = user;
     _bindProfileSync(user.id);
   }
-
-  bool _isValidEmail(String email) =>
-      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
-
-  // -------------------------------------------------------------------------
-  // Helpers privés (référencés plus haut)
-  // -------------------------------------------------------------------------
-
-  Future<void> _cleanupSession() async {
-    await _profileSub?.cancel();
-    _profileSub = null;
-    _currentUser.value = null;
-    unawaited(PushNotificationService.instance.onSignedOut());
-  }
-
-  bool _isPendingThixIdLocal(String? id) => _isPendingThixId(id);
-
-  void _bindProfileSync(String uid) {
-    unawaited(_profileSub?.cancel());
-
-    _profileSub = _profiles.streamMyProfile(uid).listen(
-      (p) {
-        if (p == null) return;
-        final cur = _currentUser.value;
-        if (cur == null || cur.id != uid) return;
-
-        final incomingThixId = p.thixId.trim();
-        final resolvedThixId = (!_isPendingThixId(incomingThixId))
-            ? incomingThixId
-            : cur.thixId;
-
-        final merged = cur.copyWith(
-          thixId: resolvedThixId,
-          thixChat: (p.thixChat ?? '').trim().isEmpty
-              ? cur.thixChat
-              : (p.thixChat ?? '').trim(),
-          displayName: p.displayName.trim().isEmpty
-              ? cur.displayName
-              : p.displayName.trim(),
-          photoUrl:
-              (p.photoUrl ?? '').trim().isEmpty ? cur.photoUrl : p.photoUrl,
-          bio: p.bio ?? cur.bio,
-          occupation: p.occupation ?? cur.occupation,
-          profession: p.profession ?? cur.profession,
-          countryOrOrigin: p.countryOrOrigin ?? cur.countryOrOrigin,
-          contactPhone: p.contactPhone ?? cur.contactPhone,
-          maritalStatus: p.maritalStatus ?? cur.maritalStatus,
-          gender: p.gender ?? cur.gender,
-          dateOfBirth: p.dateOfBirth ?? cur.dateOfBirth,
-          placeOfBirth: p.placeOfBirth ?? cur.placeOfBirth,
-          nationality: p.nationality ?? cur.nationality,
-          address: p.address ?? cur.address,
-          fatherName: p.fatherName ?? cur.fatherName,
-          motherName: p.motherName ?? cur.motherName,
-          emergencyContactName:
-              p.emergencyContactName ?? cur.emergencyContactName,
-          emergencyContactPhone:
-              p.emergencyContactPhone ?? cur.emergencyContactPhone,
-          emergencyContactRelation:
-              p.emergencyContactRelation ?? cur.emergencyContactRelation,
-          languages: p.languages,
-          education: p.education,
-          experience: p.experience,
-          skills: p.skills,
-          updatedAt: p.updatedAt,
-        );
-
-        final unchanged = merged.displayName == cur.displayName &&
-            merged.photoUrl == cur.photoUrl &&
-            merged.bio == cur.bio &&
-            merged.countryOrOrigin == cur.countryOrOrigin &&
-            merged.occupation == cur.occupation &&
-            merged.profession == cur.profession &&
-            merged.thixChat == cur.thixChat &&
-            merged.thixId == cur.thixId &&
-            merged.contactPhone == cur.contactPhone &&
-            merged.maritalStatus == cur.maritalStatus &&
-            merged.gender == cur.gender &&
-            merged.dateOfBirth == cur.dateOfBirth &&
-            listEquals(merged.languages, cur.languages) &&
-            merged.updatedAt == cur.updatedAt;
-
-        if (unchanged) return;
-        _currentUser.value = merged;
-      },
-      onError: (e, st) {
-        debugPrint(
-          'SupabaseAuthManager: profile sync stream failed uid=$uid err=$e\n$st',
-        );
-      },
-    );
-  }
-
-  Future<AppUser> _hydrateUser(User user) async {
-    final uid = user.id;
-    final email = (user.email ?? '').toLowerCase();
-    final meta = (user.userMetadata ?? const <String, dynamic>{});
-
-    final row = await _selectProfileRow(uid);
-    if (row == null) {
-      String? s(String k) {
-        final v = meta[k];
-        if (v == null) return null;
-        final t = v.toString().trim();
-        return t.isEmpty ? null : t;
-      }
-
-      List<String> strList(String k) {
-        final v = meta[k];
-        if (v is List) {
-          return v
-              .whereType<String>()
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toList(growable: false);
-        }
-        return const <String>[];
-      }
-
-      final realThixId = ThixIdService.generate();
-
-      final base = AppUser(
-        id: uid,
-        thixId: realThixId,
-        thixChat: '',
-        thixScore: null,
-        email: email,
-        phone: user.phone,
-        displayName: (s('display_name') ?? 'Utilisateur THIX'),
-        accountType: _accountTypeFromMeta(meta),
-        photoUrl: null,
-        bio: s('bio'),
-        countryOrOrigin: s('country_or_origin') ?? s('countryOrOrigin'),
-        contactPhone: s('contact_phone') ?? s('contactPhone'),
-        maritalStatus: s('marital_status') ?? s('maritalStatus'),
-        gender: s('gender'),
-        occupation: s('occupation'),
-        profession: s('profession'),
-        dateOfBirth: s('date_of_birth') ?? s('dateOfBirth'),
-        placeOfBirth: s('place_of_birth') ?? s('placeOfBirth'),
-        nationality: s('nationality'),
-        address: s('address'),
-        fatherName: s('father_name') ?? s('fatherName'),
-        motherName: s('mother_name') ?? s('motherName'),
-        emergencyContactName:
-            s('emergency_contact_name') ?? s('emergencyContactName'),
-        emergencyContactPhone:
-            s('emergency_contact_phone') ?? s('emergencyContactPhone'),
-        emergencyContactRelation:
-            s('emergency_contact_relation') ?? s('emergencyContactRelation'),
-        education: const [],
-        experience: const [],
-        skills: const [],
-        enrollments: const [],
-        languages: strList('languages'),
-        biometricsEnabled: true,
-        twoFaEnabled: false,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      await _ensureProfileRow(user: base);
-      await _profiles.ensureProfileExists(user: base);
-      return base;
-    }
-
-    var appUser = _appUserFromProfileRow(
-      uid: uid,
-      email: email,
-      row: row,
-      phone: user.phone,
-    );
-
-    if (_isPendingThixId(appUser.thixId)) {
-      try {
-        final realId = ThixIdService.generate();
-        await _client.from('profiles').update({
-          'thix_id': realId,
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        }).eq('id', uid);
-
-        appUser = appUser.copyWith(
-          thixId: realId,
-          updatedAt: DateTime.now(),
-        );
-        debugPrint(
-          'SupabaseAuthManager: PENDING remplacé par $realId pour uid=$uid',
-        );
-      } catch (e) {
-        debugPrint(
-          'SupabaseAuthManager: échec remplacement PENDING uid=$uid err=$e',
-        );
-      }
-    }
-
-    return appUser;
-  }
-
-  AccountType _accountTypeFromMeta(Map<String, dynamic>? meta) {
-    final raw = (meta?['account_type'] ?? meta?['accountType'] ?? '')
-        .toString()
-        .trim()
-        .toLowerCase();
-    if (raw == AccountType.enterprise.name) return AccountType.enterprise;
-    return AccountType.personal;
-  }
-
-  AppUser _appUserFromProfileRow({
-    required String uid,
-    required String email,
-    required String? phone,
-    required Map<String, dynamic> row,
-  }) {
-    DateTime dt(Object? v) {
-      if (v is DateTime) return v;
-      if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
-      return DateTime.now();
-    }
-
-    final createdAt = dt(row['created_at'] ?? row['createdAt']);
-    final updatedAt = dt(row['updated_at'] ?? row['updatedAt']);
-    final accountTypeRaw =
-        (row['account_type'] ?? row['accountType'] ?? AccountType.personal.name)
-            .toString();
-    final accountType = AccountType.values.firstWhere(
-      (e) => e.name == accountTypeRaw,
-      orElse: () => AccountType.personal,
-    );
-
-    List<String> strList(Object? v) => (v is List)
-        ? v.whereType<String>().toList(growable: false)
-        : const <String>[];
-    List<Map<String, dynamic>> mapList(Object? v) => (v is List)
-        ? v
-            .whereType<Map>()
-            .map((e) => e.cast<String, dynamic>())
-            .toList(growable: false)
-        : const <Map<String, dynamic>>[];
-
-    final rawThixId =
-        (row['thix_id'] ?? row['thixId'] ?? row['thix_uid'] ?? '')
-            .toString()
-            .trim();
-
-    return AppUser(
-      id: uid,
-      thixId: rawThixId,
-      thixChat: (row['thix_chat'] ?? row['thixChat'] ?? '').toString(),
-      thixScore: (row['thix_score'] as num?)?.toInt(),
-      email: email,
-      phone: phone,
-      displayName:
-          (row['display_name'] ?? row['displayName'] ?? 'Utilisateur THIX')
-              .toString(),
-      accountType: accountType,
-      photoUrl: (row['avatar_url'] ?? row['photo_url'])?.toString(),
-      bio: row['bio']?.toString(),
-      countryOrOrigin:
-          (row['country_or_origin'] ?? row['countryOrOrigin'])?.toString(),
-      contactPhone: (row['contact_phone'] ?? row['contactPhone'])?.toString(),
-      maritalStatus:
-          (row['marital_status'] ?? row['maritalStatus'])?.toString(),
-      gender: row['gender']?.toString(),
-      occupation: (row['occupation'] ?? row['occupation_title'])?.toString(),
-      profession: (row['profession'] ?? row['job_title'])?.toString(),
-      dateOfBirth: (row['date_of_birth'] ?? row['dateOfBirth'])?.toString(),
-      placeOfBirth: (row['place_of_birth'] ?? row['placeOfBirth'])?.toString(),
-      nationality: row['nationality']?.toString(),
-      address: row['address']?.toString(),
-      fatherName: (row['father_name'] ?? row['fatherName'])?.toString(),
-      motherName: (row['mother_name'] ?? row['motherName'])?.toString(),
-      emergencyContactName: (row['emergency_contact_name'] ??
-              row['emergencyContactName'])
-          ?.toString(),
-      emergencyContactPhone: (row['emergency_contact_phone'] ??
-              row['emergencyContactPhone'])
-          ?.toString(),
-      emergencyContactRelation: (row['emergency_contact_relation'] ??
-              row['emergencyContactRelation'])
-          ?.toString(),
-      registrationStatus:
-          (row['registration_status'] ?? row['registrationStatus'])?.toString(),
-      education: mapList(row['education']),
-      experience: mapList(row['experience']),
-      skills: mapList(row['skills']),
-      enrollments: mapList(row['enrollments']),
-      languages: strList(row['languages']),
-      biometricsEnabled: (row['biometrics_enabled'] as bool?) ?? true,
-      twoFaEnabled: (row['two_fa_enabled'] as bool?) ?? false,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-    );
-  }
-
-  Future<Map<String, dynamic>?> _selectProfileRow(String uid) async {
-    try {
-      final row = await _client
-          .from('profiles')
-          .select('*')
-          .eq('id', uid)
-          .maybeSingle();
-      if (row != null) return (row as Map).cast<String, dynamic>();
-    } catch (e) {
-      debugPrint(
-        'SupabaseAuthManager: profiles select by id failed uid=$uid err=$e',
-      );
-    }
-    return null;
-  }
-
-  Future<void> _ensureProfileRow({required AppUser user}) async {
-    final now = DateTime.now().toUtc().toIso8601String();
-    final payload = <String, dynamic>{
-      'id': user.id,
-      'thix_id': user.thixId,
-      'thix_chat': user.thixChat,
-      'bio': user.bio,
-      'profession': user.profession,
-      'occupation': user.occupation,
-      'display_name': user.displayName,
-      'avatar_url': user.photoUrl,
-      'country_or_origin': user.countryOrOrigin,
-      'contact_phone': user.contactPhone,
-      'marital_status': user.maritalStatus,
-      'gender': user.gender,
-      'date_of_birth': user.dateOfBirth,
-      'place_of_birth': user.placeOfBirth,
-      'nationality': user.nationality,
-      'address': user.address,
-      'father_name': user.fatherName,
-      'mother_name': user.motherName,
-      'emergency_contact_name': user.emergencyContactName,
-      'emergency_contact_phone': user.emergencyContactPhone,
-      'emergency_contact_relation': user.emergencyContactRelation,
-      'languages': user.languages,
-      'registration_status': user.registrationStatus,
-      'created_at': now,
-      'updated_at': now,
-    };
-
-    try {
-      await SupabaseSafeWrite.upsert(
-        client: _client,
-        table: 'profiles',
-        payload: payload,
-        onUnknownColumn: () async {
-          try {
-            await _client.functions
-                .invoke('pgrst_schema_reload', body: const {});
-          } catch (e) {
-            debugPrint(
-              'SupabaseAuthManager: schema reload invoke failed err=$e',
-            );
-            rethrow;
-          }
-        },
-      );
-    } catch (e) {
-      debugPrint(
-        'SupabaseAuthManager: profiles upsert failed uid=${user.id} err=$e',
-      );
-      rethrow;
-    }
-  }
-
-  AccountType _accountTypeFromMeta(Map<String, dynamic>? meta) {
-    final raw = (meta?['account_type'] ?? meta?['accountType'] ?? '')
-        .toString()
-        .trim()
-        .toLowerCase();
-    if (raw == AccountType.enterprise.name) return AccountType.enterprise;
-    return AccountType.personal;
-  }
-
-  AppUser _appUserFromProfileRow({
-    required String uid,
-    required String email,
-    required String? phone,
-    required Map<String, dynamic> row,
-  }) {
-    DateTime dt(Object? v) {
-      if (v is DateTime) return v;
-      if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
-      return DateTime.now();
-    }
-
-    final createdAt = dt(row['created_at'] ?? row['createdAt']);
-    final updatedAt = dt(row['updated_at'] ?? row['updatedAt']);
-    final accountTypeRaw =
-        (row['account_type'] ?? row['accountType'] ?? AccountType.personal.name)
-            .toString();
-    final accountType = AccountType.values.firstWhere(
-      (e) => e.name == accountTypeRaw,
-      orElse: () => AccountType.personal,
-    );
-
-    List<String> strList(Object? v) => (v is List)
-        ? v.whereType<String>().toList(growable: false)
-        : const <String>[];
-    List<Map<String, dynamic>> mapList(Object? v) => (v is List)
-        ? v
-            .whereType<Map>()
-            .map((e) => e.cast<String, dynamic>())
-            .toList(growable: false)
-        : const <Map<String, dynamic>>[];
-
-    final rawThixId =
-        (row['thix_id'] ?? row['thixId'] ?? row['thix_uid'] ?? '')
-            .toString()
-            .trim();
-
-    return AppUser(
-      id: uid,
-      thixId: rawThixId,
-      thixChat: (row['thix_chat'] ?? row['thixChat'] ?? '').toString(),
-      thixScore: (row['thix_score'] as num?)?.toInt(),
-      email: email,
-      phone: phone,
-      displayName:
-          (row['display_name'] ?? row['displayName'] ?? 'Utilisateur THIX')
-              .toString(),
-      accountType: accountType,
-      photoUrl: (row['avatar_url'] ?? row['photo_url'])?.toString(),
-      bio: row['bio']?.toString(),
-      countryOrOrigin:
-          (row['country_or_origin'] ?? row['countryOrOrigin'])?.toString(),
-      contactPhone: (row['contact_phone'] ?? row['contactPhone'])?.toString(),
-      maritalStatus:
-          (row['marital_status'] ?? row['maritalStatus'])?.toString(),
-      gender: row['gender']?.toString(),
-      occupation: (row['occupation'] ?? row['occupation_title'])?.toString(),
-      profession: (row['profession'] ?? row['job_title'])?.toString(),
-      dateOfBirth: (row['date_of_birth'] ?? row['dateOfBirth'])?.toString(),
-      placeOfBirth: (row['place_of_birth'] ?? row['placeOfBirth'])?.toString(),
-      nationality: row['nationality']?.toString(),
-      address: row['address']?.toString(),
-      fatherName: (row['father_name'] ?? row['fatherName'])?.toString(),
-      motherName: (row['mother_name'] ?? row['motherName'])?.toString(),
-      emergencyContactName: (row['emergency_contact_name'] ??
-              row['emergencyContactName'])
-          ?.toString(),
-      emergencyContactPhone: (row['emergency_contact_phone'] ??
-              row['emergencyContactPhone'])
-          ?.toString(),
-      emergencyContactRelation: (row['emergency_contact_relation'] ??
-              row['emergencyContactRelation'])
-          ?.toString(),
-      registrationStatus:
-          (row['registration_status'] ?? row['registrationStatus'])?.toString(),
-      education: mapList(row['education']),
-      experience: mapList(row['experience']),
-      skills: mapList(row['skills']),
-      enrollments: mapList(row['enrollments']),
-      languages: strList(row['languages']),
-      biometricsEnabled: (row['biometrics_enabled'] as bool?) ?? true,
-      twoFaEnabled: (row['two_fa_enabled'] as bool?) ?? false,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-    );
-  }
-
-  Future<Map<String, dynamic>?> _selectProfileRow(String uid) async {
-    try {
-      final row = await _client
-          .from('profiles')
-          .select('*')
-          .eq('id', uid)
-          .maybeSingle();
-      if (row != null) return (row as Map).cast<String, dynamic>();
-    } catch (e) {
-      debugPrint(
-        'SupabaseAuthManager: profiles select by id failed uid=$uid err=$e',
-      );
-    }
-    return null;
-  }
-
-  Future<void> _ensureProfileRow({required AppUser user}) async {
-    final now = DateTime.now().toUtc().toIso8601String();
-    final payload = <String, dynamic>{
-      'id': user.id,
-      'thix_id': user.thixId,
-      'thix_chat': user.thixChat,
-      'bio': user.bio,
-      'profession': user.profession,
-      'occupation': user.occupation,
-      'display_name': user.displayName,
-      'avatar_url': user.photoUrl,
-      'country_or_origin': user.countryOrOrigin,
-      'contact_phone': user.contactPhone,
-      'marital_status': user.maritalStatus,
-      'gender': user.gender,
-      'date_of_birth': user.dateOfBirth,
-      'place_of_birth': user.placeOfBirth,
-      'nationality': user.nationality,
-      'address': user.address,
-      'father_name': user.fatherName,
-      'mother_name': user.motherName,
-      'emergency_contact_name': user.emergencyContactName,
-      'emergency_contact_phone': user.emergencyContactPhone,
-      'emergency_contact_relation': user.emergencyContactRelation,
-      'languages': user.languages,
-      'registration_status': user.registrationStatus,
-      'created_at': now,
-      'updated_at': now,
-    };
-
-    try {
-      await SupabaseSafeWrite.upsert(
-        client: _client,
-        table: 'profiles',
-        payload: payload,
-        onUnknownColumn: () async {
-          try {
-            await _client.functions
-                .invoke('pgrst_schema_reload', body: const {});
-          } catch (e) {
-            debugPrint(
-              'SupabaseAuthManager: schema reload invoke failed err=$e',
-            );
-            rethrow;
-          }
-        },
-      );
-    } catch (e) {
-      debugPrint(
-        'SupabaseAuthManager: profiles upsert failed uid=${user.id} err=$e',
-      );
-      rethrow;
-    }
-  }
-
-  AccountType _accountTypeFromMeta(Map<String, dynamic>? meta) {
-    final raw = (meta?['account_type'] ?? meta?['accountType'] ?? '')
-        .toString()
-        .trim()
-        .toLowerCase();
-    if (raw == AccountType.enterprise.name) return AccountType.enterprise;
-    return AccountType.personal;
-  }
-
-  // ==========================================================================
-  // AUTH PUBLIQUE
-  // ==========================================================================
-
-  @override
-  ValueListenable<AppUser?> get currentUserListenable => _currentUser;
-
-  @override
-  AppUser? get currentUser => _currentUser.value;
-
-  final SupabaseClient _client;
-  final ProfileService _profiles;
-  final ValueNotifier<AppUser?> _currentUser = ValueNotifier<AppUser?>(null);
-  StreamSubscription<AuthState>? _sub;
-  StreamSubscription<ThixProfile?>? _profileSub;
-
-  // Note: constructeur déjà défini en haut de la classe
-
-  @override
-  Future<void> init() async {
-    await _sub?.cancel();
-
-    _sub = _client.auth.onAuthStateChange.listen((state) async {
-      try {
-        final user = state.session?.user;
-        if (user == null) {
-          await _cleanupSession();
-          return;
-        }
-
-        final hydrated = await _hydrateUser(user);
-        _currentUser.value = hydrated;
-        _bindProfileSync(user.id);
-        unawaited(PushNotificationService.instance.onSignedIn(userId: user.id));
-      } catch (e, st) {
-        debugPrint(
-          'SupabaseAuthManager: auth state hydrate failed err=$e\n$st',
-        );
-        await _cleanupSession();
-      }
-    });
-
-    final s = _client.auth.currentSession;
-    final u = s?.user;
-    if (u == null) {
-      await _cleanupSession();
-      return;
-    }
-
-    try {
-      final hydrated = await _hydrateUser(u);
-      _currentUser.value = hydrated;
-      _bindProfileSync(u.id);
-    } catch (e, st) {
-      debugPrint(
-        'SupabaseAuthManager: initial hydration failed err=$e\n$st',
-      );
-    }
-  }
-
-  Future<void> _cleanupSession() async {
-    await _profileSub?.cancel();
-    _profileSub = null;
-    _currentUser.value = null;
-    unawaited(PushNotificationService.instance.onSignedOut());
-  }
-
-  void _bindProfileSync(String uid) {
-    unawaited(_profileSub?.cancel());
-
-    _profileSub = _profiles.streamMyProfile(uid).listen(
-      (p) {
-        if (p == null) return;
-        final cur = _currentUser.value;
-        if (cur == null || cur.id != uid) return;
-
-        final incomingThixId = p.thixId.trim();
-        final resolvedThixId =
-            (!incomingThixId.toUpperCase().startsWith('THIX-PENDING') &&
-                    incomingThixId.isNotEmpty)
-                ? incomingThixId
-                : cur.thixId;
-
-        final merged = cur.copyWith(
-          thixId: resolvedThixId,
-          thixChat: (p.thixChat ?? '').trim().isEmpty
-              ? cur.thixChat
-              : (p.thixChat ?? '').trim(),
-          displayName: p.displayName.trim().isEmpty
-              ? cur.displayName
-              : p.displayName.trim(),
-          photoUrl:
-              (p.photoUrl ?? '').trim().isEmpty ? cur.photoUrl : p.photoUrl,
-          bio: p.bio ?? cur.bio,
-          occupation: p.occupation ?? cur.occupation,
-          profession: p.profession ?? cur.profession,
-          countryOrOrigin: p.countryOrOrigin ?? cur.countryOrOrigin,
-          contactPhone: p.contactPhone ?? cur.contactPhone,
-          maritalStatus: p.maritalStatus ?? cur.maritalStatus,
-          gender: p.gender ?? cur.gender,
-          dateOfBirth: p.dateOfBirth ?? cur.dateOfBirth,
-          placeOfBirth: p.placeOfBirth ?? cur.placeOfBirth,
-          nationality: p.nationality ?? cur.nationality,
-          address: p.address ?? cur.address,
-          fatherName: p.fatherName ?? cur.fatherName,
-          motherName: p.motherName ?? cur.motherName,
-          emergencyContactName:
-              p.emergencyContactName ?? cur.emergencyContactName,
-          emergencyContactPhone:
-              p.emergencyContactPhone ?? cur.emergencyContactPhone,
-          emergencyContactRelation:
-              p.emergencyContactRelation ?? cur.emergencyContactRelation,
-          languages: p.languages,
-          education: p.education,
-          experience: p.experience,
-          skills: p.skills,
-          updatedAt: p.updatedAt,
-        );
-
-        final unchanged = merged.displayName == cur.displayName &&
-            merged.photoUrl == cur.photoUrl &&
-            merged.bio == cur.bio &&
-            merged.countryOrOrigin == cur.countryOrOrigin &&
-            merged.occupation == cur.occupation &&
-            merged.profession == cur.profession &&
-            merged.thixChat == cur.thixChat &&
-            merged.thixId == cur.thixId &&
-            merged.contactPhone == cur.contactPhone &&
-            merged.maritalStatus == cur.maritalStatus &&
-            merged.gender == cur.gender &&
-            merged.dateOfBirth == cur.dateOfBirth &&
-            listEquals(merged.languages, cur.languages) &&
-            merged.updatedAt == cur.updatedAt;
-
-        if (unchanged) return;
-        _currentUser.value = merged;
-      },
-      onError: (e, st) {
-        debugPrint(
-          'SupabaseAuthManager: profile sync failed uid=$uid err=$e\n$st',
-        );
-      },
-    );
-  }
-
-  // Les méthodes d'auth (signIn, register, verifyOTP, etc.) restent
-  // dans supabase_auth_manager.dart — ce fichier est user_dashboard_page.
 }
 
+/// Classe métier pour encapsuler les erreurs d'authentification
 class AuthException implements Exception {
   final String message;
   AuthException(this.message);
