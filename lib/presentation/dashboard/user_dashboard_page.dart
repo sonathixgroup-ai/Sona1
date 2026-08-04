@@ -1,6 +1,7 @@
 // lib/presentation/dashboard/user_dashboard_page.dart
 
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -14,7 +15,7 @@ import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/presentation/common/thix_identity_sheets.dart';
 import '../../nav.dart';
 import '../../theme.dart';
-import 'dashboard_ui.dart';
+// Note: DashboardTopBar est retiré car nous utilisons le nouveau design intégré
 import 'dashboard_tabs.dart';
 import 'dashboard_editors.dart';
 
@@ -130,7 +131,7 @@ class UserDashboardCtrl extends ChangeNotifier {
 }
 
 // =============================================================================
-// INTERFACE UTILISATEUR (UI) - CLASSE RENOMMÉE
+// INTERFACE UTILISATEUR (UI) - DESIGN MODERNE
 // =============================================================================
 
 class ThixUserDashboardPage extends StatefulWidget {
@@ -182,12 +183,14 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF0D2CC1))));
     }
 
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+
     return ChangeNotifierProvider.value(
       value: _ctrl,
       child: DefaultTabController(
         length: 7,
         child: Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          backgroundColor: bgColor,
           body: Consumer<UserDashboardCtrl>(
             builder: (context, ctrl, _) {
               if (ctrl.loading && ctrl.profile == null) {
@@ -211,32 +214,56 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
               final mergedUser = ctrl.mergedUser!;
               final score = ctrl.score;
 
-              return SafeArea(
-                child: Stack(
-                  children: [
-                    const DashboardBackground(),
-                    RefreshIndicator(
+              return Stack(
+                children: [
+                  // 1. COVER PHOTO (Background Image) - Dégradé vers le bas
+                  Positioned(
+                    top: 0, left: 0, right: 0,
+                    height: 380,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        image: DecorationImage(
+                          // Image par défaut si l'utilisateur n'a pas de cover
+                          image: NetworkImage('https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1000&auto=format&fit=crop'),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.15), // Assombrit légèrement le haut
+                              Colors.transparent,
+                              bgColor, // Se fond parfaitement avec le fond du Scaffold
+                            ],
+                            stops: const [0.0, 0.4, 1.0],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // 2. CONTENU PRINCIPAL
+                  SafeArea(
+                    child: RefreshIndicator(
                       color: const Color(0xFF0D2CC1),
                       onRefresh: () => ctrl.refreshSilently(me),
                       child: Column(
                         children: [
-                          DashboardTopBar(
-                            user: mergedUser, 
-                            score: score,
-                            onBack: () => context.go(AppRoutes.home),
-                            onOpenSettings: () => context.push(AppRoutes.settings),
-                            onLogout: () async { 
-                              await context.read<AuthController>().signOut(); 
-                              if (context.mounted) context.go(AppRoutes.home); 
-                            },
-                            onEditProfile: () async {
-                              await ProfileEditorSheet.show(context, profile: profile, profileService: _profileService, authUser: me);
-                              if (context.mounted) ctrl.refreshSilently(me);
-                            },
-                            onDownloadCv: () => DefaultTabController.of(context).animateTo(4),
-                            onShareProfile: () => ShareProfileSheet.show(context, profile),
-                          ),
+                          // App Bar en Glassmorphism
+                          _buildModernTopBar(context, profile, me),
+                          
+                          // Avatar et Informations Modernes
+                          _buildModernProfileInfo(mergedUser, score),
+                          
+                          const SizedBox(height: 16),
+
+                          // Header des Tabs (Original préservé)
                           const DashboardTabsHeader(),
+                          
+                          // Vues des Tabs
                           Expanded(
                             child: TabBarView(
                               children: [
@@ -253,13 +280,15 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
                         ],
                       ),
                     ),
-                    Positioned(
-                      top: 18, 
-                      right: 18, 
-                      child: GestureDetector(onTap: () => context.push(AppRoutes.chat), child: const ChatFab())
-                    ),
-                  ],
-                ),
+                  ),
+                  
+                  // Bouton Chat Flottant
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 12, 
+                    right: 80, 
+                    child: GestureDetector(onTap: () => context.push(AppRoutes.chat), child: _buildGlassButton(Icons.chat_bubble_outline_rounded, () => context.push(AppRoutes.chat)))
+                  ),
+                ],
               );
             },
           ),
@@ -275,6 +304,162 @@ class _ThixUserDashboardPageState extends State<ThixUserDashboardPage> {
           ),
         ),
       ),
+    );
+  }
+
+  // --- Composants UI Modernes ---
+
+  Widget _buildModernTopBar(BuildContext context, ThixProfile profile, AppUser me) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildGlassButton(Icons.arrow_back_rounded, () => context.go(AppRoutes.home)),
+          Row(
+            children: [
+              _buildGlassButton(Icons.edit_rounded, () async {
+                await ProfileEditorSheet.show(context, profile: profile, profileService: _profileService, authUser: me);
+                if (context.mounted) _ctrl.refreshSilently(me);
+              }),
+              const SizedBox(width: 12),
+              _buildGlassButton(Icons.settings_rounded, () => context.push(AppRoutes.settings)),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGlassButton(IconData icon, VoidCallback onTap) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: Icon(icon, color: Colors.white, size: 22),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernProfileInfo(AppUser user, int score) {
+    final bioText = (user.bio != null && user.bio!.isNotEmpty) ? user.bio! : "Complétez votre biographie...";
+    final locationText = (user.countryOrOrigin != null && user.countryOrOrigin!.isNotEmpty) ? user.countryOrOrigin! : "Localisation inconnue";
+    
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+        // Avatar avec bordure et badge
+        Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomCenter,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFF3B82F6), // Bordure bleue façon image de référence
+              ),
+              child: CircleAvatar(
+                radius: 46,
+                backgroundColor: Colors.grey.shade300,
+                backgroundImage: (user.photoUrl != null && user.photoUrl!.isNotEmpty) 
+                    ? NetworkImage(user.photoUrl!) 
+                    : null,
+                child: (user.photoUrl == null || user.photoUrl!.isEmpty)
+                    ? const Icon(Icons.person, size: 40, color: Colors.white)
+                    : null,
+              ),
+            ),
+            // Petit badge (Score)
+            Positioned(
+              bottom: -6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3B82F6),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: Text(
+                  '$score pts',
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Nom propre et élégant
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              user.displayName,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.public, size: 16, color: Color(0xFF3B82F6)), // Icône globe
+          ],
+        ),
+        
+        const SizedBox(height: 8),
+        
+        // Petite Bio avec Emoji
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text(
+            "🌙 $bioText",
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 12),
+        
+        // Informations secondaires (Localisation, Profession)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.location_on_outlined, size: 14, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
+            const SizedBox(width: 4),
+            Text(
+              locationText,
+              style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(width: 16),
+            Icon(Icons.work_outline_rounded, size: 14, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
+            const SizedBox(width: 4),
+            Text(
+              (user.profession != null && user.profession!.isNotEmpty) ? user.profession! : "Profession",
+              style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
