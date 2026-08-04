@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../data/repositories/wedding_repository_impl.dart';
-import '../../models/gift_model.dart';
+// 👇 Importez le fichier contenant la bonne définition de GiftItem
+import '../../domain/entities/wedding_entity.dart';
+// ❌ Supprimez cet import qui causait le conflit :
+// import '../../models/gift_model.dart';
 
 part 'cadeaux_page.g.dart';
 
