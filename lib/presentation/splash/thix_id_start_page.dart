@@ -83,14 +83,9 @@ class _ThixIdStartPageState extends State<ThixIdStartPage> {
     _navigated = true;
     
     try {
-      final authController = context.read<AuthController>();
-      
-      // Navigate based on auth state
-      if (authController.isAuthenticated) {
-        context.go(AppRoutes.home);
-      } else {
-        context.go(AppRoutes.login);
-      }
+      // CORRECTION 1 : On laisse le routeur (app_router.dart) gérer la direction
+      // Cela évite le blocage sur "Chargement complet..."
+      context.go(AppRoutes.home);
     } catch (e) {
       debugPrint('Navigation error: $e');
       // Fallback navigation
@@ -278,55 +273,59 @@ class _ThixIdStartBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFF0A1A3A),
-                    Color(0xFF0B3B8F),
-                    Color(0xFF0E2C63),
-                  ],
+    // CORRECTION 2 : L'ajout de ClipRect empêche le débordement des orbes
+    // sur le Web, ce qui supprime la grande barre blanche à droite.
+    return ClipRect(
+      child: RepaintBoundary(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFF0A1A3A),
+                      Color(0xFF0B3B8F),
+                      Color(0xFF0E2C63),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            top: -180,
-            right: -120,
-            child: _GlowOrb(
-              size: 360,
-              color: const Color(0x33FFFFFF),
+            Positioned(
+              top: -180,
+              right: -120,
+              child: _GlowOrb(
+                size: 360,
+                color: const Color(0x33FFFFFF),
+              ),
             ),
-          ),
-          Positioned(
-            bottom: -220,
-            left: -140,
-            child: _GlowOrb(
-              size: 420,
-              color: const Color(0x26000000),
+            Positioned(
+              bottom: -220,
+              left: -140,
+              child: _GlowOrb(
+                size: 420,
+                color: const Color(0x26000000),
+              ),
             ),
-          ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.24),
-                  ],
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.24),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
