@@ -10,19 +10,27 @@ import '../../providers/countdown_provider.dart';
 part 'guest_home_page.g.dart';
 
 // ============================================================
-// PALETTE — Charte THIX
+// PALETTE — Charte THIX Premium (Entreprise & Épuré)
 // ============================================================
 class _P {
-  static const bg = Color(0xFFFBF7F6);
-  static const primary = Color(0xFFE25A6A);
-  static const primaryDark = Color(0xFFC94356);
-  static const ink = Color(0xFF1E1E24);
-  static const inkSoft = Color(0xFF8B8B96);
-  static const border = Color(0xFFF0EAEC);
-  static const gold = Color(0xFFDDAA3E);
-  static const blue = Color(0xFF5A94D6);
-  static const green = Color(0xFF5FAE72);
-  static const purple = Color(0xFFA477D9);
+  static const bg = Color(0xFFF8F9FA); // Fond perle très clair, moderne
+  static const surface = Colors.white;
+  static const primary = Color(0xFF0F172A); // Bleu nuit très profond / Slate
+  static const accent = Color(0xFFD4AF37); // Or premium / Champagne
+  static const accentSoft = Color(0xFFFDF8EE); // Fond champagne très léger
+  
+  static const ink = Color(0xFF1E293B); // Texte principal
+  static const inkSoft = Color(0xFF64748B); // Texte secondaire
+  static const border = Color(0xFFE2E8F0); // Bordures très discrètes
+  
+  // Ombre standardisée pour les cartes (effet flottant premium)
+  static final shadow = [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.04),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    )
+  ];
 }
 
 // ============================================================
@@ -52,17 +60,17 @@ class _GuestMenuItem {
 
 const List<_GuestMenuItem> _kGuestMenu = [
   _GuestMenuItem(title: 'Invitation', subtitle: 'Voir les détails', icon: Icons.mail_outline_rounded, color: _P.primary, route: 'invitation'),
-  _GuestMenuItem(title: 'Programme', subtitle: 'Déroulé de la journée', icon: Icons.event_note_outlined, color: Color(0xFFE39A4B), route: 'programme'),
-  _GuestMenuItem(title: 'Lieu & Accès', subtitle: 'Itinéraire & infos', icon: Icons.location_on_outlined, color: _P.green, route: 'lieu'),
-  _GuestMenuItem(title: 'RSVP', subtitle: 'Confirmer ma présence', icon: Icons.people_alt_outlined, color: _P.purple, route: 'rsvp', badgeType: _BadgeType.alert),
-  _GuestMenuItem(title: 'Liste de cadeaux', subtitle: 'Voir & contribuer', icon: Icons.card_giftcard_outlined, color: _P.gold, route: 'cadeaux'),
-  _GuestMenuItem(title: 'Galerie', subtitle: 'Photos & vidéos', icon: Icons.photo_library_outlined, color: _P.blue, route: 'galerie'),
+  _GuestMenuItem(title: 'Programme', subtitle: 'Déroulé de la journée', icon: Icons.event_note_outlined, color: _P.primary, route: 'programme'),
+  _GuestMenuItem(title: 'Lieu & Accès', subtitle: 'Itinéraire & infos', icon: Icons.location_on_outlined, color: _P.primary, route: 'lieu'),
+  _GuestMenuItem(title: 'RSVP', subtitle: 'Confirmer présence', icon: Icons.people_alt_outlined, color: _P.primary, route: 'rsvp', badgeType: _BadgeType.alert),
+  _GuestMenuItem(title: 'Cadeaux', subtitle: 'Voir & contribuer', icon: Icons.card_giftcard_outlined, color: _P.primary, route: 'cadeaux'),
+  _GuestMenuItem(title: 'Galerie', subtitle: 'Photos & vidéos', icon: Icons.photo_library_outlined, color: _P.primary, route: 'galerie'),
   _GuestMenuItem(title: 'Livre d\'or', subtitle: 'Laisser un message', icon: Icons.edit_outlined, color: _P.primary, route: 'livre-or'),
-  _GuestMenuItem(title: 'Live', subtitle: 'Suivre en direct', icon: Icons.podcasts_outlined, color: Color(0xFFE07A6B), route: 'live', badgeType: _BadgeType.live),
-  _GuestMenuItem(title: 'Annonces', subtitle: 'Infos importantes', icon: Icons.campaign_outlined, color: _P.purple, route: 'annonces', badgeType: _BadgeType.count, badgeCount: 3),
-  _GuestMenuItem(title: 'FAQ', subtitle: 'Vos questions', icon: Icons.help_outline_rounded, color: _P.blue, route: 'faq'),
-  _GuestMenuItem(title: 'Nos remerciements', subtitle: 'Un mot pour vous', icon: Icons.volunteer_activism_outlined, color: _P.green, route: 'remerciements'),
-  _GuestMenuItem(title: 'Plus', subtitle: 'Autres options', icon: Icons.more_horiz_rounded, color: Color(0xFF9A9AA5), route: 'plus'),
+  _GuestMenuItem(title: 'Live', subtitle: 'Suivre en direct', icon: Icons.podcasts_outlined, color: _P.primary, route: 'live', badgeType: _BadgeType.live),
+  _GuestMenuItem(title: 'Annonces', subtitle: 'Infos importantes', icon: Icons.campaign_outlined, color: _P.primary, route: 'annonces', badgeType: _BadgeType.count, badgeCount: 3),
+  _GuestMenuItem(title: 'FAQ', subtitle: 'Vos questions', icon: Icons.help_outline_rounded, color: _P.primary, route: 'faq'),
+  _GuestMenuItem(title: 'Remerciements', subtitle: 'Un mot pour vous', icon: Icons.volunteer_activism_outlined, color: _P.primary, route: 'remerciements'),
+  _GuestMenuItem(title: 'Plus', subtitle: 'Autres options', icon: Icons.more_horiz_rounded, color: _P.primary, route: 'plus'),
 ];
 
 // ============================================================
@@ -78,10 +86,10 @@ Future<Map<String, int>> guestEventStats(GuestEventStatsRef ref, String weddingI
 Future<List<Map<String, dynamic>>> guestVendors(GuestVendorsRef ref, String weddingId) async {
   await Future.delayed(const Duration(milliseconds: 250));
   return [
-    {'name': 'Salle Émeraude', 'category': 'Lieu de réception', 'zone': 'Gombe', 'rating': 4.8, 'icon': Icons.villa_outlined, 'colors': [const Color(0xFFFBF0DB), const Color(0xFFF5E2B8)]},
-    {'name': 'Chef Amani', 'category': 'Traiteur', 'zone': 'Limete', 'rating': 4.7, 'icon': Icons.restaurant_outlined, 'colors': [const Color(0xFFE4EEFB), const Color(0xFFCFE1F7)]},
-    {'name': 'Studio Lumière', 'category': 'Photographe', 'zone': 'Kintambo', 'rating': 4.9, 'icon': Icons.camera_alt_outlined, 'colors': [const Color(0xFFF0E9FA), const Color(0xFFE1D3F5)]},
-    {'name': 'Fleurs de Kin', 'category': 'Décoration', 'zone': 'Ngaliema', 'rating': 4.8, 'icon': Icons.local_florist_outlined, 'colors': [const Color(0xFFE7F5EA), const Color(0xFFD3ECD9)]},
+    {'name': 'Salle Émeraude', 'category': 'Lieu de réception', 'zone': 'Gombe', 'rating': 4.8, 'icon': Icons.villa_outlined},
+    {'name': 'Chef Amani', 'category': 'Traiteur', 'zone': 'Limete', 'rating': 4.7, 'icon': Icons.restaurant_outlined},
+    {'name': 'Studio Lumière', 'category': 'Photographe', 'zone': 'Kintambo', 'rating': 4.9, 'icon': Icons.camera_alt_outlined},
+    {'name': 'Fleurs de Kin', 'category': 'Décoration', 'zone': 'Ngaliema', 'rating': 4.8, 'icon': Icons.local_florist_outlined},
   ];
 }
 
@@ -89,9 +97,9 @@ Future<List<Map<String, dynamic>>> guestVendors(GuestVendorsRef ref, String wedd
 Future<List<Map<String, dynamic>>> guestUpdates(GuestUpdatesRef ref, String weddingId) async {
   await Future.delayed(const Duration(milliseconds: 200));
   return [
-    {'tag': 'PARKING', 'tagColor': _P.blue, 'title': 'Parking disponible', 'subtitle': 'À partir de 15h', 'icon': Icons.local_parking_outlined},
-    {'tag': 'DRESS CODE', 'tagColor': _P.gold, 'title': 'Tenue élégante', 'subtitle': 'Couleurs pastel conseillées', 'icon': Icons.checkroom_outlined},
-    {'tag': 'TRANSPORT', 'tagColor': _P.green, 'title': 'Navette gratuite', 'subtitle': 'Départ 15h30, Place Victoire', 'icon': Icons.directions_bus_outlined},
+    {'tag': 'PARKING', 'title': 'Parking disponible', 'subtitle': 'À partir de 15h', 'icon': Icons.local_parking_outlined},
+    {'tag': 'DRESS CODE', 'title': 'Tenue élégante', 'subtitle': 'Couleurs pastel conseillées', 'icon': Icons.checkroom_outlined},
+    {'tag': 'TRANSPORT', 'title': 'Navette gratuite', 'subtitle': 'Départ 15h30, Place Victoire', 'icon': Icons.directions_bus_outlined},
   ];
 }
 
@@ -140,16 +148,16 @@ class _GuestHomePageState extends ConsumerState<GuestHomePage> {
                   child: SafeArea(
                     bottom: false,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                       child: _GuestHeader(),
                     ),
                   ),
                 ),
 
-                // HERO COUPLE — seul visuel "mock-up" conservé (photo réelle du couple)
+                // HERO COUPLE
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _CoupleHero(
                       coupleNames: wedding.coupleNames,
                       welcomeMessage: wedding.welcomeMessage,
@@ -159,42 +167,42 @@ class _GuestHomePageState extends ConsumerState<GuestHomePage> {
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 18)),
+                const SliverToBoxAdapter(child: SizedBox(height: 32)),
 
-                // EN UN COUP D'OEIL — stats de l'événement
+                // EN UN COUP D'OEIL
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: _SectionHeader(icon: Icons.insights_rounded, title: 'En un coup d\'œil'),
+                    child: _SectionHeader(title: 'En un coup d\'œil'),
                   ),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 SliverToBoxAdapter(
                   child: statsAsync.when(
                     data: (stats) => _StatsRow(stats: stats),
-                    loading: () => const SizedBox(height: 78),
+                    loading: () => const SizedBox(height: 90),
                     error: (_, __) => const SizedBox(),
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 22)),
+                const SliverToBoxAdapter(child: SizedBox(height: 32)),
 
-                // GRILLE MENU — 12 cartes compactes, badges d'icônes colorés
+                // GRILLE MENU — Style petits boutons ronds (4 colonnes)
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: _SectionHeader(title: 'Toutes les rubriques'),
                   ),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverGrid(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
+                      crossAxisCount: 4,
+                      mainAxisSpacing: 20,
                       crossAxisSpacing: 12,
-                      childAspectRatio: 1.32,
+                      childAspectRatio: 0.8, // Ratio adapté pour laisser de la place au texte en dessous
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -209,7 +217,7 @@ class _GuestHomePageState extends ConsumerState<GuestHomePage> {
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 22)),
+                const SliverToBoxAdapter(child: SizedBox(height: 32)),
 
                 // NOS PRESTATAIRES
                 const SliverToBoxAdapter(
@@ -218,16 +226,16 @@ class _GuestHomePageState extends ConsumerState<GuestHomePage> {
                     child: _SectionHeader(title: 'Nos prestataires'),
                   ),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 SliverToBoxAdapter(
                   child: vendorsAsync.when(
                     data: (vendors) => _VendorsList(vendors: vendors, onTap: _onTapGeneric),
-                    loading: () => const SizedBox(height: 208, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                    loading: () => const SizedBox(height: 220, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
                     error: (_, __) => const SizedBox(),
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 22)),
+                const SliverToBoxAdapter(child: SizedBox(height: 32)),
 
                 // INFOS PRATIQUES
                 const SliverToBoxAdapter(
@@ -236,27 +244,27 @@ class _GuestHomePageState extends ConsumerState<GuestHomePage> {
                     child: _SectionHeader(title: 'Infos pratiques'),
                   ),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 SliverToBoxAdapter(
                   child: updatesAsync.when(
                     data: (items) => _UpdatesList(items: items, onTap: _onTapGeneric),
-                    loading: () => const SizedBox(height: 148, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                    loading: () => const SizedBox(height: 160, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
                     error: (_, __) => const SizedBox(),
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 22)),
+                const SliverToBoxAdapter(child: SizedBox(height: 32)),
 
                 // BANDEAU ANNONCE PRINCIPALE
-                if (wedding.hasAnnouncement)
+                if (wedding.hasAnnouncement) ...[
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: _NewsBanner(text: wedding.announcement),
                     ),
                   ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 14)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ],
 
                 // BANDEAU DE CONFIANCE
                 const SliverToBoxAdapter(
@@ -297,8 +305,8 @@ class _GuestHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Bonjour 👋', style: TextStyle(fontSize: 13, color: _P.inkSoft, fontWeight: FontWeight.w500)),
-              Text('Invité 💗', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: _P.ink)),
+              Text('Bonjour 👋', style: TextStyle(fontSize: 12, color: _P.inkSoft, fontWeight: FontWeight.w500)),
+              Text('Invité(e)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: _P.ink)),
             ],
           ),
         ),
@@ -307,28 +315,28 @@ class _GuestHeader extends StatelessWidget {
           child: const Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.language_rounded, size: 15, color: Color(0xFF1B3A6B)),
-              Text('FR', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Color(0xFF1B3A6B))),
+              Icon(Icons.language_rounded, size: 16, color: _P.primary),
+              Text('FR', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: _P.primary)),
             ],
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Stack(
           clipBehavior: Clip.none,
           children: [
             Container(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: _P.border, width: 1)),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: _P.surface, boxShadow: _P.shadow),
               child: const Icon(Icons.person_rounded, color: _P.inkSoft, size: 22),
             ),
             Positioned(
-              top: -1,
-              right: -1,
+              top: -2,
+              right: -2,
               child: Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(color: _P.primary, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(color: _P.accent, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
               ),
             ),
           ],
@@ -352,8 +360,8 @@ class _RoundIconButton extends StatelessWidget {
       child: Container(
         width: 44,
         height: 44,
-        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-        child: Center(child: child ?? Icon(icon, size: 20, color: _P.ink)),
+        decoration: BoxDecoration(color: _P.surface, shape: BoxShape.circle, boxShadow: _P.shadow),
+        child: Center(child: child ?? Icon(icon, size: 20, color: _P.primary)),
       ),
     );
   }
@@ -378,15 +386,15 @@ class _CoupleHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(24),
       child: Stack(
         children: [
           AspectRatio(
-            aspectRatio: 0.93,
+            aspectRatio: 0.95,
             child: Image.network(
               coverImageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: const Color(0xFFF3D9DC)),
+              errorBuilder: (_, __, ___) => Container(color: _P.border),
             ),
           ),
           Positioned.fill(
@@ -395,14 +403,14 @@ class _CoupleHero extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.black.withOpacity(0.06), Colors.transparent, Colors.black.withOpacity(0.10)],
-                  stops: const [0.0, 0.4, 1.0],
+                  colors: [Colors.black.withOpacity(0.3), Colors.transparent, Colors.black.withOpacity(0.2)],
+                  stops: const [0.0, 0.5, 1.0],
                 ),
               ),
             ),
           ),
           Positioned(
-            top: 20,
+            top: 24,
             left: 20,
             right: 90,
             child: Column(
@@ -410,26 +418,26 @@ class _CoupleHero extends StatelessWidget {
               children: [
                 Text(
                   coupleNames,
-                  style: const TextStyle(fontFamily: 'Serif', fontSize: 30, color: _P.primary, fontWeight: FontWeight.w500, height: 1.1),
+                  style: const TextStyle(fontFamily: 'Serif', fontSize: 32, color: Colors.white, fontWeight: FontWeight.w600, height: 1.1),
                 ),
                 const SizedBox(height: 8),
-                Text(welcomeMessage, style: const TextStyle(color: _P.ink, fontSize: 13, height: 1.35, fontWeight: FontWeight.w500)),
+                Text(welcomeMessage, style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.35, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
           Positioned(
-            top: 18,
+            top: 20,
             right: 16,
             child: FilledButton.tonalIcon(
               onPressed: () {},
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.white.withOpacity(0.92),
-                foregroundColor: _P.ink,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                backgroundColor: _P.surface.withOpacity(0.9),
+                foregroundColor: _P.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
-              icon: const Icon(Icons.ios_share_rounded, size: 15),
-              label: const Text('Partager', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+              icon: const Icon(Icons.ios_share_rounded, size: 16),
+              label: const Text('Partager', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             ),
           ),
           Positioned(left: 12, right: 12, bottom: 14, child: _CountdownCard(state: countdownState)),
@@ -447,33 +455,33 @@ class _CountdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (state == null) return const SizedBox(height: 84);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.94),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 6))],
+        color: _P.surface.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: _P.shadow,
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             decoration: const BoxDecoration(color: _P.primary, shape: BoxShape.circle),
-            child: const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 18),
+            child: const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 20),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('JOUR J DANS', style: TextStyle(fontSize: 9.5, color: _P.inkSoft, fontWeight: FontWeight.w700, letterSpacing: 0.4)),
-                const SizedBox(height: 2),
+                const Text('JOUR J DANS', style: TextStyle(fontSize: 10, color: _P.inkSoft, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     _CountItem(value: state!.days, label: 'Jours'),
                     _CountItem(value: state!.hours, label: 'Heures'),
-                    _CountItem(value: state!.minutes, label: 'Minutes'),
-                    _CountItem(value: state!.seconds, label: 'Secondes'),
+                    _CountItem(value: state!.minutes, label: 'Min'),
+                    _CountItem(value: state!.seconds, label: 'Sec'),
                   ],
                 ),
               ],
@@ -495,8 +503,8 @@ class _CountItem extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Text('$value', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 19, color: _P.ink)),
-          Text(label, style: const TextStyle(fontSize: 9.5, color: _P.inkSoft, fontWeight: FontWeight.w500)),
+          Text('$value', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: _P.primary)),
+          Text(label, style: const TextStyle(fontSize: 9, color: _P.inkSoft, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -508,31 +516,19 @@ class _CountItem extends StatelessWidget {
 // ============================================================
 class _SectionHeader extends StatelessWidget {
   final String title;
-  final IconData? icon;
-  const _SectionHeader({required this.title, this.icon});
+  const _SectionHeader({required this.title});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          children: [
-            if (icon != null) ...[Icon(icon, size: 16, color: _P.primary), const SizedBox(width: 6)],
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: _P.ink)),
-          ],
-        ),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: _P.primary, letterSpacing: -0.5)),
         InkWell(
           onTap: () {},
-          borderRadius: BorderRadius.circular(6),
           child: const Padding(
             padding: EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: [
-                Text('Voir tout', style: TextStyle(fontSize: 12, color: _P.primary, fontWeight: FontWeight.w600)),
-                Icon(Icons.chevron_right_rounded, size: 15, color: _P.primary),
-              ],
-            ),
+            child: Text('VOIR TOUT', style: TextStyle(fontSize: 11, color: _P.inkSoft, fontWeight: FontWeight.w600, letterSpacing: 0.8)),
           ),
         ),
       ],
@@ -541,25 +537,11 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ============================================================
-// STATS ROW
+// STATS ROW (Floating Cards)
 // ============================================================
 class _StatsRow extends StatelessWidget {
   final Map<String, int> stats;
   const _StatsRow({required this.stats});
-
-  static const _icons = {
-    'Invités confirmés': Icons.how_to_reg_outlined,
-    'En attente': Icons.hourglass_bottom_rounded,
-    'Cadeaux reçus': Icons.card_giftcard_outlined,
-    'Photos partagées': Icons.photo_camera_outlined,
-  };
-
-  static const _colors = {
-    'Invités confirmés': _P.green,
-    'En attente': _P.gold,
-    'Cadeaux reçus': _P.purple,
-    'Photos partagées': _P.blue,
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -569,19 +551,16 @@ class _StatsRow extends StatelessWidget {
       child: Row(
         children: List.generate(entries.length, (i) {
           final e = entries[i];
-          final color = _colors[e.key] ?? _P.primary;
           return Expanded(
             child: Container(
-              margin: EdgeInsets.only(right: i == entries.length - 1 ? 0 : 8),
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: _P.border)),
+              margin: EdgeInsets.only(right: i == entries.length - 1 ? 0 : 12),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
+              decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(16), boxShadow: _P.shadow),
               child: Column(
                 children: [
-                  Icon(_icons[e.key] ?? Icons.info_outline, size: 18, color: color),
-                  const SizedBox(height: 6),
-                  Text('${e.value}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: _P.ink)),
-                  const SizedBox(height: 2),
-                  Text(e.key, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 8.5, color: _P.inkSoft, fontWeight: FontWeight.w500, height: 1.1)),
+                  Text('${e.value}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: _P.primary)),
+                  const SizedBox(height: 4),
+                  Text(e.key.toUpperCase(), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 8.5, color: _P.inkSoft, fontWeight: FontWeight.w600, height: 1.2, letterSpacing: 0.5)),
                 ],
               ),
             ),
@@ -593,7 +572,7 @@ class _StatsRow extends StatelessWidget {
 }
 
 // ============================================================
-// TUILE DE MENU
+// TUILE DE MENU — Style Petits Boutons (comme THIX Central)
 // ============================================================
 class _GuestMenuTile extends StatelessWidget {
   final _GuestMenuItem item;
@@ -604,44 +583,48 @@ class _GuestMenuTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: _P.border)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(color: item.color.withOpacity(0.13), shape: BoxShape.circle),
-                  child: Icon(item.icon, color: item.color, size: 20),
+      borderRadius: BorderRadius.circular(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: _P.surface, 
+                  shape: BoxShape.circle, 
+                  boxShadow: _P.shadow, // Ombre douce pour le côté premium
                 ),
-                if (item.badgeType == _BadgeType.alert)
-                  Positioned(top: -4, right: -4, child: _DotBadge(child: const Text('!', style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w800)))),
-                if (item.badgeType == _BadgeType.count)
-                  Positioned(top: -4, right: -4, child: _DotBadge(child: Text('${item.badgeCount}', style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w800)))),
-                if (item.badgeType == _BadgeType.live)
-                  Positioned(
-                    top: -2,
-                    right: -30,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: _P.primary, borderRadius: BorderRadius.circular(6)),
-                      child: const Text('LIVE', style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
-                    ),
+                child: Icon(item.icon, color: _P.primary, size: 26),
+              ),
+              if (item.badgeType == _BadgeType.alert)
+                Positioned(top: 0, right: 0, child: _DotBadge(child: const Text('!', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w800)))),
+              if (item.badgeType == _BadgeType.count)
+                Positioned(top: 0, right: 0, child: _DotBadge(child: Text('${item.badgeCount}', style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w800)))),
+              if (item.badgeType == _BadgeType.live)
+                Positioned(
+                  top: -4,
+                  right: -12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(6)),
+                    child: const Text('LIVE', style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                   ),
-              ],
-            ),
-            const Spacer(),
-            Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: _P.ink)),
-            const SizedBox(height: 2),
-            Text(item.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: _P.inkSoft, fontWeight: FontWeight.w500)),
-          ],
-        ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            item.title, 
+            textAlign: TextAlign.center, 
+            maxLines: 2, 
+            overflow: TextOverflow.ellipsis, 
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10.5, color: _P.ink, height: 1.1)
+          ),
+        ],
       ),
     );
   }
@@ -654,10 +637,10 @@ class _DotBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 17,
-      height: 17,
+      width: 18,
+      height: 18,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(color: _P.primary, shape: BoxShape.circle),
+      decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
       child: child,
     );
   }
@@ -674,47 +657,46 @@ class _VendorsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 208,
+      height: 220,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         itemCount: vendors.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => const SizedBox(width: 16),
         itemBuilder: (context, i) {
           final v = vendors[i];
-          final colors = v['colors'] as List<Color>;
           return InkWell(
             onTap: () => onTap(v['name'] as String),
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              width: 158,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _P.border)),
+              width: 170,
+              decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(16), boxShadow: _P.shadow),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    height: 100,
+                    height: 110,
                     child: Stack(
                       children: [
                         Container(
                           width: double.infinity,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                          decoration: const BoxDecoration(
+                            color: _P.primary,
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                           ),
-                          child: Center(child: Icon(v['icon'] as IconData, size: 32, color: Colors.white.withOpacity(0.9))),
+                          child: Center(child: Icon(v['icon'] as IconData, size: 36, color: Colors.white24)),
                         ),
                         Positioned(
-                          top: 8,
-                          left: 8,
+                          top: 12,
+                          left: 12,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.92), borderRadius: BorderRadius.circular(6)),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(6)),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.star_rounded, size: 12, color: _P.gold),
-                                const SizedBox(width: 2),
+                                const Icon(Icons.star_rounded, size: 12, color: _P.accent),
+                                const SizedBox(width: 4),
                                 Text('${v['rating']}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _P.ink)),
                               ],
                             ),
@@ -724,18 +706,19 @@ class _VendorsList extends StatelessWidget {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                    padding: const EdgeInsets.all(12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(v['name'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: _P.ink)),
-                        Text(v['category'] as String, style: const TextStyle(fontSize: 10.5, color: _P.inkSoft, fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 4),
+                        Text(v['name'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _P.ink)),
+                        const SizedBox(height: 2),
+                        Text(v['category'] as String, style: const TextStyle(fontSize: 11, color: _P.accent, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 8),
                         Row(
                           children: [
-                            const Icon(Icons.place_outlined, size: 11, color: _P.inkSoft),
-                            const SizedBox(width: 2),
-                            Expanded(child: Text(v['zone'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9.5, color: _P.inkSoft))),
+                            const Icon(Icons.place_outlined, size: 12, color: _P.inkSoft),
+                            const SizedBox(width: 4),
+                            Expanded(child: Text(v['zone'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: _P.inkSoft))),
                           ],
                         ),
                       ],
@@ -762,52 +745,52 @@ class _UpdatesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 148,
+      height: 160,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => const SizedBox(width: 16),
         itemBuilder: (context, i) {
           final a = items[i];
-          final tagColor = a['tagColor'] as Color;
           return InkWell(
             onTap: () => onTap(a['title'] as String),
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              width: 148,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _P.border)),
+              width: 150,
+              decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(16), boxShadow: _P.shadow),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    height: 76,
+                    height: 80,
                     child: Stack(
                       children: [
                         Container(
                           width: double.infinity,
-                          decoration: BoxDecoration(color: tagColor.withOpacity(0.10), borderRadius: const BorderRadius.vertical(top: Radius.circular(16))),
-                          child: Center(child: Icon(a['icon'] as IconData, size: 26, color: tagColor)),
+                          decoration: const BoxDecoration(color: _P.accentSoft, borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+                          child: Center(child: Icon(a['icon'] as IconData, size: 28, color: _P.accent)),
                         ),
                         Positioned(
-                          top: 7,
-                          left: 7,
+                          top: 12,
+                          left: 12,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: tagColor, borderRadius: BorderRadius.circular(6)),
-                            child: Text(a['tag'] as String, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.3)),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(4)),
+                            child: Text(a['tag'] as String, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: _P.ink, letterSpacing: 0.5)),
                           ),
                         ),
                       ],
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(9, 7, 9, 9),
+                    padding: const EdgeInsets.all(12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(a['title'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _P.ink)),
-                        Text(a['subtitle'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: _P.inkSoft, fontWeight: FontWeight.w600)),
+                        Text(a['title'] as String, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _P.ink, height: 1.2)),
+                        const Spacer(),
+                        Text(a['subtitle'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: _P.primary, fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),
@@ -831,34 +814,24 @@ class _NewsBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFFFCE9EB), borderRadius: BorderRadius.circular(16)),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: _P.primary, borderRadius: BorderRadius.circular(16), boxShadow: _P.shadow),
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(color: _P.primary, shape: BoxShape.circle),
-            child: const Icon(Icons.notifications_rounded, color: Colors.white, size: 17),
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: _P.surface.withOpacity(0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.campaign_rounded, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Nouveauté !', style: TextStyle(color: _P.primaryDark, fontWeight: FontWeight.w700, fontSize: 12)),
-                const SizedBox(height: 1),
-                Text(text, style: const TextStyle(fontSize: 12.5, color: _P.ink, fontWeight: FontWeight.w500)),
-              ],
-            ),
-          ),
-          InkWell(
-            onTap: () {},
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Voir tout', style: TextStyle(fontSize: 11.5, color: _P.primaryDark, fontWeight: FontWeight.w700)),
-                Icon(Icons.chevron_right_rounded, size: 15, color: _P.primaryDark),
+                const Text('INFORMATION', style: TextStyle(color: _P.accent, fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 0.8)),
+                const SizedBox(height: 2),
+                Text(text, style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
@@ -875,27 +848,26 @@ class _TrustRow extends StatelessWidget {
   const _TrustRow();
 
   static const _items = [
-    {'icon': Icons.favorite_border_rounded, 'label': 'Merci pour\nvotre présence'},
-    {'icon': Icons.lock_outline_rounded, 'label': 'Vos données\nprotégées'},
-    {'icon': Icons.support_agent_rounded, 'label': 'Assistance\ndédiée'},
-    {'icon': Icons.qr_code_rounded, 'label': 'Accès via\nQR / ID'},
+    {'icon': Icons.favorite_border_rounded, 'label': 'Merci de\nvotre présence'},
+    {'icon': Icons.lock_outline_rounded, 'label': 'Données\nprotégées'},
+    {'icon': Icons.qr_code_rounded, 'label': 'Accès\nsécurisé'},
   ];
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _P.border)),
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(16), boxShadow: _P.shadow),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: _items.map((e) {
-          return Expanded(
-            child: Column(
-              children: [
-                Icon(e['icon'] as IconData, size: 20, color: _P.primary),
-                const SizedBox(height: 6),
-                Text(e['label'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: _P.inkSoft, fontWeight: FontWeight.w600, height: 1.2)),
-              ],
-            ),
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(e['icon'] as IconData, size: 22, color: _P.accent),
+              const SizedBox(height: 8),
+              Text(e['label'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: _P.inkSoft, fontWeight: FontWeight.w500)),
+            ],
           );
         }).toList(),
       ),
@@ -904,24 +876,24 @@ class _TrustRow extends StatelessWidget {
 }
 
 // ============================================================
-// BOTTOM NAV
+// BOTTOM NAV (Hauteur Réduite)
 // ============================================================
 class _GuestBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, -2))],
+        color: _P.surface,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, -4))],
       ),
       child: SafeArea(
         child: SizedBox(
-          height: 62,
+          height: 52, // Hauteur réduite
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               const _NavItem(icon: Icons.home_rounded, label: 'Accueil', selected: true),
-              const _NavItem(icon: Icons.event_outlined, label: 'Evènement'),
+              const _NavItem(icon: Icons.event_outlined, label: 'Agenda'),
               _HeartNavButton(onTap: () {}),
               const _NavItem(icon: Icons.chat_bubble_outline_rounded, label: 'Messages'),
               const _NavItem(icon: Icons.person_outline_rounded, label: 'Profil'),
@@ -944,14 +916,14 @@ class _NavItem extends StatelessWidget {
     final color = selected ? _P.primary : _P.inkSoft;
     return InkWell(
       onTap: () {},
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(8),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 21, color: color),
+          Icon(icon, size: 20, color: color), // Taille d'icône légèrement diminuée
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 9.5, color: color, fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
+          Text(label, style: TextStyle(fontSize: 9, color: color, fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
         ],
       ),
     );
@@ -966,16 +938,16 @@ class _HeartNavButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
-        width: 48,
-        height: 48,
+        width: 44, // Bouton central plus petit
+        height: 44,
         decoration: BoxDecoration(
-          color: _P.primary,
+          color: _P.accent, // Mis en Or pour le côté Mariage Premium
           shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: _P.primary.withOpacity(0.35), blurRadius: 12, offset: const Offset(0, 4))],
+          boxShadow: [BoxShadow(color: _P.accent.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))],
         ),
-        child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 22),
+        child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 20),
       ),
     );
   }
