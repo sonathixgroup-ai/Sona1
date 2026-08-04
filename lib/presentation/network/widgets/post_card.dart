@@ -137,6 +137,66 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
     return spans;
   }
 
+  // 🌟 NOUVEAU : Analyse de la couleur Hexadécimale
+  Color? _parseColor(String? hexColor) {
+    if (hexColor == null || hexColor.isEmpty) return null;
+    final hexCode = hexColor.replaceAll('#', '');
+    if (hexCode.length == 6 || hexCode.length == 8) {
+      try {
+        return Color(int.parse(hexCode.length == 6 ? 'FF$hexCode' : hexCode, radix: 16));
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  // 🌟 NOUVEAU : Construction du bloc de texte avec ou sans Fond de Couleur
+  Widget _buildPostContent(NetworkPost post) {
+    if (post.content.isEmpty) return const SizedBox.shrink();
+    
+    final bgColor = _parseColor(post.bgColor);
+
+    if (bgColor != null) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          post.content,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            height: 1.3,
+          ),
+        ),
+      );
+    } else {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(text: TextSpan(children: _isExpanded ? (_cachedFullSpans ?? []) : (_cachedTruncatedSpans ?? []))),
+          if (_isTruncatable)
+            GestureDetector(
+              onTap: () => setState(() => _isExpanded = !_isExpanded),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  _isExpanded ? 'Voir moins' : 'Voir plus',
+                  style: const TextStyle(color: _PostColors.primary, fontSize: 12.5, fontWeight: FontWeight.w700),
+                ),
+              ),
+            )
+        ],
+      );
+    }
+  }
+
   String _getTimeAgo(DateTime dt) => timeago.format(dt, locale: 'fr');
   String _formatCount(int count) => count >= 1000000? '${(count / 1000000).toStringAsFixed(1)}M' : count >= 1000? '${(count / 1000).toStringAsFixed(1)}k' : '$count';
   void _openPostDetails(String postId) => context.push('/network/comments/$postId').then((_) => widget.onRefresh?.call());
@@ -263,7 +323,10 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
                   ),
                 ]),
                 const SizedBox(height: 13),
-                if (post.content.isNotEmpty) Column(crossAxisAlignment: CrossAxisAlignment.start, children: [RichText(text: TextSpan(children: _isExpanded? (_cachedFullSpans?? []) : (_cachedTruncatedSpans?? []))), if (_isTruncatable) GestureDetector(onTap: () => setState(() => _isExpanded =!_isExpanded), child: Padding(padding: const EdgeInsets.only(top: 4), child: Text(_isExpanded? 'Voir moins' : 'Voir plus', style: const TextStyle(color: _PostColors.primary, fontSize: 12.5, fontWeight: FontWeight.w700))))]),
+                
+                // 🌟 REMPLACEMENT DU CONTENU ICI (Appel de la nouvelle méthode)
+                _buildPostContent(post),
+
                 _buildFactCheckBanner(post.isMisinformation, post.factCheckMessage),
                 if (post.postType == 'poll')...[_buildImageGrid(post.imageUrls, post.id), const SizedBox(height: 10), _buildPollWidget(post, ref)]
                 else if (post.postType == 'challenge')...[_buildImageGrid(post.imageUrls, post.id), const SizedBox(height: 10), _buildChallengeWidget(post)]
