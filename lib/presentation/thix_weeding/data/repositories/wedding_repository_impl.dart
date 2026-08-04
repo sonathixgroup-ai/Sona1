@@ -1,73 +1,59 @@
 // lib/presentation/thix_weeding/data/repositories/wedding_repository_impl.dart
-import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/failure.dart';
 import '../../domain/entities/wedding_entity.dart';
-import '../../domain/repositories/wedding_repository.dart';
-import '../datasources/wedding_local_datasource.dart';
-import '../datasources/wedding_remote_datasource.dart';
-import '../models/wedding_dto.dart';
-import '../../models/program_item_model.dart';
-import '../../models/gift_model.dart';
 
-part 'wedding_repository_impl.g.dart';
+final weddingRepositoryProvider = Provider<WeddingRepository>((ref) => WeddingRepositoryImpl());
 
-@Riverpod(keepAlive: true)
-WeddingRepository weddingRepository(WeddingRepositoryRef ref) {
-  return WeddingRepositoryImpl(
-    remote: ref.watch(weddingRemoteDataSourceProvider),
-    local: ref.watch(weddingLocalDataSourceProvider),
-  );
+abstract class WeddingRepository {
+  Future<WeddingEntity> getWeddingById(String id);
+  Future<List<String>> getGallery(String weddingId, {int page = 1});
+  Future<void> submitRsvp(RsvpEntity rsvp);
+  Future<void> submitLivreOr(String weddingId, String name, String message);
+  Future<List<GiftItem>> getGifts(String weddingId);
 }
 
 class WeddingRepositoryImpl implements WeddingRepository {
-  final WeddingRemoteDataSource remote;
-  final WeddingLocalDataSource local;
-  WeddingRepositoryImpl({required this.remote, required this.local});
-
   @override
   Future<WeddingEntity> getWeddingById(String id) async {
-    try {
-      final json = await remote.fetchWedding(id);
-      await local.cacheWedding(id, json); // cache pour offline
-      return WeddingDto.fromJson(json).toDomain();
-    } on Failure {
-      // Fallback cache si réseau KO = essentiel pour millions d'users
-      final cached = await local.getCachedWedding(id);
-      if (cached != null) return WeddingDto.fromJson(cached).toDomain();
-      rethrow;
-    }
-  }
-
-  @override
-  Future<List<ProgramItem>> getProgram(String weddingId) async {
-    final list = await remote.fetchProgram(weddingId);
-    return list.map((e) => ProgramItem.fromJson(e as Map<String, dynamic>)).toList();
-  }
-
-  @override
-  Future<List<GiftItem>> getGifts(String weddingId) async {
-    final list = await remote.fetchGifts(weddingId);
-    return list.map((e) => GiftItem.fromJson(e as Map<String, dynamic>)).toList();
+    if (id.trim().length < 4) throw const Failure('ID de mariage invalide');
+    await Future.delayed(const Duration(milliseconds: 500));
+    // En prod: call Supabase / Dio
+    return WeddingEntity(
+      id: id,
+      locationName: 'Salle des fêtes La Riviera',
+      locationAddress: 'Cocody, Abidjan',
+      latitude: 5.359,
+      longitude: -4.008,
+      coupleNames: 'Sarah & David',
+      welcomeMessage: 'Merci d’être là pour célébrer notre amour',
+      announcement: 'Parking disponible à partir de 15h',
+    );
   }
 
   @override
   Future<List<String>> getGallery(String weddingId, {int page = 1}) async {
-    final list = await remote.fetchGallery(weddingId, page);
-    return list.map((e) => e['url'] as String).toList();
+    await Future.delayed(const Duration(milliseconds: 400));
+    return List.generate(20, (i) => 'https://picsum.photos/400/400?random=${page * 20 + i}');
   }
 
   @override
-  Future<void> submitRsvp(RsvpEntity rsvp) {
-    return remote.postRsvp(rsvp.toPayload());
+  Future<void> submitRsvp(RsvpEntity rsvp) async {
+    await Future.delayed(const Duration(milliseconds: 600));
+    // En prod: await supabase.from('rsvp').insert(...)
   }
 
   @override
-  Future<void> submitLivreOr(String weddingId, String name, String message) {
-    return remote.postLivreOr(weddingId, {'guest_name': name, 'message': message});
+  Future<void> submitLivreOr(String weddingId, String name, String message) async {
+    await Future.delayed(const Duration(milliseconds: 400));
   }
 
   @override
-  Future<void> contributeGift(String giftId, double amount) async {
-    // Appel Thix Money ici
+  Future<List<GiftItem>> getGifts(String weddingId) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    return [
+      const GiftItem(id: '1', name: 'Lune de miel', imageUrl: 'https://picsum.photos/200', price: 500000, contributed: 150000),
+      const GiftItem(id: '2', name: 'Service à vaisselle', imageUrl: 'https://picsum.photos/200', price: 200000, contributed: 200000),
+    ];
   }
 }
