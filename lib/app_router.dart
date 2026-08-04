@@ -247,7 +247,7 @@ import 'presentation/admin/admin_article_form_page.dart' as thix_admin_form;
 import 'package:thix_id/presentation/thix_ia/thix_ia_screen.dart';
 import 'presentation/thix_weeding/thix_weeding_routes.dart';
 
-class NoTransitionPage<T> extends CustomTransitionPage<T> {
+class NoTransitionPage<T> extends Page<T> {
   final Widget child;
   const NoTransitionPage({required this.child, super.key});
   @override
@@ -261,17 +261,14 @@ class NoTransitionPage<T> extends CustomTransitionPage<T> {
 }
 
 class AppRouter {
-  // 🌟 1. On ajoute navigatorKey ici
   static GoRouter create(
     AuthController auth, {
     Listenable? extraRefreshListenable,
-    GlobalKey<NavigatorState>? navigatorKey, 
+    GlobalKey<NavigatorState>? navigatorKey,
   }) {
     final refresh = extraRefreshListenable ?? auth;
     return GoRouter(
-      // 🌟 2. On le passe à GoRouter ici
-      navigatorKey: navigatorKey, 
-      
+      navigatorKey: navigatorKey,
       // L'application démarre directement sur l'accueil (plus de passage forcé par le splash screen)
       initialLocation: AppRoutes.home,
       
