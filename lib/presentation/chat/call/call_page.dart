@@ -45,7 +45,7 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
     });
   }
 
-    String _formatDuration(Duration duration) {
+  String _formatDuration(Duration duration) {
     final s = duration.inSeconds;
     final h = s ~/ 3600;
     final m = (s % 3600) ~/ 60;
@@ -55,7 +55,6 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
     }
     return '${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
   }
-
 
   Future<void> _handleEnd() async {
     await ref.read(callProvider.notifier).end();
