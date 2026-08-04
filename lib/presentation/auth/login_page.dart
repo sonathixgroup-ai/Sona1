@@ -189,6 +189,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _looksLikeEmail(String s) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(s.trim());
 
   // ---------- Réinitialisation de mot de passe ----------
+  
   void _startResetCooldown() {
     _resetCooldownTimer?.cancel();
     setState(() => _resetCooldown = _resetCooldownDuration);
@@ -208,14 +209,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   void _openForgotPasswordDialog() {
     final prefill = _looksLikeEmail(_identifierC.text) ? _identifierC.text.trim() : '';
     final emailC = TextEditingController(text: prefill);
+    final otpC = TextEditingController();
+    final newPasswordC = TextEditingController();
+    
     bool isSending = false;
+    bool isOtpSent = false;
+    bool isObscured = true;
 
     showDialog(
       context: context,
+      barrierDismissible: false, // Empêche de fermer par erreur en cliquant à côté
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final canSend = !isSending && _resetCooldown == 0;
+            
             return Dialog(
               backgroundColor: Colors.transparent,
               insetPadding: const EdgeInsets.symmetric(horizontal: 24),
@@ -226,57 +234,172 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // --- EN-TÊTE ---
                     Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(color: _AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
-                          child: const Icon(Icons.lock_reset_rounded, color: _AppColors.primary),
+                          child: Icon(
+                            isOtpSent ? Icons.vpn_key_rounded : Icons.lock_reset_rounded, 
+                            color: _AppColors.primary
+                          ),
                         ),
                         const SizedBox(width: 16),
-                        Expanded(child: Text('Mot de passe oublié', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 18, color: _AppColors.textDark))),
+                        Expanded(
+                          child: Text(
+                            isOtpSent ? 'Nouveau mot de passe' : 'Mot de passe oublié', 
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 18, color: _AppColors.textDark)
+                          )
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    Text('Entrez l\'email associé à votre compte. Si un compte existe, un lien de réinitialisation vous sera envoyé.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.textMuted, fontSize: 13, height: 1.4)),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: emailC, keyboardType: TextInputType.emailAddress,
-                      style: const TextStyle(fontSize: 14, color: _AppColors.textDark, fontWeight: FontWeight.w500),
-                      decoration: InputDecoration(
-                        hintText: 'votre@email.com',
-                        hintStyle: const TextStyle(color: _AppColors.textMuted),
-                        filled: true,
-                        fillColor: _AppColors.background,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.primary, width: 1.5)),
-                      ),
+                    
+                    // --- TEXTE DESCRIPTIF ---
+                    Text(
+                      isOtpSent 
+                          ? 'Un code à 6 chiffres a été envoyé à ${emailC.text}. Saisissez-le ci-dessous avec votre nouveau mot de passe.'
+                          : 'Entrez l\'email associé à votre compte. Si un compte existe, un code de réinitialisation vous sera envoyé.', 
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.textMuted, fontSize: 13, height: 1.4)
                     ),
+                    const SizedBox(height: 24),
+                    
+                    // --- ÉTAPE 1 : SAISIE DE L'EMAIL ---
+                    if (!isOtpSent) ...[
+                      TextFormField(
+                        controller: emailC, keyboardType: TextInputType.emailAddress,
+                        style: const TextStyle(fontSize: 14, color: _AppColors.textDark, fontWeight: FontWeight.w500),
+                        decoration: InputDecoration(
+                          hintText: 'votre@email.com',
+                          hintStyle: const TextStyle(color: _AppColors.textMuted),
+                          filled: true, fillColor: _AppColors.background,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.primary, width: 1.5)),
+                        ),
+                      ),
+                    ] 
+                    
+                    // --- ÉTAPE 2 : SAISIE OTP + NOUVEAU MOT DE PASSE ---
+                    else ...[
+                      TextFormField(
+                        controller: otpC, keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 14, color: _AppColors.textDark, fontWeight: FontWeight.w500),
+                        decoration: InputDecoration(
+                          labelText: 'Code de vérification (OTP)',
+                          hintText: '000000',
+                          filled: true, fillColor: _AppColors.background,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.primary, width: 1.5)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: newPasswordC, obscureText: isObscured,
+                        style: const TextStyle(fontSize: 14, color: _AppColors.textDark, fontWeight: FontWeight.w500),
+                        decoration: InputDecoration(
+                          labelText: 'Nouveau mot de passe',
+                          hintText: 'Min. 8 caractères',
+                          filled: true, fillColor: _AppColors.background,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.primary, width: 1.5)),
+                          suffixIcon: IconButton(
+                            splashRadius: 20,
+                            icon: Icon(isObscured ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: _AppColors.textMuted, size: 20),
+                            onPressed: () => setDialogState(() => isObscured = !isObscured),
+                          )
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 28),
+                    
+                    // --- BOUTONS D'ACTION ---
                     Row(
                       children: [
-                        Expanded(child: TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Annuler', style: TextStyle(color: _AppColors.textMuted, fontWeight: FontWeight.w600)))),
+                        Expanded(
+                          child: TextButton(
+                            onPressed: isSending ? null : () => Navigator.of(dialogContext).pop(), 
+                            child: const Text('Annuler', style: TextStyle(color: _AppColors.textMuted, fontWeight: FontWeight.w600))
+                          )
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: canSend ? () async {
-                              final email = emailC.text.trim();
-                              if (!_looksLikeEmail(email)) { _snack('Email invalide.', isError: true); return; }
-                              setDialogState(() => isSending = true);
-                              await _sendPasswordReset(email);
-                              if (!dialogContext.mounted) return;
-                              Navigator.of(dialogContext).pop();
-                              _snack('Si un compte existe, un lien vient d\'être envoyé.');
-                            } : null,
+                            onPressed: isSending ? null : () async {
+                              
+                              // ACTION : ÉTAPE 1 -> ENVOI DE L'EMAIL
+                              if (!isOtpSent) {
+                                if (!canSend) return;
+                                final email = emailC.text.trim();
+                                if (!_looksLikeEmail(email)) { _snack('Email invalide.', isError: true); return; }
+                                
+                                setDialogState(() => isSending = true);
+                                await _sendPasswordReset(email);
+                                
+                                if (dialogContext.mounted) {
+                                  setDialogState(() {
+                                    isSending = false;
+                                    isOtpSent = true; // Passe à l'étape 2
+                                  });
+                                }
+                              } 
+                              
+                              // ACTION : ÉTAPE 2 -> VÉRIFICATION & CHANGEMENT
+                              else {
+                                final otp = otpC.text.trim();
+                                final newPass = newPasswordC.text;
+                                
+                                if (otp.isEmpty) { _snack('Saisissez le code OTP reçu.', isError: true); return; }
+                                if (newPass.length < 8) { _snack('Le mot de passe est trop court.', isError: true); return; }
+                                
+                                setDialogState(() => isSending = true);
+                                
+                                try {
+                                  // 1. Validation de l'OTP de récupération
+                                  final res = await Supabase.instance.client.auth.verifyOTP(
+                                    email: emailC.text.trim(),
+                                    token: otp,
+                                    type: OtpType.recovery,
+                                  );
+                                  
+                                  // 2. Si valide, mise à jour immédiate du mot de passe
+                                  if (res.user != null) {
+                                    await Supabase.instance.client.auth.updateUser(
+                                      UserAttributes(password: newPass),
+                                    );
+                                    
+                                    if (dialogContext.mounted) {
+                                      Navigator.of(dialogContext).pop();
+                                      _snack('Mot de passe mis à jour ! Vous allez être connecté.');
+                                    }
+                                  }
+                                } catch (e) {
+                                  _snack('Code invalide ou expiré.', isError: true);
+                                  setDialogState(() => isSending = false);
+                                }
+                              }
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _AppColors.primary, 
                               foregroundColor: Colors.white, 
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
                             ),
-                            child: Text(!canSend && _resetCooldown > 0 ? 'Patientez ${_resetCooldown}s' : (isSending ? 'Envoi...' : 'Envoyer')),
+                            child: Text(
+                              isSending 
+                                  ? 'Patientez...' 
+                                  : (isOtpSent 
+                                      ? 'Confirmer' 
+                                      : (!canSend && _resetCooldown > 0 ? 'Attendre ${_resetCooldown}s' : 'Envoyer')),
+                              style: const TextStyle(fontWeight: FontWeight.w600)
+                            ),
                           ),
                         ),
                       ],
