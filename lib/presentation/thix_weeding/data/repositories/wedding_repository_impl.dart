@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/failure.dart';
 import '../../domain/entities/wedding_entity.dart';
 
+// 💡 Pensez à importer votre modèle de programme ici s'il est dans un autre fichier
+// import '../../models/program_model.dart'; 
+
 final weddingRepositoryProvider = Provider<WeddingRepository>((ref) => WeddingRepositoryImpl());
 
 abstract class WeddingRepository {
@@ -11,6 +14,10 @@ abstract class WeddingRepository {
   Future<void> submitRsvp(RsvpEntity rsvp);
   Future<void> submitLivreOr(String weddingId, String name, String message);
   Future<List<GiftItem>> getGifts(String weddingId);
+  
+  // 👇 Ajout de la méthode getProgram
+  // Remplacez 'dynamic' par votre vrai modèle (ex: ProgramItem) si vous en avez un.
+  Future<List<dynamic>> getProgram(String weddingId); 
 }
 
 class WeddingRepositoryImpl implements WeddingRepository {
@@ -28,6 +35,9 @@ class WeddingRepositoryImpl implements WeddingRepository {
       coupleNames: 'Sarah & David',
       welcomeMessage: 'Merci d’être là pour célébrer notre amour',
       announcement: 'Parking disponible à partir de 15h',
+      // 👇 Ajout des paramètres manquants suite à la modif de WeddingEntity !
+      date: DateTime.now().add(const Duration(days: 15)), 
+      coverImageUrl: 'https://picsum.photos/800/600',
     );
   }
 
@@ -55,5 +65,14 @@ class WeddingRepositoryImpl implements WeddingRepository {
       const GiftItem(id: '1', name: 'Lune de miel', imageUrl: 'https://picsum.photos/200', price: 500000, contributed: 150000),
       const GiftItem(id: '2', name: 'Service à vaisselle', imageUrl: 'https://picsum.photos/200', price: 200000, contributed: 200000),
     ];
+  }
+
+  // 👇 Implémentation de getProgram
+  @override
+  Future<List<dynamic>> getProgram(String weddingId) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    // En prod: appel Supabase/API
+    // Remplacez la liste vide par vos fausses données de test si nécessaire
+    return []; 
   }
 }
