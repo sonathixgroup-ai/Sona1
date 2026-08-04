@@ -13,50 +13,24 @@ import 'package:thix_id/features/auth/presentation/providers/auth_controller.dar
 typedef PhoneAuthSession = dynamic;
 
 // ---------------------------------------------------------------------------
-// Constantes de design
+// Design System — THIX CENTRAL (Enterprise Level)
 // ---------------------------------------------------------------------------
-class _LoginColors {
-  static const Color primaryBlue = Color(0xFF1877F2);
-  static const Color darkNavy = Color(0xFF111827);
-  static const Color lightGrayBg = Color(0xFFF0F2F5);
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFF4B5563);
-  static const Color cardBorder = Color(0xFFE5E7EB);
-  static const Color goldBadge = Color(0xFFFBBF24);
-  static const Color dangerRed = Color(0xFFFF3B30);
+class _AppColors {
+  static const Color primary = Color(0xFF0A3D62);
+  static const Color primaryLight = Color(0xFF1A5A8C);
+  static const Color accent = Color(0xFFF8961E);
+  static const Color accentLight = Color(0xFFF9C74F);
+  static const Color background = Color(0xFFF8FAFC);
+  static const Color surface = Colors.white;
+  static const Color textDark = Color(0xFF1E293B);
+  static const Color textMuted = Color(0xFF64748B);
+  static const Color border = Color(0xFFE2E8F0);
+  static const Color success = Color(0xFF10B981);
   static const Color shadowLight = Color(0x0F000000);
-  static const Color shadowSecondary = Color(0x0A000000);
-}
-
-class _LoginSpacing {
-  static const double xs = 4;
-  static const double s = 8;
-  static const double m = 12;
-  static const double l = 16;
-  static const double xl = 20;
-  static const double xxl = 24;
-}
-
-class _LoginRadius {
-  static const double input = 24;
-  static const double card = 22;
-  static const double button = 14;
-  static const double avatar = 20;
-  static const double chip = 24;
-}
-
-class _LoginShadows {
-  static List<BoxShadow> card = [
-    BoxShadow(
-      color: _LoginColors.shadowSecondary,
-      blurRadius: 8,
-      offset: const Offset(0, 2),
-    ),
-  ];
 }
 
 // ---------------------------------------------------------------------------
-// Page de connexion principale (Transformation en ConsumerStatefulWidget)
+// Page de connexion principale
 // ---------------------------------------------------------------------------
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -70,8 +44,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _passwordC = TextEditingController();
   bool _rememberMe = true;
   PhoneAuthSession? _phoneSession;
-
-  // L'état isLoading a été supprimé ! Riverpod s'en charge.
 
   // ---------- Anti brute-force (soft lockout) ----------
   int _failedAttempts = 0;
@@ -105,6 +77,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _lockoutTimer?.cancel();
     _resetCooldownTimer?.cancel();
     super.dispose();
+  }
+
+  void _snack(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w500)),
+        backgroundColor: isError ? Colors.red.shade700 : _AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   String _userFacingError(Object e) {
@@ -148,35 +133,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final identifier = _identifierC.text.trim();
     final password = _passwordC.text;
     if (identifier.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez saisir votre identifiant et mot de passe.')),
-      );
+      _snack('Veuillez saisir votre identifiant et mot de passe.', isError: true);
       return;
     }
 
-    // MODERNITÉ : On utilise le notifier Riverpod pour lancer l'action
     final authNotifier = ref.read(authControllerProvider.notifier);
 
     try {
       if (_looksLikePhone(identifier) && !identifier.contains('@')) {
         if (kIsWeb) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Connexion par SMS non disponible dans la Preview web.')),
-          );
+          _snack('Connexion par SMS non disponible dans la Preview web.', isError: true);
           return;
         }
         if (_phoneSession == null) {
           final session = await authNotifier.startPhoneAuth(phoneNumber: identifier);
           if (!mounted) return;
           setState(() => _phoneSession = session);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('SMS envoyé. Entrez le code reçu ci-dessous puis validez.')),
-          );
+          _snack('SMS envoyé. Entrez le code reçu ci-dessous puis validez.');
           return;
         }
         await authNotifier.confirmPhoneCode(session: _phoneSession!, smsCode: password);
       } else {
-        // Appelle la méthode moderne signIn (pas besoin de setState isLoading)
         await authNotifier.signIn(
           identifier: identifier,
           password: password,
@@ -184,10 +161,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
       }
 
-      // Si on arrive ici, Riverpod a réussi sans erreur. On vérifie l'état actuel :
       if (!mounted) return;
       
-      // On lit la donnée depuis l'état Riverpod mis à jour
       final user = ref.read(authControllerProvider).value;
       if (user != null) {
         _failedAttempts = 0;
@@ -203,13 +178,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _failedAttempts += 1;
       if (_failedAttempts >= _lockoutThreshold) {
         _startLockoutTimer();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Trop de tentatives échouées. Réessayez dans ${_lockoutDuration}s.')),
-        );
+        _snack('Trop de tentatives échouées. Réessayez dans ${_lockoutDuration}s.', isError: true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_userFacingError(e))),
-        );
+        _snack(_userFacingError(e), isError: true);
       }
     }
   }
@@ -247,50 +218,65 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             final canSend = !isSending && _resetCooldown == 0;
             return Dialog(
               backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(color: _LoginColors.white, borderRadius: BorderRadius.circular(_LoginRadius.card)),
+                padding: const EdgeInsets.all(28),
+                decoration: BoxDecoration(color: _AppColors.surface, borderRadius: BorderRadius.circular(24)),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.lock_reset_rounded, color: _LoginColors.primaryBlue),
-                        const SizedBox(width: _LoginSpacing.s),
-                        Expanded(child: Text('Réinitialiser le mot de passe', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 16, color: _LoginColors.darkNavy))),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: _AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
+                          child: const Icon(Icons.lock_reset_rounded, color: _AppColors.primary),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(child: Text('Mot de passe oublié', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 18, color: _AppColors.textDark))),
                       ],
                     ),
-                    const SizedBox(height: _LoginSpacing.m),
-                    Text('Entrez l\'email associé à votre compte. Si un compte existe, un lien de réinitialisation vous sera envoyé.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _LoginColors.textSecondary, fontSize: 12.5)),
-                    const SizedBox(height: _LoginSpacing.l),
-                    Container(
-                      height: 48,
-                      decoration: BoxDecoration(color: _LoginColors.lightGrayBg, borderRadius: BorderRadius.circular(_LoginRadius.input), border: Border.all(color: _LoginColors.cardBorder)),
-                      child: TextField(
-                        controller: emailC, keyboardType: TextInputType.emailAddress,
-                        style: const TextStyle(fontSize: 14, color: _LoginColors.darkNavy),
-                        decoration: const InputDecoration(hintText: 'votre@email.com', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: _LoginSpacing.l)),
+                    const SizedBox(height: 16),
+                    Text('Entrez l\'email associé à votre compte. Si un compte existe, un lien de réinitialisation vous sera envoyé.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.textMuted, fontSize: 13, height: 1.4)),
+                    const SizedBox(height: 24),
+                    TextFormField(
+                      controller: emailC, keyboardType: TextInputType.emailAddress,
+                      style: const TextStyle(fontSize: 14, color: _AppColors.textDark, fontWeight: FontWeight.w500),
+                      decoration: InputDecoration(
+                        hintText: 'votre@email.com',
+                        hintStyle: const TextStyle(color: _AppColors.textMuted),
+                        filled: true,
+                        fillColor: _AppColors.background,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.primary, width: 1.5)),
                       ),
                     ),
-                    const SizedBox(height: _LoginSpacing.l),
+                    const SizedBox(height: 28),
                     Row(
                       children: [
-                        Expanded(child: TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Annuler'))),
-                        const SizedBox(width: _LoginSpacing.s),
+                        Expanded(child: TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Annuler', style: TextStyle(color: _AppColors.textMuted, fontWeight: FontWeight.w600)))),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
                             onPressed: canSend ? () async {
                               final email = emailC.text.trim();
-                              if (!_looksLikeEmail(email)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email invalide.'))); return; }
+                              if (!_looksLikeEmail(email)) { _snack('Email invalide.', isError: true); return; }
                               setDialogState(() => isSending = true);
                               await _sendPasswordReset(email);
                               if (!dialogContext.mounted) return;
                               Navigator.of(dialogContext).pop();
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Si un compte existe avec cet email, un lien vient d\'être envoyé.')));
+                              _snack('Si un compte existe, un lien vient d\'être envoyé.');
                             } : null,
-                            style: ElevatedButton.styleFrom(backgroundColor: _LoginColors.primaryBlue, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_LoginRadius.button))),
-                            child: Text(!canSend && _resetCooldown > 0 ? 'Patientez ${_resetCooldown}s' : (isSending ? 'Envoi...' : 'Envoyer le lien')),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _AppColors.primary, 
+                              foregroundColor: Colors.white, 
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                            ),
+                            child: Text(!canSend && _resetCooldown > 0 ? 'Patientez ${_resetCooldown}s' : (isSending ? 'Envoi...' : 'Envoyer')),
                           ),
                         ),
                       ],
@@ -308,168 +294,223 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final inPhoneCodeMode = _phoneSession != null;
-    
-    // MODERNITÉ : On écoute l'état d'authentification généré
     final authState = ref.watch(authControllerProvider);
     final isLoading = authState.isLoading;
 
     return Scaffold(
-      backgroundColor: _LoginColors.lightGrayBg,
+      backgroundColor: _AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              const _LoginHeader(),
-              const SizedBox(height: _LoginSpacing.xxl),
-              Container(
-                decoration: BoxDecoration(
-                  color: _LoginColors.white,
-                  borderRadius: BorderRadius.circular(_LoginRadius.card),
-                  border: Border.all(color: _LoginColors.cardBorder, width: 0.7),
-                  boxShadow: _LoginShadows.card,
+        top: false,
+        child: Stack(
+          children: [
+            // Header Gradient Design (THIX CENTRAL Style)
+            Positioned(
+              top: 0, left: 0, right: 0, height: 300,
+              child: Container(
+                padding: const EdgeInsets.only(top: 80),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_AppColors.primary, _AppColors.primaryLight]),
                 ),
-                padding: const EdgeInsets.all(24),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Connexion', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 18, color: _LoginColors.darkNavy)),
-                    const SizedBox(height: 4),
-                    Text('Connectez-vous avec votre email ou votre identifiant THIX (TX-XXX-XXX)', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _LoginColors.textSecondary, fontSize: 12)),
-                    const SizedBox(height: _LoginSpacing.xl),
-                    _SecureInput(
-                      key: const ValueKey('identifier'), label: 'Identifiant THIX ID', hint: 'Ex: TX-882-091 ou email', icon: Icons.badge_rounded, isPassword: false, type: TextInputType.text, controller: _identifierC, textInputAction: TextInputAction.next,
-                    ),
-                    _SecureInput(
-                      key: ValueKey(inPhoneCodeMode ? 'sms_code' : 'password'), label: inPhoneCodeMode ? 'Code SMS reçu' : 'Mot de passe', hint: inPhoneCodeMode ? '123456' : '••••••••••••', icon: inPhoneCodeMode ? Icons.sms_rounded : Icons.lock_rounded, isPassword: !inPhoneCodeMode, type: inPhoneCodeMode ? TextInputType.number : TextInputType.text, controller: _passwordC, textInputAction: TextInputAction.done,
-                    ),
-                    if (inPhoneCodeMode)
-                      Align(alignment: Alignment.centerRight, child: TextButton(onPressed: () => setState(() { _phoneSession = null; _passwordC.clear(); }), child: const Text('Changer de numéro'))),
-                    const SizedBox(height: _LoginSpacing.s),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        GestureDetector(
-                          onTap: isLoading ? null : () => setState(() => _rememberMe = !_rememberMe),
-                          child: Row(
-                            children: [
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 180), width: 16, height: 16,
-                                decoration: BoxDecoration(color: _rememberMe ? _LoginColors.primaryBlue : _LoginColors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: _rememberMe ? _LoginColors.primaryBlue : _LoginColors.cardBorder)),
-                                alignment: Alignment.center,
-                                child: Icon(Icons.check_rounded, size: 12, color: _rememberMe ? Colors.white : Colors.transparent),
-                              ),
-                              const SizedBox(width: _LoginSpacing.xs),
-                              Text('Rester connecté', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _LoginColors.textSecondary, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _openForgotPasswordDialog,
-                          child: Text('Oublié ?', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: _LoginColors.primaryBlue, fontWeight: FontWeight.w700, fontSize: 12)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: _LoginSpacing.xl),
-                    GestureDetector(
-                      onTap: (isLoading || _lockoutSecondsLeft > 0) ? null : _signIn,
-                      child: Opacity(
-                        opacity: (isLoading || _lockoutSecondsLeft > 0) ? 0.8 : 1,
-                        child: Container(
-                          height: 54,
-                          decoration: BoxDecoration(gradient: const LinearGradient(colors: [_LoginColors.primaryBlue, _LoginColors.darkNavy]), borderRadius: BorderRadius.circular(_LoginRadius.button), boxShadow: _LoginShadows.card),
-                          alignment: Alignment.center,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (isLoading) ...[
-                                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white)),
-                                const SizedBox(width: _LoginSpacing.m),
-                              ],
-                              Text(
-                                _lockoutSecondsLeft > 0 ? 'RÉESSAYER DANS ${_lockoutSecondsLeft}S' : (isLoading ? 'VÉRIFICATION…' : 'SE CONNECTER'),
-                                style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.4),
-                              ),
-                              if (_lockoutSecondsLeft == 0 && !isLoading) ...[
-                                const SizedBox(width: _LoginSpacing.m),
-                                const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
-                              ],
-                            ],
-                          ),
-                        ),
+                    Container(
+                      width: 64, height: 64,
+                      decoration: BoxDecoration(
+                        color: _AppColors.surface.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                       ),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.security_rounded, color: _AppColors.accentLight, size: 32),
                     ),
-                    const SizedBox(height: _LoginSpacing.l),
-                    Row(
-                      children: [
-                        const Expanded(child: Divider(color: _LoginColors.cardBorder, thickness: 1)),
-                        Padding(padding: const EdgeInsets.symmetric(horizontal: _LoginSpacing.m), child: Text('BIOMÉTRIE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _LoginColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 10))),
-                        const Expanded(child: Divider(color: _LoginColors.cardBorder, thickness: 1)),
-                      ],
-                    ),
-                    const SizedBox(height: _LoginSpacing.m),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _SocialAuth(icon: Icons.face_rounded, label: 'Face ID'),
-                        const SizedBox(width: _LoginSpacing.m),
-                        _SocialAuth(icon: Icons.fingerprint_rounded, label: 'Touch ID'),
-                      ],
-                    ),
+                    const SizedBox(height: 16),
+                    Text('THIX CENTRAL', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 24, letterSpacing: 1.5)),
+                    const SizedBox(height: 8),
+                    Text('PORTAIL D\'AUTHENTIFICATION UNIFIÉ', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _AppColors.accentLight, fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 1.2)),
                   ],
                 ),
               ),
-              const SizedBox(height: _LoginSpacing.xxl),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: _LoginColors.white, borderRadius: BorderRadius.circular(_LoginRadius.card), border: Border.all(color: _LoginColors.goldBadge.withValues(alpha: 0.25)), boxShadow: _LoginShadows.card),
-                child: Row(
+            ),
+            
+            // Scrollable Form Content
+            Positioned.fill(
+              top: 240,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
+                physics: const BouncingScrollPhysics(),
+                child: Column(
                   children: [
-                    const Icon(Icons.verified_user_rounded, color: _LoginColors.primaryBlue, size: 20),
-                    const SizedBox(width: _LoginSpacing.m),
-                    Expanded(
+                    // Main Login Card
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _AppColors.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 24, offset: const Offset(0, 8))],
+                      ),
+                      padding: const EdgeInsets.all(28),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text('Standard de Sécurité Étatique', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: _LoginColors.darkNavy, fontWeight: FontWeight.w700, fontSize: 12)),
-                          const SizedBox(height: 2),
-                          Text('Chiffrement local & session persistante', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _LoginColors.textSecondary, fontSize: 11)),
+                          Text('Connexion', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 20, color: _AppColors.textDark)),
+                          const SizedBox(height: 6),
+                          Text('Accédez à votre espace sécurisé', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.textMuted, fontSize: 13)),
+                          const SizedBox(height: 28),
+                          
+                          _SecureInput(
+                            key: const ValueKey('identifier'), label: 'Identifiant THIX ID ou Email', hint: 'Ex: TX-882-091 ou email', icon: Icons.badge_outlined, isPassword: false, type: TextInputType.text, controller: _identifierC, textInputAction: TextInputAction.next,
+                          ),
+                          const SizedBox(height: 16),
+                          _SecureInput(
+                            key: ValueKey(inPhoneCodeMode ? 'sms_code' : 'password'), label: inPhoneCodeMode ? 'Code SMS reçu' : 'Mot de passe', hint: inPhoneCodeMode ? '123456' : '••••••••••••', icon: inPhoneCodeMode ? Icons.sms_outlined : Icons.lock_outline_rounded, isPassword: !inPhoneCodeMode, type: inPhoneCodeMode ? TextInputType.number : TextInputType.text, controller: _passwordC, textInputAction: TextInputAction.done,
+                          ),
+                          
+                          if (inPhoneCodeMode)
+                            Align(alignment: Alignment.centerRight, child: TextButton(onPressed: () => setState(() { _phoneSession = null; _passwordC.clear(); }), child: const Text('Changer de numéro', style: TextStyle(color: _AppColors.primary, fontWeight: FontWeight.w600)))),
+                          
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              GestureDetector(
+                                onTap: isLoading ? null : () => setState(() => _rememberMe = !_rememberMe),
+                                child: Row(
+                                  children: [
+                                    AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200), width: 18, height: 18,
+                                      decoration: BoxDecoration(color: _rememberMe ? _AppColors.primary : _AppColors.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: _rememberMe ? _AppColors.primary : _AppColors.border, width: 1.5)),
+                                      alignment: Alignment.center,
+                                      child: Icon(Icons.check_rounded, size: 14, color: _rememberMe ? Colors.white : Colors.transparent),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text('Rester connecté', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w500)),
+                                  ],
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: _openForgotPasswordDialog,
+                                child: Text('Oublié ?', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: _AppColors.primary, fontWeight: FontWeight.w700, fontSize: 13)),
+                              ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 32),
+                          
+                          // Primary Action Button
+                          ElevatedButton(
+                            onPressed: (isLoading || _lockoutSecondsLeft > 0) ? null : _signIn,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              elevation: 4,
+                              shadowColor: _AppColors.primary.withValues(alpha: 0.4),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (isLoading) ...const [
+                                  SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white))),
+                                  SizedBox(width: 12),
+                                ],
+                                Text(
+                                  _lockoutSecondsLeft > 0 ? 'RÉESSAYER DANS ${_lockoutSecondsLeft}S' : (isLoading ? 'VÉRIFICATION…' : 'SE CONNECTER'),
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, letterSpacing: 0.5),
+                                ),
+                                if (_lockoutSecondsLeft == 0 && !isLoading) ...const [
+                                  SizedBox(width: 8),
+                                  Icon(Icons.arrow_forward_rounded, size: 20),
+                                ],
+                              ],
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 24),
+                          
+                          // Biometrics Divider
+                          Row(
+                            children: [
+                              const Expanded(child: Divider(color: _AppColors.border)),
+                              Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('BIOMÉTRIE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _AppColors.textMuted, fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 1.0))),
+                              const Expanded(child: Divider(color: _AppColors.border)),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          
+                          // Social/Biometrics Row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              _SocialAuth(icon: Icons.face_rounded, label: 'Face ID'),
+                              SizedBox(width: 16),
+                              _SocialAuth(icon: Icons.fingerprint_rounded, label: 'Touch ID'),
+                            ],
+                          ),
                         ],
                       ),
                     ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Security Badge
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: _AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _AppColors.success.withValues(alpha: 0.3)), boxShadow: [BoxShadow(color: _AppColors.success.withValues(alpha: 0.05), blurRadius: 10)]),
+                      child: Row(
+                        children: [
+                          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _AppColors.success.withValues(alpha: 0.1), shape: BoxShape.circle), child: const Icon(Icons.verified_user_rounded, color: _AppColors.success, size: 20)),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Standard de Sécurité Étatique', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: _AppColors.textDark, fontWeight: FontWeight.w700, fontSize: 13)),
+                                const SizedBox(height: 4),
+                                Text('Chiffrement local de bout en bout', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.textMuted, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 28),
+                    
+                    // Registration Link
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Nouvel utilisateur ?', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.textMuted, fontSize: 14)),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => context.push(AppRoutes.personalReg),
+                          child: Text('Créer un compte', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.primary, fontWeight: FontWeight.w800, fontSize: 14)),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Language Selector
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(color: _AppColors.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: _AppColors.border)),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          _LangChip(label: 'FR', active: true),
+                          _LangChip(label: 'EN'),
+                          _LangChip(label: 'SW'),
+                          _LangChip(label: 'LN'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
-              const SizedBox(height: _LoginSpacing.xl),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Nouvel utilisateur ?', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _LoginColors.textSecondary, fontSize: 13)),
-                  const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: () => context.push(AppRoutes.personalReg),
-                    child: Text('Créer un compte THIX ID', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _LoginColors.primaryBlue, fontWeight: FontWeight.w800, fontSize: 13, decoration: TextDecoration.underline)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: _LoginSpacing.l),
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(color: _LoginColors.white, borderRadius: BorderRadius.circular(_LoginRadius.chip), border: Border.all(color: _LoginColors.cardBorder), boxShadow: _LoginShadows.card),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _LangChip(label: 'FR', active: true),
-                    _LangChip(label: 'EN'),
-                    _LangChip(label: 'SW'),
-                    _LangChip(label: 'LN'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -477,24 +518,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 }
 
 // ---------------------------------------------------------------------------
-// Composants internes gardés intacts
+// Composants internes UI
 // ---------------------------------------------------------------------------
-class _LoginHeader extends StatelessWidget {
-  const _LoginHeader();
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(width: 56, height: 56, decoration: BoxDecoration(color: _LoginColors.goldBadge, borderRadius: BorderRadius.circular(_LoginRadius.avatar), boxShadow: _LoginShadows.card), alignment: Alignment.center, child: const Icon(Icons.fingerprint_rounded, color: _LoginColors.darkNavy, size: 28)),
-        const SizedBox(height: _LoginSpacing.m),
-        Text('THIX ID', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: _LoginColors.darkNavy, fontWeight: FontWeight.w800, fontSize: 22, letterSpacing: -0.5)),
-        const SizedBox(height: _LoginSpacing.xs),
-        Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: _LoginColors.goldBadge.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(_LoginRadius.chip), border: Border.all(color: _LoginColors.goldBadge.withValues(alpha: 0.25))), child: Text('IDENTITÉ SÉCURISÉE • AVENIR DE CONFIANCE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _LoginColors.darkNavy, fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 0.3))),
-      ],
-    );
-  }
-}
-
 class _SecureInput extends StatefulWidget {
   final String label;
   final String hint;
@@ -503,31 +528,45 @@ class _SecureInput extends StatefulWidget {
   final TextInputType type;
   final TextEditingController controller;
   final TextInputAction textInputAction;
+  
   const _SecureInput({super.key, required this.label, required this.hint, required this.icon, required this.isPassword, required this.type, required this.controller, required this.textInputAction});
+  
   @override
   State<_SecureInput> createState() => _SecureInputState();
 }
 
 class _SecureInputState extends State<_SecureInput> {
   late bool _obscured = widget.isPassword;
+  
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: _LoginSpacing.m),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [Icon(widget.icon, size: 16, color: _LoginColors.textSecondary), const SizedBox(width: _LoginSpacing.xs), Text(widget.label, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: _LoginColors.darkNavy, fontWeight: FontWeight.w600, fontSize: 13))]),
-          const SizedBox(height: _LoginSpacing.s),
-          Container(
-            height: 52, decoration: BoxDecoration(color: _LoginColors.white, borderRadius: BorderRadius.circular(_LoginRadius.input), border: Border.all(color: _LoginColors.cardBorder), boxShadow: _LoginShadows.card),
-            child: TextField(
-              controller: widget.controller, obscureText: _obscured, keyboardType: widget.type, textInputAction: widget.textInputAction, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _LoginColors.darkNavy),
-              decoration: InputDecoration(hintText: widget.hint, hintStyle: const TextStyle(color: _LoginColors.textSecondary, fontSize: 14), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(horizontal: _LoginSpacing.l), suffixIcon: widget.isPassword ? IconButton(splashRadius: 18, icon: Icon(_obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 18, color: _LoginColors.textSecondary), onPressed: () => setState(() => _obscured = !_obscured)) : null),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _AppColors.textDark)),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: widget.controller, 
+          obscureText: _obscured, 
+          keyboardType: widget.type, 
+          textInputAction: widget.textInputAction, 
+          style: const TextStyle(fontSize: 14, color: _AppColors.textDark, fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            hintText: widget.hint, 
+            hintStyle: const TextStyle(color: _AppColors.textMuted, fontWeight: FontWeight.w400),
+            prefixIcon: Icon(widget.icon, size: 20, color: _AppColors.textMuted),
+            suffixIcon: widget.isPassword 
+                ? IconButton(splashRadius: 20, icon: Icon(_obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 20, color: _AppColors.textMuted), onPressed: () => setState(() => _obscured = !_obscured)) 
+                : null,
+            filled: true,
+            fillColor: _AppColors.background,
+            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.primary, width: 1.5)),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -536,11 +575,20 @@ class _SocialAuth extends StatelessWidget {
   final IconData icon;
   final String label;
   const _SocialAuth({required this.icon, required this.label});
+  
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 72, height: 56, decoration: BoxDecoration(color: _LoginColors.white, borderRadius: BorderRadius.circular(_LoginRadius.button), border: Border.all(color: _LoginColors.cardBorder), boxShadow: _LoginShadows.card),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: _LoginColors.darkNavy, size: 20), const SizedBox(height: 2), Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _LoginColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w600))]),
+      width: 76, height: 60, 
+      decoration: BoxDecoration(color: _AppColors.background, borderRadius: BorderRadius.circular(14), border: Border.all(color: _AppColors.border)),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center, 
+        children: [
+          Icon(icon, color: _AppColors.textDark, size: 22), 
+          const SizedBox(height: 4), 
+          Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600))
+        ]
+      ),
     );
   }
 }
@@ -549,12 +597,13 @@ class _LangChip extends StatelessWidget {
   final String label;
   final bool active;
   const _LangChip({required this.label, this.active = false});
+  
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(color: active ? _LoginColors.primaryBlue : _LoginColors.white, borderRadius: BorderRadius.circular(_LoginRadius.chip)),
-      child: Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: active ? Colors.white : _LoginColors.textSecondary, fontWeight: FontWeight.w700, fontSize: 11)),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(color: active ? _AppColors.primary : Colors.transparent, borderRadius: BorderRadius.circular(20)),
+      child: Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: active ? Colors.white : _AppColors.textMuted, fontWeight: active ? FontWeight.w700 : FontWeight.w600, fontSize: 11)),
     );
   }
 }
