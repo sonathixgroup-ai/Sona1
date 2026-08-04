@@ -11,6 +11,7 @@ import 'package:thix_id/models/thix_profile.dart';
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/services/push_notification_service.dart';
 import 'package:thix_id/services/supabase_safe_write.dart';
+import 'package:thix_id/services/thix_id_service.dart'; // ← pour générer le vrai ID
 import 'package:thix_id/supabase/supabase_config.dart';
 
 /// Implémentation Supabase de AuthManager.
@@ -81,6 +82,16 @@ class SupabaseAuthManager implements AuthManager {
     unawaited(PushNotificationService.instance.onSignedOut());
   }
 
+  /// True si l'ID est encore un placeholder PENDING
+  bool _isPendingThixId(String? id) {
+    if (id == null) return true;
+    final v = id.trim().toUpperCase();
+    return v.isEmpty ||
+        v == 'THIX-PENDING' ||
+        v == 'THIX-000000' ||
+        v.startsWith('THIX-PENDING-');
+  }
+
   /// Synchronise en temps réel le profil THIX ID avec le cache local
   void _bindProfileSync(String uid) {
     unawaited(_profileSub?.cancel()); // Évite les multiples écoutes
@@ -91,9 +102,15 @@ class SupabaseAuthManager implements AuthManager {
         final cur = _currentUser.value;
         if (cur == null || cur.id != uid) return;
 
+        // Priorité absolue au thix_id venant de Supabase s'il n'est plus PENDING
+        final incomingThixId = p.thixId.trim();
+        final resolvedThixId = (!_isPendingThixId(incomingThixId))
+            ? incomingThixId
+            : cur.thixId;
+
         // Fusion des données pour éviter d'écraser les données locales non synchronisées
         final merged = cur.copyWith(
-          thixId: p.thixId.trim().isEmpty ? cur.thixId : p.thixId.trim(),
+          thixId: resolvedThixId,
           thixChat: (p.thixChat ?? '').trim().isEmpty ? cur.thixChat : (p.thixChat ?? '').trim(),
           displayName: p.displayName.trim().isEmpty ? cur.displayName : p.displayName.trim(),
           photoUrl: (p.photoUrl ?? '').trim().isEmpty ? cur.photoUrl : p.photoUrl,
@@ -167,10 +184,13 @@ class SupabaseAuthManager implements AuthManager {
         return const <String>[];
       }
 
+      // ✅ CORRECTION : générer un vrai THIX ID dès la création (plus de PENDING permanent)
+      final realThixId = ThixIdService.generate();
+
       final base = AppUser(
         id: uid,
-        thixId: 'THIX-PENDING-$uid', // Rendu unique temporairement
-        thixChat: 'user_$uid',       // Rendu unique pour éviter profiles_thix_chat_unique_idx
+        thixId: realThixId,
+        thixChat: '', // sera assigné à l'étape 2 de l'inscription
         thixScore: null,
         email: email,
         phone: user.phone,
@@ -209,7 +229,29 @@ class SupabaseAuthManager implements AuthManager {
       return base;
     }
 
-    return _appUserFromProfileRow(uid: uid, email: email, row: row, phone: user.phone);
+    // Profil existe déjà
+    var appUser = _appUserFromProfileRow(uid: uid, email: email, row: row, phone: user.phone);
+
+    // ✅ CORRECTION : si l'ID en base est encore PENDING → le remplacer automatiquement
+    if (_isPendingThixId(appUser.thixId)) {
+      try {
+        final realId = ThixIdService.generate();
+        await _client.from('profiles').update({
+          'thix_id': realId,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        }).eq('id', uid);
+
+        appUser = appUser.copyWith(
+          thixId: realId,
+          updatedAt: DateTime.now(),
+        );
+        debugPrint('SupabaseAuthManager: PENDING remplacé par $realId pour uid=$uid');
+      } catch (e) {
+        debugPrint('SupabaseAuthManager: échec remplacement PENDING uid=$uid err=$e');
+      }
+    }
+
+    return appUser;
   }
 
   AccountType _accountTypeFromMeta(Map<String, dynamic>? meta) {
@@ -238,10 +280,13 @@ class SupabaseAuthManager implements AuthManager {
     List<String> strList(Object? v) => (v is List) ? v.whereType<String>().toList(growable: false) : const <String>[];
     List<Map<String, dynamic>> mapList(Object? v) => (v is List) ? v.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList(growable: false) : const <Map<String, dynamic>>[];
 
+    final rawThixId = (row['thix_id'] ?? row['thixId'] ?? row['thix_uid'] ?? '').toString().trim();
+
     return AppUser(
       id: uid,
-      thixId: (row['thix_id'] ?? row['thixId'] ?? row['thix_uid'] ?? 'THIX-PENDING-$uid').toString(),
-      thixChat: (row['thix_chat'] ?? row['thixChat'] ?? 'user_$uid').toString(),
+      // Ne plus jamais renvoyer THIX-PENDING-$uid comme valeur par défaut
+      thixId: rawThixId.isEmpty ? '' : rawThixId,
+      thixChat: (row['thix_chat'] ?? row['thixChat'] ?? '').toString(),
       thixScore: (row['thix_score'] as num?)?.toInt(),
       email: email,
       phone: phone,
@@ -415,7 +460,6 @@ class SupabaseAuthManager implements AuthManager {
       throw AuthException(e.message);
     } catch (e) {
       debugPrint('SupabaseAuthManager: register crash err=$e');
-      // MODIFICATION ICI : On remonte la vraie erreur au lieu du message générique
       throw AuthException('Erreur Base/Code : $e');
     }
   }
