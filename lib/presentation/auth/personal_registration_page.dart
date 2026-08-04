@@ -51,7 +51,7 @@ class ThixIdGenerator {
   static String generateLocal({String? countryName}) {
     final cc = _countryCode(countryName);
     final now = DateTime.now();
-    final mmyy = '\( {now.month.toString().padLeft(2, '0')} \){now.year % 100}';
+    final mmyy = '${now.month.toString().padLeft(2, '0')}${now.year % 100}';
     final random5 = List.generate(5, (_) => _secureRandom.nextInt(10)).join();
     final code3 = String.fromCharCodes(
       List.generate(3, (_) => _alphabet.codeUnitAt(_secureRandom.nextInt(_alphabet.length))),
@@ -308,18 +308,18 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
     setState(() => _resendCooldown = _resendCooldownDuration);
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) { timer.cancel(); return; }
-      if (_resendCountdown <= 1) {
+      if (_resendCooldown <= 1) {
         timer.cancel();
-        setState(() => _resendCountdown = 0);
+        setState(() => _resendCooldown = 0);
       } else {
-        setState(() => _resendCountdown -= 1);
+        setState(() => _resendCooldown -= 1);
       }
     });
   }
 
   Future<void> _sendOtp() async {
     final isLoading = ref.read(authControllerProvider).isLoading;
-    if (isLoading || _resendCountdown > 0) return;
+    if (isLoading || _resendCooldown > 0) return;
 
     final email = _emailC.text.trim().toLowerCase();
     final pass = _passwordC.text;
@@ -349,7 +349,7 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
       if (!mounted) return;
       
       setState(() => _otpSent = true);
-      _startResendCountdown();
+      _startResendCooldown();
       _snack('Un code OTP vous a été envoyé par email.');
       
     } catch (e) {
@@ -357,7 +357,7 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
       if (message.contains('inscription enregistrée') || message.contains('confirm') || message.contains('confirmez')) {
         if (!mounted) return;
         setState(() => _otpSent = true);
-        _startResendCountdown();
+        _startResendCooldown();
         _snack('Un code OTP vous a été envoyé par email.');
       } else {
         _snack(_userFacingError(e), isError: true);
@@ -376,10 +376,12 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
       return;
     }
 
+    final firstName = _nameC.text.isNotEmpty ? _nameC.text.split(' ').first.toLowerCase() : 'user';
+    final randomSuffix = DateTime.now().millisecondsSinceEpoch % 10000;
     final desiredChatRaw = _thixChatC.text.trim();
     final desiredChat = desiredChatRaw.isNotEmpty
         ? desiredChatRaw
-        : '@\( {_nameC.text.split(' ').first.toLowerCase()} \){DateTime.now().millisecondsSinceEpoch % 10000}';
+        : '@$firstName$randomSuffix';
     
     if (!_isValidThixChat(desiredChat)) {
       _snack('THIX CHAT invalide : utilisez 3 à 20 caractères (lettres minuscules, chiffres, "." ou "_").', isError: true);
@@ -560,7 +562,7 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
         return _Step2Account(
           emailC: _emailC, passwordC: _passwordC, confirmC: _confirmC,
           otpC: _otpC, thixChatC: _thixChatC, onSendOtp: _sendOtp,
-          isOtpSent: _otpSent, isLoading: isLoading, resendCountdown: _resendCountdown,
+          isOtpSent: _otpSent, isLoading: isLoading, resendCountdown: _resendCooldown,
         );
       case 3:
         return _Step3Final(
@@ -591,7 +593,7 @@ class _PersonalRegistrationPageState extends ConsumerState<PersonalRegistrationP
       ),
     );
     if (picked != null) {
-      final v = '\( {picked.year}- \){picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+      final v = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
       setState(() => _dobC.text = v);
     }
   }
@@ -781,7 +783,7 @@ class _Step3Final extends StatelessWidget {
         Center(
           child: Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: _AppColors.successBg, shape: BoxShape.circle),
+            decoration: const BoxDecoration(color: _AppColors.successBg, shape: BoxShape.circle),
             child: const Icon(Icons.verified_rounded, color: _AppColors.success, size: 48),
           ),
         ),
