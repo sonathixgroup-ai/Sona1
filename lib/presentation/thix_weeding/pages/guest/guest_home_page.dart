@@ -10,25 +10,33 @@ import '../../providers/countdown_provider.dart';
 part 'guest_home_page.g.dart';
 
 // ============================================================
-// PALETTE — Charte THIX Premium (Entreprise & Épuré)
+// PALETTE — Charte THIX MARIAGE (Amour & Élégance / Lumineux)
 // ============================================================
 class _P {
-  static const bg = Color(0xFFF8F9FA); // Fond perle très clair, moderne
+  static const bg = Color(0xFFFFFBFC); // Blanc légèrement rosé, très lumineux
   static const surface = Colors.white;
-  static const primary = Color(0xFF0F172A); // Bleu nuit très profond / Slate
+  static const primary = Color(0xFFE31C4E); // Rouge passion / Rose profond
+  static const primarySoft = Color(0xFFFFE3EA); // Rose pâle très clair
+  static const secondary = Color(0xFFFF7A9C); // Rose vif complémentaire
   static const accent = Color(0xFFD4AF37); // Or premium / Champagne
-  static const accentSoft = Color(0xFFFDF8EE); // Fond champagne très léger
-  
-  static const ink = Color(0xFF1E293B); // Texte principal
-  static const inkSoft = Color(0xFF64748B); // Texte secondaire
-  static const border = Color(0xFFE2E8F0); // Bordures très discrètes
-  
-  // Ombre standardisée pour les cartes (effet flottant premium)
+  static const accentSoft = Color(0xFFFDF6E3);
+
+  static const ink = Color(0xFF241521); // Texte principal, brun-noir chaleureux
+  static const inkSoft = Color(0xFF8A7580); // Texte secondaire rosé-gris
+  static const border = Color(0xFFF3E1E6); // Bordures très douces
+
+  static const gradPrimary = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFE31C4E), Color(0xFFFF6B8B)],
+  );
+
+  // Ombre douce, lumineuse, "flottante"
   static final shadow = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.04),
-      blurRadius: 12,
-      offset: const Offset(0, 4),
+      color: const Color(0xFFE31C4E).withOpacity(0.06),
+      blurRadius: 16,
+      offset: const Offset(0, 6),
     )
   ];
 }
@@ -230,7 +238,7 @@ class _GuestHomePageState extends ConsumerState<GuestHomePage> {
                 SliverToBoxAdapter(
                   child: vendorsAsync.when(
                     data: (vendors) => _VendorsList(vendors: vendors, onTap: _onTapGeneric),
-                    loading: () => const SizedBox(height: 220, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                    loading: () => const SizedBox(height: 220, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: _P.primary))),
                     error: (_, __) => const SizedBox(),
                   ),
                 ),
@@ -248,7 +256,7 @@ class _GuestHomePageState extends ConsumerState<GuestHomePage> {
                 SliverToBoxAdapter(
                   child: updatesAsync.when(
                     data: (items) => _UpdatesList(items: items, onTap: _onTapGeneric),
-                    loading: () => const SizedBox(height: 160, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                    loading: () => const SizedBox(height: 160, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: _P.primary))),
                     error: (_, __) => const SizedBox(),
                   ),
                 ),
@@ -279,7 +287,7 @@ class _GuestHomePageState extends ConsumerState<GuestHomePage> {
             );
           },
           loading: () => const CustomScrollView(
-            slivers: [SliverFillRemaining(child: Center(child: CircularProgressIndicator(strokeWidth: 2)))],
+            slivers: [SliverFillRemaining(child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: _P.primary)))],
           ),
           error: (e, _) => CustomScrollView(
             slivers: [SliverFillRemaining(child: Center(child: _ErrorView(error: e, weddingId: widget.weddingId)))],
@@ -386,7 +394,7 @@ class _CoupleHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(28),
       child: Stack(
         children: [
           AspectRatio(
@@ -394,17 +402,22 @@ class _CoupleHero extends StatelessWidget {
             child: Image.network(
               coverImageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: _P.border),
+              errorBuilder: (_, __, ___) => Container(color: _P.primarySoft),
             ),
           ),
+          // Dégradé rosé chaleureux plutôt que noir pur
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.black.withOpacity(0.3), Colors.transparent, Colors.black.withOpacity(0.2)],
-                  stops: const [0.0, 0.5, 1.0],
+                  colors: [
+                    const Color(0xFF3A0A18).withOpacity(0.35),
+                    Colors.transparent,
+                    const Color(0xFF3A0A18).withOpacity(0.55),
+                  ],
+                  stops: const [0.0, 0.45, 1.0],
                 ),
               ),
             ),
@@ -431,7 +444,7 @@ class _CoupleHero extends StatelessWidget {
             child: FilledButton.tonalIcon(
               onPressed: () {},
               style: FilledButton.styleFrom(
-                backgroundColor: _P.surface.withOpacity(0.9),
+                backgroundColor: _P.surface.withOpacity(0.92),
                 foregroundColor: _P.primary,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -457,8 +470,8 @@ class _CountdownCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       decoration: BoxDecoration(
-        color: _P.surface.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(20),
+        color: _P.surface.withOpacity(0.96),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: _P.shadow,
       ),
       child: Row(
@@ -466,7 +479,7 @@ class _CountdownCard extends StatelessWidget {
           Container(
             width: 44,
             height: 44,
-            decoration: const BoxDecoration(color: _P.primary, shape: BoxShape.circle),
+            decoration: const BoxDecoration(gradient: _P.gradPrimary, shape: BoxShape.circle),
             child: const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 16),
@@ -503,7 +516,7 @@ class _CountItem extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Text('$value', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: _P.primary)),
+          Text('$value', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: _P.primary)),
           Text(label, style: const TextStyle(fontSize: 9, color: _P.inkSoft, fontWeight: FontWeight.w600)),
         ],
       ),
@@ -523,12 +536,17 @@ class _SectionHeader extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: _P.primary, letterSpacing: -0.5)),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: _P.ink, letterSpacing: -0.3)),
         InkWell(
           onTap: () {},
           child: const Padding(
             padding: EdgeInsets.symmetric(vertical: 4),
-            child: Text('VOIR TOUT', style: TextStyle(fontSize: 11, color: _P.inkSoft, fontWeight: FontWeight.w600, letterSpacing: 0.8)),
+            child: Row(
+              children: [
+                Text('Voir tout', style: TextStyle(fontSize: 12, color: _P.primary, fontWeight: FontWeight.w700)),
+                Icon(Icons.chevron_right_rounded, size: 16, color: _P.primary),
+              ],
+            ),
           ),
         ),
       ],
@@ -555,10 +573,10 @@ class _StatsRow extends StatelessWidget {
             child: Container(
               margin: EdgeInsets.only(right: i == entries.length - 1 ? 0 : 12),
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
-              decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(16), boxShadow: _P.shadow),
+              decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(18), boxShadow: _P.shadow),
               child: Column(
                 children: [
-                  Text('${e.value}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: _P.primary)),
+                  Text('${e.value}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: _P.primary)),
                   const SizedBox(height: 4),
                   Text(e.key.toUpperCase(), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 8.5, color: _P.inkSoft, fontWeight: FontWeight.w600, height: 1.2, letterSpacing: 0.5)),
                 ],
@@ -572,7 +590,7 @@ class _StatsRow extends StatelessWidget {
 }
 
 // ============================================================
-// TUILE DE MENU — Style Petits Boutons (comme THIX Central)
+// TUILE DE MENU — Style Petits Boutons
 // ============================================================
 class _GuestMenuTile extends StatelessWidget {
   final _GuestMenuItem item;
@@ -594,8 +612,8 @@ class _GuestMenuTile extends StatelessWidget {
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: _P.surface, 
-                  shape: BoxShape.circle, 
+                  color: _P.primarySoft,
+                  shape: BoxShape.circle,
                   boxShadow: _P.shadow, // Ombre douce pour le côté premium
                 ),
                 child: Icon(item.icon, color: _P.primary, size: 26),
@@ -610,7 +628,7 @@ class _GuestMenuTile extends StatelessWidget {
                   right: -12,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(6)),
+                    decoration: BoxDecoration(gradient: _P.gradPrimary, borderRadius: BorderRadius.circular(6)),
                     child: const Text('LIVE', style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                   ),
                 ),
@@ -618,11 +636,11 @@ class _GuestMenuTile extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            item.title, 
-            textAlign: TextAlign.center, 
-            maxLines: 2, 
-            overflow: TextOverflow.ellipsis, 
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10.5, color: _P.ink, height: 1.1)
+            item.title,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10.5, color: _P.ink, height: 1.1),
           ),
         ],
       ),
@@ -640,7 +658,7 @@ class _DotBadge extends StatelessWidget {
       width: 18,
       height: 18,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+      decoration: const BoxDecoration(color: _P.primary, shape: BoxShape.circle),
       child: child,
     );
   }
@@ -667,10 +685,10 @@ class _VendorsList extends StatelessWidget {
           final v = vendors[i];
           return InkWell(
             onTap: () => onTap(v['name'] as String),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             child: Container(
               width: 170,
-              decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(16), boxShadow: _P.shadow),
+              decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(18), boxShadow: _P.shadow),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -681,10 +699,10 @@ class _VendorsList extends StatelessWidget {
                         Container(
                           width: double.infinity,
                           decoration: const BoxDecoration(
-                            color: _P.primary,
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                            gradient: _P.gradPrimary,
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
                           ),
-                          child: Center(child: Icon(v['icon'] as IconData, size: 36, color: Colors.white24)),
+                          child: Center(child: Icon(v['icon'] as IconData, size: 36, color: Colors.white38)),
                         ),
                         Positioned(
                           top: 12,
@@ -710,9 +728,9 @@ class _VendorsList extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(v['name'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _P.ink)),
+                        Text(v['name'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _P.ink)),
                         const SizedBox(height: 2),
-                        Text(v['category'] as String, style: const TextStyle(fontSize: 11, color: _P.accent, fontWeight: FontWeight.w500)),
+                        Text(v['category'] as String, style: const TextStyle(fontSize: 11, color: _P.primary, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -755,10 +773,10 @@ class _UpdatesList extends StatelessWidget {
           final a = items[i];
           return InkWell(
             onTap: () => onTap(a['title'] as String),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             child: Container(
               width: 150,
-              decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(16), boxShadow: _P.shadow),
+              decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(18), boxShadow: _P.shadow),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -768,7 +786,7 @@ class _UpdatesList extends StatelessWidget {
                       children: [
                         Container(
                           width: double.infinity,
-                          decoration: const BoxDecoration(color: _P.accentSoft, borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+                          decoration: const BoxDecoration(color: _P.accentSoft, borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
                           child: Center(child: Icon(a['icon'] as IconData, size: 28, color: _P.accent)),
                         ),
                         Positioned(
@@ -776,8 +794,8 @@ class _UpdatesList extends StatelessWidget {
                           left: 12,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(4)),
-                            child: Text(a['tag'] as String, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: _P.ink, letterSpacing: 0.5)),
+                            decoration: BoxDecoration(color: _P.ink, borderRadius: BorderRadius.circular(4)),
+                            child: Text(a['tag'] as String, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5)),
                           ),
                         ),
                       ],
@@ -788,9 +806,9 @@ class _UpdatesList extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(a['title'] as String, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _P.ink, height: 1.2)),
+                        Text(a['title'] as String, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _P.ink, height: 1.2)),
                         const Spacer(),
-                        Text(a['subtitle'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: _P.primary, fontWeight: FontWeight.w700)),
+                        Text(a['subtitle'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: _P.primary, fontWeight: FontWeight.w800)),
                       ],
                     ),
                   ),
@@ -815,13 +833,13 @@ class _NewsBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _P.primary, borderRadius: BorderRadius.circular(16), boxShadow: _P.shadow),
+      decoration: BoxDecoration(gradient: _P.gradPrimary, borderRadius: BorderRadius.circular(18), boxShadow: _P.shadow),
       child: Row(
         children: [
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: _P.surface.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), shape: BoxShape.circle),
             child: const Icon(Icons.campaign_rounded, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 12),
@@ -829,9 +847,9 @@ class _NewsBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('INFORMATION', style: TextStyle(color: _P.accent, fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 0.8)),
+                const Text('INFORMATION', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 0.8)),
                 const SizedBox(height: 2),
-                Text(text, style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w500)),
+                Text(text, style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -857,14 +875,14 @@ class _TrustRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(16), boxShadow: _P.shadow),
+      decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(18), boxShadow: _P.shadow),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: _items.map((e) {
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(e['icon'] as IconData, size: 22, color: _P.accent),
+              Icon(e['icon'] as IconData, size: 22, color: _P.primary),
               const SizedBox(height: 8),
               Text(e['label'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: _P.inkSoft, fontWeight: FontWeight.w500)),
             ],
@@ -876,7 +894,7 @@ class _TrustRow extends StatelessWidget {
 }
 
 // ============================================================
-// BOTTOM NAV (Hauteur Réduite)
+// BOTTOM NAV
 // ============================================================
 class _GuestBottomNav extends StatelessWidget {
   @override
@@ -884,11 +902,11 @@ class _GuestBottomNav extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: _P.surface,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, -4))],
+        boxShadow: [BoxShadow(color: const Color(0xFFE31C4E).withOpacity(0.08), blurRadius: 20, offset: const Offset(0, -4))],
       ),
       child: SafeArea(
         child: SizedBox(
-          height: 52, // Hauteur réduite
+          height: 52,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -921,9 +939,9 @@ class _NavItem extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 20, color: color), // Taille d'icône légèrement diminuée
+          Icon(icon, size: 20, color: color),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 9, color: color, fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
+          Text(label, style: TextStyle(fontSize: 9, color: color, fontWeight: selected ? FontWeight.w700 : FontWeight.w400)),
         ],
       ),
     );
@@ -940,12 +958,12 @@ class _HeartNavButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(22),
       child: Container(
-        width: 44, // Bouton central plus petit
+        width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: _P.accent, // Mis en Or pour le côté Mariage Premium
+          gradient: _P.gradPrimary, // Rouge/rose pour rester dans la charte mariage
           shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: _P.accent.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))],
+          boxShadow: [BoxShadow(color: _P.primary.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 3))],
         ),
         child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 20),
       ),
