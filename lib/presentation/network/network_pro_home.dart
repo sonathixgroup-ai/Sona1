@@ -56,6 +56,10 @@ class NetworkProHome extends ConsumerStatefulWidget {
 class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<bool> _navVisible = ValueNotifier(true);
+  
+  // --- Chrono pour éviter le mixage permanent du fil ---
+  static DateTime? _lastRefreshTime;
+  static const _refreshCooldown = Duration(seconds: 60);
 
   String _feedType = 'all';
 
@@ -91,7 +95,19 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   }
 
   Future<void> _init() async {
-    await ref.read(feedProvider.notifier).loadFeed(feedType: _feedType, force: true);
+    final now = DateTime.now();
+    
+    // On vérifie si 60 secondes se sont écoulées depuis le dernier refresh
+    final needsRefresh = _lastRefreshTime == null ||
+        now.difference(_lastRefreshTime!) > _refreshCooldown;
+
+    if (needsRefresh) {
+      await ref.read(feedProvider.notifier).loadFeed(feedType: _feedType, force: true);
+      _lastRefreshTime = now;
+    } else {
+      await ref.read(feedProvider.notifier).loadFeed(feedType: _feedType, force: false);
+    }
+    
     await Future.wait([_loadStories(), _loadSuggestions()]);
   }
 
@@ -113,7 +129,13 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
 
   Future<void> _onRefresh() async {
     HapticFeedback.mediumImpact();
+    
+    // Le pull-to-refresh force TOUJOURS la mise à jour
     await ref.read(feedProvider.notifier).loadFeed(feedType: _feedType, force: true);
+    
+    // On réinitialise le chrono
+    _lastRefreshTime = DateTime.now();
+    
     await Future.wait([_loadStories(), _loadSuggestions()]);
   }
 
@@ -159,9 +181,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
               physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               slivers: [
                 _buildSliverAppBar(),
-                // "Mes status" (Votre story) est toujours la première case du
-                // carrousel — totalement indépendant du FAB "+" de création de
-                // post situé en bas de l'écran.
+                // "Mes status" (Votre story) est toujours la première case du carrousel
                 SliverToBoxAdapter(child: _buildStories(currentUser.id)),
                 SliverToBoxAdapter(child: _buildFilters()),
                 SliverToBoxAdapter(child: _buildCreatePostBar()),
@@ -214,8 +234,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   }
 
   // ─────────────────────────── APP BAR ───────────────────────────
-  // Wordmark en texte dégradé, sans bloc de couleur plein : harmonisé
-  // avec le reste de l'interface (fond blanc, icônes en pastille douce).
 
   Widget _buildSliverAppBar() {
     return SliverAppBar(
@@ -308,7 +326,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        // "Mes status" est toujours l'item d'index 0 → première case.
         itemCount: otherStories.length + 1,
         separatorBuilder: (_, __) => const SizedBox(width: 14),
         itemBuilder: (c, i) {
@@ -333,8 +350,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   }
 
   // ─────────────────────────── FILTRES ───────────────────────────
-  // Chip sélectionnée : plus de bloc plein — fond doux + contour, comme
-  // le reste des surfaces de l'app (cartes, boutons secondaires).
 
   Widget _buildFilters() {
     final filters = {
@@ -358,7 +373,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                 onTap: () {
                   if (sel) return;
                   setState(() => _feedType = e.key);
+                  // Changement de filtre = on force le refresh et on relance le chrono
                   ref.read(feedProvider.notifier).loadFeed(feedType: e.key, force: true);
+                  _lastRefreshTime = DateTime.now();
                   HapticFeedback.selectionClick();
                 },
                 child: AnimatedContainer(
