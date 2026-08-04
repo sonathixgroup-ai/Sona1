@@ -13,6 +13,7 @@ class NetworkPost {
 
   // ─── Contenu ───
   final String content;
+  final String? bgColor; // 🌟 AJOUT : Couleur de fond du post
 
   // ─── Médias (unifiés) ───
   final List<String> mediaUrls;
@@ -57,6 +58,7 @@ class NetworkPost {
     this.authorAvatar,
     this.authorTitle,
     required this.content,
+    this.bgColor, // 🌟 AJOUT
     required this.mediaUrls,
     this.postType = 'standard',
     this.pollData,
@@ -121,6 +123,7 @@ class NetworkPost {
       authorTitle: json['author_title'] as String? ??
           json['profiles']?['profession'] as String?,
       content: json['content'] as String? ?? '',
+      bgColor: json['bg_color'] as String?, // 🌟 AJOUT : Extraction depuis le JSON de Supabase
       mediaUrls: mediaUrls,
       postType: json['post_type'] as String? ?? 'standard',
       pollData: json['poll_data'] as Map<String, dynamic>?,
@@ -157,6 +160,7 @@ class NetworkPost {
       'author_avatar': authorAvatar,
       'author_title': authorTitle,
       'content': content,
+      'bg_color': bgColor, // 🌟 AJOUT
       'media_urls': mediaUrls,
       'post_type': postType,
       'poll_data': pollData,
@@ -188,6 +192,7 @@ class NetworkPost {
     String? authorAvatar,
     String? authorTitle,
     String? content,
+    String? bgColor, // 🌟 AJOUT
     List<String>? mediaUrls,
     String? postType,
     Map<String, dynamic>? pollData,
@@ -217,6 +222,7 @@ class NetworkPost {
       authorAvatar: authorAvatar ?? this.authorAvatar,
       authorTitle: authorTitle ?? this.authorTitle,
       content: content ?? this.content,
+      bgColor: bgColor ?? this.bgColor, // 🌟 AJOUT
       mediaUrls: mediaUrls ?? this.mediaUrls,
       postType: postType ?? this.postType,
       pollData: pollData ?? this.pollData,
