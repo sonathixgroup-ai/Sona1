@@ -201,11 +201,15 @@ class SupabaseAuthManager implements AuthManager {
 
       // Générer un vrai THIX ID dès la création
       final realThixId = ThixIdService.generate();
+      
+      // ✅ CORRECTION MAJEURE: Générer un THIX CHAT temporaire unique
+      // Cela empêche l'erreur PostgreSQL 23505 (Violation de contrainte d'unicité sur la chaîne vide '')
+      final tempThixChat = '@user_${uid.substring(0, 5).toLowerCase()}${DateTime.now().millisecondsSinceEpoch % 1000}';
 
       final base = AppUser(
         id: uid,
         thixId: realThixId,
-        thixChat: '',
+        thixChat: tempThixChat, // Assigne le pseudo temporaire
         thixScore: null,
         email: email,
         phone: user.phone,
@@ -571,18 +575,32 @@ class SupabaseAuthManager implements AuthManager {
     required String token,
   }) async {
     try {
-      final res = await _client.auth.verifyOTP(
-        email: email.trim().toLowerCase(),
-        token: token.trim(),
-        type: OtpType.signup,
-      );
-
-      if (res.session == null && res.user == null) {
-        throw AuthException(
-          'Le code saisi est invalide ou a expiré. Demandez un nouveau code.',
-        );
+      final session = _client.auth.currentSession;
+      final user = session?.user;
+      
+      bool needsVerification = true;
+      
+      // ✅ CORRECTION MAJEURE : On vérifie si l'utilisateur n'est pas DÉJÀ connecté !
+      // Cela évite l'erreur "Code expiré" s'il clique une 2ème fois après un faux échec de l'UI.
+      if (user != null && user.email == email.trim().toLowerCase()) {
+        needsVerification = false;
       }
 
+      if (needsVerification) {
+        final res = await _client.auth.verifyOTP(
+          email: email.trim().toLowerCase(),
+          token: token.trim(),
+          type: OtpType.signup,
+        );
+
+        if (res.session == null && res.user == null) {
+          throw AuthException(
+            'Le code saisi est invalide ou a expiré. Demandez un nouveau code.',
+          );
+        }
+      }
+
+      // Actualise le profil même si on était déjà vérifié (pour appliquer les modifs UI)
       await refreshCurrentUser();
     } on AuthException {
       rethrow;
