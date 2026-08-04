@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 // CENTRAUX
 import '../../../staff/models/thix_weeding_models.dart';
 import '../../../staff/providers/thix_weeding_providers.dart';
+import '../../../staff/services/thix_weeding_services.dart';
 
 class GuestListPage extends ConsumerStatefulWidget {
   final String weddingId;
@@ -16,7 +17,7 @@ class GuestListPage extends ConsumerStatefulWidget {
 
 class _GuestListPageState extends ConsumerState<GuestListPage> {
   String _search = '';
-  String _filter = 'all';
+  String _filter = 'all'; // all, present, absent, confirmed
 
   @override
   Widget build(BuildContext context) {
@@ -26,122 +27,120 @@ class _GuestListPageState extends ConsumerState<GuestListPage> {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: guestsAsync.when(
-          data: (list) => Text('Invités - ${list.length}'),
-          loading: () => const Text('Invités'),
-          error: (_, __) => const Text('Invités'),
-        ),
+        title: const Text('Invités', style: TextStyle(fontWeight: FontWeight.w900)),
         actions: [
-          IconButton(icon: const Icon(Icons.bar_chart), onPressed: () => context.push('/thix-weeding/staff/${widget.weddingId}/rsvp')),
           IconButton(icon: const Icon(Icons.person_add), onPressed: () => context.push('/thix-weeding/staff/${widget.weddingId}/invites/add')),
         ],
-      ),
-      body: Column(
-        children: [
-          _SearchField(onChanged: (v) => setState(() => _search = v)),
-          _FilterRow(filter: _filter, onChanged: (v) => setState(() => _filter = v)),
-          Expanded(
-            child: guestsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, s) => Center(child: Text('Erreur $e')),
-              data: (List<GuestModel> guests) {
-                var filtered = guests.where((g) {
-                  final matchSearch = g.name.toLowerCase().contains(_search.toLowerCase());
-                  final matchFilter = _filter == 'all' || g.rsvpStatus == _filter;
-                  return matchSearch && matchFilter;
-                }).toList();
-
-                if (filtered.isEmpty) return const Center(child: Text('Aucun invité'));
-
-                return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(guestsProvider(widget.weddingId)),
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) {
-                      final GuestModel g = filtered[i];
-                      return _GuestTile(guest: g, onTap: () => context.push('/thix-weeding/staff/${widget.weddingId}/invites/${g.id}'));
-                    },
-                  ),
-                );
-              },
-            ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(100),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Column(children: [
+              TextField(
+                onChanged: (v) => setState(() => _search = v.toLowerCase()),
+                decoration: InputDecoration(hintText: 'Rechercher nom, téléphone...', prefixIcon: const Icon(Icons.search, size: 20), filled: true, fillColor: const Color(0xFFF1F5F9), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+              ),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  _FilterChip(label: 'Tous', value: 'all', selected: _filter, onTap: (v) => setState(() => _filter = v)),
+                  _FilterChip(label: 'Présents', value: 'present', selected: _filter, onTap: (v) => setState(() => _filter = v)),
+                  _FilterChip(label: 'Absents', value: 'absent', selected: _filter, onTap: (v) => setState(() => _filter = v)),
+                  _FilterChip(label: 'Confirmés', value: 'confirmed', selected: _filter, onTap: (v) => setState(() => _filter = v)),
+                ]),
+              ),
+            ]),
           ),
-        ],
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(onPressed: () => context.push('/thix-weeding/staff/${widget.weddingId}/invites/add'), icon: const Icon(Icons.add), label: const Text('Ajouter')),
+      body: guestsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Erreur: $e')),
+        data: (List<GuestModel> guests) {
+          var filtered = guests.where((g) {
+            final matchSearch = _search.isEmpty || g.fullName.toLowerCase().contains(_search) || (g.phone?? '').contains(_search);
+            final matchFilter = _filter == 'all' || (_filter == 'present' && g.isPresent) || (_filter == 'absent' &&!g.isPresent) || (_filter == 'confirmed' && g.rsvpStatus == 'confirmed');
+            return matchSearch && matchFilter;
+          }).toList();
+
+          if (filtered.isEmpty) {
+            return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.people_outline, size: 48, color: Colors.grey), const SizedBox(height: 8), Text(_search.isNotEmpty? 'Aucun résultat' : 'Aucun invité', style: const TextStyle(color: Colors.grey)), const SizedBox(height: 12), FilledButton.icon(onPressed: () => context.push('/thix-weeding/staff/${widget.weddingId}/invites/add'), icon: const Icon(Icons.add), label: const Text('Ajouter invité'))]));
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(guestsProvider(widget.weddingId)),
+            child: ListView.separated(
+              padding: const EdgeInsets.all(12),
+              itemCount: filtered.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) => _GuestCard(guest: filtered[i], weddingId: widget.weddingId),
+            ),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(onPressed: () => context.push('/thix-weeding/staff/${widget.weddingId}/invites/add'), icon: const Icon(Icons.add), label: const Text('Invité')),
     );
   }
 }
 
-// ================= WIDGETS INTERNES =================
+class _GuestCard extends ConsumerWidget {
+  final GuestModel guest; final String weddingId;
+  const _GuestCard({required this.guest, required this.weddingId});
 
-class _SearchField extends StatelessWidget {
-  final Function(String) onChanged;
-  const _SearchField({required this.onChanged});
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(12),
-        child: TextField(
-          onChanged: onChanged,
-          decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: 'Rechercher invité...', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
-        ),
-      );
-}
+  Future<void> _togglePresent(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(guestServiceProvider).togglePresent(guest.id, !guest.isPresent);
+      ref.invalidate(guestsProvider(weddingId));
+      ref.invalidate(dashboardStatsProvider(weddingId));
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+    }
+  }
 
-class _FilterRow extends StatelessWidget {
-  final String filter; final Function(String) onChanged;
-  const _FilterRow({required this.filter, required this.onChanged});
-  @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(children: [
-          _FilterChip(label: 'Tous', selected: filter == 'all', onTap: () => onChanged('all')),
-          _FilterChip(label: 'En attente', selected: filter == 'pending', onTap: () => onChanged('pending')),
-          _FilterChip(label: 'Confirmés', selected: filter == 'yes' || filter == 'accepted', onTap: () => onChanged('yes')),
-          _FilterChip(label: 'Refusés', selected: filter == 'no' || filter == 'declined', onTap: () => onChanged('no')),
-        ]),
-      );
-}
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(title: const Text('Supprimer?'), content: Text('Supprimer ${guest.fullName}?'), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Supprimer'))]));
+    if (ok != true) return;
+    try {
+      await ref.read(guestServiceProvider).delete(guest.id);
+      ref.invalidate(guestsProvider(weddingId));
+      ref.invalidate(dashboardStatsProvider(weddingId));
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+    }
+  }
 
-class _GuestTile extends StatelessWidget {
-  final GuestModel guest; final VoidCallback onTap;
-  const _GuestTile({required this.guest, required this.onTap});
   @override
-  Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+  Widget build(BuildContext context, WidgetRef ref) => Container(
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
         child: ListTile(
-          leading: CircleAvatar(backgroundColor: const Color(0xFF0B3B8F).withOpacity(0.1), child: Text(guest.name[0].toUpperCase(), style: const TextStyle(color: Color(0xFF0B3B8F), fontWeight: FontWeight.bold))),
-          title: Text(guest.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text('${guest.groupName} • ${guest.guestsCount} pers • ID: ${guest.id.substring(0, 6)}'),
-          trailing: _StatusBadge(status: guest.rsvpStatus),
-          onTap: onTap,
+          leading: CircleAvatar(backgroundColor: guest.isPresent? Colors.green.withOpacity(0.15) : const Color(0xFFEEF2FF), child: Text(guest.fullName.isNotEmpty? guest.fullName[0].toUpperCase() : '?', style: TextStyle(fontWeight: FontWeight.bold, color: guest.isPresent? Colors.green : const Color(0xFF0B3B8F)))),
+          title: Text(guest.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${guest.rsvpStatus} • ${guest.phone?? '-'}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            const SizedBox(height: 4),
+            Row(children: [
+              Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: guest.isPresent? Colors.green : Colors.orange.withOpacity(0.15), borderRadius: BorderRadius.circular(6)), child: Text(guest.isPresent? 'Présent' : 'Absent', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: guest.isPresent? Colors.white : Colors.orange))),
+              const SizedBox(width: 6),
+              if (guest.tableNumber != null) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)), child: Text('Table ${guest.tableNumber}', style: const TextStyle(fontSize: 10))),
+            ]),
+          ]),
+          trailing: PopupMenuButton(itemBuilder: (_) => [const PopupMenuItem(value: 'toggle', child: Text('Marquer présent/absent')), const PopupMenuItem(value: 'edit', child: Text('Modifier')), const PopupMenuItem(value: 'delete', child: Text('Supprimer', style: TextStyle(color: Colors.red)))], onSelected: (v) {
+            if (v == 'toggle') _togglePresent(context, ref);
+            if (v == 'edit') context.push('/thix-weeding/staff/$weddingId/invites/${guest.id}/edit');
+            if (v == 'delete') _delete(context, ref);
+          }),
+          onTap: () => context.push('/thix-weeding/staff/$weddingId/invites/${guest.id}'),
         ),
       );
 }
 
 class _FilterChip extends StatelessWidget {
-  final String label; final bool selected; final VoidCallback onTap;
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
-  @override
-  Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(label), selected: selected, selectedColor: const Color(0xFF0B3B8F).withOpacity(0.15), onSelected: (_) => onTap()));
-}
-
-class _StatusBadge extends StatelessWidget {
-  final String status;
-  const _StatusBadge({required this.status});
+  final String label; final String value; final String selected; final Function(String) onTap;
+  const _FilterChip({required this.label, required this.value, required this.selected, required this.onTap});
   @override
   Widget build(BuildContext context) {
-    Color c;
-    String t;
-    switch (status) {
-      case 'yes': case 'accepted': c = Colors.green; t = 'Oui'; break;
-      case 'no': case 'declined': c = Colors.red; t = 'Non'; break;
-      case 'maybe': c = Colors.orange; t = 'Peut-être'; break;
-      default: c = Colors.grey; t = 'En attente';
-    }
-    return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: c.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(t, style: TextStyle(color: c, fontSize: 10, fontWeight: FontWeight.bold)));
+    final isSel = selected == value;
+    return Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(label, style: TextStyle(fontSize: 12, fontWeight: isSel? FontWeight.bold : FontWeight.normal)), selected: isSel, onSelected: (_) => onTap(value), selectedColor: const Color(0xFF0B3B8F), labelStyle: TextStyle(color: isSel? Colors.white : Colors.black87)));
   }
 }
