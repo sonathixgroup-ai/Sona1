@@ -136,9 +136,9 @@ class CallSignalingService {
     final callerAvatar = meta?['avatar_url']?? meta?['picture'];
 
     final res = await _db
-       .from('call_invites')
-       .insert({
-          'channel_name': channel,
+        .from('call_invites')
+        .insert({
+          'channel': channel,
           'caller_id': uid,
           'callee_id': calleeId,
           'call_type': type,
@@ -146,8 +146,8 @@ class CallSignalingService {
           'caller_name': callerName,
           'caller_avatar': callerAvatar,
         })
-       .select()
-       .single();
+        .select()
+        .single();
 
     debugPrint('📤 Invite created ${res['id']} -> $calleeId');
     return res['id'] as String;
