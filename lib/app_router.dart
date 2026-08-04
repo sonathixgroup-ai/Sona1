@@ -264,8 +264,8 @@ class AppRouter {
   static GoRouter create(AuthController auth, {Listenable? extraRefreshListenable}) {
     final refresh = extraRefreshListenable ?? auth;
     return GoRouter(
-      // 1. OBLIGATOIRE : L'application doit démarrer sur le Splash Screen
-      initialLocation: AppRoutes.start,
+      // L'application démarre directement sur l'accueil (plus de passage forcé par le splash screen)
+      initialLocation: AppRoutes.home,
       
       refreshListenable: refresh,
       errorBuilder: (context, state) => Scaffold(
@@ -279,20 +279,15 @@ class AppRouter {
         ])),
       ),
       
-      // 2. REDIRECT : Contrôle absolu de l'authentification et des "sauts"
       redirect: (context, state) {
         try {
           final loc = state.matchedLocation;
-          
-          // A. Ne jamais interrompre le Splash Screen (qui gère sa propre navigation avec timer)
-          if (loc == AppRoutes.start) return null;
 
-          // B. Identifier les pages liées à l'authentification
           final isLoginPage = loc == AppRoutes.login;
           final isRegPage = loc == AppRoutes.personalReg || loc == AppRoutes.enterpriseReg;
 
-          // C. Définir les pages strictement publiques (NOTE : AppRoutes.home a été retiré d'ici)
-          final isPublic = isLoginPage || isRegPage ||
+          // Pages publiques autorisées (incluant explicitement AppRoutes.start pour y revenir)
+          final isPublic = loc == AppRoutes.start || isLoginPage || isRegPage ||
               loc == AppRoutes.publicProfile ||
               loc == AppRoutes.jobs || 
               loc == AppRoutes.opportunities || 
@@ -308,21 +303,13 @@ class AppRouter {
 
           final logged = auth.isAuthenticated;
 
-          // D. Logique Utilisateur NON CONNECTÉ (ou DÉCONNECTÉ)
           if (!logged) {
-            // S'il essaie d'aller sur Accueil, Dashboard ou toute page privée -> on le jette vers Login
             if (!isPublic) return AppRoutes.login;
-            
-            // S'il navigue sur une page publique autorisée -> on le laisse faire
             return null;
           }
 
-          // E. Logique Utilisateur CONNECTÉ
           if (logged) {
-            // S'il essaie d'aller sur la page de connexion -> on le redirige vers l'accueil
             if (isLoginPage) return AppRoutes.home;
-            
-            // S'il est sur la page d'inscription -> on ne fait RIEN pour laisser l'écran de succès (Step 3) s'afficher
             if (isRegPage) return null;
           }
 
@@ -333,6 +320,7 @@ class AppRouter {
         }
       },
       routes: [
+        // La route start est présente une seule fois, propre et accessible
         GoRoute(path: AppRoutes.start, name: 'start', pageBuilder: (_, __) => const NoTransitionPage(child: ThixIdStartPage())),
         GoRoute(path: AppRoutes.login, name: 'login', pageBuilder: (_, __) => const NoTransitionPage(child: LoginPage())),
         GoRoute(path: AppRoutes.personalReg, name: 'personalReg', pageBuilder: (_, state) {
