@@ -11,42 +11,41 @@ import '../../domain/entities/wedding_entity.dart';
 part 'thix_weeding_home_page.g.dart';
 
 // ============================================================
-// PALETTE PREMIUM — Charte THIX MARIAGE (Luxe, Amour, Élégance)
+// PALETTE — Charte THIX MARIAGE (Amour & Élégance / Lumineux)
 // ============================================================
 class _P {
-  static const bg = Color(0xFFFAFAFA); // Gris perle très clair, ultra propre
+  static const bg = Color(0xFFFFFBFC); // Blanc légèrement rosé, très lumineux
   static const surface = Colors.white;
-  
-  // Le "Rouge Roger" renforcé : Un rouge rubis profond et luxueux
-  static const primary = Color(0xFFD60036); 
-  static const primarySoft = Color(0xFFFFF0F3); // Fond léger pour les touches rouges
-  
-  static const accent = Color(0xFFD4AF37); // Or premium classique
+  static const primary = Color(0xFFE31C4E); // Rouge passion / Rose profond
+  static const primarySoft = Color(0xFFFFE3EA); // Rose pâle très clair
+  static const secondary = Color(0xFFFF7A9C); // Rose vif complémentaire
+  static const accent = Color(0xFFD4AF37); // Or discret, touche premium
   static const accentSoft = Color(0xFFFDF6E3);
 
-  static const ink = Color(0xFF1A1A1A); // Noir riche pour les titres
-  static const inkSoft = Color(0xFF757575); // Gris élégant pour les sous-titres
-  static const border = Color(0xFFEEEEEE); // Bordures très subtiles
+  static const ink = Color(0xFF241521); // Texte principal, brun-noir chaleureux
+  static const inkSoft = Color(0xFF8A7580); // Texte secondaire rosé-gris
+  static const border = Color(0xFFF3E1E6); // Bordures très douces
 
   static const gradPrimary = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFD60036), Color(0xFFFF2A5F)],
+    colors: [Color(0xFFE31C4E), Color(0xFFFF6B8B)],
   );
 
+  // Ombre douce, lumineuse, "flottante"
   static final shadow = [
     BoxShadow(
-      color: const Color(0xFFD60036).withOpacity(0.15),
-      blurRadius: 24,
-      offset: const Offset(0, 10),
+      color: const Color(0xFFE31C4E).withOpacity(0.06),
+      blurRadius: 20,
+      offset: const Offset(0, 8),
     )
   ];
 
   static final shadowSoft = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.04),
-      blurRadius: 16,
-      offset: const Offset(0, 6),
+      color: Colors.black.withOpacity(0.03),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
     )
   ];
 }
@@ -61,10 +60,10 @@ Future<List<Map<String, dynamic>>> homePromoSlides(HomePromoSlidesRef ref) async
     {
       'tag': 'PROMO FLASH',
       'title': "Jusqu'à -40%",
-      'subtitle': 'Sur les salles de réception',
+      'subtitle': 'Sur les salles de réception & traiteurs',
       'detail': "Valable jusqu'au 30 Septembre 2026",
       'cta': 'Profiter maintenant',
-      'imageUrl': 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?q=80&w=1000',
+      'imageUrl': 'https://picsum.photos/seed/wedding-venue/900/600',
     },
     {
       'tag': 'NOUVEAU',
@@ -72,25 +71,33 @@ Future<List<Map<String, dynamic>>> homePromoSlides(HomePromoSlidesRef ref) async
       'subtitle': "De mariage en 5 minutes",
       'detail': 'ID unique + invitations digitales',
       'cta': 'Commencer',
-      'imageUrl': 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=1000',
+      'imageUrl': 'https://picsum.photos/seed/wedding-couple/900/600',
+    },
+    {
+      'tag': 'PARTENAIRES',
+      'title': '+300 prestataires',
+      'subtitle': 'Vérifiés partout en RDC',
+      'detail': 'Avis authentiques & prix transparents',
+      'cta': 'Découvrir',
+      'imageUrl': 'https://picsum.photos/seed/wedding-deco/900/600',
     },
   ];
 }
 
 @riverpod
 Future<List<Map<String, dynamic>>> homeCategories(HomeCategoriesRef ref) async {
-  await Future.delayed(const Duration(milliseconds: 100));
+  await Future.delayed(const Duration(milliseconds: 150));
   return [
     {'label': 'Salles', 'icon': Icons.villa_outlined},
     {'label': 'Traiteurs', 'icon': Icons.restaurant_outlined},
-    {'label': 'Cérémonie', 'icon': Icons.mic_none_outlined},
+    {'label': 'M. de cérémonie', 'icon': Icons.mic_none_outlined},
     {'label': 'Décoration', 'icon': Icons.local_florist_outlined},
-    {'label': 'Photos', 'icon': Icons.camera_alt_outlined},
+    {'label': 'Photographes', 'icon': Icons.camera_alt_outlined},
     {'label': 'Vidéastes', 'icon': Icons.videocam_outlined},
-    {'label': 'DJ & Son', 'icon': Icons.music_note_outlined},
+    {'label': 'DJ', 'icon': Icons.music_note_outlined},
     {'label': 'Robes', 'icon': Icons.checkroom_outlined},
-    {'label': 'Costumes', 'icon': Icons.checkroom_outlined}, // 🌟 CORRECTION ICI : Remplacement de styler_outlined
-    {'label': 'Voir Plus', 'icon': Icons.grid_view_rounded},
+{'label': 'Costumes', 'icon': Icons.checkroom_outlined},
+    {'label': 'Plus', 'icon': Icons.grid_view_rounded},
   ];
 }
 
@@ -104,9 +111,34 @@ Future<Map<String, int>> homeStats(HomeStatsRef ref) async {
 Future<List<Map<String, dynamic>>> homeOffers(HomeOffersRef ref) async {
   await Future.delayed(const Duration(milliseconds: 250));
   return [
-    {'title': 'Salles de fête', 'subtitle': 'Réservez votre salle idéale', 'discount': '-30%', 'icon': Icons.villa_outlined, 'color': _P.primary},
-    {'title': 'Traiteurs', 'subtitle': 'Menus spéciaux mariage', 'discount': '-20%', 'icon': Icons.restaurant_outlined, 'color': _P.accent},
-    {'title': 'Photographe offert', 'subtitle': 'Pour tout package complet', 'discount': 'OFFERT', 'icon': Icons.camera_alt_outlined, 'color': _P.ink},
+    {
+      'title': 'Salles de fête',
+      'subtitle': 'Réservez votre salle idéale',
+      'discount': '-30%',
+      'icon': Icons.villa_outlined,
+      'color': _P.primary,
+    },
+    {
+      'title': 'Traiteurs',
+      'subtitle': 'Menus spéciaux mariage',
+      'discount': '-20%',
+      'icon': Icons.restaurant_outlined,
+      'color': _P.secondary,
+    },
+    {
+      'title': 'Photographe offert',
+      'subtitle': 'Pour toute réservation package complet',
+      'discount': 'OFFERT',
+      'icon': Icons.camera_alt_outlined,
+      'color': _P.ink,
+    },
+    {
+      'title': 'Décoration',
+      'subtitle': 'Ambiances inoubliables',
+      'discount': '-15%',
+      'icon': Icons.local_florist_outlined,
+      'color': _P.accent,
+    },
   ];
 }
 
@@ -114,10 +146,42 @@ Future<List<Map<String, dynamic>>> homeOffers(HomeOffersRef ref) async {
 Future<List<Map<String, dynamic>>> homeProviders(HomeProvidersRef ref) async {
   await Future.delayed(const Duration(milliseconds: 300));
   return [
-    {'name': 'Palais des Congrès', 'category': 'Salle de fête', 'zone': 'Douala', 'rating': 4.8, 'reviews': 128, 'price': 'À partir de 600.000 FC', 'image': 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=500'},
-    {'name': "Saveurs d'Or", 'category': 'Traiteur', 'zone': 'Douala', 'rating': 4.9, 'reviews': 96, 'price': 'À partir de 450.000 FC', 'image': 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?q=80&w=500'},
-    {'name': 'Lens Prod', 'category': 'Photographe', 'zone': 'Yaoundé', 'rating': 4.9, 'reviews': 215, 'price': 'À partir de 300.000 FC', 'image': 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?q=80&w=500'},
-    {'name': 'Dream Décor', 'category': 'Décoration', 'zone': 'Douala', 'rating': 4.7, 'reviews': 78, 'price': 'À partir de 250.000 FC', 'image': 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=500'},
+    {
+      'name': 'Palais des Congrès',
+      'category': 'Salle de fête',
+      'zone': 'Douala',
+      'rating': 4.8,
+      'reviews': 128,
+      'price': 'À partir de 600.000 FC',
+      'icon': Icons.villa_outlined,
+    },
+    {
+      'name': "Saveurs d'Afrique",
+      'category': 'Traiteur',
+      'zone': 'Douala',
+      'rating': 4.9,
+      'reviews': 96,
+      'price': 'À partir de 450.000 FC',
+      'icon': Icons.restaurant_outlined,
+    },
+    {
+      'name': 'Lens Prod',
+      'category': 'Photographe',
+      'zone': 'Douala',
+      'rating': 4.9,
+      'reviews': 215,
+      'price': 'À partir de 300.000 FC',
+      'icon': Icons.camera_alt_outlined,
+    },
+    {
+      'name': 'Dream Décor',
+      'category': 'Décoration',
+      'zone': 'Douala',
+      'rating': 4.7,
+      'reviews': 78,
+      'price': 'À partir de 250.000 FC',
+      'icon': Icons.local_florist_outlined,
+    },
   ];
 }
 
@@ -146,17 +210,28 @@ class _ThixWeedingHomePageState extends ConsumerState<ThixWeedingHomePage> {
   late final FocusNode _focusNode;
   bool _isSearching = false;
 
+  final PageController _promoController = PageController();
+  int _promoIndex = 0;
+  Timer? _promoTimer;
+
   @override
   void initState() {
     super.initState();
     _idController = TextEditingController();
     _focusNode = FocusNode();
+    _promoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!_promoController.hasClients) return;
+      final next = (_promoIndex + 1) % 3;
+      _promoController.animateToPage(next, duration: const Duration(milliseconds: 600), curve: Curves.fastOutSlowIn);
+    });
   }
 
   @override
   void dispose() {
     _idController.dispose();
     _focusNode.dispose();
+    _promoController.dispose();
+    _promoTimer?.cancel();
     super.dispose();
   }
 
@@ -207,62 +282,35 @@ class _ThixWeedingHomePageState extends ConsumerState<ThixWeedingHomePage> {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // HERO — Bannière Premium Plein Écran
+          // HERO — Recherche ID + visuel romantique
           SliverToBoxAdapter(
-            child: _HeroPremiumSection(
+            child: _HeroSearchSection(
               controller: _idController,
               focusNode: _focusNode,
               isLoading: _isSearching,
               onSearch: _onSearch,
+              onScanQr: _onScanQr,
             ),
           ),
 
-          // BOUTON SCAN QR (Flottant sous le hero)
-          SliverToBoxAdapter(
-            child: Transform.translate(
-              offset: const Offset(0, -25),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: InkWell(
-                  onTap: _onScanQr,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      color: _P.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: _P.shadowSoft,
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.qr_code_scanner_rounded, size: 20, color: _P.primary),
-                        SizedBox(width: 12),
-                        Text('Scanner une invitation QR', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _P.ink)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 28)),
 
-          // RACCOURCIS CATEGORIES ÉPURÉES
+          // RACCOURCIS CATEGORIES
           SliverToBoxAdapter(
             child: catsAsync.when(
-              data: (cats) => _CategoryPremiumGrid(categories: cats, onTap: _onTapGeneric),
+              data: (cats) => _CategoryGrid(categories: cats, onTap: _onTapGeneric),
               loading: () => const SizedBox(height: 180, child: Center(child: CircularProgressIndicator(color: _P.primary))),
               error: (_, __) => const SizedBox(),
             ),
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 36)),
+          const SliverToBoxAdapter(child: SizedBox(height: 32)),
 
           // OFFRES DU MOMENT
           const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
-              child: _SectionHeader(title: 'Offres Exclusives'),
+              child: _SectionHeader(title: 'Offres du moment'),
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
@@ -294,6 +342,24 @@ class _ThixWeedingHomePageState extends ConsumerState<ThixWeedingHomePage> {
 
           const SliverToBoxAdapter(child: SizedBox(height: 36)),
 
+          // DERNIÈRES ANNONCES
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: _SectionHeader(title: 'Dernières Annonces'),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          SliverToBoxAdapter(
+            child: announcementsAsync.when(
+              data: (ann) => _AnnouncementsList(items: ann, onTap: _onTapGeneric),
+              loading: () => const SizedBox(height: 160, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: _P.primary))),
+              error: (_, __) => const SizedBox(),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 32)),
+
           // BANDEAU DE CONFIANCE
           const SliverToBoxAdapter(
             child: Padding(
@@ -310,183 +376,167 @@ class _ThixWeedingHomePageState extends ConsumerState<ThixWeedingHomePage> {
 }
 
 // ============================================================
-// HERO SECTION PREMIUM — Carrousel Auto-scrolling + Overlay
+// HERO SECTION — Grand visuel romantique + barre ID
 // ============================================================
-class _HeroPremiumSection extends StatefulWidget {
+class _HeroSearchSection extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isLoading;
   final VoidCallback onSearch;
+  final VoidCallback onScanQr;
 
-  const _HeroPremiumSection({
+  const _HeroSearchSection({
     required this.controller,
     required this.focusNode,
     required this.isLoading,
     required this.onSearch,
+    required this.onScanQr,
   });
 
   @override
-  State<_HeroPremiumSection> createState() => _HeroPremiumSectionState();
-}
-
-class _HeroPremiumSectionState extends State<_HeroPremiumSection> {
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
-  Timer? _timer;
-
-  // Images inspirantes de haute qualité
-  final List<String> _bgImages = [
-    'https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1000', // Couple
-    'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=1000', // Salle / Déco
-    'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?q=80&w=1000', // Repas / Table
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 4), (Timer timer) {
-      if (_pageController.hasClients) {
-        _currentPage++;
-        if (_currentPage >= _bgImages.length) _currentPage = 0;
-        _pageController.animateToPage(
-          _currentPage,
-          duration: const Duration(milliseconds: 800),
-          curve: Curves.easeInOutCubic,
-        );
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 380, // Hauteur généreuse pour inspirer
-      width: double.infinity,
-      child: Stack(
-        children: [
-          // 1. Carrousel d'images de fond
-          PageView.builder(
-            controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(), // Défilement géré par le timer uniquement
-            itemCount: _bgImages.length,
-            itemBuilder: (context, index) {
-              return Image.network(
-                _bgImages[index],
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-              );
-            },
-          ),
-
-          // 2. Overlay sombre/dégradé pour rendre le texte parfaitement lisible
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withOpacity(0.3),
-                  Colors.black.withOpacity(0.7), // Plus sombre en bas pour le champ de recherche
-                ],
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+      decoration: BoxDecoration(
+        color: _P.primarySoft,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Stack(
+          children: [
+            // Visuel romantique flou en fond
+            Positioned(
+              right: -20,
+              top: 0,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: Opacity(
+                  opacity: 0.9,
+                  child: Image.network(
+                    'https://picsum.photos/seed/wedding-hero/500/650',
+                    width: 190,
+                    height: 260,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(width: 190, height: 260, color: _P.border),
+                  ),
+                ),
               ),
             ),
-          ),
-
-          // 3. Contenu (Textes + Barre de recherche)
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end, // Aligner vers le bas
-                children: [
-                  RichText(
-                    text: const TextSpan(
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 1.5),
-                      children: [
-                        TextSpan(text: 'THIX ', style: TextStyle(color: Colors.white)),
-                        TextSpan(text: 'MARIAGE', style: TextStyle(color: _P.primary)),
-                      ],
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RichText(
+                  text: const TextSpan(
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 1.2),
+                    children: [
+                      TextSpan(text: 'THIX ', style: TextStyle(color: _P.ink)),
+                      TextSpan(text: 'MARIAGE', style: TextStyle(color: _P.primary)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const SizedBox(
+                  width: 230,
+                  child: Text(
+                    'Vous avez un\nID de mariage ?',
+                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: _P.ink, height: 1.15),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const SizedBox(
+                  width: 210,
+                  child: Text(
+                    'Accédez à tous les détails de votre événement',
+                    style: TextStyle(fontSize: 13, color: _P.inkSoft, fontWeight: FontWeight.w400, height: 1.3),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: _P.surface,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: _P.shadow,
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 12),
+                      const Icon(Icons.search_rounded, size: 20, color: _P.inkSoft),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          textCapitalization: TextCapitalization.characters,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _P.ink),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            hintText: 'Entrez votre ID de mariage',
+                            hintStyle: TextStyle(fontSize: 13, color: _P.inkSoft, fontWeight: FontWeight.w400),
+                            border: InputBorder.none,
+                          ),
+                          onSubmitted: (_) => onSearch(),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: isLoading ? null : onSearch,
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                          decoration: BoxDecoration(gradient: _P.gradPrimary, borderRadius: BorderRadius.circular(14)),
+                          child: isLoading
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
+                                )
+                              : const Text('Rechercher', style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    const Expanded(child: Divider(color: _P.border, thickness: 1)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text('OU', style: TextStyle(fontSize: 11, color: _P.inkSoft.withOpacity(0.7), fontWeight: FontWeight.w600)),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Le mariage de vos rêves\ncommence ici.',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, height: 1.15),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Accédez au planning, au menu et aux photos\nde l\'événement avec votre ID invité.',
-                    style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.85), fontWeight: FontWeight.w400, height: 1.4),
-                  ),
-                  const SizedBox(height: 28),
-                  
-                  // Barre de recherche Premium
-                  Container(
-                    height: 56,
-                    padding: const EdgeInsets.only(left: 16, right: 6),
+                    const Expanded(child: Divider(color: _P.border, thickness: 1)),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                InkWell(
+                  onTap: onScanQr,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
                       color: _P.surface,
-                      borderRadius: BorderRadius.circular(100), // Bordures très arrondies
-                      boxShadow: _P.shadow,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _P.border),
                     ),
-                    child: Row(
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.search_rounded, size: 22, color: _P.inkSoft),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: widget.controller,
-                            focusNode: widget.focusNode,
-                            textCapitalization: TextCapitalization.characters,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _P.ink),
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              hintText: 'Code d\'invitation (ID)',
-                              hintStyle: TextStyle(fontSize: 14, color: _P.inkSoft, fontWeight: FontWeight.w500),
-                              border: InputBorder.none,
-                            ),
-                            onSubmitted: (_) => widget.onSearch(),
-                          ),
-                        ),
-                        InkWell(
-                          onTap: widget.isLoading ? null : widget.onSearch,
-                          borderRadius: BorderRadius.circular(100),
-                          child: Container(
-                            height: 44,
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              gradient: _P.gradPrimary,
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                            child: widget.isLoading
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
-                                  )
-                                : const Text('Go', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
-                          ),
-                        ),
+                        Icon(Icons.qr_code_scanner_rounded, size: 18, color: _P.primary),
+                        SizedBox(width: 10),
+                        Text('Scanner un QR Code', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _P.ink)),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24), // Espace pour laisser dépasser le bouton de scan
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -504,15 +554,15 @@ class _SectionHeader extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 19, color: _P.ink, letterSpacing: -0.5)),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: _P.ink, letterSpacing: -0.3)),
         InkWell(
           onTap: () {},
           child: const Padding(
             padding: EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
-                Text('Voir tout', style: TextStyle(fontSize: 13, color: _P.primary, fontWeight: FontWeight.w700)),
-                Icon(Icons.chevron_right_rounded, size: 18, color: _P.primary),
+                Text('Voir tout', style: TextStyle(fontSize: 12, color: _P.primary, fontWeight: FontWeight.w700)),
+                Icon(Icons.chevron_right_rounded, size: 16, color: _P.primary),
               ],
             ),
           ),
@@ -523,61 +573,82 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ============================================================
-// CATEGORY GRID PREMIUM — Épuré et chic
+// CATEGORY GRID — icônes rondes colorées, épurées
 // ============================================================
-class _CategoryPremiumGrid extends StatelessWidget {
+class _CategoryGrid extends StatelessWidget {
   final List<Map<String, dynamic>> categories;
   final void Function(String) onTap;
-  const _CategoryPremiumGrid({required this.categories, required this.onTap});
+  const _CategoryGrid({required this.categories, required this.onTap});
+
+  static const _bubbleColors = [
+    Color(0xFFDCEAFB),
+    Color(0xFFFFE1E7),
+    Color(0xFFEBE1FB),
+    Color(0xFFFFEDD9),
+    Color(0xFFDDF5E6),
+    Color(0xFFDDF3FB),
+    Color(0xFFFFF3D6),
+    Color(0xFFFFDCE8),
+    Color(0xFFDCE6FF),
+    Color(0xFFEDE9FB),
+  ];
+
+  static const _iconColors = [
+    Color(0xFF2D6CDF),
+    Color(0xFFE31C4E),
+    Color(0xFF8B5CF6),
+    Color(0xFFE38B1C),
+    Color(0xFF1CA050),
+    Color(0xFF1CA6C7),
+    Color(0xFFC79A1C),
+    Color(0xFFE31C7A),
+    Color(0xFF3352D9),
+    Color(0xFF6B4CD9),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _P.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: _P.shadowSoft,
+      ),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: categories.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5, // 5 colonnes
-          mainAxisSpacing: 20,
-          crossAxisSpacing: 8,
-          childAspectRatio: 0.65, // Plus d'espace vertical pour éviter que le texte ne se coupe
+          crossAxisCount: 5,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 4,
+          childAspectRatio: 0.72,
         ),
         itemBuilder: (context, i) {
           final c = categories[i];
-          final isMore = c['label'] == 'Voir Plus';
-          
+          final bubble = _bubbleColors[i % _bubbleColors.length];
+          final iconColor = _iconColors[i % _iconColors.length];
           return InkWell(
             onTap: () => onTap(c['label'] as String),
+            borderRadius: BorderRadius.circular(16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    color: isMore ? _P.surface : _P.primary.withOpacity(0.06), // Rouge très clair
-                    shape: BoxShape.circle,
-                    border: isMore ? Border.all(color: _P.border) : null,
-                  ),
-                  child: Icon(
-                    c['icon'] as IconData, 
-                    size: 24, 
-                    color: isMore ? _P.inkSoft : _P.primary, // Rouge profond pour les icônes
-                  ),
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(color: bubble, shape: BoxShape.circle),
+                  child: Icon(c['icon'] as IconData, size: 22, color: iconColor),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   c['label'] as String,
                   textAlign: TextAlign.center,
-                  maxLines: 1, // Forcer sur 1 ligne
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11, 
-                    fontWeight: isMore ? FontWeight.w600 : FontWeight.w700, 
-                    color: isMore ? _P.inkSoft : _P.ink,
-                  ),
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _P.ink, height: 1.15),
                 ),
               ],
             ),
@@ -589,7 +660,7 @@ class _CategoryPremiumGrid extends StatelessWidget {
 }
 
 // ============================================================
-// OFFRES DU MOMENT — Design Luxe
+// OFFRES DU MOMENT — cartes couleur pleine, très lumineuses
 // ============================================================
 class _OffersRow extends StatelessWidget {
   final List<Map<String, dynamic>> offers;
@@ -599,12 +670,12 @@ class _OffersRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 160,
+      height: 150,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
         itemCount: offers.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
         itemBuilder: (context, i) {
           final o = offers[i];
           final color = o['color'] as Color;
@@ -612,32 +683,27 @@ class _OffersRow extends StatelessWidget {
             onTap: () => onTap(o['title'] as String),
             borderRadius: BorderRadius.circular(20),
             child: Container(
-              width: 150,
-              padding: const EdgeInsets.all(18),
+              width: 140,
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: _P.surface,
+                color: color.withOpacity(0.09),
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: _P.shadowSoft,
-                border: Border.all(color: color.withOpacity(0.2)),
+                border: Border.all(color: color.withOpacity(0.18)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Icon(o['icon'] as IconData, size: 24, color: color),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                        child: Text(o['discount'] as String, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color)),
-                      ),
-                    ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
+                    child: Text(o['discount'] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
                   ),
                   const Spacer(),
-                  Text(o['title'] as String, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _P.ink)),
-                  const SizedBox(height: 4),
-                  Text(o['subtitle'] as String, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: _P.inkSoft, fontWeight: FontWeight.w500, height: 1.3)),
+                  Icon(o['icon'] as IconData, size: 20, color: color),
+                  const SizedBox(height: 8),
+                  Text(o['title'] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _P.ink)),
+                  const SizedBox(height: 2),
+                  Text(o['subtitle'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: _P.inkSoft, fontWeight: FontWeight.w500)),
                 ],
               ),
             ),
@@ -649,7 +715,7 @@ class _OffersRow extends StatelessWidget {
 }
 
 // ============================================================
-// PRESTATAIRES D'EXCELLENCE — Design Éditorial
+// PRESTATAIRES D'EXCELLENCE — grille 2 colonnes, style éditorial
 // ============================================================
 class _ProvidersGrid extends StatelessWidget {
   final List<Map<String, dynamic>> providers;
@@ -666,59 +732,149 @@ class _ProvidersGrid extends StatelessWidget {
         itemCount: providers.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          mainAxisSpacing: 20,
+          mainAxisSpacing: 16,
           crossAxisSpacing: 16,
-          childAspectRatio: 0.75, // Ajusté pour les images réelles
+          childAspectRatio: 0.72,
         ),
         itemBuilder: (context, i) {
           final p = providers[i];
           return InkWell(
             onTap: () => onTap(p['name'] as String),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: _P.shadowSoft,
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              decoration: BoxDecoration(
+                color: _P.surface,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: _P.shadowSoft,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                           child: Image.network(
-                            p['image'] as String,
+                            'https://picsum.photos/seed/${p['name']}/300/300',
                             fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: _P.primarySoft,
+                              child: Icon(p['icon'] as IconData, size: 32, color: _P.primary),
+                            ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), shape: BoxShape.circle),
-                          child: const Icon(Icons.favorite_border_rounded, size: 16, color: _P.ink),
+                        Positioned(
+                          top: 10,
+                          right: 10,
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                            child: const Icon(Icons.favorite_border_rounded, size: 15, color: _P.primary),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(p['name'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _P.ink)),
-                const SizedBox(height: 4),
-                Text('${p['category']} · ${p['zone']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: _P.inkSoft, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.star_rounded, size: 15, color: _P.accent),
-                    const SizedBox(width: 4),
-                    Text('${p['rating']} (${p['reviews']})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _P.ink)),
-                  ],
-                ),
-              ],
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(p['name'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _P.ink)),
+                        const SizedBox(height: 2),
+                        Text('${p['category']} · ${p['zone']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: _P.inkSoft, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(Icons.star_rounded, size: 14, color: _P.accent),
+                            const SizedBox(width: 3),
+                            Text('${p['rating']} (${p['reviews']})', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: _P.ink)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(p['price'] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _P.primary)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ============================================================
+// DERNIÈRES ANNONCES
+// ============================================================
+class _AnnouncementsList extends StatelessWidget {
+  final List<Map<String, dynamic>> items;
+  final void Function(String) onTap;
+  const _AnnouncementsList({required this.items, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 160,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (context, i) {
+          final a = items[i];
+          return InkWell(
+            onTap: () => onTap(a['title'] as String),
+            borderRadius: BorderRadius.circular(18),
+            child: Container(
+              width: 148,
+              decoration: BoxDecoration(
+                color: _P.surface,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: _P.shadowSoft,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: 78,
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          decoration: const BoxDecoration(color: _P.primarySoft, borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+                          child: Center(child: Icon(a['icon'] as IconData, size: 26, color: _P.primary)),
+                        ),
+                        Positioned(
+                          top: 10,
+                          left: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(color: _P.ink, borderRadius: BorderRadius.circular(6)),
+                            child: Text(a['tag'] as String, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.4)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(a['title'] as String, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _P.ink, height: 1.2)),
+                        const Spacer(),
+                        Text(a['subtitle'] as String, style: const TextStyle(fontSize: 11, color: _P.primary, fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -734,32 +890,30 @@ class _TrustRow extends StatelessWidget {
   const _TrustRow();
 
   static const _items = [
-    {'icon': Icons.verified_user_outlined, 'label': 'Prestataires\nVérifiés'},
-    {'icon': Icons.stars_rounded, 'label': 'Avis\nAuthentiques'},
-    {'icon': Icons.headset_mic_outlined, 'label': 'Support\n7j/7'},
+    {'icon': Icons.shield_outlined, 'label': 'Sécurisé'},
+    {'icon': Icons.headset_mic_outlined, 'label': 'Support 24/7'},
+    {'icon': Icons.verified_outlined, 'label': 'Vérifié'},
+    {'icon': Icons.favorite_border_rounded, 'label': 'Fait avec Amour'},
   ];
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 20),
       decoration: BoxDecoration(
-        color: _P.surface,
+        gradient: _P.gradPrimary,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _P.border),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: _items.map((e) {
-          return Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(e['icon'] as IconData, size: 28, color: _P.primary),
-                const SizedBox(height: 12),
-                Text(e['label'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: _P.ink, fontWeight: FontWeight.w700, height: 1.3)),
-              ],
-            ),
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(e['icon'] as IconData, size: 22, color: Colors.white),
+              const SizedBox(height: 8),
+              Text(e['label'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
+            ],
           );
         }).toList(),
       ),
