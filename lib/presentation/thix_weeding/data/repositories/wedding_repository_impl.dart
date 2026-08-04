@@ -1,4 +1,4 @@
-import 'package:supabase_flutter/supabase_flutter.dart'; // 👈 N'oubliez pas d'importer Supabase
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/failure.dart';
 import '../../domain/entities/wedding_entity.dart';
@@ -8,7 +8,6 @@ final weddingRepositoryProvider = Provider<WeddingRepository>((ref) => WeddingRe
 
 abstract class WeddingRepository {
   Future<WeddingEntity> getWeddingById(String id);
-  // ... (le reste de l'interface ne change pas)
   Future<List<String>> getGallery(String weddingId, {int page = 1});
   Future<void> submitRsvp(RsvpEntity rsvp);
   Future<void> submitLivreOr(String weddingId, String name, String message);
@@ -18,29 +17,25 @@ abstract class WeddingRepository {
 
 class WeddingRepositoryImpl implements WeddingRepository {
   
-  // 👇 VOICI LA VRAIE FONCTION CONNECTÉE À SUPABASE
   @override
   Future<WeddingEntity> getWeddingById(String id) async {
-    final cleanId = id.trim().toUpperCase(); // On nettoie et on met en majuscules
+    final cleanId = id.trim().toUpperCase();
     
     if (cleanId.length < 4) {
       throw const Failure('ID de mariage invalide');
     }
 
     try {
-      // 1. On interroge Supabase
       final response = await Supabase.instance.client
           .from('thix_weeding_weddings')
           .select()
           .eq('id', cleanId)
-          .maybeSingle(); // maybeSingle() renvoie null si l'ID n'existe pas
+          .maybeSingle();
 
-      // 2. Si aucun mariage n'est trouvé, on déclenche une erreur
       if (response == null) {
         throw const Failure('Aucun mariage trouvé avec cet ID. Veuillez vérifier votre code.');
       }
 
-      // 3. Si on trouve le mariage, on transforme les données de la base en WeddingEntity
       return WeddingEntity(
         id: response['id'] ?? cleanId,
         locationName: response['location_name'] ?? '',
@@ -51,16 +46,44 @@ class WeddingRepositoryImpl implements WeddingRepository {
         welcomeMessage: response['welcome_message'] ?? '',
         announcement: response['announcement'] ?? '',
         date: DateTime.parse(response['date']),
-        // Note: L'image n'est pas encore dans votre base SQL, on laisse un placeholder pour l'instant
         coverImageUrl: 'https://picsum.photos/800/600', 
       );
 
     } on Failure {
-      rethrow; // On renvoie l'erreur personnalisée (Aucun mariage trouvé)
+      rethrow;
     } catch (e) {
       throw Failure('Erreur de connexion : ${e.toString()}');
     }
   }
 
-  // ... (Le reste de vos méthodes getGallery, getGifts, etc. restent identiques pour le moment)
-  // Vous pourrez les connecter à Supabase de la même manière ensuite !
+  @override
+  Future<List<String>> getGallery(String weddingId, {int page = 1}) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    return List.generate(20, (i) => 'https://picsum.photos/400/400?random=${page * 20 + i}');
+  }
+
+  @override
+  Future<void> submitRsvp(RsvpEntity rsvp) async {
+    await Future.delayed(const Duration(milliseconds: 600));
+  }
+
+  @override
+  Future<void> submitLivreOr(String weddingId, String name, String message) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+  }
+
+  @override
+  Future<List<GiftItem>> getGifts(String weddingId) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    return [
+      const GiftItem(id: '1', name: 'Lune de miel', imageUrl: 'https://picsum.photos/200', price: 500000, contributed: 150000),
+      const GiftItem(id: '2', name: 'Service à vaisselle', imageUrl: 'https://picsum.photos/200', price: 200000, contributed: 200000),
+    ];
+  }
+
+  @override
+  Future<List<ProgramItem>> getProgram(String weddingId) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    return <ProgramItem>[]; 
+  }
+} // 👈 La fameuse accolade manquante est bien là !
