@@ -2,87 +2,205 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-final checklistProvider = FutureProvider.family<List<Map<String,dynamic>>, String>((ref, weddingId) async {
-  final res = await Supabase.instance.client.from('thix_weeding_checklist').select().eq('wedding_id', weddingId).order('order_index', ascending: true).order('created_at');
-  return List<Map<String,dynamic>>.from(res);
-});
+// TES 3 FICHIERS CENTRAUX
+import '../../../staff/models/thix_weeding_models.dart';
+import '../../../staff/providers/thix_weeding_providers.dart';
+import '../../../staff/services/thix_weeding_services.dart';
 
 class ChecklistPage extends ConsumerStatefulWidget {
   final String weddingId;
   const ChecklistPage({super.key, required this.weddingId});
-  @override ConsumerState<ChecklistPage> createState()=> _ChecklistPageState();
+  @override
+  ConsumerState<ChecklistPage> createState() => _ChecklistPageState();
 }
 
 class _ChecklistPageState extends ConsumerState<ChecklistPage> {
   String _filter = 'all';
   final _newTaskCtrl = TextEditingController();
 
-  Future<void> _addQuick() async {
-    if(_newTaskCtrl.text.trim().isEmpty) return;
-    await Supabase.instance.client.from('thix_weeding_checklist').insert({
-      'wedding_id': widget.weddingId,
-      'title': _newTaskCtrl.text.trim(),
-      'is_done': false,
-      'order_index': DateTime.now().millisecondsSinceEpoch,
-    });
-    _newTaskCtrl.clear();
-    ref.invalidate(checklistProvider(widget.weddingId));
+  @override
+  void dispose() {
+    _newTaskCtrl.dispose();
+    super.dispose();
   }
 
-  @override Widget build(BuildContext context){
-    final async = ref.watch(checklistProvider(widget.weddingId));
+  // ================= ACTIONS - Utilise tes Services centraux =================
+
+  Future<void> _addQuick() async {
+    final title = _newTaskCtrl.text.trim();
+    if (title.isEmpty) return;
+
+    try {
+      await ref.read(checklistServiceProvider).create({
+        'wedding_id': widget.weddingId,
+        'title': title,
+        'is_done': false,
+      });
+      _newTaskCtrl.clear();
+      ref.invalidate(checklistProvider(widget.weddingId));
+      ref.invalidate(dashboardStatsProvider(widget.weddingId));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+    }
+  }
+
+  Future<void> _toggleDone(ChecklistModel task, bool? value) async {
+    try {
+      await ref.read(checklistServiceProvider).toggleDone(task.id, value?? false);
+      ref.invalidate(checklistProvider(widget.weddingId));
+      ref.invalidate(dashboardStatsProvider(widget.weddingId));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+    }
+  }
+
+  // ================= UI =================
+
+  @override
+  Widget build(BuildContext context) {
+    final tasksAsync = ref.watch(checklistProvider(widget.weddingId));
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(title: const Text('Checklist'), backgroundColor: Colors.white),
-      body: async.when(
-        loading: ()=> const Center(child: CircularProgressIndicator()),
-        error: (e,s)=> Center(child: Text('$e')),
-        data: (tasks){
+      body: tasksAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => Center(child: Text('Erreur: $e')),
+        data: (List<ChecklistModel> tasks) {
           final total = tasks.length;
-          final done = tasks.where((t)=> t['is_done']==true).length;
-          final percent = total>0? done/total : 0.0;
-          var filtered = tasks.where((t){
-            if(_filter=='done') return t['is_done']==true;
-            if(_filter=='todo') return t['is_done']==false;
+          final done = tasks.where((t) => t.isDone).length;
+          final percent = total > 0? done / total : 0.0;
+
+          final filtered = tasks.where((t) {
+            if (_filter == 'done') return t.isDone;
+            if (_filter == 'todo') return!t.isDone;
             return true;
           }).toList();
-          return Column(children: [
-            Container(margin: const EdgeInsets.all(16), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('$done / $total tâches', style: const TextStyle(fontWeight: FontWeight.bold)), Text('${(percent*100).toInt()}%', style: const TextStyle(color: Color(0xFF0B3B8F), fontWeight: FontWeight.bold))]),
-              const SizedBox(height:8),
-              LinearProgressIndicator(value: percent, backgroundColor: Colors.grey[200], color: const Color(0xFF0B3B8F)),
-            ])),
-            Padding(padding: const EdgeInsets.symmetric(horizontal:16), child: Row(children: [
-              _Chip(label:'Toutes', sel:_filter=='all', tap:()=>setState(()=>_filter='all')),
-              const SizedBox(width:8),
-              _Chip(label:'À faire', sel:_filter=='todo', tap:()=>setState(()=>_filter='todo')),
-              const SizedBox(width:8),
-              _Chip(label:'Faites', sel:_filter=='done', tap:()=>setState(()=>_filter='done')),
-            ])),
-            Padding(padding: const EdgeInsets.all(16), child: Row(children: [
-              Expanded(child: TextField(controller: _newTaskCtrl, decoration: InputDecoration(hintText:'Ajouter une tâche rapide...', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)), onSubmitted: (_)=> _addQuick())),
-              const SizedBox(width:8),
-              FilledButton(onPressed: _addQuick, child: const Icon(Icons.add)),
-            ])),
-            Expanded(child: filtered.isEmpty? const Center(child: Text('Aucune tâche')) : RefreshIndicator(onRefresh: () async => ref.invalidate(checklistProvider(widget.weddingId)), child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal:16), itemCount: filtered.length, separatorBuilder: (_,__)=> const SizedBox(height:8), itemBuilder: (_,i){
-              final t = filtered[i];
-              return Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: ListTile(
-                leading: Checkbox(value: t['is_done'], onChanged: (v) async {
-                  await Supabase.instance.client.from('thix_weeding_checklist').update({'is_done': v}).eq('id', t['id']);
-                  ref.invalidate(checklistProvider(widget.weddingId));
-                }),
-                title: Text(t['title'], style: TextStyle(decoration: t['is_done']?TextDecoration.lineThrough:null, fontWeight: t['is_done']?FontWeight.normal:FontWeight.bold)),
-                subtitle: Text('ID: ${t['id'].toString().substring(0,6)} • ${t['due_date']??'Sans date'}'),
-                trailing: IconButton(icon: const Icon(Icons.more_vert), onPressed: ()=> context.push('/thix-weeding/staff/${widget.weddingId}/checklist/${t['id']}')),
-                onTap: ()=> context.push('/thix-weeding/staff/${widget.weddingId}/checklist/${t['id']}'),
-              ));
-            }))),
-          ]);
+
+          return Column(
+            children: [
+              _ProgressCard(done: done, total: total, percent: percent),
+              _FilterRow(filter: _filter, onChanged: (v) => setState(() => _filter = v)),
+              _QuickAddField(controller: _newTaskCtrl, onAdd: _addQuick),
+              _TaskList(
+                tasks: filtered,
+                weddingId: widget.weddingId,
+                onToggle: _toggleDone,
+                onRefresh: () async => ref.invalidate(checklistProvider(widget.weddingId)),
+              ),
+            ],
+          );
         },
       ),
     );
   }
 }
-class _Chip extends StatelessWidget{ final String label; final bool sel; final VoidCallback tap; const _Chip({required this.label, required this.sel, required this.tap}); @override Widget build(BuildContext context)=> ChoiceChip(label: Text(label), selected: sel, onSelected: (_)=> tap()); }
+
+// ================= WIDGETS INTERNES - Bonne lecture =================
+
+class _ProgressCard extends StatelessWidget {
+  final int done; final int total; final double percent;
+  const _ProgressCard({required this.done, required this.total, required this.percent});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('$done / $total tâches', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('${(percent * 100).toInt()}%', style: const TextStyle(color: Color(0xFF0B3B8F), fontWeight: FontWeight.bold)),
+            ]),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: percent, backgroundColor: Colors.grey[200], color: const Color(0xFF0B3B8F), minHeight: 8, borderRadius: BorderRadius.circular(10)),
+          ],
+        ),
+      );
+}
+
+class _FilterRow extends StatelessWidget {
+  final String filter; final Function(String) onChanged;
+  const _FilterRow({required this.filter, required this.onChanged});
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(children: [
+          _Chip(label: 'Toutes', sel: filter == 'all', tap: () => onChanged('all')),
+          const SizedBox(width: 8),
+          _Chip(label: 'À faire', sel: filter == 'todo', tap: () => onChanged('todo')),
+          const SizedBox(width: 8),
+          _Chip(label: 'Faites', sel: filter == 'done', tap: () => onChanged('done')),
+        ]),
+      );
+}
+
+class _QuickAddField extends StatelessWidget {
+  final TextEditingController controller; final VoidCallback onAdd;
+  const _QuickAddField({required this.controller, required this.onAdd});
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'Ajouter une tâche rapide...',
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                prefixIcon: const Icon(Icons.task_alt_outlined),
+              ),
+              onSubmitted: (_) => onAdd(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(onPressed: onAdd, style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Icon(Icons.add)),
+        ]),
+      );
+}
+
+class _TaskList extends StatelessWidget {
+  final List<ChecklistModel> tasks; final String weddingId;
+  final Function(ChecklistModel, bool?) onToggle; final Future<void> Function() onRefresh;
+  const _TaskList({required this.tasks, required this.weddingId, required this.onToggle, required this.onRefresh});
+
+  @override
+  Widget build(BuildContext context) {
+    if (tasks.isEmpty) return const Expanded(child: Center(child: Text('Aucune tâche')));
+    return Expanded(
+      child: RefreshIndicator(
+        onRefresh: onRefresh,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: tasks.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (_, i) {
+            final ChecklistModel t = tasks[i];
+            return Container(
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading: Checkbox(value: t.isDone, activeColor: const Color(0xFF0B3B8F), onChanged: (v) => onToggle(t, v)),
+                title: Text(t.title, style: TextStyle(decoration: t.isDone? TextDecoration.lineThrough : null, fontWeight: t.isDone? FontWeight.normal : FontWeight.bold, color: t.isDone? Colors.grey : Colors.black)),
+                subtitle: Text('ID: ${t.id.substring(0, 6)} • ${t.dueDate!= null? t.dueDate.toString().substring(0, 10) : 'Sans date'} • ${t.category}'),
+                trailing: IconButton(icon: const Icon(Icons.more_vert), onPressed: () => context.push('/thix-weeding/staff/$weddingId/checklist/${t.id}')),
+                onTap: () => context.push('/thix-weeding/staff/$weddingId/checklist/${t.id}'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String label; final bool sel; final VoidCallback tap;
+  const _Chip({required this.label, required this.sel, required this.tap});
+  @override
+  Widget build(BuildContext context) => ChoiceChip(label: Text(label), selected: sel, selectedColor: const Color(0xFF0B3B8F).withOpacity(0.15), onSelected: (_) => tap());
+}
